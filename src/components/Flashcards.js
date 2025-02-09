@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
+import StockChart from "./StockChart";
 
 export default function Flashcards() {
   const [folders, setFolders] = useState([]);
@@ -21,8 +21,6 @@ export default function Flashcards() {
         if (Array.isArray(data) && data.length > 0) {
           setFolders(data);
           setSelectedFolder(data[0]?.name || null);
-        } else {
-          throw new Error("No folders found.");
         }
       })
       .catch((err) => setError(err.message));
@@ -36,7 +34,7 @@ export default function Flashcards() {
     setIndex(0);
     setError(null);
 
-    fetch(`/api/getImages?folder=${encodeURIComponent(selectedFolder)}`)
+    fetch(`/api/getFileData?folder=${encodeURIComponent(selectedFolder)}`)
       .then((res) => {
         if (!res.ok) return res.json().then((err) => Promise.reject(err));
         return res.json();
@@ -44,48 +42,58 @@ export default function Flashcards() {
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setFlashcards(data);
-        } else {
-          throw new Error("No flashcards found for this folder.");
         }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [selectedFolder]);
 
-  return (
-    <div className="flex flex-col items-center p-6 w-full max-w-5xl mx-auto">
-      {/* Flashcards Display */}
-      {flashcards.length > 0 && !loading && (
-        <div className="flex flex-col items-center w-full">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">
-            {flashcards[index].folderName}
-          </h2>
+  const handleNext = () => {
+    setIndex((prevIndex) => (prevIndex + 1) % flashcards.length);
+  };
 
-          {/* Flashcards */}
-          <div className="flex flex-wrap justify-center gap-4 w-full">
-            {flashcards[index].images.map(({ url }, i) => (
-              <div key={i} className="relative w-80 h-60 sm:w-96 sm:h-72">
-                <Image
-                  src={url}
-                  alt={`Flashcard ${index + 1} - Image ${i + 1}`}
-                  fill
-                  className="object-contain rounded-lg shadow-lg"
-                  onError={(e) => console.error("Image failed to load:", e.target.src)}
-                />
+  const handlePrevious = () => {
+    setIndex((prevIndex) => (prevIndex - 1 + flashcards.length) % flashcards.length);
+  };
+
+  const currentSubfolder = flashcards[index];
+
+  return (
+    <div className="p-6 w-full max-w-6xl bg-white rounded-lg shadow-lg">
+      <div className="mb-6">
+        <select
+          value={selectedFolder || ""}
+          onChange={(e) => setSelectedFolder(e.target.value)}
+          className="p-3 border rounded-lg text-gray-800 w-60"
+        >
+          <option value="">Select a folder</option>
+          {folders.map(({ id, name }) => (
+            <option key={id} value={name}>{name}</option>
+          ))}
+        </select>
+      </div>
+
+      {flashcards.length > 0 && !loading && currentSubfolder && (
+        <div className="flex flex-col items-center w-full">
+          <h2 className="text-lg font-bold mb-4">{currentSubfolder.folderName}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+            {currentSubfolder.csvFiles.map((file, i) => (
+              <div key={i} className="bg-white rounded-lg shadow p-4">
+                <h3 className="text-md font-semibold mb-2">{file.fileName}</h3>
+                <StockChart csvData={file.data} />
               </div>
             ))}
           </div>
 
-          {/* Navigation Buttons */}
           <div className="mt-4 flex space-x-4">
             <button
-              onClick={() => setIndex((index - 1 + flashcards.length) % flashcards.length)}
+              onClick={handlePrevious}
               className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-lg"
             >
               Previous
             </button>
             <button
-              onClick={() => setIndex((index + 1) % flashcards.length)}
+              onClick={handleNext}
               className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-lg"
             >
               Next
@@ -94,25 +102,17 @@ export default function Flashcards() {
         </div>
       )}
 
-      {/* Folder Selector at Bottom Left */}
-      <div className="w-full flex justify-start mt-6">
-        <select
-          value={selectedFolder || ""}
-          onChange={(e) => setSelectedFolder(e.target.value)}
-          className="p-3 border rounded-lg text-gray-800 w-60"
-        >
-          <option value="">Select a folder</option>
-          {folders.map(({ id, name }) => (
-            <option key={id} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {loading && (
+        <div className="flex justify-center items-center h-96">
+          <p className="text-gray-500">Loading data...</p>
+        </div>
+      )}
 
-      {/* Loading State */}
-      {loading && <p className="text-center text-gray-500 mt-4">Loading flashcards...</p>}
-      {error && <p className="text-center text-red-500 mt-2">⚠️ {error}</p>}
+      {error && (
+        <div className="flex justify-center items-center h-96">
+          <p className="text-red-500">⚠️ {error}</p>
+        </div>
+      )}
     </div>
   );
 }
