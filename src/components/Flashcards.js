@@ -1,4 +1,3 @@
-// src/components/Flashcards.js
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,17 +11,13 @@ export default function Flashcards() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch available folders on mount
   useEffect(() => {
-    console.log('Fetching folders...');
     fetch("/api/getFolders")
-      .then(async (res) => {
-        console.log('Folders response status:', res.status);
+      .then((res) => {
         if (!res.ok) throw new Error(`Error fetching folders: ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        console.log('Folders data:', data);
         if (Array.isArray(data) && data.length > 0) {
           setFolders(data);
           setSelectedFolder(data[0]?.name || null);
@@ -30,130 +25,94 @@ export default function Flashcards() {
           throw new Error("No folders found.");
         }
       })
-      .catch((err) => {
-        console.error('Folders fetch error:', err);
-        setError(err.message);
-      });
+      .catch((err) => setError(err.message));
   }, []);
 
-  // Fetch flashcards when selected folder changes
   useEffect(() => {
     if (!selectedFolder) return;
-    
-    console.log('Fetching flashcards for folder:', selectedFolder);
+
     setLoading(true);
     setFlashcards([]);
     setIndex(0);
     setError(null);
 
-    const apiUrl = `/api/getImages?folder=${encodeURIComponent(selectedFolder)}`;
-    console.log('Fetching from:', apiUrl);
-
-    fetch(apiUrl)
-      .then(async (res) => {
-        console.log('Flashcards response status:', res.status);
-        if (!res.ok) {
-          const errorData = await res.json();
-          console.log('Error response data:', errorData);
-          throw new Error(errorData.error || `Error fetching flashcards: ${res.status}`);
-        }
+    fetch(`/api/getImages?folder=${encodeURIComponent(selectedFolder)}`)
+      .then((res) => {
+        if (!res.ok) return res.json().then((err) => Promise.reject(err));
         return res.json();
       })
       .then((data) => {
-        console.log('Flashcards data:', data);
         if (Array.isArray(data) && data.length > 0) {
           setFlashcards(data);
         } else {
           throw new Error("No flashcards found for this folder.");
         }
       })
-      .catch((err) => {
-        console.error('Flashcards fetch error:', err);
-        setError(err.message);
-      })
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [selectedFolder]);
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center">
-        <select
-          value={selectedFolder || ""}
-          onChange={(e) => setSelectedFolder(e.target.value)}
-          className="mb-4 p-2 border rounded"
-        >
-          <option value="">Select a folder</option>
-          {folders.map(folder => (
-            <option key={folder.id} value={folder.name}>
-              {folder.name}
-            </option>
-          ))}
-        </select>
-        <p className="text-center text-red-500">⚠️ {error}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col items-center">
-      {/* Folder Selection */}
-      <select
-        value={selectedFolder || ""}
-        onChange={(e) => setSelectedFolder(e.target.value)}
-        className="mb-4 p-2 border rounded"
-      >
-        <option value="">Select a folder</option>
-        {folders.map(folder => (
-          <option key={folder.id} value={folder.name}>
-            {folder.name}
-          </option>
-        ))}
-      </select>
-
-      {/* Loading State */}
-      {loading && (
-        <p className="text-center text-gray-500">Loading flashcards...</p>
-      )}
-
+    <div className="flex flex-col items-center p-6 w-full max-w-5xl mx-auto">
       {/* Flashcards Display */}
       {flashcards.length > 0 && !loading && (
-        <>
-          <h2 className="text-lg font-bold mb-4">
+        <div className="flex flex-col items-center w-full">
+          <h2 className="text-lg font-bold text-gray-800 mb-2">
             {flashcards[index].folderName}
           </h2>
-          <div className="flex space-x-4">
-            {flashcards[index].images.map((image, i) => (
-              <div key={i} className="relative w-64 h-48">
+
+          {/* Flashcards */}
+          <div className="flex flex-wrap justify-center gap-4 w-full">
+            {flashcards[index].images.map(({ url }, i) => (
+              <div key={i} className="relative w-80 h-60 sm:w-96 sm:h-72">
                 <Image
-                  src={image.url}
+                  src={url}
                   alt={`Flashcard ${index + 1} - Image ${i + 1}`}
                   fill
                   className="object-contain rounded-lg shadow-lg"
-                  onError={(e) => {
-                    console.error("Image failed to load:", e.target.src);
-                  }}
+                  onError={(e) => console.error("Image failed to load:", e.target.src)}
                 />
               </div>
             ))}
           </div>
 
-          {/* Navigation */}
+          {/* Navigation Buttons */}
           <div className="mt-4 flex space-x-4">
             <button
               onClick={() => setIndex((index - 1 + flashcards.length) % flashcards.length)}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+              className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-lg"
             >
               Previous
             </button>
             <button
               onClick={() => setIndex((index + 1) % flashcards.length)}
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition"
+              className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-lg"
             >
               Next
             </button>
           </div>
-        </>
+        </div>
       )}
+
+      {/* Folder Selector at Bottom Left */}
+      <div className="w-full flex justify-start mt-6">
+        <select
+          value={selectedFolder || ""}
+          onChange={(e) => setSelectedFolder(e.target.value)}
+          className="p-3 border rounded-lg text-gray-800 w-60"
+        >
+          <option value="">Select a folder</option>
+          {folders.map(({ id, name }) => (
+            <option key={id} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Loading State */}
+      {loading && <p className="text-center text-gray-500 mt-4">Loading flashcards...</p>}
+      {error && <p className="text-center text-red-500 mt-2">⚠️ {error}</p>}
     </div>
   );
 }
