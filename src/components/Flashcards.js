@@ -15,22 +15,6 @@ export default function Flashcards() {
   const [state, setState] = useState(INITIAL_STATE)
   const { folders, selectedFolder, flashcards, index, loading, error } = state
 
-  // Dummy texts for the grid cells.
-  const dummyTexts = [
-    "SMA Cross",
-    "High Volume",
-    "RSI Overbought",
-    "Bollinger Band",
-    "MACD Signal",
-    "Breakout",
-    "Volume Spike",
-    "Trend Reversal",
-    "Support",
-    "Resistance",
-    "Stop Loss",
-    "Take Profit",
-  ]
-
   const currentSubfolder = useMemo(
     () => (flashcards.length > 0 ? flashcards[index] : null),
     [flashcards, index]
@@ -60,6 +44,21 @@ export default function Flashcards() {
         : [],
     [currentSubfolder, getOrderedCSVFiles]
   )
+
+  // NEW: Parse points.csv to extract text lines for the grid.
+  // It expects the file to be present in currentSubfolder.csvFiles.
+  const pointsTextArray = useMemo(() => {
+    if (!currentSubfolder || !currentSubfolder.csvFiles) return []
+    const pointsFile = currentSubfolder.csvFiles.find(
+      (file) => file.fileName.toLowerCase() === "points.csv"
+    )
+    if (!pointsFile || !pointsFile.data) return []
+    return pointsFile.data
+      .trim()
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }, [currentSubfolder])
 
   const handleNext = useCallback(() => {
     setState((prev) => ({
@@ -228,9 +227,9 @@ export default function Flashcards() {
                     </div>
                   </div>
                 </div>
-                {/* Grid of Dummy Text Cells */}
+                {/* Grid of Text Cells from points.csv */}
                 <div className="grid grid-cols-4 gap-6">
-                  {dummyTexts.map((text, index) => (
+                  {pointsTextArray.map((text, index) => (
                     <div
                       key={index}
                       className="bg-gray-300 text-black rounded shadow p-1 text-center text-xs"
