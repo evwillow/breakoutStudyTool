@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
 
 const CHART_CONFIG = {
-  // The following values remain for legacy reference, but our square chart will use the computed size.
-  PRICE_HEIGHT: 500,
-  VOLUME_HEIGHT: 100,
+  PRICE_HEIGHT: 500, // legacy reference value
+  VOLUME_HEIGHT: 100, // legacy reference value
   PADDING: { left: 60, right: 20, top: 20, bottom: 30 },
   BAR_WIDTH: 6,
   BAR_PADDING: 2,
@@ -27,12 +26,11 @@ const StockChart = ({ csvData }) => {
     );
   }
 
-  // Parse CSV data into an array of objects.
+  // Parse CSV data into an array of stock objects.
   const data = useMemo(() => {
     try {
       const lines = csvData.trim().split('\n');
       if (lines.length < 2) return [];
-      
       const headers = lines[0].toLowerCase().split(',');
       const indices = {
         open: headers.findIndex(h => h.includes('open')),
@@ -41,7 +39,6 @@ const StockChart = ({ csvData }) => {
         close: headers.findIndex(h => h.includes('close')),
         volume: headers.findIndex(h => h.includes('volume'))
       };
-
       const result = [];
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',');
@@ -49,13 +46,14 @@ const StockChart = ({ csvData }) => {
         const high = parseFloat(values[indices.high]);
         const low = parseFloat(values[indices.low]);
         const close = parseFloat(values[indices.close]);
-        // We ignore volume for our square chart.
-        if (!isNaN(open) && !isNaN(high) && !isNaN(low) && !isNaN(close)) {
+        const volume = parseFloat(values[indices.volume]);
+        if (!isNaN(open) && !isNaN(high) && !isNaN(low) && !isNaN(close) && !isNaN(volume)) {
           result.push({
             open,
             high,
             low,
             close,
+            dollarVolume: close * volume,
             isUp: close >= open
           });
         }
@@ -67,49 +65,56 @@ const StockChart = ({ csvData }) => {
     }
   }, [csvData]);
 
-  // Compute chart drawing data.
+  // Compute chart data in a square viewBox.
   const chartData = useMemo(() => {
     if (!data.length) return null;
-    
-    // Determine the price range.
+
+    // Price range calculations.
     const minPrice = Math.min(...data.map(d => d.low));
     const maxPrice = Math.max(...data.map(d => d.high));
+    const maxDollarVolume = Math.max(...data.map(d => d.dollarVolume));
     const priceRange = maxPrice - minPrice;
     const paddedMinPrice = minPrice - (priceRange * 0.05);
     const paddedMaxPrice = maxPrice + (priceRange * 0.05);
-    
-    // Horizontal settings.
+
+    // Horizontal spacing.
     const spacing = CHART_CONFIG.BAR_WIDTH + CHART_CONFIG.BAR_PADDING;
-    // Compute the intrinsic width based on number of bars + 5 extra periods and add left/right padding.
+    // Compute intrinsic width: number of bars plus five extra periods plus left/right padding.
     const intrinsicWidth = CHART_CONFIG.PADDING.left + ((data.length + 5) * spacing) + CHART_CONFIG.PADDING.right;
-    // For a square chart, we force the height to equal the intrinsic width.
-    const chartSize = intrinsicWidth;
+    const chartSize = intrinsicWidth; // square chart
 
-    // Vertical scaling for prices.
-    const priceScale = (chartSize - CHART_CONFIG.PADDING.top - CHART_CONFIG.PADDING.bottom) / (paddedMaxPrice - paddedMinPrice);
+    // Vertical areas: 75% for price, 25% for volume.
+    const priceAreaHeight = chartSize * 0.75;
+    const volumeAreaHeight = chartSize * 0.25;
 
-    // Grid tick marks.
+    // Price scale: map [paddedMinPrice, paddedMaxPrice] to [priceAreaHeight - PADDING.top, 0]
+    const priceScale = (priceAreaHeight - CHART_CONFIG.PADDING.top) / (paddedMaxPrice - paddedMinPrice);
+    // Volume scale: map [0, maxDollarVolume] to [0, volumeAreaHeight - PADDING.bottom]
+    const volumeScale = (volumeAreaHeight - CHART_CONFIG.PADDING.bottom) / maxDollarVolume;
+
+    // Price grid ticks.
     const step = (paddedMaxPrice - paddedMinPrice) / (CHART_CONFIG.PRICE_TICKS - 1);
     const priceTicks = Array.from({ length: CHART_CONFIG.PRICE_TICKS }, (_, i) => {
       const value = paddedMinPrice + (step * i);
       return {
         value,
-        y: chartSize - CHART_CONFIG.PADDING.bottom - ((value - paddedMinPrice) * priceScale)
+        y: CHART_CONFIG.PADDING.top + (paddedMaxPrice - value) * priceScale
       };
     });
 
-    // Candlestick bar instructions.
+    // Candlestick bars (price area).
     const bars = data.map((d, i) => ({
-      x: CHART_CONFIG.PADDING.left + (i * spacing),
-      highY: chartSize - CHART_CONFIG.PADDING.bottom - ((d.high - paddedMinPrice) * priceScale),
-      lowY: chartSize - CHART_CONFIG.PADDING.bottom - ((d.low - paddedMinPrice) * priceScale),
-      openY: chartSize - CHART_CONFIG.PADDING.bottom - ((d.open - paddedMinPrice) * priceScale),
-      closeY: chartSize - CHART_CONFIG.PADDING.bottom - ((d.close - paddedMinPrice) * priceScale),
+      x: CHART_CONFIG.PADDING.left + i * spacing,
+      openY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.open) * priceScale,
+      closeY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.close) * priceScale,
+      highY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.high) * priceScale,
+      lowY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.low) * priceScale,
       width: CHART_CONFIG.BAR_WIDTH,
-      isUp: d.isUp
+      isUp: d.isUp,
+      volume: d.dollarVolume
     }));
 
-    // Helper: Calculate simple moving average for a given period.
+    // SMA calculations.
     const calculateSMA = (period) => {
       return data.map((d, i) => {
         const start = i < period ? 0 : i - period + 1;
@@ -122,26 +127,34 @@ const StockChart = ({ csvData }) => {
     const sma10Array = calculateSMA(10);
     const sma20Array = calculateSMA(20);
 
-    // Convert SMA arrays into coordinate points.
+    // Convert SMA arrays into coordinate points (in the price area).
     const sma10Points = sma10Array.map((avg, i) => {
-      const x = CHART_CONFIG.PADDING.left + (i * spacing) + (CHART_CONFIG.BAR_WIDTH / 2);
-      const y = chartSize - CHART_CONFIG.PADDING.bottom - ((avg - paddedMinPrice) * priceScale);
+      const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
+      const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
       return { x, y };
     });
     const sma20Points = sma20Array.map((avg, i) => {
-      const x = CHART_CONFIG.PADDING.left + (i * spacing) + (CHART_CONFIG.BAR_WIDTH / 2);
-      const y = chartSize - CHART_CONFIG.PADDING.bottom - ((avg - paddedMinPrice) * priceScale);
+      const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
+      const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
       return { x, y };
     });
 
-    return { bars, priceTicks, chartSize, sma10Points, sma20Points };
+    // Volume bars (in the volume area, which starts at y = priceAreaHeight).
+    const volumeBars = data.map((d, i) => ({
+      x: CHART_CONFIG.PADDING.left + i * spacing,
+      barWidth: CHART_CONFIG.BAR_WIDTH,
+      barHeight: d.dollarVolume * volumeScale,
+      y: chartSize - CHART_CONFIG.PADDING.bottom - (d.dollarVolume * volumeScale)
+    }));
+
+    return { bars, priceTicks, volumeBars, chartSize, sma10Points, sma20Points };
   }, [data]);
 
   if (!chartData) return null;
 
   return (
-    // The container will stretch to fill its parent; the SVG is set to 100%/100% with a square viewBox.
-    <div className="bg-black p-0 w-full h-full">
+    // The SVG fills its container; its viewBox is square.
+    <div className="bg-black w-full h-full">
       <svg 
         width="100%"
         height="100%"
@@ -149,7 +162,7 @@ const StockChart = ({ csvData }) => {
         preserveAspectRatio="xMidYMid meet"
         className="text-gray-400"
       >
-        {/* Draw grid lines and price labels */}
+        {/* Draw price grid lines and labels */}
         {chartData.priceTicks.map((tick, i) => (
           <g key={`price-${i}`}>
             <line
@@ -172,15 +185,13 @@ const StockChart = ({ csvData }) => {
           </g>
         ))}
 
-        {/* 10 SMA polyline (purple) */}
+        {/* Draw SMA lines */}
         <polyline
           fill="none"
           stroke={CHART_CONFIG.COLORS.SMA10}
           strokeWidth="2"
           points={chartData.sma10Points.map(p => `${p.x},${p.y}`).join(" ")}
         />
-
-        {/* 20 SMA polyline (vibrant blue) */}
         <polyline
           fill="none"
           stroke={CHART_CONFIG.COLORS.SMA20}
@@ -188,10 +199,9 @@ const StockChart = ({ csvData }) => {
           points={chartData.sma20Points.map(p => `${p.x},${p.y}`).join(" ")}
         />
 
-        {/* Render candlestick bars */}
+        {/* Draw candlestick bars */}
         {chartData.bars.map((bar, i) => (
           <g key={`bar-${i}`}>
-            {/* Vertical line (high-low) */}
             <line
               x1={bar.x + bar.width / 2}
               y1={bar.highY}
@@ -200,7 +210,6 @@ const StockChart = ({ csvData }) => {
               stroke={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
               strokeWidth="1"
             />
-            {/* Open tick */}
             <line
               x1={bar.x}
               y1={bar.openY}
@@ -209,7 +218,6 @@ const StockChart = ({ csvData }) => {
               stroke={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
               strokeWidth="1"
             />
-            {/* Close tick */}
             <line
               x1={bar.x + bar.width / 2}
               y1={bar.closeY}
@@ -219,6 +227,19 @@ const StockChart = ({ csvData }) => {
               strokeWidth="1"
             />
           </g>
+        ))}
+
+        {/* Draw volume bars */}
+        {chartData.volumeBars.map((vol, i) => (
+          <rect
+            key={`vol-${i}`}
+            x={vol.x}
+            y={vol.y}
+            width={vol.barWidth}
+            height={vol.barHeight}
+            fill={CHART_CONFIG.COLORS.VOLUME}
+            opacity="0.8"
+          />
         ))}
       </svg>
     </div>

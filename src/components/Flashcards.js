@@ -87,12 +87,10 @@ export default function Flashcards() {
         }
       })
       .catch((err) => mounted && setState((prev) => ({ ...prev, error: err })));
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
-  // Fetch flashcard CSV file data when a folder is selected.
+  // Fetch CSV file data when a folder is selected.
   useEffect(() => {
     if (!selectedFolder) return;
     let mounted = true;
@@ -117,22 +115,20 @@ export default function Flashcards() {
           loading: false
         }))
       );
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [selectedFolder]);
 
   const renderNavigationButtons = () => (
-    <div className="mt-8 flex space-x-4">
+    <div className="mt-8 flex justify-center">
       <button
         onClick={handlePrevious}
-        className="px-6 py-3 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition text-lg"
+        className="px-6 py-3 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition text-lg mx-2"
       >
         Previous
       </button>
       <button
         onClick={handleNext}
-        className="px-6 py-3 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition text-lg"
+        className="px-6 py-3 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition text-lg mx-2"
       >
         Next
       </button>
@@ -140,7 +136,7 @@ export default function Flashcards() {
   );
 
   const renderFolderSelect = () => (
-    <div className="mt-6 w-full">
+    <div className="mt-6 w-full flex justify-start">
       <select
         value={selectedFolder || ""}
         onChange={handleFolderChange}
@@ -159,55 +155,47 @@ export default function Flashcards() {
   return (
     <div className="p-6 w-full max-w-6xl bg-white rounded-lg shadow-lg">
       {flashcards.length > 0 && !loading && currentSubfolder && orderedFiles.length === 3 && (
-        <div className="flex flex-col items-center w-full">
-          <h2 className="text-lg font-bold mb-4 text-black">
-            {currentSubfolder.folderName}
-          </h2>
-          {/* Layout for three charts:
-              - First chart: 10/26 of the container width
-              - Second chart: 8/26 of the container width
-              - Third chart: 6/26 of the container width
-              On smaller screens, they stack full width. */}
+        <div className="w-full">
+          {/* The folder title is now moved to above the first chart only.
+              To achieve the desired layout, the flex row contains three children.
+              The first child (10/26 width) has extra top margin and includes the folder title above its chart.
+              The second (8/26) and third (6/26) are aligned at the very top. */}
           <div className="flex flex-col md:flex-row gap-4 w-full items-start">
-            {/* First Chart */}
+            {/* First Chart (moved down with title above it) */}
             <div
-              className="flex flex-col items-start"
+              className="flex flex-col items-center"
               style={{ flexBasis: `${(10 / 26) * 100}%` }}
             >
-              <h3 className="text-md font-semibold bg-black text-white w-full text-center py-1">
-                {orderedFiles[0].fileName.replace(".csv", "")}
-              </h3>
-              <div className="w-full">
+              <div className="w-full text-center">
+                <h2 className="text-lg font-bold text-black">
+                  {currentSubfolder.folderName}
+                </h2>
+              </div>
+              <div className="w-full mt-6">
                 <StockChart csvData={orderedFiles[0].data} />
               </div>
             </div>
-            {/* Second Chart */}
+            {/* Second Chart (aligned at top) */}
             <div
-              className="mx-auto flex flex-col items-start"
+              className="flex flex-col items-center"
               style={{ flexBasis: `${(8 / 26) * 100}%` }}
             >
-              <h3 className="text-md font-semibold bg-black text-white w-full text-center py-1">
-                {orderedFiles[1].fileName.replace(".csv", "")}
-              </h3>
               <div className="w-full">
                 <StockChart csvData={orderedFiles[1].data} />
               </div>
             </div>
-            {/* Third Chart */}
+            {/* Third Chart (aligned at top) */}
             <div
-              className="flex flex-col items-start"
+              className="flex flex-col items-center"
               style={{ flexBasis: `${(6 / 26) * 100}%` }}
             >
-              <h3 className="text-md font-semibold bg-black text-white w-full text-center py-1">
-                {orderedFiles[2].fileName.replace(".csv", "")}
-              </h3>
               <div className="w-full">
                 <StockChart csvData={orderedFiles[2].data} />
               </div>
             </div>
           </div>
           {renderNavigationButtons()}
-          <div className="w-full flex justify-start">{renderFolderSelect()}</div>
+          {renderFolderSelect()}
         </div>
       )}
 
