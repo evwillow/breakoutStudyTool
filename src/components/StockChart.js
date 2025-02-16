@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react"
 
 const CHART_CONFIG = {
   PRICE_HEIGHT: 500, // legacy reference value
@@ -8,148 +8,169 @@ const CHART_CONFIG = {
   BAR_PADDING: 2,
   PRICE_TICKS: 8,
   COLORS: {
-    UP: '#00E676',
-    DOWN: '#FF1744',
-    VOLUME: '#29B6F6',
-    GRID: '#1a1a1a',
-    SMA10: '#e902f5', // Purple for 10 SMA
-    SMA20: '#02ddf5'  // Bright vibrant blue for 20 SMA
-  }
-};
+    UP: "#00E676",
+    DOWN: "#FF1744",
+    VOLUME: "#29B6F6",
+    GRID: "#1a1a1a",
+    SMA10: "#e902f5", // Purple for 10 SMA
+    SMA20: "#02ddf5", // Bright vibrant blue for 20 SMA
+  },
+}
 
 const StockChart = ({ csvData, showSMA = true }) => {
-  if (!csvData || typeof csvData !== 'string') {
+  if (!csvData || typeof csvData !== "string") {
     return (
       <div className="h-60 flex items-center justify-center text-gray-500">
         No data available
       </div>
-    );
+    )
   }
 
   // Parse CSV data into an array of stock objects.
   const data = useMemo(() => {
     try {
-      const lines = csvData.trim().split('\n');
-      if (lines.length < 2) return [];
-      const headers = lines[0].toLowerCase().split(',');
+      const lines = csvData.trim().split("\n")
+      if (lines.length < 2) return []
+      const headers = lines[0].toLowerCase().split(",")
       const indices = {
-        open: headers.findIndex(h => h.includes('open')),
-        high: headers.findIndex(h => h.includes('high')),
-        low: headers.findIndex(h => h.includes('low')),
-        close: headers.findIndex(h => h.includes('close')),
-        volume: headers.findIndex(h => h.includes('volume'))
-      };
-      const result = [];
+        open: headers.findIndex((h) => h.includes("open")),
+        high: headers.findIndex((h) => h.includes("high")),
+        low: headers.findIndex((h) => h.includes("low")),
+        close: headers.findIndex((h) => h.includes("close")),
+        volume: headers.findIndex((h) => h.includes("volume")),
+      }
+      const result = []
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
-        const open = parseFloat(values[indices.open]);
-        const high = parseFloat(values[indices.high]);
-        const low = parseFloat(values[indices.low]);
-        const close = parseFloat(values[indices.close]);
-        const volume = parseFloat(values[indices.volume]);
-        if (!isNaN(open) && !isNaN(high) && !isNaN(low) && !isNaN(close) && !isNaN(volume)) {
+        const values = lines[i].split(",")
+        const open = parseFloat(values[indices.open])
+        const high = parseFloat(values[indices.high])
+        const low = parseFloat(values[indices.low])
+        const close = parseFloat(values[indices.close])
+        const volume = parseFloat(values[indices.volume])
+        if (
+          !isNaN(open) &&
+          !isNaN(high) &&
+          !isNaN(low) &&
+          !isNaN(close) &&
+          !isNaN(volume)
+        ) {
           result.push({
             open,
             high,
             low,
             close,
             dollarVolume: close * volume,
-            isUp: close >= open
-          });
+            isUp: close >= open,
+          })
         }
       }
-      return result;
+      return result
     } catch (error) {
-      console.error('Error parsing CSV:', error);
-      return [];
+      console.error("Error parsing CSV:", error)
+      return []
     }
-  }, [csvData]);
+  }, [csvData])
 
   // Compute chart data in a square viewBox.
   const chartData = useMemo(() => {
-    if (!data.length) return null;
+    if (!data.length) return null
 
     // Price range calculations.
-    const minPrice = Math.min(...data.map(d => d.low));
-    const maxPrice = Math.max(...data.map(d => d.high));
-    const maxDollarVolume = Math.max(...data.map(d => d.dollarVolume));
-    const priceRange = maxPrice - minPrice;
-    const paddedMinPrice = minPrice - (priceRange * 0.05);
-    const paddedMaxPrice = maxPrice + (priceRange * 0.05);
+    const minPrice = Math.min(...data.map((d) => d.low))
+    const maxPrice = Math.max(...data.map((d) => d.high))
+    const maxDollarVolume = Math.max(...data.map((d) => d.dollarVolume))
+    const priceRange = maxPrice - minPrice
+    const paddedMinPrice = minPrice - priceRange * 0.05
+    const paddedMaxPrice = maxPrice + priceRange * 0.05
 
     // Horizontal spacing.
-    const spacing = CHART_CONFIG.BAR_WIDTH + CHART_CONFIG.BAR_PADDING;
+    const spacing = CHART_CONFIG.BAR_WIDTH + CHART_CONFIG.BAR_PADDING
     // Compute intrinsic width: number of bars plus five extra periods plus left/right padding.
-    const intrinsicWidth = CHART_CONFIG.PADDING.left + ((data.length + 5) * spacing) + CHART_CONFIG.PADDING.right;
-    const chartSize = intrinsicWidth; // square chart
+    const intrinsicWidth =
+      CHART_CONFIG.PADDING.left +
+      (data.length + 5) * spacing +
+      CHART_CONFIG.PADDING.right
+    const chartSize = intrinsicWidth // square chart
 
     // Vertical areas: 75% for price, 25% for volume.
-    const priceAreaHeight = chartSize * 0.75;
-    const volumeAreaHeight = chartSize * 0.25;
+    const priceAreaHeight = chartSize * 0.75
+    const volumeAreaHeight = chartSize * 0.25
 
     // Price scale: map [paddedMinPrice, paddedMaxPrice] to [priceAreaHeight - PADDING.top, 0]
-    const priceScale = (priceAreaHeight - CHART_CONFIG.PADDING.top) / (paddedMaxPrice - paddedMinPrice);
+    const priceScale =
+      (priceAreaHeight - CHART_CONFIG.PADDING.top) /
+      (paddedMaxPrice - paddedMinPrice)
     // Volume scale: map [0, maxDollarVolume] to [0, volumeAreaHeight - PADDING.bottom]
-    const volumeScale = (volumeAreaHeight - CHART_CONFIG.PADDING.bottom) / maxDollarVolume;
+    const volumeScale =
+      (volumeAreaHeight - CHART_CONFIG.PADDING.bottom) / maxDollarVolume
 
     // Price grid ticks.
-    const step = (paddedMaxPrice - paddedMinPrice) / (CHART_CONFIG.PRICE_TICKS - 1);
-    const priceTicks = Array.from({ length: CHART_CONFIG.PRICE_TICKS }, (_, i) => {
-      const value = paddedMinPrice + (step * i);
-      return {
-        value,
-        y: CHART_CONFIG.PADDING.top + (paddedMaxPrice - value) * priceScale
-      };
-    });
+    const step =
+      (paddedMaxPrice - paddedMinPrice) / (CHART_CONFIG.PRICE_TICKS - 1)
+    const priceTicks = Array.from(
+      { length: CHART_CONFIG.PRICE_TICKS },
+      (_, i) => {
+        const value = paddedMinPrice + step * i
+        return {
+          value,
+          y: CHART_CONFIG.PADDING.top + (paddedMaxPrice - value) * priceScale,
+        }
+      }
+    )
 
     // Candlestick bars (price area).
     const bars = data.map((d, i) => ({
       x: CHART_CONFIG.PADDING.left + i * spacing,
       openY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.open) * priceScale,
-      closeY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.close) * priceScale,
+      closeY:
+        CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.close) * priceScale,
       highY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.high) * priceScale,
       lowY: CHART_CONFIG.PADDING.top + (paddedMaxPrice - d.low) * priceScale,
       width: CHART_CONFIG.BAR_WIDTH,
       isUp: d.isUp,
-      volume: d.dollarVolume
-    }));
+      volume: d.dollarVolume,
+    }))
 
     // SMA calculations (only if showSMA is true).
-    let sma10Points = [];
-    let sma20Points = [];
+    let sma10Points = []
+    let sma20Points = []
     if (showSMA) {
       const calculateSMA = (period) => {
         return data.map((d, i) => {
           if (i < period - 1) {
             // Not enough data points yet, so return null.
-            return null;
+            return null
           }
-          const slice = data.slice(i - period + 1, i + 1);
-          const sum = slice.reduce((acc, cur) => acc + cur.close, 0);
-          return sum / period;
-        });
-      };
+          const slice = data.slice(i - period + 1, i + 1)
+          const sum = slice.reduce((acc, cur) => acc + cur.close, 0)
+          return sum / period
+        })
+      }
 
-      const sma10Array = calculateSMA(10);
-      const sma20Array = calculateSMA(20);
+      const sma10Array = calculateSMA(10)
+      const sma20Array = calculateSMA(20)
 
       sma10Points = sma10Array
         .map((avg, i) => {
-          if (avg === null) return null;
-          const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
-          const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
-          return { x, y };
+          if (avg === null) return null
+          const x =
+            CHART_CONFIG.PADDING.left + i * spacing + CHART_CONFIG.BAR_WIDTH / 2
+          const y =
+            CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale
+          return { x, y }
         })
-        .filter(point => point !== null);
+        .filter((point) => point !== null)
 
       sma20Points = sma20Array
         .map((avg, i) => {
-          if (avg === null) return null;
-          const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
-          const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
-          return { x, y };
+          if (avg === null) return null
+          const x =
+            CHART_CONFIG.PADDING.left + i * spacing + CHART_CONFIG.BAR_WIDTH / 2
+          const y =
+            CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale
+          return { x, y }
         })
-        .filter(point => point !== null);
+        .filter((point) => point !== null)
     }
 
     // Volume bars (in the volume area, which starts at y = priceAreaHeight).
@@ -157,17 +178,17 @@ const StockChart = ({ csvData, showSMA = true }) => {
       x: CHART_CONFIG.PADDING.left + i * spacing,
       barWidth: CHART_CONFIG.BAR_WIDTH,
       barHeight: d.dollarVolume * volumeScale,
-      y: chartSize - CHART_CONFIG.PADDING.bottom - (d.dollarVolume * volumeScale)
-    }));
+      y: chartSize - CHART_CONFIG.PADDING.bottom - d.dollarVolume * volumeScale,
+    }))
 
-    return { bars, priceTicks, volumeBars, chartSize, sma10Points, sma20Points };
-  }, [data, showSMA]);
+    return { bars, priceTicks, volumeBars, chartSize, sma10Points, sma20Points }
+  }, [data, showSMA])
 
-  if (!chartData) return null;
+  if (!chartData) return null
 
   return (
     <div className="bg-black w-full h-full">
-      <svg 
+      <svg
         width="100%"
         height="100%"
         viewBox={`0 0 ${chartData.chartSize} ${chartData.chartSize}`}
@@ -204,13 +225,17 @@ const StockChart = ({ csvData, showSMA = true }) => {
               fill="none"
               stroke={CHART_CONFIG.COLORS.SMA10}
               strokeWidth="2"
-              points={chartData.sma10Points.map(p => `${p.x},${p.y}`).join(" ")}
+              points={chartData.sma10Points
+                .map((p) => `${p.x},${p.y}`)
+                .join(" ")}
             />
             <polyline
               fill="none"
               stroke={CHART_CONFIG.COLORS.SMA20}
               strokeWidth="2"
-              points={chartData.sma20Points.map(p => `${p.x},${p.y}`).join(" ")}
+              points={chartData.sma20Points
+                .map((p) => `${p.x},${p.y}`)
+                .join(" ")}
             />
           </>
         )}
@@ -223,7 +248,9 @@ const StockChart = ({ csvData, showSMA = true }) => {
               y1={bar.highY}
               x2={bar.x + bar.width / 2}
               y2={bar.lowY}
-              stroke={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
+              stroke={
+                bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN
+              }
               strokeWidth="1"
             />
             <line
@@ -231,7 +258,9 @@ const StockChart = ({ csvData, showSMA = true }) => {
               y1={bar.openY}
               x2={bar.x + bar.width / 2}
               y2={bar.openY}
-              stroke={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
+              stroke={
+                bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN
+              }
               strokeWidth="1"
             />
             <line
@@ -239,7 +268,9 @@ const StockChart = ({ csvData, showSMA = true }) => {
               y1={bar.closeY}
               x2={bar.x + bar.width}
               y2={bar.closeY}
-              stroke={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
+              stroke={
+                bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN
+              }
               strokeWidth="1"
             />
           </g>
@@ -259,7 +290,7 @@ const StockChart = ({ csvData, showSMA = true }) => {
         ))}
       </svg>
     </div>
-  );
-};
+  )
+}
 
-export default StockChart;
+export default StockChart

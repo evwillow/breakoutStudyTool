@@ -1,4 +1,4 @@
-import Flashcards from "@/components/Flashcards";
+import Flashcards from "@/Flashcards";
 
 export default function Home() {
   return (
