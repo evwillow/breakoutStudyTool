@@ -177,7 +177,7 @@ export default function Flashcards() {
             </div>
             {/* Second Chart (aligned at top) */}
             <div
-              className="flex flex-col items-center"
+              className="mx-auto flex flex-col items-center"
               style={{ flexBasis: `${(8 / 26) * 100}%` }}
             >
               <div className="w-full">
@@ -186,7 +186,7 @@ export default function Flashcards() {
             </div>
             {/* Third Chart (aligned at top) */}
             <div
-              className="flex flex-col items-center"
+              className="mt-10 flex flex-col items-center"
               style={{ flexBasis: `${(6 / 26) * 100}%` }}
             >
               <div className="w-full">
