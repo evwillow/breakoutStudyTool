@@ -15,6 +15,26 @@ export default function Flashcards() {
   const [state, setState] = useState(INITIAL_STATE)
   const { folders, selectedFolder, flashcards, index, loading, error } = state
 
+  // Dummy actions for the chart row buttons.
+  const actionButtons = [
+    "Up 20%",
+    "Down <5%",
+    "Breakeven",
+    "Spike",
+    "Dip",
+    "Hold",
+    "Volatile",
+  ]
+
+  // Dummy timer state (counts down from 60 seconds)
+  const [timer, setTimer] = useState(60)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimer((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   const currentSubfolder = useMemo(
     () => (flashcards.length > 0 ? flashcards[index] : null),
     [flashcards, index]
@@ -45,8 +65,7 @@ export default function Flashcards() {
     [currentSubfolder, getOrderedCSVFiles]
   )
 
-  // NEW: Parse points.csv to extract text lines for the grid.
-  // It expects the file to be present in currentSubfolder.csvFiles.
+  // Parse points.csv to extract text lines for the grid.
   const pointsTextArray = useMemo(() => {
     if (!currentSubfolder || !currentSubfolder.csvFiles) return []
     const pointsFile = currentSubfolder.csvFiles.find(
@@ -141,6 +160,49 @@ export default function Flashcards() {
     }
   }, [selectedFolder])
 
+  // Render folder dropdown, data showers, and round buttons.
+  const renderFolderSelect = () => (
+    <div className="mt-6 w-full flex flex-col items-start">
+      <div className="flex items-center">
+        {/* Folder Dropdown */}
+        <select
+          value={selectedFolder || ""}
+          onChange={handleFolderChange}
+          className="p-3 border rounded-lg text-black w-60"
+        >
+          {folderOptions.map(({ key, value, label }) => (
+            <option key={key} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        {/* Data Showers further to the right */}
+        <div className="flex flex-col ml-10">
+          <div className="flex space-x-8">
+            <span className="text-black text-base">Accuracy: (data %)</span>
+            <span className="text-black text-base">Win rate: (data %)</span>
+            <span className="text-black text-base">Win amount: (data %)</span>
+          </div>
+          <div className="flex space-x-8 mt-4">
+            <span className="text-black text-base">Lose amount: (data %)</span>
+          </div>
+        </div>
+      </div>
+      {/* New Round Buttons Row */}
+      <div className="mt-6 flex space-x-4">
+        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
+          New Round
+        </button>
+        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
+          Load Round
+        </button>
+        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
+          Round History
+        </button>
+      </div>
+    </div>
+  )
+
   const renderNavigationButtons = () => (
     <div className="mt-8 flex justify-center">
       <button
@@ -158,22 +220,6 @@ export default function Flashcards() {
     </div>
   )
 
-  const renderFolderSelect = () => (
-    <div className="mt-6 w-full flex justify-start">
-      <select
-        value={selectedFolder || ""}
-        onChange={handleFolderChange}
-        className="p-3 border rounded-lg text-black w-60"
-      >
-        {folderOptions.map(({ key, value, label }) => (
-          <option key={key} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-
   return (
     <div className="p-6 w-full max-w-6xl bg-white rounded-lg shadow-lg">
       {flashcards.length > 0 &&
@@ -187,12 +233,17 @@ export default function Flashcards() {
                 style={{ flexBasis: `${(10 / 26) * 100}%` }}
                 className="flex flex-col items-center"
               >
+                {/* Dummy Timer instead of Folder Title */}
                 <div className="w-full text-center">
                   <h2 className="text-lg font-bold text-black">
-                    {currentSubfolder.folderName}
+                    Timer: {timer}s
                   </h2>
                 </div>
-                <div className="w-full mt-6">
+                <div className="w-full mt-6 relative">
+                  {/* Timeframe Label */}
+                  <div className="absolute -top-4 left-0 text-xs text-black">
+                    D
+                  </div>
                   <StockChart csvData={orderedFiles[0].data} />
                 </div>
               </div>
@@ -200,14 +251,20 @@ export default function Flashcards() {
               <div className="flex flex-col gap-4">
                 {/* Row for Second and Third Charts */}
                 <div className="flex flex-row gap-7">
-                  {/* Second Chart with mx-auto */}
+                  {/* Second Chart */}
                   <div
                     style={{ flexBasis: `${(8 / 14) * 100}%` }}
                     className="flex flex-col items-center"
                   >
-                    <StockChart csvData={orderedFiles[1].data} />
+                    <div className="relative w-full">
+                      {/* Timeframe Label */}
+                      <div className="absolute -top-4 left-0 text-xs text-black">
+                        H
+                      </div>
+                      <StockChart csvData={orderedFiles[1].data} />
+                    </div>
                   </div>
-                  {/* Third (Square) Chart aligned to bottom */}
+                  {/* Third (Square) Chart without SMA lines */}
                   <div
                     style={{ flexBasis: `${(6 / 14) * 100}%` }}
                     className="flex flex-col items-end"
@@ -221,8 +278,15 @@ export default function Flashcards() {
                       </button>
                     </div>
                     <div className="w-full flex justify-center">
-                      <div className="w-full max-w-[300px] aspect-square">
-                        <StockChart csvData={orderedFiles[2].data} />
+                      <div className="w-full max-w-[300px] aspect-square relative">
+                        {/* Timeframe Label */}
+                        <div className="absolute -top-4 left-0 text-xs text-black">
+                          M
+                        </div>
+                        <StockChart
+                          csvData={orderedFiles[2].data}
+                          showSMA={false}
+                        />
                       </div>
                     </div>
                   </div>
@@ -240,8 +304,23 @@ export default function Flashcards() {
                 </div>
               </div>
             </div>
-            {renderNavigationButtons()}
+
+            {/* New Dummy Action Buttons Row */}
+            <div className="my-8 flex justify-around">
+              {actionButtons.map((action, index) => (
+                <button
+                  key={index}
+                  className="w-24 h-24 bg-gray-300 text-black border border-black rounded shadow-lg flex items-center justify-center text-xs"
+                >
+                  {action}
+                </button>
+              ))}
+            </div>
+
+            {/* Render the folder section (dropdown, data showers, round buttons)
+                and then below it, the navigation buttons */}
             {renderFolderSelect()}
+            {renderNavigationButtons()}
           </div>
         )}
 

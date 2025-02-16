@@ -17,7 +17,7 @@ const CHART_CONFIG = {
   }
 };
 
-const StockChart = ({ csvData }) => {
+const StockChart = ({ csvData, showSMA = true }) => {
   if (!csvData || typeof csvData !== 'string') {
     return (
       <div className="h-60 flex items-center justify-center text-gray-500">
@@ -114,30 +114,43 @@ const StockChart = ({ csvData }) => {
       volume: d.dollarVolume
     }));
 
-    // SMA calculations.
-    const calculateSMA = (period) => {
-      return data.map((d, i) => {
-        const start = i < period ? 0 : i - period + 1;
-        const slice = data.slice(start, i + 1);
-        const sum = slice.reduce((acc, cur) => acc + cur.close, 0);
-        return sum / slice.length;
-      });
-    };
+    // SMA calculations (only if showSMA is true).
+    let sma10Points = [];
+    let sma20Points = [];
+    if (showSMA) {
+      const calculateSMA = (period) => {
+        return data.map((d, i) => {
+          if (i < period - 1) {
+            // Not enough data points yet, so return null.
+            return null;
+          }
+          const slice = data.slice(i - period + 1, i + 1);
+          const sum = slice.reduce((acc, cur) => acc + cur.close, 0);
+          return sum / period;
+        });
+      };
 
-    const sma10Array = calculateSMA(10);
-    const sma20Array = calculateSMA(20);
+      const sma10Array = calculateSMA(10);
+      const sma20Array = calculateSMA(20);
 
-    // Convert SMA arrays into coordinate points (in the price area).
-    const sma10Points = sma10Array.map((avg, i) => {
-      const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
-      const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
-      return { x, y };
-    });
-    const sma20Points = sma20Array.map((avg, i) => {
-      const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
-      const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
-      return { x, y };
-    });
+      sma10Points = sma10Array
+        .map((avg, i) => {
+          if (avg === null) return null;
+          const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
+          const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
+          return { x, y };
+        })
+        .filter(point => point !== null);
+
+      sma20Points = sma20Array
+        .map((avg, i) => {
+          if (avg === null) return null;
+          const x = CHART_CONFIG.PADDING.left + i * spacing + (CHART_CONFIG.BAR_WIDTH / 2);
+          const y = CHART_CONFIG.PADDING.top + (paddedMaxPrice - avg) * priceScale;
+          return { x, y };
+        })
+        .filter(point => point !== null);
+    }
 
     // Volume bars (in the volume area, which starts at y = priceAreaHeight).
     const volumeBars = data.map((d, i) => ({
@@ -148,12 +161,11 @@ const StockChart = ({ csvData }) => {
     }));
 
     return { bars, priceTicks, volumeBars, chartSize, sma10Points, sma20Points };
-  }, [data]);
+  }, [data, showSMA]);
 
   if (!chartData) return null;
 
   return (
-    // The SVG fills its container; its viewBox is square.
     <div className="bg-black w-full h-full">
       <svg 
         width="100%"
@@ -185,19 +197,23 @@ const StockChart = ({ csvData }) => {
           </g>
         ))}
 
-        {/* Draw SMA lines */}
-        <polyline
-          fill="none"
-          stroke={CHART_CONFIG.COLORS.SMA10}
-          strokeWidth="2"
-          points={chartData.sma10Points.map(p => `${p.x},${p.y}`).join(" ")}
-        />
-        <polyline
-          fill="none"
-          stroke={CHART_CONFIG.COLORS.SMA20}
-          strokeWidth="2"
-          points={chartData.sma20Points.map(p => `${p.x},${p.y}`).join(" ")}
-        />
+        {/* Conditionally draw SMA lines */}
+        {showSMA && (
+          <>
+            <polyline
+              fill="none"
+              stroke={CHART_CONFIG.COLORS.SMA10}
+              strokeWidth="2"
+              points={chartData.sma10Points.map(p => `${p.x},${p.y}`).join(" ")}
+            />
+            <polyline
+              fill="none"
+              stroke={CHART_CONFIG.COLORS.SMA20}
+              strokeWidth="2"
+              points={chartData.sma20Points.map(p => `${p.x},${p.y}`).join(" ")}
+            />
+          </>
+        )}
 
         {/* Draw candlestick bars */}
         {chartData.bars.map((bar, i) => (
