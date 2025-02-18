@@ -21,13 +21,10 @@ export default function Flashcards() {
 
   // Dummy actions for the chart row buttons.
   const actionButtons = [
-    "Up 20%",
-    "Down <5%",
-    "Breakeven",
-    "Spike",
-    "Dip",
-    "Hold",
-    "Volatile",
+    "-5%",
+    "0%",
+    "20%",
+    "50%",
   ]
 
   // Dummy timer state (counts down from 60 seconds)
@@ -188,19 +185,21 @@ export default function Flashcards() {
   }
 
   return (
-    <div className="p-6 w-full max-w-6xl bg-white rounded-lg shadow-lg">
-      <ChartSection
-        orderedFiles={orderedFiles}
-        timer={timer}
-        pointsTextArray={pointsTextArray}
-      />
-      <ActionButtonsRow actionButtons={actionButtons} />
-      <FolderSection
-        selectedFolder={selectedFolder}
-        folderOptions={folderOptions}
-        onFolderChange={handleFolderChange}
-      />
-      <NavigationButtons onPrevious={handlePrevious} onNext={handleNext} />
+    <div className="bg-gray-100 min-h-screen">
+      <div className="w-full max-w-6xl bg-white rounded-lg shadow-lg mx-auto">
+        <ChartSection
+          orderedFiles={orderedFiles}
+          timer={timer}
+          pointsTextArray={pointsTextArray}
+        />
+        <ActionButtonsRow actionButtons={actionButtons} />
+        <FolderSection
+          selectedFolder={selectedFolder}
+          folderOptions={folderOptions}
+          onFolderChange={handleFolderChange}
+        />
+        <NavigationButtons onPrevious={handlePrevious} onNext={handleNext} />
+      </div>
     </div>
   )
 }

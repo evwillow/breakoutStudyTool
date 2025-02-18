@@ -6,7 +6,7 @@ const NavigationButtons = React.memo(function NavigationButtons({
   onNext,
 }) {
   return (
-    <div className="mt-8 flex justify-center">
+    <div className="px-28 pb-10 mt-8 flex justify-center">
       <button
         onClick={onPrevious}
         className="px-6 py-3 bg-gray-200 text-black rounded-lg hover:bg-gray-300 transition text-lg mx-2"

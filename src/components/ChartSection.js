@@ -7,8 +7,11 @@ const ChartSection = React.memo(function ChartSection({
   timer,
   pointsTextArray,
 }) {
+  // Always render 8 cells (2 rows × 4 columns)
+  const totalCells = 8
+
   return (
-    <div className="flex flex-col md:flex-row gap-4 w-full items-start">
+    <div className="flex flex-col pt-10 px-10 md:flex-row gap-4 w-full items-start">
       {/* First Chart Column (Timer + D) */}
       <div
         style={{ flexBasis: `${(10 / 26) * 100}%` }}
@@ -61,15 +64,25 @@ const ChartSection = React.memo(function ChartSection({
         </div>
 
         {/* Points Grid */}
+        {/* 
+          Always render 8 cells so that the grid always has 2 rows.
+          If a cell has no point (undefined), we add the class "invisible"
+          to hide its background and content while still reserving its space.
+        */}
         <div className="grid grid-cols-4 gap-6">
-          {pointsTextArray.map((text, index) => (
-            <div
-              key={index}
-              className="bg-gray-300 text-black rounded shadow p-1 text-center text-xs"
-            >
-              {text}
-            </div>
-          ))}
+          {Array.from({ length: totalCells }, (_, index) => {
+            const text = pointsTextArray[index]
+            return (
+              <div
+                key={index}
+                className={`rounded shadow p-1 text-center text-xs flex items-center justify-center ${
+                  text ? "bg-gray-300 text-black" : "invisible"
+                }`}
+              >
+                {text ? text : "\u00A0"}
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
