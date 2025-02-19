@@ -26,7 +26,9 @@ const FolderSection = React.memo(function FolderSection({
         <div className="pt-3 flex flex-col ml-10">
           <div className="flex space-x-8">
             <span className="text-black text-base">Accuracy: (data %)</span>
-            <span className="pl-5 text-black text-base">Win rate: (data %)</span>
+            <span className="pl-5 text-black text-base">
+              Win rate: (data %)
+            </span>
           </div>
           <div className="flex space-x-8 mt-4">
             <span className="text-black text-base">Win amount: (data %)</span>

@@ -1,5 +1,5 @@
 // src/components/NavigationButtons.js
-import React from "react"
+import React from "react";
 
 const NavigationButtons = React.memo(function NavigationButtons({
   onPrevious,
@@ -20,7 +20,7 @@ const NavigationButtons = React.memo(function NavigationButtons({
         Next
       </button>
     </div>
-  )
-})
+  );
+});
 
-export default NavigationButtons
+export default NavigationButtons;

@@ -64,11 +64,6 @@ const ChartSection = React.memo(function ChartSection({
         </div>
 
         {/* Points Grid */}
-        {/* 
-          Always render 8 cells so that the grid always has 2 rows.
-          If a cell has no point (undefined), we add the class "invisible"
-          to hide its background and content while still reserving its space.
-        */}
         <div className="grid grid-cols-4 gap-6">
           {Array.from({ length: totalCells }, (_, index) => {
             const text = pointsTextArray[index]

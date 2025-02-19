@@ -1,170 +1,155 @@
 // src/Flashcards.js
-"use client"
-import React, { useEffect, useState, useCallback, useMemo } from "react"
-import ChartSection from "./components/ChartSection"
-import ActionButtonsRow from "./components/ActionButtonsRow"
-import FolderSection from "./components/FolderSection"
-import NavigationButtons from "./components/NavigationButtons"
+"use client";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import ChartSection from "./components/ChartSection";
+import ActionButtonsRow from "./components/ActionButtonsRow";
+import FolderSection from "./components/FolderSection";
+import NavigationButtons from "./components/NavigationButtons";
 
-const INITIAL_STATE = {
-  folders: [],
-  selectedFolder: null,
-  flashcards: [],
-  index: 0,
-  loading: false,
-  error: null,
-}
+const INITIAL_TIMER = 60;
+const actionButtons = ["-5%", "0%", "20%", "50%"];
+
+// Utility function to order CSV files based on file name.
+const getOrderedCSVFiles = (csvFiles) => {
+  const files = new Map();
+  for (const file of csvFiles) {
+    const fileName = file.fileName;
+    if (fileName.includes("D.csv")) files.set("D", file);
+    else if (fileName.includes("H.csv")) files.set("H", file);
+    else if (fileName.includes("M.csv")) files.set("M", file);
+  }
+  return ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean);
+};
 
 export default function Flashcards() {
-  const [state, setState] = useState(INITIAL_STATE)
-  const { folders, selectedFolder, flashcards, index, loading, error } = state
+  const [folders, setFolders] = useState([]);
+  const [selectedFolder, setSelectedFolder] = useState(null);
+  const [flashcards, setFlashcards] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [timer, setTimer] = useState(INITIAL_TIMER);
 
-  // Dummy actions for the chart row buttons.
-  const actionButtons = [
-    "-5%",
-    "0%",
-    "20%",
-    "50%",
-  ]
-
-  // Dummy timer state (counts down from 60 seconds)
-  const [timer, setTimer] = useState(60)
+  // Timer countdown effect.
   useEffect(() => {
     const interval = setInterval(() => {
-      setTimer((prev) => (prev > 0 ? prev - 1 : 0))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+      setTimer((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const currentSubfolder = useMemo(
-    () => (flashcards.length > 0 ? flashcards[index] : null),
-    [flashcards, index]
-  )
-
-  const folderOptions = useMemo(
-    () =>
-      folders.map(({ id, name }) => ({ key: id, value: name, label: name })),
-    [folders]
-  )
-
-  const getOrderedCSVFiles = useCallback((csvFiles) => {
-    const files = new Map()
-    for (const file of csvFiles) {
-      const fileName = file.fileName
-      if (fileName.includes("D.csv")) files.set("D", file)
-      else if (fileName.includes("H.csv")) files.set("H", file)
-      else if (fileName.includes("M.csv")) files.set("M", file)
+  // Fetch folders on mount.
+  useEffect(() => {
+    let mounted = true;
+    async function fetchFolders() {
+      try {
+        const res = await fetch("/api/getFolders");
+        if (!res.ok) throw new Error(`Error fetching folders: ${res.status}`);
+        const data = await res.json();
+        if (mounted && Array.isArray(data) && data.length > 0) {
+          setFolders(data);
+          setSelectedFolder(data[0].name || null);
+        }
+      } catch (err) {
+        if (mounted) setError(err.message || "Error fetching folders");
+      }
     }
-    return ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean)
-  }, [])
+    fetchFolders();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
+  // Fetch CSV file data when selectedFolder changes.
+  useEffect(() => {
+    if (!selectedFolder) return;
+    let mounted = true;
+    async function fetchFlashcards() {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/getFileData?folder=${encodeURIComponent(selectedFolder)}`
+        );
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Error fetching file data");
+        }
+        const data = await res.json();
+        if (mounted && Array.isArray(data) && data.length > 0) {
+          setFlashcards(data);
+          setCurrentIndex(0);
+        } else if (mounted) {
+          setFlashcards([]);
+        }
+      } catch (err) {
+        if (mounted) setError(err.message);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    fetchFlashcards();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedFolder]);
+
+  // Get the current flashcard (subfolder).
+  const currentSubfolder = flashcards[currentIndex] || null;
+
+  // Get ordered CSV files for the current subfolder.
   const orderedFiles = useMemo(() => {
     if (currentSubfolder && currentSubfolder.csvFiles) {
-      return getOrderedCSVFiles(currentSubfolder.csvFiles)
+      return getOrderedCSVFiles(currentSubfolder.csvFiles);
     }
-    return []
-  }, [currentSubfolder, getOrderedCSVFiles])
+    return [];
+  }, [currentSubfolder]);
 
+  // Process points text from "points.csv" if available.
   const pointsTextArray = useMemo(() => {
-    if (!currentSubfolder || !currentSubfolder.csvFiles) return []
+    if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
     const pointsFile = currentSubfolder.csvFiles.find(
       (file) => file.fileName.toLowerCase() === "points.csv"
-    )
-    if (!pointsFile || !pointsFile.data) return []
+    );
+    if (!pointsFile || !pointsFile.data) return [];
     return pointsFile.data
       .trim()
       .split("\n")
       .map((line) => line.trim())
-      .filter(Boolean)
-  }, [currentSubfolder])
+      .filter(Boolean);
+  }, [currentSubfolder]);
 
   const handleNext = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      index: (prev.index + 1) % prev.flashcards.length,
-    }))
-  }, [])
+    setCurrentIndex((prev) =>
+      flashcards.length ? (prev + 1) % flashcards.length : 0
+    );
+  }, [flashcards]);
 
   const handlePrevious = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      index: (prev.index - 1 + prev.flashcards.length) % prev.flashcards.length,
-    }))
-  }, [])
+    setCurrentIndex((prev) =>
+      flashcards.length ? (prev - 1 + flashcards.length) % flashcards.length : 0
+    );
+  }, [flashcards]);
 
   const handleFolderChange = useCallback((e) => {
-    const newFolder = e.target.value
-    setState((prev) => ({
-      ...prev,
-      selectedFolder: newFolder,
-      flashcards: [],
-      index: 0,
-      error: null,
-      loading: true,
-    }))
-  }, [])
+    const newFolder = e.target.value;
+    setSelectedFolder(newFolder);
+    setFlashcards([]);
+    setCurrentIndex(0);
+    setError(null);
+    setLoading(true);
+  }, []);
 
-  // Fetch folders on mount.
-  useEffect(() => {
-    let mounted = true
-    fetch("/api/getFolders")
-      .then((res) =>
-        res.ok
-          ? res.json()
-          : Promise.reject(`Error fetching folders: ${res.status}`)
-      )
-      .then((data) => {
-        if (mounted && Array.isArray(data) && data.length > 0) {
-          setState((prev) => ({
-            ...prev,
-            folders: data,
-            selectedFolder: data[0]?.name || null,
-          }))
-        }
-      })
-      .catch((err) => mounted && setState((prev) => ({ ...prev, error: err })))
-    return () => {
-      mounted = false
-    }
-  }, [])
-
-  // Fetch CSV file data when a folder is selected.
-  useEffect(() => {
-    if (!selectedFolder) return
-    let mounted = true
-    fetch(`/api/getFileData?folder=${encodeURIComponent(selectedFolder)}`)
-      .then((res) =>
-        res.ok ? res.json() : res.json().then((err) => Promise.reject(err))
-      )
-      .then((data) => {
-        if (mounted && Array.isArray(data) && data.length > 0) {
-          setState((prev) => ({
-            ...prev,
-            flashcards: data,
-            loading: false,
-          }))
-        }
-      })
-      .catch(
-        (err) =>
-          mounted &&
-          setState((prev) => ({
-            ...prev,
-            error: err.message,
-            loading: false,
-          }))
-      )
-    return () => {
-      mounted = false
-    }
-  }, [selectedFolder])
+  const folderOptions = useMemo(
+    () => folders.map(({ id, name }) => ({ key: id, value: name, label: name })),
+    [folders]
+  );
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
         <p className="text-black">Loading data...</p>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -172,16 +157,15 @@ export default function Flashcards() {
       <div className="flex justify-center items-center h-96">
         <p className="text-red-500">⚠️ {error}</p>
       </div>
-    )
+    );
   }
 
-  if (
-    flashcards.length === 0 ||
-    !currentSubfolder ||
-    orderedFiles.length !== 3
-  ) {
-    // No data or incomplete data
-    return null
+  if (!flashcards.length || !currentSubfolder || orderedFiles.length !== 3) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <p className="text-black">No flashcards available.</p>
+      </div>
+    );
   }
 
   return (
@@ -201,5 +185,5 @@ export default function Flashcards() {
         <NavigationButtons onPrevious={handlePrevious} onNext={handleNext} />
       </div>
     </div>
-  )
+  );
 }
