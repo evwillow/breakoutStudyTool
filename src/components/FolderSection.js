@@ -1,13 +1,15 @@
-// src/components/FolderSection.js
-import React from "react"
+// /src/components/FolderSection.js
+import React from "react";
 
 const FolderSection = React.memo(function FolderSection({
   selectedFolder,
   folderOptions,
   onFolderChange,
+  accuracy,
+  winRate,
 }) {
   return (
-    <div className="px-48 mt-6 w-full flex flex-col items-start">
+    <div className="px-56 pb-10">
       <div className="flex items-center">
         {/* Folder Dropdown */}
         <select
@@ -21,36 +23,26 @@ const FolderSection = React.memo(function FolderSection({
             </option>
           ))}
         </select>
-
-        {/* Data Showers */}
-        <div className="pt-3 flex flex-col ml-10">
-          <div className="flex space-x-8">
-            <span className="text-black text-base">Accuracy: (data %)</span>
-            <span className="pl-5 text-black text-base">
-              Win rate: (data %)
-            </span>
-          </div>
-          <div className="flex space-x-8 mt-4">
-            <span className="text-black text-base">Win amount: (data %)</span>
-            <span className="text-black text-base">Lose amount: (data %)</span>
-          </div>
+        {/* Accuracy and Win Rate Data */}
+        <div className="pt-3 ml-10">
+          <span className="text-black text-base">Accuracy: {accuracy}%</span>
+          <span className="ml-5 text-black text-base">Win Rate: {winRate}%</span>
         </div>
       </div>
-
-      {/* Round Buttons Row */}
-      <div className="mt-6 flex space-x-4">
-        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
+      {/* Round Management Buttons Row */}
+      <div className="mt-6 pl-10 flex space-x-4">
+        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition">
           New Round
         </button>
-        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
+        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition">
           Load Round
         </button>
-        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
+        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition">
           Round History
         </button>
       </div>
     </div>
-  )
-})
+  );
+});
 
-export default FolderSection
+export default FolderSection;
