@@ -1,14 +1,15 @@
 // src/components/ChartSection.js
-import React from "react"
-import StockChart from "./StockChart"
+import React, { useState } from "react";
+import StockChart from "./StockChart";
+import AuthButtons from "./AuthButtons";
+import AuthModal from "./AuthModal";
 
 const ChartSection = React.memo(function ChartSection({
   orderedFiles,
   timer,
   pointsTextArray,
 }) {
-  // Always render 8 cells (2 rows × 4 columns)
-  const totalCells = 8
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   return (
     <div className="flex flex-col pt-10 px-10 md:flex-row gap-4 w-full items-start">
@@ -39,24 +40,24 @@ const ChartSection = React.memo(function ChartSection({
               <StockChart csvData={orderedFiles[1].data} />
             </div>
           </div>
-          {/* Third Chart (M, no SMA) */}
+          {/* Third Chart (M, no SMA) with auth UI above */}
           <div
             style={{ flexBasis: `${(6 / 14) * 100}%` }}
             className="flex flex-col items-end"
           >
-            <div className="pb-6 flex justify-end gap-2 w-full">
-              <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
-                Sign In
-              </button>
-              <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow">
-                Sign Out
-              </button>
+            {/* Auth UI as a block element */}
+            <div className="w-full pb-6 flex justify-end gap-2">
+              <AuthButtons onSignIn={() => setShowAuthModal(true)} />
             </div>
+            {showAuthModal && (
+              <AuthModal
+                open={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+              />
+            )}
             <div className="w-full flex justify-center">
               <div className="w-full max-w-[300px] aspect-square relative">
-                <div className="absolute -top-4 left-0 text-xs text-black">
-                  M
-                </div>
+                <div className="absolute -top-4 left-0 text-xs text-black">M</div>
                 <StockChart csvData={orderedFiles[2].data} showSMA={false} />
               </div>
             </div>
@@ -65,8 +66,8 @@ const ChartSection = React.memo(function ChartSection({
 
         {/* Points Grid */}
         <div className="grid grid-cols-4 gap-6">
-          {Array.from({ length: totalCells }, (_, index) => {
-            const text = pointsTextArray[index]
+          {Array.from({ length: 8 }, (_, index) => {
+            const text = pointsTextArray[index];
             return (
               <div
                 key={index}
@@ -74,14 +75,14 @@ const ChartSection = React.memo(function ChartSection({
                   text ? "bg-gray-300 text-black" : "invisible"
                 }`}
               >
-                {text ? text : "\u00A0"}
+                {text || "\u00A0"}
               </div>
-            )
+            );
           })}
         </div>
       </div>
     </div>
-  )
-})
+  );
+});
 
-export default ChartSection
+export default ChartSection;

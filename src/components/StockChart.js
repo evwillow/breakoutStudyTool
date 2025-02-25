@@ -1,5 +1,7 @@
 // src/components/StockChart.js
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import AuthButtons from "./AuthButtons";
+import AuthModal from "./AuthModal";
 
 const CHART_CONFIG = {
   PRICE_HEIGHT: 500, // legacy reference value
@@ -18,7 +20,9 @@ const CHART_CONFIG = {
   },
 };
 
-const StockChart = ({ csvData, showSMA = true }) => {
+const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   if (!csvData || typeof csvData !== "string") {
     return (
       <div className="h-60 flex items-center justify-center text-gray-500">
@@ -187,7 +191,16 @@ const StockChart = ({ csvData, showSMA = true }) => {
   if (!chartData) return null;
 
   return (
-    <div className="bg-black w-full h-full">
+    <div className="relative bg-black w-full h-full">
+      {/* If includeAuth is true, show the new auth button (or sign out when logged in) */}
+      {includeAuth && (
+        <div className="absolute top-2 right-2 z-10">
+          <AuthButtons onSignIn={() => setShowAuthModal(true)} />
+        </div>
+      )}
+      {includeAuth && showAuthModal && (
+        <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      )}
       <svg
         width="100%"
         height="100%"
