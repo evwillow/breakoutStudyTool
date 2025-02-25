@@ -6,7 +6,8 @@ const FolderSection = React.memo(function FolderSection({
   folderOptions,
   onFolderChange,
   accuracy,
-  winRate,
+  onNewRound,
+  onRoundHistory,
 }) {
   return (
     <div className="px-56 pb-10">
@@ -23,21 +24,23 @@ const FolderSection = React.memo(function FolderSection({
             </option>
           ))}
         </select>
-        {/* Accuracy and Win Rate Data */}
+        {/* Accuracy Data */}
         <div className="pt-3 ml-10">
           <span className="text-black text-base">Accuracy: {accuracy}%</span>
-          <span className="ml-5 text-black text-base">Win Rate: {winRate}%</span>
         </div>
       </div>
-      {/* Round Management Buttons Row */}
-      <div className="mt-6 pl-10 flex space-x-4">
-        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition">
+      {/* Round Management Buttons Row - Aligned to the left */}
+      <div className="mt-6 flex space-x-4 justify-start">
+        <button 
+          onClick={onNewRound}
+          className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition"
+        >
           New Round
         </button>
-        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition">
-          Load Round
-        </button>
-        <button className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition">
+        <button 
+          onClick={onRoundHistory}
+          className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition"
+        >
           Round History
         </button>
       </div>

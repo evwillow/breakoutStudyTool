@@ -27,26 +27,28 @@ export default function Flashcards() {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
-  const [winCount, setWinCount] = useState(0);
-  const [lossCount, setLossCount] = useState(0);
   const [feedback, setFeedback] = useState(null); // "correct" or "incorrect"
   const [disableButtons, setDisableButtons] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [timer, setTimer] = useState(INITIAL_TIMER);
+  const [timerPaused, setTimerPaused] = useState(false);
 
-  // Timer countdown that resets after each match.
+  // Timer countdown effect: runs only when not paused and no popup is shown.
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer((prev) => {
-        if (prev <= 1) {
-          setShowPopup(true);
-          return INITIAL_TIMER;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    if (!showPopup && !timerPaused) {
+      const interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev <= 1) {
+            setShowPopup(true);
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [showPopup, timerPaused]);
 
   // Fetch folders on mount.
   useEffect(() => {
@@ -68,7 +70,9 @@ export default function Flashcards() {
       }
     }
     fetchFolders();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Fetch flashcards when selectedFolder changes.
@@ -93,15 +97,17 @@ export default function Flashcards() {
           setCurrentMatchIndex(0);
           setMatchCount(0);
           setCorrectCount(0);
-          setWinCount(0);
-          setLossCount(0);
           setTimer(INITIAL_TIMER);
           // Create a new round (only if session exists).
           if (session.user && session.user.id) {
             const { data: newRoundData, error: roundError } = await supabase
               .from("rounds")
               .insert([
-                { dataset_name: selectedFolder, user_id: session.user.id, completed: false },
+                {
+                  dataset_name: selectedFolder,
+                  user_id: session.user.id,
+                  completed: false,
+                },
               ])
               .select("id");
             if (roundError || !newRoundData || newRoundData.length === 0) {
@@ -122,7 +128,9 @@ export default function Flashcards() {
       }
     }
     fetchFlashcards();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [selectedFolder, session, status]);
 
   const currentSubfolder = flashcards[currentIndex] || null;
@@ -189,16 +197,16 @@ export default function Flashcards() {
     [folders]
   );
 
-  // Handle button selection and log the match.
+  // Handle answer selection and log the match.
   const handleSelection = useCallback(
     async (selection) => {
       if (!thingData.length) return;
+      // Pause the timer until the glow effect is done.
+      setTimerPaused(true);
       setDisableButtons(true);
       const expected = thingData[currentMatchIndex];
       const correct = selection === expected;
       if (correct) setCorrectCount((prev) => prev + 1);
-      if (selection === 3 || selection === 4) setWinCount((prev) => prev + 1);
-      else if (selection === 1 || selection === 2) setLossCount((prev) => prev + 1);
       setFeedback(correct ? "correct" : "incorrect");
       setMatchCount((prev) => prev + 1);
 
@@ -216,17 +224,16 @@ export default function Flashcards() {
         console.error("Round ID is not set. Cannot log match.");
       }
 
-      // Reset the timer.
-      setTimer(INITIAL_TIMER);
-
-      // After 5 seconds, clear feedback and move to the next match.
+      // Do not update the timer until the glow effect is finished.
+      // After 5 seconds, clear feedback, unpause timer, reset timer, and advance.
       setTimeout(() => {
         setFeedback(null);
         setDisableButtons(false);
+        setTimer(INITIAL_TIMER);
+        setTimerPaused(false);
         if (currentMatchIndex < thingData.length - 1) {
           setCurrentMatchIndex(currentMatchIndex + 1);
         } else {
-          // When finishing all matches for this flashcard, move to the next flashcard.
           setCurrentMatchIndex(0);
           setCurrentIndex((prev) => (prev + 1) % flashcards.length);
         }
@@ -235,20 +242,15 @@ export default function Flashcards() {
     [thingData, currentMatchIndex, currentSubfolder, roundId, session, flashcards.length]
   );
 
-  // When the timer expires via the Popup.
   const handlePopupSelect = (selection) => {
     setShowPopup(false);
     handleSelection(selection);
   };
 
-  // Compute accuracy and win rate over all matches.
+  // Only calculate accuracy, removed win rate
   const accuracy =
     matchCount > 0 ? ((correctCount / matchCount) * 100).toFixed(2) : "0.00";
-  const totalDecisions = winCount + lossCount;
-  const winRate =
-    totalDecisions > 0 ? ((winCount / totalDecisions) * 100).toFixed(2) : "0.00";
 
-  // Round management functions.
   const createNewRound = async () => {
     if (!session || !session.user || !session.user.id) {
       console.error("User not found in session; cannot create round.");
@@ -264,20 +266,14 @@ export default function Flashcards() {
       console.error("Error creating round:", roundError);
     } else {
       setRoundId(newRoundData[0].id);
-      // Reset match metrics.
       setCurrentMatchIndex(0);
       setMatchCount(0);
       setCorrectCount(0);
-      setWinCount(0);
-      setLossCount(0);
       setTimer(INITIAL_TIMER);
     }
   };
 
-  const loadRound = async () => {
-    alert("Load Round functionality not implemented.");
-  };
-
+  // Combined round history function
   const viewRoundHistory = async () => {
     alert("Round History functionality not implemented.");
   };
@@ -331,13 +327,11 @@ export default function Flashcards() {
     content = (
       <div className="bg-gray-100 min-h-screen">
         <div className="w-full max-w-6xl bg-white rounded-lg shadow-lg mx-auto p-4">
-          {/* Chart Section with integrated timer and points grid */}
           <ChartSection
             orderedFiles={orderedFiles}
             timer={timer}
             pointsTextArray={pointsTextArray}
           />
-          {/* Action Buttons with original styling and padding below */}
           <div className="pb-8">
             <ActionButtonsRow
               actionButtons={actionButtons}
@@ -347,15 +341,14 @@ export default function Flashcards() {
               disabled={disableButtons}
             />
           </div>
-          {/* Folder Section (dropdown left of accuracy/win rate and round management buttons) */}
           <FolderSection
             selectedFolder={selectedFolder}
             folderOptions={folderOptions}
             onFolderChange={handleFolderChange}
             accuracy={accuracy}
-            winRate={winRate}
+            onNewRound={createNewRound}
+            onRoundHistory={viewRoundHistory}
           />
-          {/* Popup for forced selection when timer expires */}
           {showPopup && <Popup onSelect={handlePopupSelect} />}
         </div>
       </div>

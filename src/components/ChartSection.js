@@ -22,6 +22,10 @@ const ChartSection = React.memo(function ChartSection({
           <h2 className="text-lg font-bold text-black">Timer: {timer}s</h2>
         </div>
         <div className="w-full mt-6 relative">
+          {/* D Label - positioned in the top left corner */}
+          <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+            D
+          </div>
           <StockChart csvData={orderedFiles[0].data} />
         </div>
       </div>
@@ -35,6 +39,10 @@ const ChartSection = React.memo(function ChartSection({
             className="flex flex-col items-center"
           >
             <div className="relative w-full">
+              {/* H Label - positioned in the top left corner */}
+              <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+                H
+              </div>
               <StockChart csvData={orderedFiles[1].data} />
             </div>
           </div>
@@ -54,6 +62,10 @@ const ChartSection = React.memo(function ChartSection({
             )}
             <div className="w-full flex justify-center">
               <div className="w-full max-w-[300px] aspect-square relative">
+                {/* M Label - positioned in the top left corner */}
+                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+                  M
+                </div>
                 <StockChart csvData={orderedFiles[2].data} showSMA={false} />
               </div>
             </div>
