@@ -1,15 +1,8 @@
-// src/app/api/auth/[...nextauth]/route.js
+// /src/app/api/auth/[...nextauth]/route.js
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-
-// Dummy in-memory user database (for testing only)
-const users = [
-  {
-    id: 1,
-    username: "testuser",
-    password: "Tacos0719", // changed password to avoid flagged credentials
-  },
-];
+import supabase from "@/config/supabase";
+import bcrypt from "bcryptjs"; // ✅ Use bcryptjs
 
 const handler = NextAuth({
   providers: [
@@ -20,15 +13,22 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const user = users.find(
-          (u) =>
-            u.username === credentials.username &&
-            u.password === credentials.password
-        );
-        if (user) {
-          return { id: user.id, name: user.username };
-        }
-        return null;
+        const { username, password } = credentials;
+
+        // Fetch user from Supabase
+        const { data: user, error } = await supabase
+          .from("users")
+          .select("id, username, password")
+          .eq("username", username)
+          .single();
+
+        if (!user) return null;
+
+        // Compare hashed passwords
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) return null;
+
+        return { id: user.id, name: user.username };
       },
     }),
   ],

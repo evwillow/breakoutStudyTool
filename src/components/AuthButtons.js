@@ -1,11 +1,11 @@
-// src/components/AuthButtons.js
-"use client";
+// /src/components/AuthButtons.js
+"use client"
 
-import React from "react";
-import { signOut, useSession } from "next-auth/react";
+import React from "react"
+import { signOut, useSession } from "next-auth/react"
 
 export default function AuthButtons({ onSignIn }) {
-  const { data: session } = useSession();
+  const { data: session } = useSession()
 
   if (session) {
     return (
@@ -15,7 +15,7 @@ export default function AuthButtons({ onSignIn }) {
       >
         Sign Out
       </button>
-    );
+    )
   }
   return (
     <button
@@ -24,5 +24,5 @@ export default function AuthButtons({ onSignIn }) {
     >
       Sign In
     </button>
-  );
+  )
 }

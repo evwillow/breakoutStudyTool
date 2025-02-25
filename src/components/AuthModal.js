@@ -1,34 +1,60 @@
-// src/components/AuthModal.js
+// /src/components/AuthModal.js
 "use client";
 
 import React, { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 
 export default function AuthModal({ open, onClose }) {
-  const [mode, setMode] = useState("signin"); // "signin" or "signup"
+  const [mode, setMode] = useState("signin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const { update } = useSession(); // Hook to update session
 
   if (!open) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (mode === "signup") {
-      alert("Account creation is not implemented yet.");
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || "Failed to create account");
+          return;
+        }
+
+        // Automatically sign in using NextAuth session
+        const signInRes = await signIn("credentials", {
+          redirect: false,
+          username,
+          password,
+        });
+
+        if (signInRes.error) {
+          setError("Error signing in after signup.");
+        } else {
+          alert("Account created successfully! You are now logged in.");
+          update(); // Refresh the session
+          onClose();
+        }
+
+      } catch (err) {
+        setError("Signup failed");
+      }
       return;
     }
-    const result = await signIn("credentials", {
-      redirect: false,
-      username,
-      password,
-    });
+
+    // Normal Sign-in Flow
+    const result = await signIn("credentials", { redirect: false, username, password });
     if (result.error) {
-      setError(
-        result.error === "CredentialsSignin"
-          ? "Invalid username or password"
-          : result.error
-      );
+      setError("Invalid username or password");
     } else {
       onClose();
     }
