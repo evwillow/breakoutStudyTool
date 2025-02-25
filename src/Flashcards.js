@@ -7,6 +7,7 @@ import ActionButtonsRow from "./components/ActionButtonsRow";
 import FolderSection from "./components/FolderSection";
 import AuthModal from "./components/AuthModal";
 import Popup from "./components/Popup";
+import RoundHistory from "./components/RoundHistory";
 import supabase from "./config/supabase";
 
 const INITIAL_TIMER = 60;
@@ -32,6 +33,7 @@ export default function Flashcards() {
   const [showPopup, setShowPopup] = useState(false);
   const [timer, setTimer] = useState(INITIAL_TIMER);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [showRoundHistory, setShowRoundHistory] = useState(false);
 
   // Timer countdown effect: runs only when not paused and no popup is shown.
   useEffect(() => {
@@ -98,25 +100,34 @@ export default function Flashcards() {
           setMatchCount(0);
           setCorrectCount(0);
           setTimer(INITIAL_TIMER);
-          // Create a new round (only if session exists).
-          if (session.user && session.user.id) {
-            const { data: newRoundData, error: roundError } = await supabase
-              .from("rounds")
-              .insert([
-                {
-                  dataset_name: selectedFolder,
-                  user_id: session.user.id,
-                  completed: false,
-                },
-              ])
-              .select("id");
-            if (roundError || !newRoundData || newRoundData.length === 0) {
-              console.error("Error creating round:", roundError);
-            } else {
-              setRoundId(newRoundData[0].id);
+          
+          // Only create a new round if there's no current round or if explicitly requested
+          if (!roundId && session.user && session.user.id) {
+            try {
+              console.log("Creating initial round for user:", session.user.id);
+              
+              const { data: newRoundData, error: roundError } = await supabase
+                .from("rounds")
+                .insert([
+                  { 
+                    dataset_name: selectedFolder, 
+                    user_id: session.user.id, 
+                    completed: false 
+                  },
+                ])
+                .select();
+                
+              if (roundError) {
+                console.error("Error creating round:", roundError);
+              } else if (!newRoundData || newRoundData.length === 0) {
+                console.error("No round data returned after creation");
+              } else {
+                console.log("Round created successfully:", newRoundData[0]);
+                setRoundId(newRoundData[0].id);
+              }
+            } catch (err) {
+              console.error("Unexpected error creating round:", err);
             }
-          } else {
-            console.error("User not found in session; cannot create round.");
           }
         } else if (mounted) {
           setFlashcards([]);
@@ -131,7 +142,7 @@ export default function Flashcards() {
     return () => {
       mounted = false;
     };
-  }, [selectedFolder, session, status]);
+  }, [selectedFolder, session, status, roundId]);
 
   const currentSubfolder = flashcards[currentIndex] || null;
 
@@ -210,7 +221,11 @@ export default function Flashcards() {
       setFeedback(correct ? "correct" : "incorrect");
       setMatchCount((prev) => prev + 1);
 
-      if (roundId) {
+      console.log("Current round ID:", roundId);
+      console.log("Current user ID:", session?.user?.id);
+
+      // Log match via server-side API route instead of direct Supabase client
+      try {
         const matchData = {
           round_id: roundId,
           stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
@@ -218,10 +233,27 @@ export default function Flashcards() {
           correct,
           user_id: session?.user?.id,
         };
-        const { error: logError } = await supabase.from("matches").insert(matchData);
-        if (logError) console.error("Error logging match:", logError);
-      } else {
-        console.error("Round ID is not set. Cannot log match.");
+        
+        console.log("Sending match data to API:", matchData);
+        
+        // Use fetch API to call a server-side endpoint for logging
+        const response = await fetch("/api/logMatch", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(matchData),
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+          console.error("Error logging match via API:", result.error);
+        } else {
+          console.log("Match logged successfully via API:", result);
+        }
+      } catch (err) {
+        console.error("Error calling log match API:", err);
       }
 
       // Do not update the timer until the glow effect is finished.
@@ -252,30 +284,115 @@ export default function Flashcards() {
     matchCount > 0 ? ((correctCount / matchCount) * 100).toFixed(2) : "0.00";
 
   const createNewRound = async () => {
-    if (!session || !session.user || !session.user.id) {
-      console.error("User not found in session; cannot create round.");
+    // Wait until auth is fully loaded
+    if (status === "loading") {
+      console.log("Authentication is still loading, please wait...");
       return;
     }
-    const { data: newRoundData, error: roundError } = await supabase
-      .from("rounds")
-      .insert([
-        { dataset_name: selectedFolder, user_id: session.user.id, completed: false },
-      ])
-      .select("id");
-    if (roundError || !newRoundData || newRoundData.length === 0) {
-      console.error("Error creating round:", roundError);
-    } else {
-      setRoundId(newRoundData[0].id);
+    
+    // Check if user is authenticated
+    if (status !== "authenticated" || !session) {
+      console.log("You need to be signed in to create a round");
+      setShowAuthModal(true);
+      return;
+    }
+    
+    // Verify user ID exists
+    if (!session.user?.id) {
+      console.error("User ID not found in session");
+      console.log("Session object:", session);
+      return;
+    }
+    
+    // End current round if exists
+    if (roundId) {
+      await supabase
+        .from("rounds")
+        .update({ completed: true })
+        .eq("id", roundId);
+    }
+    
+    try {
+      // Create a new round via server API route
+      const response = await fetch("/api/createRound", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dataset_name: selectedFolder,
+          user_id: session.user.id,
+          completed: false
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error("Error creating round via API:", result.error);
+        return;
+      }
+      
+      console.log("Round created successfully:", result.data);
+      
+      // Make sure to set the roundId here
+      setRoundId(result.data.id);
       setCurrentMatchIndex(0);
       setMatchCount(0);
       setCorrectCount(0);
       setTimer(INITIAL_TIMER);
+    } catch (err) {
+      console.error("Unexpected error creating round:", err);
     }
   };
 
-  // Combined round history function
+  // Round history function
   const viewRoundHistory = async () => {
-    alert("Round History functionality not implemented.");
+    setShowRoundHistory(true);
+  };
+  
+  const loadRound = async (roundId, datasetName) => {
+    if (!session?.user?.id) return;
+    
+    setShowRoundHistory(false);
+    
+    // First select the correct folder
+    if (datasetName !== selectedFolder) {
+      setSelectedFolder(datasetName);
+    }
+    
+    try {
+      // Load the round data via API
+      const response = await fetch(`/api/getRound?id=${roundId}`);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error("Error loading round:", result.error);
+        return;
+      }
+      
+      // Set round ID
+      setRoundId(roundId);
+      
+      // Calculate match index (to resume where left off)
+      const uniqueStocks = [...new Set(result.matches.map(match => match.stock_symbol))];
+      const lastStock = result.matches.length > 0 
+        ? result.matches[result.matches.length - 1].stock_symbol 
+        : null;
+      const stockIndex = uniqueStocks.indexOf(lastStock);
+      
+      // Calculate metrics
+      const totalMatches = result.matches.length;
+      const correctMatches = result.matches.filter(match => match.correct).length;
+      
+      // Update state
+      setMatchCount(totalMatches);
+      setCorrectCount(correctMatches);
+      setCurrentIndex(stockIndex >= 0 ? stockIndex : 0);
+      setCurrentMatchIndex(stockIndex >= 0 ? stockIndex : 0);
+    } catch (err) {
+      console.error("Error loading round data:", err);
+    }
   };
 
   let content;
@@ -350,6 +467,14 @@ export default function Flashcards() {
             onRoundHistory={viewRoundHistory}
           />
           {showPopup && <Popup onSelect={handlePopupSelect} />}
+          {showRoundHistory && (
+            <RoundHistory
+              isOpen={showRoundHistory}
+              onClose={() => setShowRoundHistory(false)}
+              onLoadRound={loadRound}
+              userId={session?.user?.id}
+            />
+          )}
         </div>
       </div>
     );
