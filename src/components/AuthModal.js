@@ -30,7 +30,7 @@ export default function AuthModal({ open, onClose }) {
           return;
         }
 
-        // Automatically sign in using NextAuth session
+        // Automatically sign in using NextAuth session - no need for JWT
         const signInRes = await signIn("credentials", {
           redirect: false,
           username,
@@ -44,7 +44,6 @@ export default function AuthModal({ open, onClose }) {
           update(); // Refresh the session
           onClose();
         }
-
       } catch (err) {
         setError("Signup failed");
       }
@@ -52,7 +51,12 @@ export default function AuthModal({ open, onClose }) {
     }
 
     // Normal Sign-in Flow
-    const result = await signIn("credentials", { redirect: false, username, password });
+    const result = await signIn("credentials", { 
+      redirect: false, 
+      username, 
+      password 
+    });
+    
     if (result.error) {
       setError("Invalid username or password");
     } else {

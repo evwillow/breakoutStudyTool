@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import supabase from "@/config/supabase";
 import bcrypt from "bcryptjs";
-import { signJwt } from "@/utils/jwt"; // Helper function to generate JWT
+// Remove the JWT import
 
 export async function POST(req) {
   try {
@@ -37,12 +37,9 @@ export async function POST(req) {
       return NextResponse.json({ error: "Database insert error" }, { status: 500 });
     }
 
-    // Generate JWT token for automatic login
-    const token = signJwt({ id: newUser.id, username: newUser.username });
-
+    // No need to generate a JWT token here - NextAuth will handle the session
     return NextResponse.json({
       message: "User created successfully",
-      token,
       user: { id: newUser.id, username: newUser.username },
     });
 

@@ -1,16 +1,16 @@
 // /src/utils/jwt.js
-// Simplified mock JWT functions that don't require the actual library
+// Stub implementation - this file should no longer be used
 
 export function signJwt(payload) {
-  // Simple mock implementation that creates a base64 encoded string
+  console.warn("signJwt is deprecated and should not be used");
   const data = JSON.stringify(payload);
   const encodedData = Buffer.from(data).toString('base64');
   return `mock-jwt.${encodedData}.signature`;
 }
 
 export function verifyJwt(token) {
+  console.warn("verifyJwt is deprecated and should not be used");
   try {
-    // Simple mock implementation that extracts the payload
     if (!token || !token.includes('.')) return null;
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -19,7 +19,7 @@ export function verifyJwt(token) {
     const decodedPayload = Buffer.from(encodedPayload, 'base64').toString();
     return JSON.parse(decodedPayload);
   } catch (error) {
-    console.warn("JWT verification failed:", error.message);
+    console.error("JWT verification failed:", error.message);
     return null;
   }
 }
