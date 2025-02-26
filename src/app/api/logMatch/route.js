@@ -1,25 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
 
+// Use SUPABASE_KEY if available, otherwise fall back to NEXT_PUBLIC_SUPABASE_ANON_KEY.
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// If the environment variables are missing, log an error and create a dummy client.
-let supabase;
 if (!supabaseUrl || !supabaseKey) {
-  console.error("Supabase environment variables are missing. SUPABASE_URL and SUPABASE_KEY must be set.");
-  // Dummy client that returns errors when used.
-  supabase = {
-    from: () => ({
-      select: () => ({
-        eq: () => ({ data: null, error: { message: "Supabase not configured" } })
-      }),
-      update: () => ({ error: { message: "Supabase not configured" } }),
-      insert: () => ({ error: { message: "Supabase not configured" } })
-    })
-  };
-} else {
-  supabase = createClient(supabaseUrl, supabaseKey);
+  console.error("Supabase environment variables are missing. SUPABASE_URL and SUPABASE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY) must be set.");
 }
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function POST(req) {
   // Check if supabase is configured properly.
