@@ -15,6 +15,7 @@ export default function AuthModal({ open, onClose }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(null);
 
     if (mode === "signup") {
       try {
@@ -23,14 +24,24 @@ export default function AuthModal({ open, onClose }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
         });
-
-        const data = await res.json();
+        
+        // Check if response is OK before trying to parse JSON
         if (!res.ok) {
-          setError(data.error || "Failed to create account");
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await res.json();
+            setError(errorData.error || "Failed to create account");
+          } else {
+            const errorText = await res.text();
+            console.error("Signup error response:", errorText);
+            setError("Failed to create account. Server returned an invalid response.");
+          }
           return;
         }
 
-        // Automatically sign in using NextAuth session - no need for JWT
+        const data = await res.json();
+        
+        // Automatically sign in using NextAuth session
         const signInRes = await signIn("credentials", {
           redirect: false,
           username,
@@ -45,22 +56,28 @@ export default function AuthModal({ open, onClose }) {
           onClose();
         }
       } catch (err) {
-        setError("Signup failed");
+        console.error("Signup error:", err);
+        setError("Signup failed: " + (err.message || "Unknown error"));
       }
       return;
     }
 
     // Normal Sign-in Flow
-    const result = await signIn("credentials", { 
-      redirect: false, 
-      username, 
-      password 
-    });
-    
-    if (result.error) {
-      setError("Invalid username or password");
-    } else {
-      onClose();
+    try {
+      const result = await signIn("credentials", { 
+        redirect: false, 
+        username, 
+        password 
+      });
+      
+      if (result.error) {
+        setError("Invalid username or password");
+      } else {
+        onClose();
+      }
+    } catch (err) {
+      console.error("Sign in error:", err);
+      setError("Sign in failed: " + (err.message || "Unknown error"));
     }
   };
 

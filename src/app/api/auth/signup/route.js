@@ -1,8 +1,13 @@
 // /src/app/api/auth/signup/route.js
 import { NextResponse } from "next/server";
-import supabase from "@/config/supabase";
+import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
-// Remove the JWT import
+
+// Create a Supabase client for server-side use
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export async function POST(req) {
   try {
@@ -12,11 +17,16 @@ export async function POST(req) {
     }
 
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser, error: checkError } = await supabase
       .from("users")
       .select("id")
       .eq("username", username)
       .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error("Database error checking for existing user:", checkError);
+      return NextResponse.json({ error: "Database error" }, { status: 500 });
+    }
 
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 400 });
@@ -37,12 +47,11 @@ export async function POST(req) {
       return NextResponse.json({ error: "Database insert error" }, { status: 500 });
     }
 
-    // No need to generate a JWT token here - NextAuth will handle the session
+    // Return success - NextAuth will handle login separately
     return NextResponse.json({
       message: "User created successfully",
       user: { id: newUser.id, username: newUser.username },
     });
-
   } catch (error) {
     console.error("Unexpected error:", error);
     return NextResponse.json({ error: "Signup failed" }, { status: 500 });
