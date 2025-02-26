@@ -1,9 +1,9 @@
-import NextAuth from "next-auth/next"; // Use the App Router–compatible import
+import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 
-// Validate required environment variables.
+// Ensure required environment variables are defined.
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error("Missing NEXTAUTH_SECRET environment variable");
 }
@@ -16,7 +16,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-export const authOptions = {
+const authOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -72,7 +72,8 @@ export const authOptions = {
   debug: process.env.NODE_ENV === "development"
 };
 
-// Create a NextAuth handler and export GET and POST.
 const handler = NextAuth(authOptions);
+
+// Only export GET and POST. Do not export any extra fields.
 export const GET = handler;
 export const POST = handler;
