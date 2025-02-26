@@ -1,15 +1,22 @@
-import NextAuth from "next-auth/next"; // Updated import path for the App Router
+import NextAuth from "next-auth/next"; // Use the App Router–compatible import
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 
-// Create a server-side Supabase client
+// Validate required environment variables.
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error("Missing NEXTAUTH_SECRET environment variable");
+}
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  throw new Error("Missing Supabase environment variables");
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const authOptions = {
+export const authOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -18,65 +25,46 @@ const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
+        if (!credentials || !credentials.username || !credentials.password) {
           return null;
         }
-        try {
-          // Fetch user from Supabase
-          const { data: user, error } = await supabase
-            .from("users")
-            .select("id, username, password")
-            .eq("username", credentials.username)
-            .single();
+        // Retrieve the user from Supabase.
+        const { data: user, error } = await supabase
+          .from("users")
+          .select("id, username, password")
+          .eq("username", credentials.username)
+          .single();
 
-          if (error || !user) {
-            console.error("User not found:", error?.message);
-            return null;
-          }
-
-          // Compare passwords
-          const isValidPassword = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
-          if (!isValidPassword) {
-            console.error("Invalid password");
-            return null;
-          }
-
-          // Return user data for session
-          return {
-            id: user.id,
-            name: user.username,
-            email: user.username // Using username as email for compatibility
-          };
-        } catch (error) {
-          console.error("Authentication error:", error);
+        if (error || !user) {
+          console.error("User not found:", error?.message);
           return null;
         }
+
+        // Validate the provided password.
+        const isValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isValid) {
+          console.error("Invalid password");
+          return null;
+        }
+
+        // Return user details for NextAuth session.
+        return { id: user.id, name: user.username, email: user.username };
       }
     })
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // On first sign in, add user ID to the token
-      if (user) {
-        token.sub = user.id;
-      }
-      console.log("JWT callback:", token);
+      // On first sign in, add the user ID to the token.
+      if (user) token.sub = user.id;
       return token;
     },
     async session({ session, token }) {
-      // Add user ID from token into the session object
-      if (token && token.sub) {
-        session.user.id = token.sub;
-      }
-      console.log("Session callback:", session);
+      // Add the user ID from the token to the session object.
+      if (token && token.sub) session.user.id = token.sub;
       return session;
     }
   },
-  // Do not include the pages option – it's not supported in the App Router
-  secret: process.env.NEXTAUTH_SECRET || "your-fallback-secret-do-not-use-in-production",
+  secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60 // 30 days
@@ -84,6 +72,7 @@ const authOptions = {
   debug: process.env.NODE_ENV === "development"
 };
 
+// Create a NextAuth handler and export GET and POST.
 const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
+export const GET = handler;
+export const POST = handler;
