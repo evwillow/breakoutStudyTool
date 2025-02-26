@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import NextAuth from "next-auth/next";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
