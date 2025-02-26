@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth from "next-auth/next"; // Updated import path for the App Router
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
@@ -28,10 +28,12 @@ const authOptions = {
             .select("id, username, password")
             .eq("username", credentials.username)
             .single();
+
           if (error || !user) {
             console.error("User not found:", error?.message);
             return null;
           }
+
           // Compare passwords
           const isValidPassword = await bcrypt.compare(
             credentials.password,
@@ -41,6 +43,7 @@ const authOptions = {
             console.error("Invalid password");
             return null;
           }
+
           // Return user data for session
           return {
             id: user.id,
@@ -72,7 +75,7 @@ const authOptions = {
       return session;
     }
   },
-  // Remove the pages option – not supported in the App Router
+  // Do not include the pages option – it's not supported in the App Router
   secret: process.env.NEXTAUTH_SECRET || "your-fallback-secret-do-not-use-in-production",
   session: {
     strategy: "jwt",
