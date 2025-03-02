@@ -25,7 +25,7 @@ const ChartSection = React.memo(function ChartSection({
         <AuthButtons onSignIn={() => setShowAuthModal(true)} />
       </div>
       
-      <div className="flex flex-col pt-1 sm:pt-4 md:pt-10 px-0 sm:px-6 md:px-10 md:flex-row gap-1 md:gap-4 w-full items-center md:items-start">
+      <div className="flex flex-col pt-1 sm:pt-4 md:pt-10 px-0 sm:px-6 md:px-10 md:flex-row gap-1 md:gap-4 items-center md:items-start">
         {/* Left Column: Timer (hidden on mobile) + First Chart */}
         <div
           className="w-full md:w-auto md:flex-1 flex flex-col items-center"

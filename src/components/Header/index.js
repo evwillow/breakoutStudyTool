@@ -38,7 +38,7 @@ const Header = () => {
         </svg>
       </div>
 
-      <div className="container mx-auto px-8 sm:px-12 py-6 flex items-center justify-between">
+      <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[75%] mx-auto px-8 sm:px-12 py-6 flex items-center justify-between">
         <Logo />
         <div className="flex items-center space-x-3 justify-start">
           <a
