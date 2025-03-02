@@ -9,6 +9,7 @@ import AuthModal from "./components/AuthModal";
 import Popup from "./components/Popup";
 import RoundHistory from "./components/RoundHistory";
 import supabase from "./config/supabase";
+import DateFolderBrowser from "./components/DateFolderBrowser";
 
 const INITIAL_TIMER = 60;
 const actionButtons = ["-5%", "0%", "20%", "50%"];
@@ -160,45 +161,105 @@ export default function Flashcards() {
 
   // Extract ordered CSV files for charts (D.csv, H.csv, M.csv).
   const orderedFiles = useMemo(() => {
-    if (currentSubfolder && currentSubfolder.csvFiles) {
-      const files = new Map();
-      for (const file of currentSubfolder.csvFiles) {
-        const fileName = file.fileName;
-        if (fileName.includes("D.csv")) files.set("D", file);
-        else if (fileName.includes("H.csv")) files.set("H", file);
-        else if (fileName.includes("M.csv")) files.set("M", file);
-      }
-      return ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean);
+    if (!currentSubfolder || !currentSubfolder.csvFiles) {
+      console.warn("No current subfolder or CSV files available");
+      return [];
     }
-    return [];
+    
+    try {
+      const files = new Map();
+      const requiredFiles = ["D.csv", "H.csv", "M.csv"];
+      
+      // Check if all required files are present
+      for (const file of currentSubfolder.csvFiles) {
+        if (!file.fileName || !file.data) {
+          console.warn(`Invalid file object found: ${JSON.stringify(file)}`);
+          continue;
+        }
+        
+        const fileName = file.fileName.toUpperCase(); // Case-insensitive matching
+        
+        if (fileName.includes("D.CSV") || fileName.includes("D.csv")) {
+          files.set("D", file);
+        } else if (fileName.includes("H.CSV") || fileName.includes("H.csv")) {
+          files.set("H", file);
+        } else if (fileName.includes("M.CSV") || fileName.includes("M.csv")) {
+          files.set("M", file);
+        }
+      }
+      
+      // Log warning if any required files are missing
+      for (const requiredFile of requiredFiles) {
+        const key = requiredFile.charAt(0);
+        if (!files.has(key)) {
+          console.warn(`Required file ${requiredFile} not found`);
+        }
+      }
+      
+      return ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean);
+    } catch (error) {
+      console.error("Error processing ordered files:", error);
+      return [];
+    }
   }, [currentSubfolder]);
 
   // Extract thing.csv data.
   const thingData = useMemo(() => {
     if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
+    
     const thingFile = currentSubfolder.csvFiles.find((file) =>
       file.fileName.toLowerCase().includes("thing.csv")
     );
-    if (!thingFile || !thingFile.data) return [];
-    return thingFile.data
-      .trim()
-      .split("\n")
-      .map((line) => parseInt(line.trim(), 10))
-      .filter((num) => !isNaN(num));
+    
+    if (!thingFile || !thingFile.data) {
+      console.warn("thing.csv file not found or has no data");
+      return [];
+    }
+    
+    try {
+      return thingFile.data
+        .trim()
+        .split("\n")
+        .filter(line => line.trim()) // Filter out empty lines
+        .map((line) => {
+          const value = line.trim();
+          const parsedValue = parseInt(value, 10);
+          if (isNaN(parsedValue)) {
+            console.warn(`Invalid numeric value in thing.csv: ${value}`);
+            return null;
+          }
+          return parsedValue;
+        })
+        .filter((num) => num !== null);
+    } catch (error) {
+      console.error("Error processing thing.csv:", error);
+      return [];
+    }
   }, [currentSubfolder]);
 
   // Extract points from points.csv.
   const pointsTextArray = useMemo(() => {
     if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
+    
     const pointsFile = currentSubfolder.csvFiles.find(
       (file) => file.fileName.toLowerCase() === "points.csv"
     );
-    if (!pointsFile || !pointsFile.data) return [];
-    return pointsFile.data
-      .trim()
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+    
+    if (!pointsFile || !pointsFile.data) {
+      console.warn("points.csv file not found or has no data");
+      return [];
+    }
+    
+    try {
+      return pointsFile.data
+        .trim()
+        .split("\n")
+        .filter(line => line.trim()) // Filter out empty lines
+        .map(line => line.trim());
+    } catch (error) {
+      console.error("Error processing points.csv:", error);
+      return [];
+    }
   }, [currentSubfolder]);
 
   const handleFolderChange = useCallback((e) => {
@@ -495,6 +556,20 @@ export default function Flashcards() {
             onNewRound={createNewRound}
             onRoundHistory={viewRoundHistory}
           />
+          
+          {/* Date Folder Browser Section */}
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            {console.log("Current subfolder:", currentSubfolder)}
+            <DateFolderBrowser 
+              session={session} 
+              currentStock={currentSubfolder && typeof currentSubfolder === 'object' ? 
+                (currentSubfolder.name || 
+                 (currentSubfolder.folderName) || 
+                 (currentSubfolder.csvFiles && currentSubfolder.csvFiles[0] && currentSubfolder.csvFiles[0].fileName.split('_')[0])) 
+                : null} 
+            />
+          </div>
+          
           {showPopup && <Popup onSelect={handlePopupSelect} />}
           {showRoundHistory && (
             <RoundHistory

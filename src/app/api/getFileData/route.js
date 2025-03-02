@@ -35,22 +35,77 @@ export async function GET(request) {
       fields: "files(id, name)",
       pageSize: 1,
     });
+    
+    // If folder doesn't exist, return empty array instead of 404
     if (!folderResponse.data.files.length) {
-      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      console.log(`Folder not found: ${selectedFolderName}, returning empty array`);
+      return NextResponse.json([], {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=300" },
+      });
     }
+    
     const selectedFolderId = folderResponse.data.files[0].id;
 
-    // Get all subfolders (flashcards)
+    // First, check for CSV files directly in the selected folder
+    const directCsvResponse = await drive.files.list({
+      q: `'${selectedFolderId}' in parents and mimeType = 'text/csv'`,
+      fields: "files(id, name)",
+      pageSize: 1000,
+    });
+    
+    const directCsvFiles = await Promise.all(
+      directCsvResponse.data.files.map(async (file) => {
+        try {
+          const csvData = await drive.files.get({
+            fileId: file.id,
+            alt: "media",
+          });
+          return {
+            fileName: file.name,
+            data: csvData.data,
+          };
+        } catch (error) {
+          console.error(`Error fetching CSV file ${file.name}:`, error.message);
+          return {
+            fileName: file.name,
+            data: null,
+            error: error.message
+          };
+        }
+      })
+    );
+    
+    // If we found CSV files directly in the folder, return them
+    if (directCsvFiles.length > 0) {
+      return NextResponse.json([
+        {
+          folderName: selectedFolderName,
+          csvFiles: directCsvFiles
+        }
+      ], {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=300" },
+      });
+    }
+
+    // Get all subfolders
     const subfolderResponse = await drive.files.list({
       q: `'${selectedFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder'`,
       fields: "files(id, name)",
       pageSize: 1000,
     });
+    
+    // If no subfolders and no direct CSV files, return empty array
     if (!subfolderResponse.data.files.length) {
-      return NextResponse.json({ error: "No subfolders found" }, { status: 404 });
+      console.log(`No subfolders or CSV files found in folder: ${selectedFolderName}`);
+      return NextResponse.json([], {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=300" },
+      });
     }
 
-    // For each subfolder, fetch all CSV files (this includes thing.csv, along with others like D.csv, H.csv, M.csv, etc.)
+    // For each subfolder, fetch all CSV files
     const flashcards = await Promise.all(
       subfolderResponse.data.files.map(async (folder) => {
         const fileResponse = await drive.files.list({
@@ -60,14 +115,23 @@ export async function GET(request) {
         });
         const csvFiles = await Promise.all(
           fileResponse.data.files.map(async (file) => {
-            const csvData = await drive.files.get({
-              fileId: file.id,
-              alt: "media",
-            });
-            return {
-              fileName: file.name,
-              data: csvData.data,
-            };
+            try {
+              const csvData = await drive.files.get({
+                fileId: file.id,
+                alt: "media",
+              });
+              return {
+                fileName: file.name,
+                data: csvData.data,
+              };
+            } catch (error) {
+              console.error(`Error fetching CSV file ${file.name}:`, error.message);
+              return {
+                fileName: file.name,
+                data: null,
+                error: error.message
+              };
+            }
           })
         );
         return {
@@ -83,6 +147,10 @@ export async function GET(request) {
     });
   } catch (error) {
     console.error("Error fetching files:", error.message);
-    return NextResponse.json({ error: "Failed to fetch files" }, { status: 500 });
+    // Return empty array instead of error
+    return NextResponse.json([], {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=300" },
+    });
   }
 }

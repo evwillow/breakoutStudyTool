@@ -58,9 +58,14 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
   // Parse CSV data into an array of stock objects.
   const data = useMemo(() => {
     try {
-      const lines = csvData.trim().split("\n");
+      // Split by lines and filter out empty lines
+      const lines = csvData.trim().split("\n").filter(line => line.trim());
       if (lines.length < 2) return [];
-      const headers = lines[0].toLowerCase().split(",");
+      
+      // Get headers from first line and convert to lowercase for case-insensitive matching
+      const headers = lines[0].toLowerCase().split(",").map(h => h.trim());
+      
+      // Find indices for required fields
       const indices = {
         open: headers.findIndex((h) => h.includes("open")),
         high: headers.findIndex((h) => h.includes("high")),
@@ -68,14 +73,26 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
         close: headers.findIndex((h) => h.includes("close")),
         volume: headers.findIndex((h) => h.includes("volume")),
       };
+      
+      // Ensure all required fields are found
+      if (Object.values(indices).some(idx => idx === -1)) {
+        console.error("Missing required columns in CSV data");
+        return [];
+      }
+      
+      // Parse data rows
       const result = [];
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",");
+        const values = lines[i].split(",").map(v => v.trim());
+        
+        // Parse numeric values
         const open = parseFloat(values[indices.open]);
         const high = parseFloat(values[indices.high]);
         const low = parseFloat(values[indices.low]);
         const close = parseFloat(values[indices.close]);
         const volume = parseFloat(values[indices.volume]);
+        
+        // Only add valid data points
         if (
           !isNaN(open) &&
           !isNaN(high) &&
