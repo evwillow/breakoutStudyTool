@@ -1,13 +1,7 @@
 // /src/app/api/auth/signup/route.js
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
-
-// Create a Supabase client for server-side use
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import supabase from "@/lib/supabase";
 
 export async function POST(req) {
   try {

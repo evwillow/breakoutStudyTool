@@ -1,3 +1,87 @@
+# Next.js Authentication System
+
+## Overview
+
+This project implements a Next.js application with authentication using NextAuth.js and Supabase for user data storage.
+
+## Project Structure
+
+- `/src/lib/auth.js`: Contains the NextAuth.js configuration options
+- `/src/lib/supabase.js`: Provides a centralized Supabase client
+- `/src/app/api/auth/[...nextauth]/route.js`: NextAuth.js API route handler
+- `/src/app/api/auth/signup/route.js`: User registration API endpoint
+
+## Authentication Flow
+
+1. Users can sign up via the `/api/auth/signup` endpoint
+2. Authentication is handled by NextAuth.js using the Credentials provider
+3. User credentials are verified against the Supabase database
+4. Upon successful authentication, a JWT token is issued and stored in cookies
+
+## Error Resolution: "TypeError: c is not a function"
+
+### Issue
+
+The build process was failing with the error message:
+```
+TypeError: c is not a function
+```
+
+This error occurred in the generated file `.next/server/app/api/auth/[...nextauth]/route.js` during page data collection.
+
+### Root Cause
+
+The error was caused by a conflict between:
+
+1. The project's module system configuration (`"type": "module"` in package.json)
+2. NextAuth.js's handling of exports in the API route
+
+### Solution
+
+The issue was resolved by:
+
+1. Removing `"type": "module"` from package.json
+2. Properly structuring the NextAuth.js API route handler
+3. Using the recommended export pattern: `export { handler as GET, handler as POST }`
+
+### Best Practices
+
+- Keep authentication configuration separate from route handlers
+- Use a centralized database client to avoid duplication
+- Properly export handler functions from API routes
+- Check for required environment variables early in initialization
+- Be cautious with module system configurations that might conflict with libraries
+
+## Getting Started
+
+1. Install dependencies:
+   ```
+   npm install
+   ```
+
+2. Set up environment variables in `.env.local`:
+   ```
+   NEXTAUTH_SECRET=your_secret_here
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+3. Run the development server:
+   ```
+   npm run dev
+   ```
+
+4. Build for production:
+   ```
+   npm run build
+   ```
+
+## Testing Authentication
+
+1. Register a new user at `/api/auth/signup`
+2. Log in using the registered credentials
+3. Access protected routes that require authentication
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
