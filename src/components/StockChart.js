@@ -1,15 +1,21 @@
 // src/components/StockChart.js
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import AuthButtons from "./AuthButtons";
 import AuthModal from "./AuthModal";
 
-const CHART_CONFIG = {
+// Responsive chart configuration with breakpoints
+const getChartConfig = (isMobile) => ({
   PRICE_HEIGHT: 500, // legacy reference value
   VOLUME_HEIGHT: 100, // legacy reference value
-  PADDING: { left: 60, right: 20, top: 20, bottom: 30 },
-  BAR_WIDTH: 6,
-  BAR_PADDING: 2,
-  PRICE_TICKS: 8,
+  PADDING: { 
+    left: isMobile ? 40 : 60, 
+    right: isMobile ? 10 : 20, 
+    top: isMobile ? 10 : 20, 
+    bottom: isMobile ? 20 : 30 
+  },
+  BAR_WIDTH: isMobile ? 4 : 6,
+  BAR_PADDING: isMobile ? 1 : 2,
+  PRICE_TICKS: isMobile ? 5 : 8,
   COLORS: {
     UP: "#00E676",
     DOWN: "#FF1744",
@@ -18,14 +24,32 @@ const CHART_CONFIG = {
     SMA10: "#e902f5", // Purple for 10 SMA
     SMA20: "#02ddf5", // Bright vibrant blue for 20 SMA
   },
-};
+});
 
 const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Detect mobile devices
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+  
+  // Get responsive chart configuration
+  const CHART_CONFIG = useMemo(() => getChartConfig(isMobile), [isMobile]);
 
   if (!csvData || typeof csvData !== "string") {
     return (
-      <div className="h-60 flex items-center justify-center text-gray-500">
+      <div className="h-40 sm:h-60 flex items-center justify-center text-gray-500 text-sm sm:text-base">
         No data available
       </div>
     );
@@ -186,7 +210,7 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
     }));
 
     return { bars, priceTicks, volumeBars, chartSize, sma10Points, sma20Points };
-  }, [data, showSMA]);
+  }, [data, showSMA, CHART_CONFIG]);
 
   if (!chartData) return null;
 
@@ -222,7 +246,7 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
             <text
               x={CHART_CONFIG.PADDING.left - 5}
               y={tick.y + 4}
-              fontSize="12"
+              fontSize={isMobile ? "10" : "12"}
               textAnchor="end"
               fill="white"
             >
@@ -237,7 +261,7 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
             <polyline
               fill="none"
               stroke={CHART_CONFIG.COLORS.SMA10}
-              strokeWidth="2"
+              strokeWidth={isMobile ? "1.5" : "2"}
               points={chartData.sma10Points
                 .map((p) => `${p.x},${p.y}`)
                 .join(" ")}
@@ -245,7 +269,7 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
             <polyline
               fill="none"
               stroke={CHART_CONFIG.COLORS.SMA20}
-              strokeWidth="2"
+              strokeWidth={isMobile ? "1.5" : "2"}
               points={chartData.sma20Points
                 .map((p) => `${p.x},${p.y}`)
                 .join(" ")}
@@ -256,49 +280,36 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
         {/* Draw candlestick bars */}
         {chartData.bars.map((bar, i) => (
           <g key={`bar-${i}`}>
+            {/* Vertical line from high to low */}
             <line
               x1={bar.x + bar.width / 2}
               y1={bar.highY}
               x2={bar.x + bar.width / 2}
               y2={bar.lowY}
-              stroke={
-                bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN
-              }
+              stroke={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
               strokeWidth="1"
             />
-            <line
-              x1={bar.x}
-              y1={bar.openY}
-              x2={bar.x + bar.width / 2}
-              y2={bar.openY}
-              stroke={
-                bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN
-              }
-              strokeWidth="1"
-            />
-            <line
-              x1={bar.x + bar.width / 2}
-              y1={bar.closeY}
-              x2={bar.x + bar.width}
-              y2={bar.closeY}
-              stroke={
-                bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN
-              }
-              strokeWidth="1"
+            {/* Rectangle for open-close range */}
+            <rect
+              x={bar.x}
+              y={bar.isUp ? bar.closeY : bar.openY}
+              width={bar.width}
+              height={Math.abs(bar.closeY - bar.openY) || 1}
+              fill={bar.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
             />
           </g>
         ))}
 
         {/* Draw volume bars */}
-        {chartData.volumeBars.map((vol, i) => (
+        {chartData.volumeBars.map((bar, i) => (
           <rect
             key={`vol-${i}`}
-            x={vol.x}
-            y={vol.y}
-            width={vol.barWidth}
-            height={vol.barHeight}
+            x={bar.x}
+            y={bar.y}
+            width={bar.barWidth}
+            height={bar.barHeight}
             fill={CHART_CONFIG.COLORS.VOLUME}
-            opacity="0.8"
+            opacity="0.5"
           />
         ))}
       </svg>

@@ -10,13 +10,13 @@ const FolderSection = React.memo(function FolderSection({
   onRoundHistory,
 }) {
   return (
-    <div className="px-56 pb-10">
-      <div className="flex items-center">
+    <div className="px-1 sm:px-8 md:px-16 lg:px-24 xl:px-56 pb-2 sm:pb-6 md:pb-10 border-t border-gray-200 pt-2 sm:pt-0 sm:border-0">
+      <div className="flex flex-col sm:flex-row sm:items-center">
         {/* Folder Dropdown */}
         <select
           value={selectedFolder || ""}
           onChange={onFolderChange}
-          className="p-3 border rounded-lg text-black w-60"
+          className="p-1 sm:p-2 md:p-3 border rounded-lg text-black w-full sm:w-60 mb-1 sm:mb-0 text-sm sm:text-base"
         >
           {folderOptions.map(({ key, value, label }) => (
             <option key={key} value={value}>
@@ -25,21 +25,21 @@ const FolderSection = React.memo(function FolderSection({
           ))}
         </select>
         {/* Accuracy Data */}
-        <div className="pt-3 ml-10">
-          <span className="text-black text-base">Accuracy: {accuracy}%</span>
+        <div className="pt-0 sm:pt-1 md:pt-3 sm:ml-10">
+          <span className="text-black text-sm sm:text-base">Accuracy: {accuracy}%</span>
         </div>
       </div>
       {/* Round Management Buttons Row - Aligned to the left */}
-      <div className="mt-6 flex space-x-4 justify-start">
+      <div className="mt-1 sm:mt-4 md:mt-6 flex flex-wrap gap-1 sm:gap-2 sm:space-x-0 md:space-x-4 justify-start">
         <button 
           onClick={onNewRound}
-          className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition"
+          className="px-2 sm:px-3 py-1 bg-gray-300 text-black text-xs sm:text-sm md:text-base border border-black rounded shadow hover:bg-gray-400 transition flex-1 sm:flex-none"
         >
           New Round
         </button>
         <button 
           onClick={onRoundHistory}
-          className="px-3 py-1 bg-gray-300 text-black border border-black rounded shadow hover:bg-gray-400 transition"
+          className="px-2 sm:px-3 py-1 bg-gray-300 text-black text-xs sm:text-sm md:text-base border border-black rounded shadow hover:bg-gray-400 transition flex-1 sm:flex-none"
         >
           Round History
         </button>

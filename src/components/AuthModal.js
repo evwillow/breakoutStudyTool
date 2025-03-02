@@ -82,15 +82,15 @@ export default function AuthModal({ open, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
-      <div className="bg-white rounded-lg p-8 w-96 relative text-black shadow-xl">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-black shadow-xl">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-600 text-3xl"
+          className="absolute top-2 right-2 text-gray-600 text-2xl sm:text-3xl"
         >
           &times;
         </button>
-        <h2 className="text-2xl font-bold mb-6 text-black">
+        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-black">
           {mode === "signin" ? "Sign In" : "Sign Up"}
         </h2>
         <form onSubmit={handleSubmit}>
@@ -99,7 +99,7 @@ export default function AuthModal({ open, onClose }) {
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded mb-4 text-black focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full p-2 sm:p-3 border border-gray-300 rounded mb-3 sm:mb-4 text-black text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-gray-400"
             required
           />
           <input
@@ -107,23 +107,23 @@ export default function AuthModal({ open, onClose }) {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded mb-4 text-black focus:outline-none focus:ring-2 focus:ring-gray-400"
+            className="w-full p-2 sm:p-3 border border-gray-300 rounded mb-3 sm:mb-4 text-black text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-gray-400"
             required
           />
-          {error && <p className="text-red-500 mb-4">{error}</p>}
+          {error && <p className="text-red-500 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>}
           <button
             type="submit"
-            className="w-full py-3 bg-gray-300 text-black rounded font-semibold hover:bg-gray-400 transition-colors"
+            className="w-full py-2 sm:py-3 bg-gray-300 text-black rounded font-semibold text-sm sm:text-base hover:bg-gray-400 transition-colors"
           >
             {mode === "signin" ? "Sign In" : "Sign Up"}
           </button>
         </form>
-        <div className="mt-6 text-center">
+        <div className="mt-4 sm:mt-6 text-center">
           <button
             onClick={() =>
               setMode((prev) => (prev === "signin" ? "signup" : "signin"))
             }
-            className="underline text-lg text-black"
+            className="underline text-base sm:text-lg text-black"
           >
             {mode === "signin"
               ? "Don't have an account? Sign Up"

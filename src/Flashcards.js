@@ -442,14 +442,14 @@ export default function Flashcards() {
     );
   } else {
     content = (
-      <div className="bg-gray-100 min-h-screen">
-        <div className="w-full max-w-6xl bg-white rounded-lg shadow-lg mx-auto p-4">
+      <div className="bg-gray-100 min-h-screen w-full">
+        <div className="w-full sm:max-w-6xl bg-white rounded-none sm:rounded-lg shadow-lg mx-auto p-0 sm:p-4 pb-0">
           <ChartSection
             orderedFiles={orderedFiles}
             timer={timer}
             pointsTextArray={pointsTextArray}
           />
-          <div className="pb-8">
+          <div className="pb-2 sm:pb-8">
             <ActionButtonsRow
               actionButtons={actionButtons}
               selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
