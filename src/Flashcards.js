@@ -23,6 +23,18 @@ export default function Flashcards() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Disable scrolling when not signed in
+  useEffect(() => {
+    if (!session && status !== "loading") {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [session, status]);
+
   // Round management & match metrics
   const [roundId, setRoundId] = useState(null);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -404,14 +416,26 @@ export default function Flashcards() {
     );
   } else if (!session) {
     content = (
-      <div className="flex flex-col justify-center items-center h-screen bg-gray-100">
-        <p className="mb-4 text-2xl text-black">Please sign in to play the game.</p>
-        <button
-          onClick={() => setShowAuthModal(true)}
-          className="w-80 py-5 bg-gray-300 text-2xl text-black rounded shadow-xl hover:bg-gray-400 transition-colors"
-        >
-          Sign In
-        </button>
+      <div 
+        className="flex flex-col justify-center items-center w-full fixed inset-0 z-0"
+        style={{ 
+          background: 'linear-gradient(45deg, #a7f3d0 0%, #d1fae5 50%, #ffffff 100%)',
+          backgroundSize: 'cover',
+          overflow: 'hidden',
+          paddingTop: 'var(--header-height, 64px)'
+        }}
+      >
+        <div className="bg-white/90 backdrop-blur-sm p-8 rounded-lg shadow-2xl w-[90%] max-w-md mx-4 text-center transform hover:scale-[1.02] transition-all">
+          <h1 className="text-3xl font-bold mb-2 text-black">Welcome</h1>
+          <p className="mb-6 text-lg text-black">Please sign in to start your trading practice.</p>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="w-full py-4 bg-white text-black text-xl font-semibold rounded-lg shadow-lg hover:bg-gray-100 transform hover:scale-[1.02] transition-all active:scale-95"
+          >
+            Sign In
+          </button>
+          <p className="mt-4 text-sm text-black">Practice with real market data</p>
+        </div>
         {showAuthModal && (
           <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
         )}
@@ -448,6 +472,11 @@ export default function Flashcards() {
             orderedFiles={orderedFiles}
             timer={timer}
             pointsTextArray={pointsTextArray}
+            actionButtons={actionButtons}
+            selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
+            feedback={feedback}
+            onButtonClick={handleSelection}
+            disabled={disableButtons}
           />
           <div className="pb-2 sm:pb-8">
             <ActionButtonsRow
