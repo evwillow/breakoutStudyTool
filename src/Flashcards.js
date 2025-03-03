@@ -1,4 +1,14 @@
-// /src/Flashcards.js
+/**
+ * Flashcards.js
+ * 
+ * Main component for the stock trading flashcard application.
+ * This component manages the core functionality including:
+ * - Authentication state
+ * - Folder and flashcard data fetching
+ * - Round management and metrics tracking
+ * - Timer functionality
+ * - Chart display and user interactions
+ */
 "use client";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
@@ -11,6 +21,7 @@ import RoundHistory from "./components/RoundHistory";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
 
+// Application constants
 const INITIAL_TIMER = 60;
 const actionButtons = ["-5%", "0%", "20%", "50%"];
 
@@ -24,7 +35,7 @@ export default function Flashcards() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Disable scrolling when not signed in
+  // Prevent scrolling when authentication is required
   useEffect(() => {
     if (!session && status !== "loading") {
       document.body.style.overflow = "hidden";

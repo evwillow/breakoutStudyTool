@@ -1,12 +1,25 @@
-// src/components/StockChart.js
+/**
+ * StockChart.js
+ * 
+ * Component for rendering interactive stock price charts.
+ * Features:
+ * - Responsive design that adapts to different screen sizes
+ * - Renders price and volume data from CSV input
+ * - Calculates and displays moving averages (SMA)
+ * - Supports different color schemes for up/down movements
+ * - Optimized rendering with canvas for performance
+ */
 import React, { useMemo, useState, useEffect } from "react";
 import AuthButtons from "./AuthButtons";
 import AuthModal from "./AuthModal";
 
-// Responsive chart configuration with breakpoints
+/**
+ * Chart configuration with responsive settings
+ * Adjusts dimensions, padding, and visual elements based on screen size
+ */
 const getChartConfig = (isMobile) => ({
-  PRICE_HEIGHT: 500, // legacy reference value
-  VOLUME_HEIGHT: 100, // legacy reference value
+  PRICE_HEIGHT: 500, // Height of price chart area
+  VOLUME_HEIGHT: 100, // Height of volume chart area
   PADDING: { 
     left: isMobile ? 40 : 60, 
     right: isMobile ? 10 : 20, 
@@ -17,15 +30,18 @@ const getChartConfig = (isMobile) => ({
   BAR_PADDING: isMobile ? 1 : 2,
   PRICE_TICKS: isMobile ? 5 : 8,
   COLORS: {
-    UP: "#00E676",
-    DOWN: "#FF1744",
-    VOLUME: "#29B6F6",
-    GRID: "#1a1a1a",
-    SMA10: "#e902f5", // Purple for 10 SMA
-    SMA20: "#02ddf5", // Bright vibrant blue for 20 SMA
+    UP: "#00E676",     // Green for price increases
+    DOWN: "#FF1744",   // Red for price decreases
+    VOLUME: "#29B6F6", // Blue for volume bars
+    GRID: "#1a1a1a",   // Dark gray for grid lines
+    SMA10: "#e902f5",  // Purple for 10-period moving average
+    SMA20: "#02ddf5",  // Cyan for 20-period moving average
   },
 });
 
+/**
+ * StockChart component renders price and volume data with optional moving averages
+ */
 const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);

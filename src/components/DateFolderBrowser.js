@@ -1,3 +1,14 @@
+/**
+ * DateFolderBrowser.js
+ * 
+ * Component for browsing and displaying historical stock data files.
+ * Features:
+ * - Fetches and displays historical stock data files for the current stock
+ * - Implements multiple fallback strategies to find relevant files
+ * - Allows users to expand/collapse individual file charts
+ * - Filters files to show only those with proper date formatting
+ * - Parses and displays CSV data as interactive charts
+ */
 import React, { useState, useEffect } from "react";
 import StockChart from "./StockChart";
 
@@ -13,7 +24,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
 
-  // Fetch all files for the current stock across all date folders
+  // Main effect for fetching stock files when the current stock changes
   useEffect(() => {
     if (!session) return;
     
@@ -22,7 +33,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
         setLoading(true);
         setAllFiles([]);
         
-        // Special case for specific stock symbols - use getStockFiles API directly
+        // Special stocks with dedicated data sources
         const specialStocks = [
           "poo_jan_4_2019", 
           "ski_mar_9_2011",
@@ -472,7 +483,19 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   };
   
   /**
-   * Toggle file expansion and load data if needed
+   * Toggles the expansion state of a file and loads its content if needed
+   * 
+   * This function handles:
+   * 1. Collapsing an expanded file
+   * 2. Expanding a collapsed file
+   * 3. Loading file data if not already cached
+   * 4. Parsing file IDs to extract folder and file information
+   * 5. Fetching file content from the API
+   * 6. Processing CSV data for chart display
+   * 
+   * @param {string} fileId - The unique identifier for the file
+   *                         Format: either "subfolder/fileName" or "parentFolder/subfolder/fileName"
+   * @returns {Promise<void>}
    */
   const toggleFileExpansion = async (fileId) => {
     // If already expanded, collapse it
@@ -732,7 +755,16 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   };
   
   /**
-   * Display filename without .csv extension and format it nicely for the dropdown
+   * Formats a filename for display in the UI
+   * 
+   * This function:
+   * 1. Removes the .csv extension from filenames
+   * 2. Detects date-formatted filenames (e.g., "Feb_22_2016")
+   * 3. Converts date-formatted filenames to a more readable format (e.g., "Feb 22, 2016")
+   * 4. Returns other filenames without modification (except extension removal)
+   * 
+   * @param {string} fileName - The raw filename to format
+   * @returns {string} The formatted filename for display
    */
   const displayFileName = (fileName) => {
     // Remove .csv extension
@@ -754,7 +786,18 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   };
   
   /**
-   * Check if a file should be included in the dropdown
+   * Determines if a file should be included in the dropdown based on its name format
+   * 
+   * This function filters files to:
+   * 1. Only include files with date-formatted names (e.g., "Feb_22_2016")
+   * 2. Exclude single-letter files (D.csv, H.csv, M.csv)
+   * 3. Exclude any other files that don't match the date format pattern
+   * 
+   * The date format pattern is: three-letter month, underscore, one or two-digit day,
+   * underscore, four-digit year (e.g., "Feb_22_2016")
+   * 
+   * @param {string} fileName - The filename to check
+   * @returns {boolean} True if the file should be included, false otherwise
    */
   const shouldIncludeInDropdown = (fileName) => {
     // Remove .csv extension

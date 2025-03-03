@@ -1,3 +1,13 @@
+/**
+ * searchFiles API Route
+ * 
+ * Searches for files in Google Drive based on a query string.
+ * Features:
+ * - Performs a text-based search across all folders in Google Drive
+ * - Returns file metadata and content for matching files
+ * - Handles authentication with Google Drive API
+ * - Optimized for performance with caching
+ */
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import path from "path";
@@ -5,6 +15,10 @@ import path from "path";
 let authClient = null;
 let drive = null;
 
+/**
+ * Initializes Google Drive authentication client
+ * Reuses existing client if already initialized
+ */
 const initializeAuth = async () => {
   if (!authClient) {
     const keyFilePath = path.join(process.cwd(), "src", "config", "service-account.json");
@@ -17,13 +31,18 @@ const initializeAuth = async () => {
   return drive;
 };
 
+// Parent folder ID in Google Drive containing all searchable files
 const PARENT_FOLDER_ID = "18q55oXvsOL2MboehLA1OglGdepBVDDub";
 
+/**
+ * GET handler for file search requests
+ * Searches for files matching the query string and returns their content
+ */
 export async function GET(request) {
   try {
     const searchQuery = new URL(request.url).searchParams.get("query");
     if (!searchQuery) {
-      // Return empty array instead of error
+      // Return empty array instead of error for empty queries
       return NextResponse.json([], { status: 200 });
     }
 

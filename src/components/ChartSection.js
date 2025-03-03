@@ -1,4 +1,13 @@
-// /src/components/ChartSection.js
+/**
+ * ChartSection.js
+ * 
+ * Component for displaying stock charts in a responsive layout.
+ * Features:
+ * - Responsive design with different layouts for mobile and desktop
+ * - Displays multiple charts (daily, hourly, minute) in an organized grid
+ * - Shows timer and authentication controls
+ * - Optimized with React.memo for performance
+ */
 import React from "react";
 import StockChart from "./StockChart";
 import AuthButtons from "./AuthButtons";
@@ -19,14 +28,14 @@ const ChartSection = React.memo(function ChartSection({
 
   return (
     <>
-      {/* Mobile-only Auth Buttons and Timer at top */}
+      {/* Authentication and timer controls for mobile view */}
       <div className="md:hidden w-full flex justify-between items-center px-2 py-1 border-b border-gray-200">
         <h2 className="text-2xl font-bold text-black">Timer: {timer}s</h2>
         <AuthButtons onSignIn={() => setShowAuthModal(true)} />
       </div>
       
       <div className="flex flex-col pt-1 sm:pt-4 md:pt-10 px-0 sm:px-6 md:px-10 md:flex-row gap-1 md:gap-4 items-center md:items-start">
-        {/* Left Column: Timer (hidden on mobile) + First Chart */}
+        {/* Daily chart section - primary chart */}
         <div
           className="w-full md:w-auto md:flex-1 flex flex-col items-center"
         >

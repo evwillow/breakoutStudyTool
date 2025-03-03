@@ -1,6 +1,26 @@
-// /src/components/FolderSection.js
+/**
+ * FolderSection Component
+ * 
+ * Displays folder selection controls and round management options.
+ * Features:
+ * - Dropdown for selecting different data folders
+ * - Display of current accuracy percentage
+ * - Buttons for creating new rounds and viewing round history
+ * - Responsive design that adapts to different screen sizes
+ * - Optimized with React.memo for performance
+ */
 import React from "react";
 
+/**
+ * FolderSection displays folder selection and round management controls
+ * 
+ * @param {string} selectedFolder - Currently selected folder name
+ * @param {Array} folderOptions - Available folder options with key, value, and label
+ * @param {Function} onFolderChange - Handler for folder selection changes
+ * @param {number} accuracy - Current accuracy percentage
+ * @param {Function} onNewRound - Handler for creating a new round
+ * @param {Function} onRoundHistory - Handler for viewing round history
+ */
 const FolderSection = React.memo(function FolderSection({
   selectedFolder,
   folderOptions,
@@ -12,7 +32,7 @@ const FolderSection = React.memo(function FolderSection({
   return (
     <div className="px-1 sm:px-8 md:px-16 lg:px-24 xl:px-56 pb-2 sm:pb-6 md:pb-10 border-t border-gray-200 pt-2 sm:pt-0 sm:border-0">
       <div className="flex flex-col sm:flex-row sm:items-center">
-        {/* Folder Dropdown */}
+        {/* Folder selection dropdown */}
         <select
           value={selectedFolder || ""}
           onChange={onFolderChange}
@@ -24,12 +44,12 @@ const FolderSection = React.memo(function FolderSection({
             </option>
           ))}
         </select>
-        {/* Accuracy Data */}
+        {/* Accuracy statistics display */}
         <div className="pt-0 sm:pt-1 md:pt-3 sm:ml-10">
           <span className="text-black text-base sm:text-base md:text-lg font-medium">Accuracy: {accuracy}%</span>
         </div>
       </div>
-      {/* Round Management Buttons Row - Aligned to the left */}
+      {/* Round management controls */}
       <div className="mt-1 sm:mt-4 md:mt-6 flex flex-wrap gap-1 sm:gap-2 sm:space-x-0 md:space-x-4 justify-start">
         <button 
           onClick={onNewRound}

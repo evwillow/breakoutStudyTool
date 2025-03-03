@@ -1,120 +1,147 @@
-# Next.js Authentication System
+# TradeMaster - Stock Trading Flashcard Application
 
-## Overview
+<div align="center">
+  <img src="public/tradeMaster-logo.png" alt="TradeMaster Logo" width="200"/>
+  <p><em>Enhance your stock trading skills through interactive practice</em></p>
+</div>
 
-This project implements a Next.js application with authentication using NextAuth.js and Supabase for user data storage.
+## 🚀 Overview
 
-## Project Structure
+TradeMaster is an interactive web application designed to help traders improve their chart reading and decision-making skills. The application presents users with historical stock charts and challenges them to predict price movements within a timed environment, simulating real-world trading scenarios.
 
-- `/src/lib/auth.js`: Contains the NextAuth.js configuration options
-- `/src/lib/supabase.js`: Provides a centralized Supabase client
-- `/src/app/api/auth/[...nextauth]/route.js`: NextAuth.js API route handler
-- `/src/app/api/auth/signup/route.js`: User registration API endpoint
+![TradeMaster Demo](https://github.com/evwillow/trade/raw/main/public/demo.gif)
 
-## Authentication Flow
+## ✨ Features
 
-1. Users can sign up via the `/api/auth/signup` endpoint
-2. Authentication is handled by NextAuth.js using the Credentials provider
-3. User credentials are verified against the Supabase database
-4. Upon successful authentication, a JWT token is issued and stored in cookies
+- **Interactive Stock Charts**: View daily, hourly, and minute-based stock charts with price and volume data
+- **Timed Practice Sessions**: Simulate real-world trading pressure with configurable timers
+- **Historical Data Analysis**: Browse and analyze previous stock setups from various time periods
+- **Performance Tracking**: Monitor your prediction accuracy and improvement over time
+- **User Authentication**: Secure login system to save your progress and statistics
+- **Responsive Design**: Optimized for both desktop and mobile devices
 
-## Error Resolution: "TypeError: c is not a function"
+## 📋 Table of Contents
 
-### Issue
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [Authentication](#-authentication)
+- [API Endpoints](#-api-endpoints)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-The build process was failing with the error message:
-```
-TypeError: c is not a function
-```
+## 🔧 Installation
 
-This error occurred in the generated file `.next/server/app/api/auth/[...nextauth]/route.js` during page data collection.
+### Prerequisites
 
-### Root Cause
+- Node.js (v18 or higher)
+- npm or yarn
+- A Supabase account for authentication and data storage
 
-The error was caused by a conflict between:
+### Setup
 
-1. The project's module system configuration (`"type": "module"` in package.json)
-2. NextAuth.js's handling of exports in the API route
-
-### Solution
-
-The issue was resolved by:
-
-1. Removing `"type": "module"` from package.json
-2. Properly structuring the NextAuth.js API route handler
-3. Using the recommended export pattern: `export { handler as GET, handler as POST }`
-
-### Best Practices
-
-- Keep authentication configuration separate from route handlers
-- Use a centralized database client to avoid duplication
-- Properly export handler functions from API routes
-- Check for required environment variables early in initialization
-- Be cautious with module system configurations that might conflict with libraries
-
-## Getting Started
-
-1. Install dependencies:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/trade.git
+   cd trade
    ```
+
+2. Install dependencies:
+   ```bash
    npm install
    ```
 
-2. Set up environment variables in `.env.local`:
+3. Set up environment variables in `.env.local`:
    ```
    NEXTAUTH_SECRET=your_secret_here
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
    ```
 
-3. Run the development server:
-   ```
+4. Run the development server:
+   ```bash
    npm run dev
    ```
 
-4. Build for production:
-   ```
-   npm run build
-   ```
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Testing Authentication
+## 🎮 Usage
 
-1. Register a new user at `/api/auth/signup`
-2. Log in using the registered credentials
-3. Access protected routes that require authentication
+### Practice Mode
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+1. **Sign in** to your account to track your progress
+2. Select a **stock folder** from the dropdown menu
+3. View the displayed charts (Daily, Hourly, Minute)
+4. Make your prediction by clicking one of the action buttons (-5%, 0%, 20%, 50%)
+5. Receive immediate feedback on your prediction
+6. Continue practicing until the timer expires
+7. Review your session statistics
 
-## Getting Started
+### Historical Data Browser
 
-First, run the development server:
+1. Navigate to the "Previous Setups" section
+2. Browse through historical stock data organized by date
+3. Click on any date to expand and view the corresponding chart
+4. Analyze past setups to improve your pattern recognition skills
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🏗️ Project Structure
+
+```
+trade/
+├── src/
+│   ├── app/                 # Next.js app router
+│   │   ├── api/             # API endpoints
+│   │   ├── page.tsx         # Main application page
+│   │   └── layout.tsx       # Root layout component
+│   ├── components/          # Reusable UI components
+│   │   ├── ChartSection.js  # Chart display component
+│   │   ├── StockChart.js    # Stock chart rendering
+│   │   ├── DateFolderBrowser.js # Historical data browser
+│   │   └── ...              # Other components
+│   ├── config/              # Configuration files
+│   ├── lib/                 # Utility libraries
+│   └── Flashcards.js        # Main application component
+├── public/                  # Static assets
+├── data/                    # Stock data files
+└── package.json             # Project dependencies
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔐 Authentication
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+TradeMaster uses NextAuth.js with Supabase for authentication:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Sign Up**: Create a new account with email and password
+- **Sign In**: Log in with existing credentials
+- **Session Management**: Secure session handling with JWT tokens
+- **Protected Routes**: Access control for authenticated users
 
-## Learn More
+## 🌐 API Endpoints
 
-To learn more about Next.js, take a look at the following resources:
+- `/api/auth/*`: Authentication endpoints
+- `/api/getFolders`: Retrieve available stock folders
+- `/api/getFileData`: Get chart data for a specific stock
+- `/api/getStockFiles`: Retrieve stock files from Google Drive or local storage
+- `/api/createRound`: Create a new practice session
+- `/api/updateStats`: Update user statistics
+- `/api/getUserRounds`: Retrieve user's practice history
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🤝 Contributing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Deploy on Vercel
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📄 License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+<div align="center">
+  <p>Built with ❤️ using Next.js, React, and Tailwind CSS</p>

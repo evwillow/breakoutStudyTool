@@ -1,3 +1,14 @@
+/**
+ * getStockFiles API Route
+ * 
+ * Fetches stock data files from Google Drive based on stock symbol.
+ * Features:
+ * - Searches across all top-level folders in Google Drive
+ * - Implements multiple search strategies with increasing scope
+ * - Provides fallback to sample data when files aren't found
+ * - Caches responses for performance optimization
+ * - Handles authentication with Google Drive API
+ */
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
 import path from "path";
@@ -5,6 +16,10 @@ import path from "path";
 let authClient = null;
 let drive = null;
 
+/**
+ * Initializes Google Drive authentication client
+ * Reuses existing client if already initialized
+ */
 const initializeAuth = async () => {
   if (!authClient) {
     const keyFilePath = path.join(process.cwd(), "src", "config", "service-account.json");
@@ -17,8 +32,17 @@ const initializeAuth = async () => {
   return drive;
 };
 
+// Parent folder ID in Google Drive containing all stock data
 const PARENT_FOLDER_ID = "18q55oXvsOL2MboehLA1OglGdepBVDDub";
 
+/**
+ * GET handler for stock file requests
+ * Implements a multi-stage search strategy:
+ * 1. Look for exact match folders
+ * 2. Search for stock folders within top-level folders
+ * 3. Search for any CSV files containing the stock symbol
+ * 4. Fall back to sample data if nothing is found
+ */
 export async function GET(request) {
   try {
     const stockSymbol = new URL(request.url).searchParams.get("stock");

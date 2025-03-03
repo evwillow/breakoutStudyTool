@@ -3,24 +3,40 @@
 // This implementation doesn't require jsonwebtoken library
 
 /**
- * Creates a simple base64-encoded token
+ * JWT Utility Functions
+ * 
+ * Simple implementation of JWT token creation and verification.
+ * Note: This is a simplified implementation for development purposes only.
+ * It does not use cryptographic signatures and should not be used in production.
+ * 
+ * Features:
+ * - Base64 encoding and decoding of JWT tokens
+ * - Token creation with custom payloads
+ * - Token verification and payload extraction
+ */
+
+/**
+ * Creates a simple base64-encoded JWT token
+ * 
+ * @param {Object} payload - The data to encode in the token
+ * @returns {string|null} - The encoded JWT token or null if creation fails
  */
 export function signJwt(payload) {
   try {
-    // Create a header
+    // Create the header section (algorithm and token type)
     const header = { alg: "none", typ: "JWT" };
     const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64')
       .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
     
-    // Encode the payload
+    // Encode the payload section (actual data)
     const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64')
       .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
     
-    // Create a dummy signature
+    // Create a dummy signature (not cryptographically secure)
     const signature = Buffer.from("not-secure").toString('base64')
       .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
     
-    // Combine the parts
+    // Combine all parts with period separators
     return `${encodedHeader}.${encodedPayload}.${signature}`;
   } catch (error) {
     console.error("Error creating token:", error);

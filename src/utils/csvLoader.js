@@ -2,6 +2,14 @@
 import Papa from "papaparse";
 
 /**
+ * CSV Loader Utility
+ * 
+ * Provides functionality for loading and parsing CSV files.
+ * Uses the PapaParse library for reliable CSV parsing.
+ * Designed for simple CSV files with one value per row.
+ */
+
+/**
  * Loads a CSV file from the given URL and parses it.
  * Assumes a simple CSV with one value per row.
  *

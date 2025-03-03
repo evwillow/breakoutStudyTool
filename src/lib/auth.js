@@ -1,15 +1,26 @@
+/**
+ * Authentication Configuration
+ * 
+ * Configures NextAuth.js for user authentication in the application.
+ * Features:
+ * - Credentials-based authentication with username/password
+ * - Integration with Supabase for user data storage
+ * - Password hashing with bcrypt for security
+ * - JWT token management for session persistence
+ * - Custom session handling and user data enrichment
+ */
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import supabase from "./supabase";
 
-// Check required environment variables
+// Verify that required environment variables are set
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error("Missing NEXTAUTH_SECRET environment variable");
 }
 
 /**
  * NextAuth.js configuration options
- * This follows the latest Next.js App Router approach
+ * Follows the Next.js App Router approach for authentication
  */
 export const authConfig = {
   providers: [
@@ -19,13 +30,17 @@ export const authConfig = {
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
+      /**
+       * Authorize function validates user credentials
+       * Retrieves user from Supabase and verifies password
+       */
       async authorize(credentials) {
         if (!credentials || !credentials.username || !credentials.password) {
           return null;
         }
 
         try {
-          // Retrieve the user from Supabase
+          // Query Supabase for user with matching username
           const { data: user, error } = await supabase
             .from("users")
             .select("id, username, password")

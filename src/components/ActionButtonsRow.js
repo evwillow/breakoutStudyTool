@@ -1,4 +1,14 @@
-// /src/components/ActionButtonsRow.js
+/**
+ * ActionButtonsRow.js
+ * 
+ * Component for displaying a row of action buttons for user interaction.
+ * Features:
+ * - Responsive design that adapts to different screen sizes
+ * - Visual feedback for selected buttons (correct/incorrect states)
+ * - Compact mode for space-constrained layouts
+ * - Optimized with React.memo for performance
+ * - Consistent color scheme for different actions
+ */
 import React from "react";
 
 const ActionButtonsRow = React.memo(function ActionButtonsRow({
@@ -9,18 +19,18 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
   disabled = false,
   isCompact = false
 }) {
-  // Base classes for all screen sizes
+  // Base styling for all buttons
   const baseClasses = "border-2 border-gray-800 rounded-md shadow-lg flex items-center justify-center font-medium";
   
-  // Desktop-specific classes that we'll maintain across all breakpoints
+  // Color scheme for the different action buttons
   const desktopColorClasses = [
-    "bg-red-500",
-    "bg-yellow-500", 
-    "bg-lime-500",
-    "bg-green-600"
+    "bg-red-500",    // Negative action (e.g., -5%)
+    "bg-yellow-500", // Neutral action (e.g., 0%)
+    "bg-lime-500",   // Positive action (e.g., 20%)
+    "bg-green-600"   // Strong positive action (e.g., 50%)
   ];
   
-  // Responsive classes that adapt to screen size
+  // Responsive classes with different sizing based on screen size and compact mode
   const defaultClasses = isCompact 
     ? [
         `${baseClasses} ${desktopColorClasses[0]} text-black h-16 py-2 text-base`,
@@ -35,6 +45,10 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
         `${baseClasses} ${desktopColorClasses[3]} text-black h-28 sm:h-12 md:h-16 py-6 sm:py-0 text-lg sm:text-base md:text-lg`,
       ];
 
+  /**
+   * Determine button classes based on index and selection state
+   * Adds visual feedback (outline) for correct/incorrect selections
+   */
   const getButtonClasses = (index) => {
     let classes = defaultClasses[index];
     if (selectedButtonIndex !== null && index === selectedButtonIndex) {

@@ -1,13 +1,31 @@
-// /src/components/AuthButtons.js
+/**
+ * AuthButtons Component
+ * 
+ * Displays authentication buttons based on the user's session state.
+ * Features:
+ * - Conditional rendering based on authentication status
+ * - Sign In button for unauthenticated users
+ * - Sign Out button for authenticated users
+ * - Responsive design that adapts to different screen sizes
+ * - Integration with NextAuth.js for session management
+ */
 "use client"
 
 import React from "react"
 import { signOut, useSession } from "next-auth/react"
 
+/**
+ * AuthButtons component that handles user authentication UI
+ * @param {Object} props - Component props
+ * @param {Function} props.onSignIn - Optional callback function triggered after successful sign-in
+ * @returns {JSX.Element} Authentication buttons based on session state
+ */
 export default function AuthButtons({ onSignIn }) {
+  // Get current session state from NextAuth
   const { data: session } = useSession()
 
   if (session) {
+    // Render Sign Out button for authenticated users
     return (
       <button
         onClick={() => signOut()}
@@ -17,6 +35,8 @@ export default function AuthButtons({ onSignIn }) {
       </button>
     )
   }
+  
+  // Render Sign In button for unauthenticated users
   return (
     <button
       onClick={onSignIn}
