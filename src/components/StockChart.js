@@ -17,32 +17,61 @@ import AuthModal from "./AuthModal";
  * Chart configuration with responsive settings
  * Adjusts dimensions, padding, and visual elements based on screen size
  */
-const getChartConfig = (isMobile) => ({
-  PRICE_HEIGHT: 500, // Height of price chart area
-  VOLUME_HEIGHT: 100, // Height of volume chart area
-  PADDING: { 
-    left: isMobile ? 40 : 60, 
-    right: isMobile ? 10 : 20, 
-    top: isMobile ? 10 : 20, 
-    bottom: isMobile ? 20 : 30 
-  },
-  BAR_WIDTH: isMobile ? 4 : 6,
-  BAR_PADDING: isMobile ? 1 : 2,
-  PRICE_TICKS: isMobile ? 5 : 8,
-  COLORS: {
-    UP: "#00E676",     // Green for price increases
-    DOWN: "#FF1744",   // Red for price decreases
-    VOLUME: "#29B6F6", // Blue for volume bars
-    GRID: "#1a1a1a",   // Dark gray for grid lines
-    SMA10: "#e902f5",  // Purple for 10-period moving average
-    SMA20: "#02ddf5",  // Cyan for 20-period moving average
-  },
-});
+const getChartConfig = (isMobile, chartType = 'default') => {
+  // Base configuration
+  const config = {
+    PRICE_HEIGHT: 500, // Height of price chart area
+    VOLUME_HEIGHT: 100, // Height of volume chart area
+    PADDING: { 
+      left: isMobile ? 40 : 60, 
+      right: isMobile ? 10 : 20, 
+      top: isMobile ? 10 : 20, 
+      bottom: isMobile ? 20 : 30 
+    },
+    BAR_WIDTH: isMobile ? 4 : 6,
+    BAR_PADDING: isMobile ? 1 : 2,
+    PRICE_TICKS: isMobile ? 5 : 8,
+    COLORS: {
+      UP: "#00E676",     // Green for price increases
+      DOWN: "#FF1744",   // Red for price decreases
+      VOLUME: "#29B6F6", // Blue for volume bars
+      GRID: "#1a1a1a",   // Dark gray for grid lines
+      SMA10: "#e902f5",  // Purple for 10-period moving average
+      SMA20: "#02ddf5",  // Cyan for 20-period moving average
+      TEXT: "#ffffff",   // White text for labels
+    },
+    BACKGROUND: "#000000", // Default black background
+  };
+  
+  // Special color scheme for "after" chart type
+  if (chartType === 'after') {
+    config.COLORS = {
+      ...config.COLORS,
+      UP: "#4CAF50",     // Darker green for after chart
+      DOWN: "#F44336",   // Darker red for after chart
+      VOLUME: "#42A5F5", // Darker blue for after chart
+      SMA10: "#9C27B0",  // Darker purple for after chart
+      SMA20: "#00BCD4",  // Darker cyan for after chart
+      GRID: "#444444",   // Darker grid lines for better visibility on transparent background
+      TEXT: "#ffffff",   // White text for labels
+    };
+    config.BACKGROUND = "transparent"; // Transparent background for after chart
+  }
+  
+  return config;
+};
 
 /**
  * StockChart component renders price and volume data with optional moving averages
  */
-const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
+const StockChart = ({ 
+  csvData, 
+  showSMA = true, 
+  includeAuth = false, 
+  chartType = 'default', 
+  height = null,
+  backgroundColor = null 
+}) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -61,7 +90,7 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
   }, []);
   
   // Get responsive chart configuration
-  const CHART_CONFIG = useMemo(() => getChartConfig(isMobile), [isMobile]);
+  const CHART_CONFIG = useMemo(() => getChartConfig(isMobile, chartType), [isMobile, chartType]);
 
   if (!csvData || typeof csvData !== "string") {
     return (
@@ -247,8 +276,17 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
 
   if (!chartData) return null;
 
+  // Determine background color based on configuration and props
+  const bgColor = backgroundColor || CHART_CONFIG.BACKGROUND;
+
   return (
-    <div className="relative bg-black w-full h-full">
+    <div 
+      className="relative w-full h-full" 
+      style={{ 
+        height: height ? height : undefined,
+        backgroundColor: bgColor
+      }}
+    >
       {/* If includeAuth is true, show the new auth button (or sign out when logged in) */}
       {includeAuth && (
         <div className="absolute top-2 right-2 z-10">
@@ -265,6 +303,17 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
         preserveAspectRatio="xMidYMid meet"
         className="text-gray-400"
       >
+        {/* Background rect for the chart area */}
+        {bgColor !== "transparent" && (
+          <rect
+            x="0"
+            y="0"
+            width={chartData.chartSize}
+            height={chartData.chartSize}
+            fill={bgColor}
+          />
+        )}
+        
         {/* Draw price grid lines and labels */}
         {chartData.priceTicks.map((tick, i) => (
           <g key={`price-${i}`}>
@@ -281,7 +330,7 @@ const StockChart = ({ csvData, showSMA = true, includeAuth = false }) => {
               y={tick.y + 4}
               fontSize={isMobile ? "10" : "12"}
               textAnchor="end"
-              fill="white"
+              fill={CHART_CONFIG.COLORS.TEXT}
             >
               {tick.value.toFixed(2)}
             </text>

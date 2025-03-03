@@ -18,6 +18,7 @@ import FolderSection from "./components/FolderSection";
 import AuthModal from "./components/AuthModal";
 import Popup from "./components/Popup";
 import RoundHistory from "./components/RoundHistory";
+import AfterChartPopup from "./components/AfterChartPopup";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
 
@@ -58,6 +59,10 @@ export default function Flashcards() {
   const [timer, setTimer] = useState(INITIAL_TIMER);
   const [timerPaused, setTimerPaused] = useState(false);
   const [showRoundHistory, setShowRoundHistory] = useState(false);
+  
+  // After chart popup state
+  const [showAfterChart, setShowAfterChart] = useState(false);
+  const [afterChartData, setAfterChartData] = useState(null);
 
   // Timer countdown effect: runs only when not paused and no popup is shown.
   useEffect(() => {
@@ -76,23 +81,25 @@ export default function Flashcards() {
     }
   }, [showPopup, timerPaused]);
 
-  // Fetch folders on mount.
+  // Fetch folders on component mount.
   useEffect(() => {
     let mounted = true;
     async function fetchFolders() {
       try {
-        setLoading(true);
         const res = await fetch("/api/getFolders");
-        if (!res.ok) throw new Error(`Error fetching folders: ${res.status}`);
-        const data = await res.json();
-        if (mounted && Array.isArray(data) && data.length > 0) {
-          setFolders(data);
-          setSelectedFolder(data[0].name || null);
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Error fetching folders");
         }
-      } catch (err) {
-        if (mounted) setError(err.message || "Error fetching folders");
-      } finally {
-        if (mounted) setLoading(false);
+        const data = await res.json();
+        if (mounted && Array.isArray(data)) {
+          setFolders(data);
+          if (data.length > 0 && !selectedFolder) {
+            setSelectedFolder(data[0].name);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching folders:", error);
       }
     }
     fetchFolders();
@@ -150,23 +157,43 @@ export default function Flashcards() {
                 setRoundId(newRoundData[0].id);
               }
             } catch (err) {
-              console.error("Unexpected error creating round:", err);
+              console.error("Error creating initial round:", err);
             }
           }
-        } else if (mounted) {
-          setFlashcards([]);
         }
-      } catch (err) {
-        if (mounted) setError(err.message);
+      } catch (error) {
+        console.error("Error fetching flashcards:", error);
+        setError(error.message);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
     fetchFlashcards();
     return () => {
       mounted = false;
     };
-  }, [selectedFolder, session, status, roundId]);
+  }, [selectedFolder, status, session, roundId]);
+
+  const handleFolderChange = useCallback((e) => {
+    const newFolder = e.target.value;
+    setSelectedFolder(newFolder);
+    setFlashcards([]);
+    setCurrentIndex(0);
+    setError(null);
+    setLoading(true);
+  }, []);
+
+  const folderOptions = useMemo(
+    () =>
+      folders.map(({ id, name }) => ({
+        key: id,
+        value: name,
+        label: name,
+      })),
+    [folders]
+  );
 
   const currentSubfolder = flashcards[currentIndex] || null;
 
@@ -214,6 +241,22 @@ export default function Flashcards() {
     }
   }, [currentSubfolder]);
 
+  // Extract after.csv data
+  const afterCsvData = useMemo(() => {
+    if (!currentSubfolder || !currentSubfolder.csvFiles) return null;
+    
+    const afterFile = currentSubfolder.csvFiles.find((file) =>
+      file.fileName.toLowerCase().includes("after.csv")
+    );
+    
+    if (!afterFile || !afterFile.data) {
+      console.warn("after.csv file not found or has no data");
+      return null;
+    }
+    
+    return afterFile.data;
+  }, [currentSubfolder]);
+
   // Extract thing.csv data.
   const thingData = useMemo(() => {
     if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
@@ -248,19 +291,19 @@ export default function Flashcards() {
     }
   }, [currentSubfolder]);
 
-  // Extract points from points.csv.
+  // Generate points text array for the chart section.
   const pointsTextArray = useMemo(() => {
     if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
-    
+     
     const pointsFile = currentSubfolder.csvFiles.find(
       (file) => file.fileName.toLowerCase() === "points.csv"
     );
-    
+     
     if (!pointsFile || !pointsFile.data) {
       console.warn("points.csv file not found or has no data");
       return [];
     }
-    
+     
     try {
       return pointsFile.data
         .trim()
@@ -272,25 +315,6 @@ export default function Flashcards() {
       return [];
     }
   }, [currentSubfolder]);
-
-  const handleFolderChange = useCallback((e) => {
-    const newFolder = e.target.value;
-    setSelectedFolder(newFolder);
-    setFlashcards([]);
-    setCurrentIndex(0);
-    setError(null);
-    setLoading(true);
-  }, []);
-
-  const folderOptions = useMemo(
-    () =>
-      folders.map(({ id, name }) => ({
-        key: id,
-        value: name,
-        label: name,
-      })),
-    [folders]
-  );
 
   // Handle answer selection and log the match.
   const handleSelection = useCallback(
@@ -349,23 +373,41 @@ export default function Flashcards() {
         }
       }
 
-      // Do not update the timer until the glow effect is finished.
-      // After 5 seconds, clear feedback, unpause timer, reset timer, and advance.
+      // Wait 1 second before showing the after chart
       setTimeout(() => {
-        setFeedback(null);
-        setDisableButtons(false);
-        setTimer(INITIAL_TIMER);
-        setTimerPaused(false);
-        if (currentMatchIndex < thingData.length - 1) {
-          setCurrentMatchIndex(currentMatchIndex + 1);
+        // Check if after.csv data exists
+        if (afterCsvData) {
+          setAfterChartData(afterCsvData);
+          setShowAfterChart(true);
         } else {
-          setCurrentMatchIndex(0);
-          setCurrentIndex((prev) => (prev + 1) % flashcards.length);
+          // If no after.csv data, proceed with the normal flow
+          proceedToNextStock();
         }
-      }, 5000);
+      }, 1000);
     },
-    [thingData, currentMatchIndex, currentSubfolder, roundId, session, flashcards.length]
+    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterCsvData]
   );
+
+  // Function to proceed to the next stock
+  const proceedToNextStock = useCallback(() => {
+    setFeedback(null);
+    setDisableButtons(false);
+    setTimer(INITIAL_TIMER);
+    setTimerPaused(false);
+    if (currentMatchIndex < thingData.length - 1) {
+      setCurrentMatchIndex(currentMatchIndex + 1);
+    } else {
+      setCurrentMatchIndex(0);
+      setCurrentIndex((prev) => (prev + 1) % flashcards.length);
+    }
+  }, [currentMatchIndex, thingData, flashcards.length]);
+
+  // Handle closing the after chart popup
+  const handleAfterChartClose = useCallback(() => {
+    setShowAfterChart(false);
+    setAfterChartData(null);
+    proceedToNextStock();
+  }, [proceedToNextStock]);
 
   const handlePopupSelect = (selection) => {
     setShowPopup(false);
@@ -695,6 +737,14 @@ export default function Flashcards() {
               userId={session?.user?.id}
             />
           )}
+          
+          {/* After Chart Popup */}
+          <AfterChartPopup 
+            isOpen={showAfterChart}
+            onClose={handleAfterChartClose}
+            afterCsvData={afterChartData}
+            stockName={currentSubfolder ? currentSubfolder.name : 'Stock'}
+          />
         </div>
       </div>
     );
