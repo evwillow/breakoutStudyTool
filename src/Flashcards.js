@@ -308,7 +308,7 @@ export default function Flashcards() {
       console.log("Current round ID:", roundId);
       console.log("Current user ID:", session?.user?.id);
 
-      // Log match via server-side API route instead of direct Supabase client
+      // Log match via server-side API route instead of direct Supabase client.
       try {
         const matchData = {
           round_id: roundId,
@@ -443,6 +443,22 @@ export default function Flashcards() {
     // First select the correct folder
     if (datasetName !== selectedFolder) {
       setSelectedFolder(datasetName);
+      // We need to wait for the folder to be selected and flashcards to be loaded
+      // before we can load the round data
+      await new Promise(resolve => {
+        const checkFlashcardsLoaded = setInterval(() => {
+          if (flashcards.length > 0) {
+            clearInterval(checkFlashcardsLoaded);
+            resolve();
+          }
+        }, 100);
+        
+        // Set a timeout to prevent infinite waiting
+        setTimeout(() => {
+          clearInterval(checkFlashcardsLoaded);
+          resolve();
+        }, 5000);
+      });
     }
     
     try {
@@ -454,6 +470,8 @@ export default function Flashcards() {
         console.error("Error loading round:", result.error);
         return;
       }
+      
+      console.log("Loaded round data:", result);
       
       // Set round ID
       setRoundId(roundId);
@@ -469,11 +487,19 @@ export default function Flashcards() {
       const totalMatches = result.matches.length;
       const correctMatches = result.matches.filter(match => match.correct).length;
       
+      console.log(`Loading round with ${correctMatches} correct out of ${totalMatches} total matches`);
+      
       // Update state
       setMatchCount(totalMatches);
       setCorrectCount(correctMatches);
       setCurrentIndex(stockIndex >= 0 ? stockIndex : 0);
       setCurrentMatchIndex(stockIndex >= 0 ? stockIndex : 0);
+      
+      // Reset feedback and timer
+      setFeedback(null);
+      setTimer(INITIAL_TIMER);
+      setTimerPaused(false);
+      setDisableButtons(false);
     } catch (err) {
       console.error("Error loading round data:", err);
     }

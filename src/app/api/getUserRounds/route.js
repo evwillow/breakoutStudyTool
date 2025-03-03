@@ -58,24 +58,17 @@ export async function GET(req) {
         };
       }
       
-      if (!matches || matches.length === 0) {
-        return {
-          ...round,
-          accuracy: "0.00",
-          totalMatches: 0,
-          created_at: new Date(round.created_at).toLocaleString()
-        };
-      }
-      
       // Calculate accuracy
-      const totalMatches = matches.length;
-      const correctMatches = matches.filter(match => match.correct).length;
+      const totalMatches = matches ? matches.length : 0;
+      const correctMatches = matches ? matches.filter(match => match.correct).length : 0;
       
       console.log(`API: Round ${round.id} - ${correctMatches} correct out of ${totalMatches} matches`);
       
-      const accuracy = totalMatches > 0 
-        ? ((correctMatches / totalMatches) * 100).toFixed(2) 
-        : "0.00";
+      let accuracy = "0.00";
+      if (totalMatches > 0) {
+        const accuracyValue = (correctMatches / totalMatches) * 100;
+        accuracy = accuracyValue.toFixed(2);
+      }
         
       return {
         ...round,

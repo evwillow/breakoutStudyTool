@@ -21,7 +21,14 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
         }
         
         console.log("Received rounds data:", data.rounds);
-        setRounds(data.rounds || []);
+        
+        // Format the accuracy to ensure it's displayed correctly
+        const formattedRounds = data.rounds.map(round => ({
+          ...round,
+          accuracy: parseFloat(round.accuracy).toFixed(2)
+        }));
+        
+        setRounds(formattedRounds || []);
       } catch (err) {
         console.error("Error fetching round history:", err);
         setError("Failed to load round history");

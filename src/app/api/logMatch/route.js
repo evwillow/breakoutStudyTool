@@ -18,6 +18,25 @@ export async function POST(req) {
 
   try {
     const matchData = await req.json();
+    
+    // Insert the match data into the database
+    console.log("Server: Inserting match data:", matchData);
+    const { error: insertMatchError } = await supabase
+      .from("matches")
+      .insert([
+        {
+          round_id: matchData.round_id,
+          stock_symbol: matchData.stock_symbol,
+          user_selection: matchData.user_selection,
+          correct: matchData.correct,
+          user_id: matchData.user_id
+        }
+      ]);
+      
+    if (insertMatchError) {
+      console.error("Server: Error inserting match:", insertMatchError);
+      return new Response(JSON.stringify({ error: "Failed to insert match data" }), { status: 500 });
+    }
 
     // Get all matches for this round
     const { data: matches, error: matchError } = await supabase
