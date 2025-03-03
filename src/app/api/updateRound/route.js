@@ -1,4 +1,3 @@
-// /src/app/api/createRound/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -19,41 +18,38 @@ export async function POST(req) {
   }
 
   try {
-    const roundData = await req.json();
-    console.log("Server: Creating round:", roundData);
+    const updateData = await req.json();
+    console.log("Server: Updating round:", updateData);
 
     // Validate data
-    if (!roundData.dataset_name || !roundData.user_id) {
+    if (!updateData.id) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Round ID is required" },
         { status: 400 }
       );
     }
 
-    // Create the round
+    // Create an update object with only the fields we want to update
+    const updateObject = {};
+    if (updateData.completed !== undefined) updateObject.completed = updateData.completed;
+    if (updateData.dataset_name !== undefined) updateObject.dataset_name = updateData.dataset_name;
+
+    // Update the round
     const { data, error } = await supabase
       .from("rounds")
-      .insert([{
-        dataset_name: roundData.dataset_name,
-        user_id: roundData.user_id,
-        completed: roundData.completed === true ? true : false
-      }])
+      .update(updateObject)
+      .eq("id", updateData.id)
       .select();
 
     if (error) {
-      console.error("Server: Error creating round:", error);
+      console.error("Server: Error updating round:", error);
       return NextResponse.json({ error: error.message, details: error }, { status: 500 });
     }
 
-    if (!data || data.length === 0) {
-      console.error("Server: No data returned after creating round");
-      return NextResponse.json({ error: "Failed to create round - no data returned" }, { status: 500 });
-    }
-
-    console.log("Server: Round created successfully:", data[0]);
-    return NextResponse.json({ success: true, data: data[0] });
+    console.log("Server: Round updated successfully:", data);
+    return NextResponse.json({ success: true, data });
   } catch (err) {
     console.error("Server: Unexpected error:", err);
     return NextResponse.json({ error: "Server error", details: err.message }, { status: 500 });
   }
-}
+} 

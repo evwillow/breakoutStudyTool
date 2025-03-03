@@ -308,36 +308,45 @@ export default function Flashcards() {
       console.log("Current round ID:", roundId);
       console.log("Current user ID:", session?.user?.id);
 
-      // Log match via server-side API route instead of direct Supabase client.
-      try {
-        const matchData = {
-          round_id: roundId,
-          stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
-          user_selection: selection,
-          correct,
-          user_id: session?.user?.id,
-        };
-        
-        console.log("Sending match data to API:", matchData);
-        
-        // Use fetch API to call a server-side endpoint for logging
-        const response = await fetch("/api/logMatch", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(matchData),
-        });
-        
-        const result = await response.json();
-        
-        if (!response.ok) {
-          console.error("Error logging match via API:", result.error);
-        } else {
-          console.log("Match logged successfully via API:", result);
+      // Only log match if we have a valid roundId
+      if (!roundId) {
+        console.warn("No round ID available - match not logged. Create a new round first.");
+      } else {
+        // Log match via server-side API route instead of direct Supabase client.
+        try {
+          const matchData = {
+            round_id: roundId,
+            stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
+            user_selection: selection,
+            correct,
+            user_id: session?.user?.id,
+          };
+          
+          console.log("Sending match data to API:", matchData);
+          
+          // Use fetch API to call a server-side endpoint for logging
+          const response = await fetch("/api/logMatch", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(matchData),
+          });
+          
+          const result = await response.json();
+          
+          if (!response.ok) {
+            console.error("Error logging match via API:", result.error, result.details || "");
+          } else {
+            if (result.warning) {
+              console.warn("Match logged with warning:", result.warning);
+            } else {
+              console.log("Match logged successfully via API:", result);
+            }
+          }
+        } catch (err) {
+          console.error("Error calling log match API:", err);
         }
-      } catch (err) {
-        console.error("Error calling log match API:", err);
       }
 
       // Do not update the timer until the glow effect is finished.
@@ -364,8 +373,9 @@ export default function Flashcards() {
   };
 
   // Only calculate accuracy, removed win rate
-  const accuracy =
-    matchCount > 0 ? ((correctCount / matchCount) * 100).toFixed(2) : "0.00";
+  const accuracy = useMemo(() => {
+    return matchCount > 0 ? ((correctCount / matchCount) * 100).toFixed(2) : "0.00";
+  }, [correctCount, matchCount]);
 
   const createNewRound = async () => {
     // Wait until auth is fully loaded
@@ -388,15 +398,39 @@ export default function Flashcards() {
       return;
     }
     
+    // Check if folder is selected
+    if (!selectedFolder) {
+      console.error("No folder selected");
+      alert("Please select a folder first");
+      return;
+    }
+    
     // End current round if exists
     if (roundId) {
-      await supabase
-        .from("rounds")
-        .update({ completed: true })
-        .eq("id", roundId);
+      try {
+        const response = await fetch(`/api/updateRound`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: roundId,
+            completed: true
+          }),
+        });
+        
+        if (!response.ok) {
+          console.warn("Failed to mark previous round as completed, but continuing anyway");
+        }
+      } catch (err) {
+        console.error("Error updating previous round:", err);
+        // Continue anyway
+      }
     }
     
     try {
+      console.log("Creating new round with dataset:", selectedFolder);
+      
       // Create a new round via server API route
       const response = await fetch("/api/createRound", {
         method: "POST",
@@ -413,11 +447,18 @@ export default function Flashcards() {
       const result = await response.json();
       
       if (!response.ok) {
-        console.error("Error creating round via API:", result.error);
+        console.error("Error creating round via API:", result.error, result.details || "");
+        alert("Failed to create a new round. Please try again.");
         return;
       }
       
       console.log("Round created successfully:", result.data);
+      
+      if (!result.data || !result.data.id) {
+        console.error("No round ID returned from API");
+        alert("Failed to create a new round. Please try again.");
+        return;
+      }
       
       // Make sure to set the roundId here
       setRoundId(result.data.id);
@@ -425,8 +466,11 @@ export default function Flashcards() {
       setMatchCount(0);
       setCorrectCount(0);
       setTimer(INITIAL_TIMER);
+      
+      console.log("New round started with ID:", result.data.id);
     } catch (err) {
       console.error("Unexpected error creating round:", err);
+      alert("An error occurred while creating a new round. Please try again.");
     }
   };
 
@@ -439,6 +483,10 @@ export default function Flashcards() {
     if (!session?.user?.id) return;
     
     setShowRoundHistory(false);
+    
+    // Show loading state
+    setLoading(true);
+    setError(null); // Clear any previous errors
     
     // First select the correct folder
     if (datasetName !== selectedFolder) {
@@ -468,6 +516,8 @@ export default function Flashcards() {
       
       if (!response.ok) {
         console.error("Error loading round:", result.error);
+        setError(`Failed to load round: ${result.error}`);
+        setLoading(false);
         return;
       }
       
@@ -483,15 +533,22 @@ export default function Flashcards() {
         : null;
       const stockIndex = uniqueStocks.indexOf(lastStock);
       
-      // Calculate metrics
+      // Get metrics from the loaded data
       const totalMatches = result.matches.length;
       const correctMatches = result.matches.filter(match => match.correct).length;
       
-      console.log(`Loading round with ${correctMatches} correct out of ${totalMatches} total matches`);
+      // Calculate accuracy for display
+      const roundAccuracy = totalMatches > 0 
+        ? ((correctMatches / totalMatches) * 100).toFixed(2) 
+        : "0.00";
       
-      // Update state
+      console.log(`Loading round with ${correctMatches} correct out of ${totalMatches} total matches (${roundAccuracy}% accuracy)`);
+      
+      // Update state with the saved metrics
       setMatchCount(totalMatches);
       setCorrectCount(correctMatches);
+      
+      // Set the current index to continue from where left off
       setCurrentIndex(stockIndex >= 0 ? stockIndex : 0);
       setCurrentMatchIndex(stockIndex >= 0 ? stockIndex : 0);
       
@@ -500,8 +557,30 @@ export default function Flashcards() {
       setTimer(INITIAL_TIMER);
       setTimerPaused(false);
       setDisableButtons(false);
+      
+      // Display a success message
+      const successMessage = `Round loaded successfully with ${roundAccuracy}% accuracy (${correctMatches}/${totalMatches} correct)`;
+      console.log(successMessage);
+      
+      // Set a temporary success message
+      setError(null);
+      // Use a temporary notification that will disappear after a few seconds
+      const tempNotification = document.createElement('div');
+      tempNotification.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50';
+      tempNotification.innerHTML = `<strong>Success!</strong> ${successMessage}`;
+      document.body.appendChild(tempNotification);
+      
+      // Remove the notification after 3 seconds
+      setTimeout(() => {
+        if (document.body.contains(tempNotification)) {
+          document.body.removeChild(tempNotification);
+        }
+      }, 3000);
     } catch (err) {
       console.error("Error loading round data:", err);
+      setError(`Error loading round: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 

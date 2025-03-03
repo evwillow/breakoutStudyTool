@@ -3,12 +3,21 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 // Server-side Supabase client with service role key
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Supabase environment variables are missing. NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY) must be set.");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET(req) {
+  // Check if supabase is configured properly.
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json({ error: "Supabase is not configured properly." }, { status: 500 });
+  }
+
   try {
     const url = new URL(req.url);
     const roundId = url.searchParams.get("id");
@@ -44,21 +53,28 @@ export async function GET(req) {
       return NextResponse.json({ error: matchesError.message }, { status: 500 });
     }
 
-    // Get stats for this round
-    const { data: stats, error: statsError } = await supabase
-      .from("stats")
-      .select("*")
-      .eq("round_id", roundId)
-      .single();
+    // Calculate stats directly from matches
+    const totalMatches = matches ? matches.length : 0;
+    const correctMatches = matches ? matches.filter(match => match.correct).length : 0;
+    const accuracy = totalMatches > 0 ? (correctMatches / totalMatches) * 100 : 0;
+
+    const calculatedStats = {
+      round_id: roundId,
+      accuracy: accuracy.toFixed(2),
+      total_matches: totalMatches,
+      correct_matches: correctMatches
+    };
+
+    console.log("Server: Calculated stats for round", roundId, calculatedStats);
 
     // Return combined data
     return NextResponse.json({
       round,
       matches: matches || [],
-      stats: stats || null
+      stats: calculatedStats
     });
   } catch (err) {
     console.error("Server: Unexpected error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Server error", details: err.message }, { status: 500 });
   }
 }

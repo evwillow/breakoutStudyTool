@@ -56,7 +56,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
         </div>
         <div>
           <span className="text-xs text-gray-500">Matches</span>
-          <p className="text-black font-medium">{round.totalMatches}</p>
+          <p className="text-black font-medium">{round.correctMatches || 0} / {round.totalMatches}</p>
         </div>
         <div>
           <span className="text-xs text-gray-500">Status</span>
@@ -140,7 +140,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
                       <td className="border p-2 text-black">{round.created_at}</td>
                       <td className="border p-2 text-black">{round.dataset_name}</td>
                       <td className="border p-2 text-black">{round.accuracy}%</td>
-                      <td className="border p-2 text-black">{round.totalMatches}</td>
+                      <td className="border p-2 text-black">{round.correctMatches || 0} / {round.totalMatches}</td>
                       <td className="border p-2 text-black">
                         {round.completed ? "Completed" : "In Progress"}
                       </td>
