@@ -528,7 +528,7 @@ export default function Flashcards() {
   } else {
     content = (
       <div className="bg-gray-100 min-h-screen w-full flex justify-center">
-        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[75%] bg-white rounded-none sm:rounded-lg shadow-lg p-0 sm:p-4 pb-0">
+        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[75%] bg-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
           <ChartSection
             orderedFiles={orderedFiles}
             timer={timer}
@@ -558,7 +558,7 @@ export default function Flashcards() {
           />
           
           {/* Date Folder Browser Section */}
-          <div className="mt-8 border-t border-gray-200 pt-6">
+          <div className="mt-8 pt-6 mb-20">
             {console.log("Current subfolder:", currentSubfolder)}
             <DateFolderBrowser 
               session={session} 

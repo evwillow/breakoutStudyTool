@@ -771,7 +771,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full pt-1 sm:pt-4 px-0 sm:px-6 md:px-10 pb-8">
       <h3 className="text-lg font-semibold mb-2 text-black">Previous Setups:</h3>
       
       {loading && <p className="text-black">Loading historical data files...</p>}
@@ -803,9 +803,9 @@ const DateFolderBrowser = ({ session, currentStock }) => {
           {allFiles
             .filter(file => shouldIncludeInDropdown(file.fileName))
             .map((file) => (
-              <div key={file.id} className="border border-gray-300 rounded overflow-hidden">
+              <div key={file.id} className="border border-gray-300 rounded overflow-hidden shadow-sm">
                 <button 
-                  className={`w-full p-3 text-left text-black bg-white hover:bg-gray-100 flex justify-between items-center ${expandedFile === file.id ? 'border-b border-gray-300' : ''}`}
+                  className={`w-full p-3 text-left text-black bg-white hover:bg-gray-50 flex justify-between items-center ${expandedFile === file.id ? 'border-b border-gray-300' : ''}`}
                   onClick={() => toggleFileExpansion(file.id)}
                 >
                   <span className="font-medium">{displayFileName(file.fileName)}</span>
@@ -821,7 +821,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                 </button>
                 
                 {expandedFile === file.id && (
-                  <div className="p-3">
+                  <div className="p-3 bg-white">
                     {fileData[file.id] ? (
                       <div className="bg-black rounded-md overflow-hidden">
                         <StockChart csvData={fileData[file.id]} height={300} />
