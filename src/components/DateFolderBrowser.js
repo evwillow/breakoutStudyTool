@@ -4,7 +4,9 @@
  * Component for browsing and displaying historical stock data files.
  * Features:
  * - Fetches and displays historical stock data files for the current stock
- * - Auto-expands items as user scrolls down and collapses when scrolling up
+ * - Progressively auto-expands items as user scrolls down
+ * - Allows users to manually open and close dropdowns with their choices respected
+ * - Supports multiple open dropdowns simultaneously
  * - Implements multiple fallback strategies to find relevant files
  * - Allows users to expand/collapse individual file charts
  * - Filters files to show only those with proper date formatting
@@ -19,7 +21,7 @@ import StockChart from "./StockChart";
  */
 const DateFolderBrowser = ({ session, currentStock }) => {
   const [allFiles, setAllFiles] = useState([]);
-  const [expandedFile, setExpandedFile] = useState(null);
+  const [expandedFiles, setExpandedFiles] = useState([]);
   const [fileData, setFileData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -387,7 +389,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Set up intersection observer for scroll reveal and auto-expand effect
+  // Set up intersection observer for scroll reveal and progressive auto-expand effect
   useEffect(() => {
     if (!allFiles.length) return; // Don't set up observer if there are no files
     
@@ -413,35 +415,32 @@ const DateFolderBrowser = ({ session, currentStock }) => {
             return prev;
           });
           
-          // Only auto-expand/collapse if the item is not manually controlled
-          if (!manuallyControlledItems.includes(id)) {
-            // Auto-expand when scrolling down, auto-collapse when scrolling up
-            if (scrollingDirection.current === 'down') {
-              setAutoExpandedItems(prev => {
-                if (!prev.includes(id)) {
-                  // Load file data if not already loaded
-                  if (!fileData[id]) {
-                    loadFileData(id);
-                  }
-                  return [...prev, id];
+          // Only auto-expand if:
+          // 1. The item is not manually controlled (user hasn't interacted with it)
+          // 2. We're scrolling down (progressive expansion)
+          if (!manuallyControlledItems.includes(id) && scrollingDirection.current === 'down') {
+            setAutoExpandedItems(prev => {
+              if (!prev.includes(id)) {
+                // Load file data if not already loaded
+                if (!fileData[id]) {
+                  loadFileData(id);
                 }
-                return prev;
-              });
-              setExpandedFile(id);
-            } else if (scrollingDirection.current === 'up') {
-              setAutoExpandedItems(prev => prev.filter(item => item !== id));
-              if (expandedFile === id) {
-                setExpandedFile(null);
+                return [...prev, id];
               }
-            }
-          }
-        } else {
-          // When scrolling up and item leaves viewport, remove from auto-expanded
-          // Only if not manually controlled
-          if (scrollingDirection.current === 'up' && !manuallyControlledItems.includes(id)) {
-            setAutoExpandedItems(prev => prev.filter(item => item !== id));
+              return prev;
+            });
+            
+            // Add to expanded files array instead of setting a single expanded file
+            setExpandedFiles(prev => {
+              if (!prev.includes(id)) {
+                return [...prev, id];
+              }
+              return prev;
+            });
           }
         }
+        // We don't auto-close items when they leave the viewport
+        // This allows for progressive opening only
       });
     };
 
@@ -457,7 +456,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     return () => {
       observer.disconnect();
     };
-  }, [allFiles, expandedFile, fileData, manuallyControlledItems]);
+  }, [allFiles, expandedFiles, fileData, manuallyControlledItems]);
 
   // Load file data for a specific file
   const loadFileData = async (fileId) => {
@@ -493,16 +492,16 @@ const DateFolderBrowser = ({ session, currentStock }) => {
       setManuallyControlledItems(prev => [...prev, fileId]);
     }
     
-    // If user manually toggles, override auto-expansion
-    if (expandedFile === fileId) {
-      // Add a small delay before closing to allow for exit animation
+    // Handle manual toggle - users can open or close as they choose
+    if (expandedFiles.includes(fileId)) {
+      // User is closing the dropdown
       setTimeout(() => {
-        setExpandedFile(null);
+        setExpandedFiles(prev => prev.filter(id => id !== fileId));
         setAutoExpandedItems(prev => prev.filter(item => item !== fileId));
       }, 50);
     } else {
-      // Immediately set as expanded for opening animation
-      setExpandedFile(fileId);
+      // User is opening the dropdown
+      setExpandedFiles(prev => [...prev, fileId]);
       setAutoExpandedItems(prev => [...prev, fileId]);
       
       // Load file data if not already loaded
@@ -1066,7 +1065,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                 style={{ transitionDelay: `${index * 150}ms` }}
               >
                 <button 
-                  className={`w-full p-4 text-left text-black bg-white hover:bg-gray-50 flex justify-between items-center setup-item-interactive transition-transform duration-150 ${expandedFile === file.id ? 'border-b border-gray-200' : ''} ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
+                  className={`w-full p-4 text-left text-black bg-white hover:bg-gray-50 flex justify-between items-center setup-item-interactive transition-transform duration-150 ${expandedFiles.includes(file.id) ? 'border-b border-gray-200' : ''} ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
                   onClick={() => handleFileToggle(file.id)}
                 >
                   <span className="font-medium flex items-center">
@@ -1076,7 +1075,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                     {displayFileName(file.fileName)}
                   </span>
                   <svg 
-                    className={`w-5 h-5 transform transition-transform duration-500 ease-in-out text-gray-500 ${expandedFile === file.id ? 'rotate-180' : ''}`} 
+                    className={`w-5 h-5 transform transition-transform duration-500 ease-in-out text-gray-500 ${expandedFiles.includes(file.id) ? 'rotate-180' : ''}`} 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24" 
@@ -1086,7 +1085,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                   </svg>
                 </button>
                 
-                {expandedFile === file.id && (
+                {expandedFiles.includes(file.id) && (
                   <div 
                     className="p-4 bg-white transition-all duration-700 ease-in-out origin-top"
                     style={{

@@ -8,6 +8,7 @@
  * - Round management and metrics tracking
  * - Timer functionality
  * - Chart display and user interactions
+ * - Auto-loading of the most recent in-progress round
  */
 "use client";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
@@ -335,6 +336,47 @@ export default function Flashcards() {
       // Only log match if we have a valid roundId
       if (!roundId) {
         console.warn("No round ID available - match not logged. Create a new round first.");
+        // Create a new round if one doesn't exist
+        if (session?.user?.id && selectedFolder) {
+          console.log("Automatically creating a new round since none exists");
+          try {
+            await createNewRound();
+            // After creating a new round, try logging the match again with a delay
+            // to ensure the state has been updated
+            setTimeout(() => {
+              if (roundId) {
+                console.log("Retrying match logging with new round ID:", roundId);
+                // Use a direct API call instead of recursively calling handleSelection
+                const matchData = {
+                  round_id: roundId,
+                  stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
+                  user_selection: selection,
+                  correct,
+                  user_id: session?.user?.id,
+                };
+                
+                fetch("/api/logMatch", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(matchData),
+                }).then(response => {
+                  if (!response.ok) {
+                    console.error("Error logging match after creating new round");
+                  } else {
+                    console.log("Match logged successfully after creating new round");
+                  }
+                }).catch(err => {
+                  console.error("Error calling log match API after creating new round:", err);
+                });
+              }
+            }, 500);
+          } catch (err) {
+            console.error("Failed to create new round for match logging:", err);
+          }
+          return;
+        }
       } else {
         // Log match via server-side API route instead of direct Supabase client.
         try {
@@ -361,6 +403,47 @@ export default function Flashcards() {
           
           if (!response.ok) {
             console.error("Error logging match via API:", result.error, result.details || "");
+            
+            // If the round doesn't exist in the database, create a new one
+            if (response.status === 404 && result.error === "Round not found") {
+              console.warn("Round not found in database. Creating a new round...");
+              
+              try {
+                // Create a new round
+                await createNewRound();
+                
+                // Wait a moment for the round to be created
+                setTimeout(() => {
+                  if (roundId) {
+                    console.log("Retrying match logging with new round ID:", roundId);
+                    // Update the match data with the new round ID
+                    const updatedMatchData = {
+                      ...matchData,
+                      round_id: roundId
+                    };
+                    
+                    // Try logging the match again
+                    fetch("/api/logMatch", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify(updatedMatchData),
+                    }).then(retryResponse => {
+                      if (!retryResponse.ok) {
+                        console.error("Error logging match after creating new round");
+                      } else {
+                        console.log("Match logged successfully after creating new round");
+                      }
+                    }).catch(retryErr => {
+                      console.error("Error calling log match API after creating new round:", retryErr);
+                    });
+                  }
+                }, 500);
+              } catch (createErr) {
+                console.error("Failed to create new round after round not found:", createErr);
+              }
+            }
           } else {
             if (result.warning) {
               console.warn("Match logged with warning:", result.warning);
@@ -423,28 +506,28 @@ export default function Flashcards() {
     // Wait until auth is fully loaded
     if (status === "loading") {
       console.log("Authentication is still loading, please wait...");
-      return;
+      return null;
     }
     
     // Check if user is authenticated
     if (status !== "authenticated" || !session) {
       console.log("You need to be signed in to create a round");
       setShowAuthModal(true);
-      return;
+      return null;
     }
     
     // Verify user ID exists
     if (!session.user?.id) {
       console.error("User ID not found in session");
       console.log("Session object:", session);
-      return;
+      return null;
     }
     
     // Check if folder is selected
     if (!selectedFolder) {
       console.error("No folder selected");
       alert("Please select a folder first");
-      return;
+      return null;
     }
     
     // End current round if exists
@@ -491,7 +574,7 @@ export default function Flashcards() {
       if (!response.ok) {
         console.error("Error creating round via API:", result.error, result.details || "");
         alert("Failed to create a new round. Please try again.");
-        return;
+        return null;
       }
       
       console.log("Round created successfully:", result.data);
@@ -499,20 +582,23 @@ export default function Flashcards() {
       if (!result.data || !result.data.id) {
         console.error("No round ID returned from API");
         alert("Failed to create a new round. Please try again.");
-        return;
+        return null;
       }
       
       // Make sure to set the roundId here
-      setRoundId(result.data.id);
+      const newRoundId = result.data.id;
+      setRoundId(newRoundId);
       setCurrentMatchIndex(0);
       setMatchCount(0);
       setCorrectCount(0);
       setTimer(INITIAL_TIMER);
       
-      console.log("New round started with ID:", result.data.id);
+      console.log("New round started with ID:", newRoundId);
+      return newRoundId;
     } catch (err) {
       console.error("Unexpected error creating round:", err);
       alert("An error occurred while creating a new round. Please try again.");
+      return null;
     }
   };
 
@@ -523,6 +609,10 @@ export default function Flashcards() {
   
   const loadRound = async (roundId, datasetName) => {
     if (!session?.user?.id) return;
+    if (!roundId) {
+      console.error("Cannot load round: No round ID provided");
+      return;
+    }
     
     setShowRoundHistory(false);
     
@@ -530,25 +620,53 @@ export default function Flashcards() {
     setLoading(true);
     setError(null); // Clear any previous errors
     
-    // First select the correct folder
-    if (datasetName !== selectedFolder) {
+    // If we're switching datasets, make sure to set the selected folder
+    if (datasetName && datasetName !== selectedFolder) {
+      console.log(`Setting selected folder to ${datasetName} for loaded round`);
       setSelectedFolder(datasetName);
-      // We need to wait for the folder to be selected and flashcards to be loaded
-      // before we can load the round data
-      await new Promise(resolve => {
-        const checkFlashcardsLoaded = setInterval(() => {
-          if (flashcards.length > 0) {
+      
+      // We need to wait for the folder data to be loaded
+      if (!flashcards || flashcards.length === 0) {
+        try {
+          const fileDataRes = await fetch(
+            `/api/getFileData?folder=${encodeURIComponent(datasetName)}`
+          );
+          
+          if (!fileDataRes.ok) {
+            const errorData = await fileDataRes.json();
+            throw new Error(errorData.message || "Error fetching file data");
+          }
+          
+          const fileData = await fileDataRes.json();
+          if (Array.isArray(fileData) && fileData.length > 0) {
+            setFlashcards(fileData);
+          } else {
+            console.error("No flashcard data found for folder:", datasetName);
+            setLoading(false);
+            return;
+          }
+        } catch (fileError) {
+          console.error("Error fetching flashcards for loaded round:", fileError);
+          setLoading(false);
+          return;
+        }
+      } else {
+        // We need to wait for the folder to be selected and flashcards to be loaded
+        await new Promise(resolve => {
+          const checkFlashcardsLoaded = setInterval(() => {
+            if (flashcards.length > 0) {
+              clearInterval(checkFlashcardsLoaded);
+              resolve();
+            }
+          }, 100);
+          
+          // Set a timeout to prevent infinite waiting
+          setTimeout(() => {
             clearInterval(checkFlashcardsLoaded);
             resolve();
-          }
-        }, 100);
-        
-        // Set a timeout to prevent infinite waiting
-        setTimeout(() => {
-          clearInterval(checkFlashcardsLoaded);
-          resolve();
-        }, 5000);
-      });
+          }, 5000);
+        });
+      }
     }
     
     try {
@@ -564,6 +682,14 @@ export default function Flashcards() {
       }
       
       console.log("Loaded round data:", result);
+      
+      // Check if we have valid data from the API
+      if (!result) {
+        console.error("No data returned from API for round:", roundId);
+        setError(`Failed to load round: No data returned`);
+        setLoading(false);
+        return;
+      }
       
       // Set round ID
       setRoundId(roundId);
@@ -625,6 +751,87 @@ export default function Flashcards() {
       setLoading(false);
     }
   };
+
+  // Auto-load the most recent in-progress round when the user is authenticated
+  useEffect(() => {
+    // Only run this effect when the user is authenticated and we don't have an active round
+    if (status === "authenticated" && session?.user?.id && !roundId) {
+      const autoLoadMostRecentRound = async () => {
+        try {
+          console.log("Attempting to auto-load the most recent in-progress round");
+          
+          // Fetch all user rounds
+          const response = await fetch(`/api/getUserRounds?userId=${session.user.id}`);
+          if (!response.ok) {
+            throw new Error("Failed to fetch user rounds");
+          }
+          
+          const data = await response.json();
+          
+          // Find the most recent in-progress round
+          const inProgressRounds = data.rounds.filter(round => !round.completed);
+          
+          if (inProgressRounds.length > 0) {
+            // Sort by created_at (most recent first) - should already be sorted, but just to be safe
+            inProgressRounds.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            const mostRecentRound = inProgressRounds[0];
+            console.log("Auto-loading most recent in-progress round:", mostRecentRound);
+            
+            // First set the selected folder to ensure data is loaded
+            if (mostRecentRound.dataset_name) {
+              setSelectedFolder(mostRecentRound.dataset_name);
+              
+              // Wait for folder data to be fetched before loading the round
+              // We'll fetch the flashcards data manually here to ensure it's loaded
+              try {
+                setLoading(true);
+                const fileDataRes = await fetch(
+                  `/api/getFileData?folder=${encodeURIComponent(mostRecentRound.dataset_name)}`
+                );
+                
+                if (!fileDataRes.ok) {
+                  const errorData = await fileDataRes.json();
+                  throw new Error(errorData.message || "Error fetching file data");
+                }
+                
+                const fileData = await fileDataRes.json();
+                if (Array.isArray(fileData) && fileData.length > 0) {
+                  setFlashcards(fileData);
+                  
+                  // Now that we have the folder data, load the round
+                  try {
+                    await loadRound(mostRecentRound.id, mostRecentRound.dataset_name);
+                  } catch (loadError) {
+                    console.error("Error loading round during auto-load:", loadError);
+                    // If loading the round fails, create a new round instead
+                    if (session?.user?.id) {
+                      console.log("Creating new round after failed auto-load");
+                      await createNewRound();
+                    }
+                  }
+                } else {
+                  console.error("No flashcard data found for folder:", mostRecentRound.dataset_name);
+                }
+              } catch (fileError) {
+                console.error("Error fetching flashcards for auto-loaded round:", fileError);
+              } finally {
+                setLoading(false);
+              }
+            } else {
+              console.error("No dataset_name found for round:", mostRecentRound);
+            }
+          } else {
+            console.log("No in-progress rounds found to auto-load");
+          }
+        } catch (error) {
+          console.error("Error auto-loading most recent round:", error);
+        }
+      };
+      
+      autoLoadMostRecentRound();
+    }
+  }, [status, session, roundId]); // Only run when authentication status changes or session changes
 
   let content;
   if (status === "loading") {

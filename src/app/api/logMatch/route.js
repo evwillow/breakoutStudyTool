@@ -25,6 +25,23 @@ export async function POST(req) {
       return new Response(JSON.stringify({ error: "round_id is required" }), { status: 400 });
     }
     
+    // First, verify that the round exists in the database
+    console.log("Server: Verifying round exists:", matchData.round_id);
+    const { data: roundData, error: roundError } = await supabase
+      .from("rounds")
+      .select("id")
+      .eq("id", matchData.round_id)
+      .single();
+      
+    if (roundError || !roundData) {
+      console.error("Server: Round not found:", matchData.round_id, roundError);
+      return new Response(JSON.stringify({ 
+        error: "Round not found", 
+        details: "The specified round_id does not exist in the database",
+        roundId: matchData.round_id
+      }), { status: 404 });
+    }
+    
     // Insert the match data into the database
     console.log("Server: Inserting match data:", matchData);
     const { data: insertData, error: insertMatchError } = await supabase
