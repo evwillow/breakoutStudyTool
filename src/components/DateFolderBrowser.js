@@ -758,10 +758,9 @@ const DateFolderBrowser = ({ session, currentStock }) => {
    * Formats a filename for display in the UI
    * 
    * This function:
-   * 1. Removes the .csv extension from filenames
-   * 2. Detects date-formatted filenames (e.g., "Feb_22_2016")
-   * 3. Converts date-formatted filenames to a more readable format (e.g., "Feb 22, 2016")
-   * 4. Returns other filenames without modification (except extension removal)
+   * 1. Extracts the date from the filename
+   * 2. Calculates the difference in days between the file date and the breakout date
+   * 3. Returns a string showing "X days before breakout"
    * 
    * @param {string} fileName - The raw filename to format
    * @returns {string} The formatted filename for display
@@ -773,11 +772,144 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     // Check if the filename is a date format like "Feb_22_2016"
     const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;
     if (dateFormatRegex.test(nameWithoutExtension)) {
-      // Format the date nicely (e.g., "Feb 22, 2016")
+      // Extract date from the filename
       const parts = nameWithoutExtension.split('_');
       const month = parts[0];
       const day = parseInt(parts[1], 10);
-      const year = parts[2];
+      const year = parseInt(parts[2], 10);
+      
+      // Create a Date object for the file date
+      const monthMap = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      const fileDate = new Date(year, monthMap[month], day);
+      
+      // Extract date from the stock folder name (if available)
+      if (currentStock) {
+        console.log(`Parsing stock folder name: ${currentStock}`);
+        
+        // Parse the stock folder name to extract the date
+        const stockParts = currentStock.split('_');
+        console.log(`Stock parts:`, stockParts);
+        
+        // Try different methods to extract the date
+        let breakoutDate = null;
+        
+        // Method 1: Look for month name in the parts
+        if (!breakoutDate && stockParts.length >= 3) {
+          // Try to find the month, day, and year parts
+          let stockMonth = null;
+          let stockDay = null;
+          let stockYear = null;
+          
+          // Look for a three-letter month abbreviation in the parts
+          for (let i = 0; i < stockParts.length; i++) {
+            const part = stockParts[i];
+            
+            // Check if this part is a month abbreviation
+            const normalizedPart = part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+            console.log(`Checking part: ${part}, normalized: ${normalizedPart}`);
+            
+            if (normalizedPart in monthMap) {
+              stockMonth = normalizedPart;
+              console.log(`Found month: ${stockMonth}`);
+              
+              // The next part is likely the day
+              if (i + 1 < stockParts.length) {
+                stockDay = parseInt(stockParts[i + 1], 10);
+                console.log(`Found day: ${stockDay}`);
+              }
+              
+              // The part after that is likely the year
+              if (i + 2 < stockParts.length) {
+                stockYear = parseInt(stockParts[i + 2], 10);
+                console.log(`Found year: ${stockYear}`);
+              }
+              
+              break;
+            }
+          }
+          
+          // Create a Date object if we have valid components
+          if (stockMonth in monthMap && !isNaN(stockDay) && !isNaN(stockYear)) {
+            console.log(`Valid date components found: ${stockMonth} ${stockDay}, ${stockYear}`);
+            breakoutDate = new Date(stockYear, monthMap[stockMonth], stockDay);
+            console.log(`Breakout date (Method 1): ${breakoutDate.toDateString()}`);
+          }
+        }
+        
+        // Method 2: Try to extract date from a pattern like "stock_MM_DD_YYYY"
+        if (!breakoutDate && stockParts.length >= 4) {
+          // Check if parts 1, 2, and 3 could be month, day, year
+          const potentialMonth = parseInt(stockParts[1], 10);
+          const potentialDay = parseInt(stockParts[2], 10);
+          const potentialYear = parseInt(stockParts[3], 10);
+          
+          if (!isNaN(potentialMonth) && potentialMonth >= 1 && potentialMonth <= 12 &&
+              !isNaN(potentialDay) && potentialDay >= 1 && potentialDay <= 31 &&
+              !isNaN(potentialYear) && potentialYear >= 1900 && potentialYear <= 2100) {
+            
+            console.log(`Found numeric date: ${potentialMonth}/${potentialDay}/${potentialYear}`);
+            breakoutDate = new Date(potentialYear, potentialMonth - 1, potentialDay);
+            console.log(`Breakout date (Method 2): ${breakoutDate.toDateString()}`);
+          }
+        }
+        
+        // If we have a valid breakout date, calculate the difference
+        if (breakoutDate) {
+          console.log(`File date: ${fileDate.toDateString()}`);
+          
+          // Calculate the difference in days
+          const timeDiff = breakoutDate.getTime() - fileDate.getTime();
+          const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
+          console.log(`Days difference: ${daysDiff}`);
+          
+          // Format the time difference in the most appropriate unit
+          if (daysDiff > 0) {
+            // Calculate weeks, months, and years
+            const weeksDiff = Math.floor(daysDiff / 7);
+            const monthsDiff = Math.floor(daysDiff / 30); // Approximate
+            const yearsDiff = Math.floor(daysDiff / 365); // Approximate
+            
+            if (yearsDiff >= 1) {
+              // Use years if at least 1 year
+              return yearsDiff === 1 ? '1 year before' : `${yearsDiff} years before`;
+            } else if (monthsDiff >= 1) {
+              // Use months if at least 1 month
+              return monthsDiff === 1 ? '1 month before' : `${monthsDiff} months before`;
+            } else if (weeksDiff >= 1) {
+              // Use weeks if at least 1 week
+              return weeksDiff === 1 ? '1 week before' : `${weeksDiff} weeks before`;
+            } else {
+              // Use days for less than a week
+              return daysDiff === 1 ? '1 day before' : `${daysDiff} days before`;
+            }
+          } else if (daysDiff === 0) {
+            return 'Day of';
+          } else {
+            // For dates after the breakout
+            const absDaysDiff = Math.abs(daysDiff);
+            const weeksAfter = Math.floor(absDaysDiff / 7);
+            const monthsAfter = Math.floor(absDaysDiff / 30); // Approximate
+            const yearsAfter = Math.floor(absDaysDiff / 365); // Approximate
+            
+            if (yearsAfter >= 1) {
+              return yearsAfter === 1 ? '1 year after' : `${yearsAfter} years after`;
+            } else if (monthsAfter >= 1) {
+              return monthsAfter === 1 ? '1 month after' : `${monthsAfter} months after`;
+            } else if (weeksAfter >= 1) {
+              return weeksAfter === 1 ? '1 week after' : `${weeksAfter} weeks after`;
+            } else {
+              return absDaysDiff === 1 ? '1 day after' : `${absDaysDiff} days after`;
+            }
+          }
+        } else {
+          console.log(`Could not extract a valid date from stock name: ${currentStock}`);
+        }
+      }
+      
+      // Fallback to the original date format if we can't calculate days difference
       return `${month} ${day}, ${year}`;
     }
     
@@ -813,6 +945,38 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     return false;
   };
 
+  /**
+   * Parses a date from a filename in the format "Month_Day_Year"
+   * 
+   * @param {string} fileName - The filename to parse
+   * @returns {Date|null} A Date object if parsing was successful, null otherwise
+   */
+  const parseDateFromFileName = (fileName) => {
+    // Remove .csv extension
+    const nameWithoutExtension = fileName.replace('.csv', '');
+    
+    // Check if the filename is a date format like "Feb_22_2016"
+    const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;
+    if (dateFormatRegex.test(nameWithoutExtension)) {
+      const parts = nameWithoutExtension.split('_');
+      const month = parts[0];
+      const day = parseInt(parts[1], 10);
+      const year = parseInt(parts[2], 10);
+      
+      // Create a Date object
+      const monthMap = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      
+      if (month in monthMap && !isNaN(day) && !isNaN(year)) {
+        return new Date(year, monthMap[month], day);
+      }
+    }
+    
+    return null;
+  };
+
   return (
     <div className="w-full pt-1 sm:pt-4 px-0 sm:px-6 md:px-10 pb-8">
       <h3 className="text-lg font-semibold mb-2 text-black">Previous Setups:</h3>
@@ -845,6 +1009,23 @@ const DateFolderBrowser = ({ session, currentStock }) => {
         <div className="space-y-4">
           {allFiles
             .filter(file => shouldIncludeInDropdown(file.fileName))
+            .sort((a, b) => {
+              // Parse dates from filenames
+              const dateA = parseDateFromFileName(a.fileName);
+              const dateB = parseDateFromFileName(b.fileName);
+              
+              // If both dates are valid, sort by most recent first
+              if (dateA && dateB) {
+                return dateB.getTime() - dateA.getTime();
+              }
+              
+              // If only one date is valid, prioritize the valid one
+              if (dateA) return -1;
+              if (dateB) return 1;
+              
+              // If neither has a valid date, sort alphabetically
+              return a.fileName.localeCompare(b.fileName);
+            })
             .map((file) => (
               <div key={file.id} className="border border-gray-300 rounded overflow-hidden shadow-sm">
                 <button 
@@ -866,8 +1047,12 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                 {expandedFile === file.id && (
                   <div className="p-3 bg-white">
                     {fileData[file.id] ? (
-                      <div className="bg-black rounded-md overflow-hidden">
-                        <StockChart csvData={fileData[file.id]} height={300} />
+                      <div className="bg-black rounded-md overflow-hidden w-full">
+                        <StockChart 
+                          csvData={fileData[file.id]} 
+                          height={500} 
+                          showSMA={true}
+                        />
                       </div>
                     ) : (
                       <p className="text-black text-center py-4">Loading chart data...</p>
