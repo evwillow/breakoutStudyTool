@@ -118,7 +118,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
 
   // Mobile card view for each round
   const RoundCard = ({ round }) => (
-    <div className="border rounded-lg p-4 mb-3 bg-white shadow-md hover:shadow-lg transition-shadow duration-300">
+    <div className="border rounded-lg p-4 mb-3 bg-soft-white shadow-md hover:shadow-lg transition-shadow duration-300">
       <div className="flex justify-between mb-2">
         <span className="font-medium text-black flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
@@ -134,11 +134,11 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
         </span>
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="bg-gray-50 p-2 rounded">
+        <div className="bg-soft-gray-50 p-2 rounded">
           <span className="text-xs text-gray-500">Accuracy</span>
           <p className={`font-medium text-lg ${getAccuracyColor(round.accuracy)}`}>{round.accuracy}%</p>
         </div>
-        <div className="bg-gray-50 p-2 rounded">
+        <div className="bg-soft-gray-50 p-2 rounded">
           <span className="text-xs text-gray-500">Matches</span>
           <p className="text-black font-medium text-lg">{round.correctMatches || 0} / {round.totalMatches}</p>
         </div>
@@ -179,7 +179,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
   // Confirmation Dialog Component
   const ConfirmDialog = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+      <div className="bg-soft-white rounded-lg p-6 max-w-md w-full shadow-xl">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Deletion</h3>
         <p className="text-gray-600 mb-6">
           Are you sure you want to delete all your rounds? This action cannot be undone.
@@ -187,7 +187,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
         <div className="flex justify-end space-x-3">
           <button
             onClick={() => setShowConfirmDialog(false)}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
+            className="px-4 py-2 bg-soft-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition"
           >
             Cancel
           </button>
@@ -206,17 +206,17 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm">
       {showConfirmDialog && <ConfirmDialog />}
       
-      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-xl w-full sm:w-3/4 max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
+      <div className="bg-soft-white p-4 sm:p-6 rounded-lg shadow-xl w-full sm:w-3/4 max-w-4xl max-h-[90vh] sm:max-h-[80vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6 border-b pb-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
+          <h2 className="text-xl sm:text-2xl font-bold text-white bg-turquoise-600 px-4 py-2 rounded-lg shadow-md flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
             </svg>
             Round History
           </h2>
           <button 
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-2 transition-colors"
+            className="text-gray-500 hover:text-gray-700 hover:bg-soft-gray-100 rounded-full p-2 transition-colors"
             aria-label="Close"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -254,7 +254,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
             </div>
           </div>
         ) : rounds.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="text-center py-8 bg-soft-gray-50 rounded-lg border border-gray-200">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
@@ -284,7 +284,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
                 </thead>
                 <tbody>
                   {rounds.map((round) => (
-                    <tr key={round.id} className="hover:bg-teal-50 transition-colors">
+                    <tr key={round.id} className="hover:bg-soft-gray-50 transition-colors">
                       <td className="border border-gray-200 p-3 text-gray-700">
                         <div className="flex items-center">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">

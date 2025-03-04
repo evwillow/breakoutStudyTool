@@ -90,7 +90,7 @@ export default function AuthModal({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-turquoise-950 bg-opacity-70 z-50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-800 shadow-2xl border border-turquoise-200">
+      <div className="bg-soft-white rounded-xl p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-800 shadow-2xl border border-turquoise-200">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-turquoise-500 hover:text-turquoise-700 transition-colors"

@@ -726,24 +726,14 @@ export default function Flashcards() {
       setTimerPaused(false);
       setDisableButtons(false);
       
-      // Display a success message
+      // Log success message to console only
       const successMessage = `Round loaded successfully with ${roundAccuracy}% accuracy (${correctMatches}/${totalMatches} correct)`;
       console.log(successMessage);
       
-      // Set a temporary success message
+      // Clear any previous errors
       setError(null);
-      // Use a temporary notification that will disappear after a few seconds
-      const tempNotification = document.createElement('div');
-      tempNotification.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50';
-      tempNotification.innerHTML = `<strong>Success!</strong> ${successMessage}`;
-      document.body.appendChild(tempNotification);
       
-      // Remove the notification after 3 seconds
-      setTimeout(() => {
-        if (document.body.contains(tempNotification)) {
-          document.body.removeChild(tempNotification);
-        }
-      }, 3000);
+      // Note: Success popup notification has been removed to improve user experience
     } catch (err) {
       console.error("Error loading round data:", err);
       setError(`Error loading round: ${err.message}`);
@@ -914,8 +904,8 @@ export default function Flashcards() {
     );
   } else {
     content = (
-      <div className="bg-gray-100 min-h-screen w-full flex justify-center">
-        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[75%] bg-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
+      <div className="bg-soft-gray-50 min-h-screen w-full flex justify-center">
+        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[75%] bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
           <ChartSection
             orderedFiles={orderedFiles}
             timer={timer}

@@ -11,6 +11,13 @@
   --accent: #0d9488;
   --accent-light: #99f6e4;
   --accent-dark: #134e4a;
+  
+  /* New soothing background colors */
+  --soft-white: #f8fafb;
+  --soft-white-hover: #f0f4f5;
+  --soft-gray-50: #f5f7f9;
+  --soft-gray-100: #edf1f5;
+  --soft-gray-200: #e3e8ed;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +30,13 @@
     --accent: #2dd4bf;
     --accent-light: #99f6e4;
     --accent-dark: #115e59;
+    
+    /* Dark mode soothing background colors */
+    --soft-white: #0a3330;
+    --soft-white-hover: #0c3c38;
+    --soft-gray-50: #072a28;
+    --soft-gray-100: #052422;
+    --soft-gray-200: #031e1c;
   }
 }
 
@@ -55,4 +69,25 @@ body {
 
 .hover-gradient-turquoise-dark {
   @apply hover:from-turquoise-800 hover:to-turquoise-700;
+}
+
+/* New background utility classes */
+.bg-soft-white {
+  background-color: var(--soft-white);
+}
+
+.bg-soft-white-hover:hover {
+  background-color: var(--soft-white-hover);
+}
+
+.bg-soft-gray-50 {
+  background-color: var(--soft-gray-50);
+}
+
+.bg-soft-gray-100 {
+  background-color: var(--soft-gray-100);
+}
+
+.bg-soft-gray-200 {
+  background-color: var(--soft-gray-200);
 }
