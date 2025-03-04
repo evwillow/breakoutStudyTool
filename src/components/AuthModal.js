@@ -9,6 +9,7 @@ export default function AuthModal({ open, onClose }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const { update } = useSession(); // Hook to update session
 
   if (!open) return null;
@@ -16,6 +17,7 @@ export default function AuthModal({ open, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
 
     if (mode === "signup") {
       try {
@@ -36,6 +38,7 @@ export default function AuthModal({ open, onClose }) {
             console.error("Signup error response:", errorText);
             setError("Failed to create account. Server returned an invalid response.");
           }
+          setIsLoading(false);
           return;
         }
 
@@ -58,6 +61,8 @@ export default function AuthModal({ open, onClose }) {
       } catch (err) {
         console.error("Signup error:", err);
         setError("Signup failed: " + (err.message || "Unknown error"));
+      } finally {
+        setIsLoading(false);
       }
       return;
     }
@@ -78,52 +83,120 @@ export default function AuthModal({ open, onClose }) {
     } catch (err) {
       console.error("Sign in error:", err);
       setError("Sign in failed: " + (err.message || "Unknown error"));
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4">
-      <div className="bg-white rounded-lg p-4 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-black shadow-xl">
+    <div className="fixed inset-0 flex items-center justify-center bg-turquoise-950 bg-opacity-70 z-50 p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-xl p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-800 shadow-2xl border border-turquoise-200">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-600 text-2xl sm:text-3xl"
+          className="absolute top-4 right-4 text-turquoise-500 hover:text-turquoise-700 transition-colors"
+          aria-label="Close"
         >
-          &times;
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
         </button>
-        <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-black">
-          {mode === "signin" ? "Sign In" : "Sign Up"}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full p-2 sm:p-3 border border-gray-300 rounded mb-3 sm:mb-4 text-black text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-gray-400"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 sm:p-3 border border-gray-300 rounded mb-3 sm:mb-4 text-black text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-gray-400"
-            required
-          />
-          {error && <p className="text-red-500 mb-3 sm:mb-4 text-sm sm:text-base">{error}</p>}
+        
+        <div className="text-center mb-6">
+          <div className="inline-block p-3 bg-turquoise-100 rounded-full mb-2">
+            <svg className="w-8 h-8 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-turquoise-800">
+            {mode === "signin" ? "Welcome Back" : "Create Account"}
+          </h2>
+          <p className="text-turquoise-600 mt-1">
+            {mode === "signin" ? "Sign in to continue to the app" : "Sign up to get started"}
+          </p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium text-turquoise-700 mb-1">Username</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-turquoise-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <input
+                id="username"
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 border border-turquoise-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 transition-colors"
+                required
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-turquoise-700 mb-1">Password</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-turquoise-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 border border-turquoise-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 transition-colors"
+                required
+              />
+            </div>
+          </div>
+          
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <button
             type="submit"
-            className="w-full py-2 sm:py-3 bg-gray-300 text-black rounded font-semibold text-sm sm:text-base hover:bg-gray-400 transition-colors"
+            disabled={isLoading}
+            className={`w-full py-2 px-4 rounded-lg font-medium text-white bg-gradient-turquoise hover-gradient-turquoise focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:ring-offset-2 transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {mode === "signin" ? "Sign In" : "Sign Up"}
+            {isLoading ? (
+              <div className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {mode === "signin" ? "Signing In..." : "Signing Up..."}
+              </div>
+            ) : (
+              <>{mode === "signin" ? "Sign In" : "Sign Up"}</>
+            )}
           </button>
         </form>
-        <div className="mt-4 sm:mt-6 text-center">
+        
+        <div className="mt-6 text-center">
           <button
-            onClick={() =>
-              setMode((prev) => (prev === "signin" ? "signup" : "signin"))
-            }
-            className="underline text-base sm:text-lg text-black"
+            onClick={() => {
+              setMode((prev) => (prev === "signin" ? "signup" : "signin"));
+              setError(null);
+            }}
+            className="text-turquoise-600 hover:text-turquoise-800 text-sm font-medium transition-colors"
           >
             {mode === "signin"
               ? "Don't have an account? Sign Up"

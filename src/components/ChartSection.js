@@ -26,25 +26,40 @@ const ChartSection = React.memo(function ChartSection({
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
 
+  // Timer color based on remaining time
+  const getTimerColor = () => {
+    if (timer <= 10) return "text-red-600";
+    if (timer <= 30) return "text-yellow-600";
+    return "text-turquoise-600";
+  };
+
   return (
     <>
       {/* Authentication and timer controls for mobile view */}
-      <div className="md:hidden w-full flex justify-between items-center px-2 py-1 border-b border-gray-200">
-        <h2 className="text-2xl font-bold text-black">Timer: {timer}s</h2>
+      <div className="md:hidden w-full flex justify-between items-center px-3 py-2 border-b border-turquoise-200 bg-turquoise-50 shadow-sm">
+        <div className="flex items-center">
+          <svg className="w-5 h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h2 className={`text-2xl font-bold ${getTimerColor()}`}>{timer}s</h2>
+        </div>
         <AuthButtons onSignIn={() => setShowAuthModal(true)} />
       </div>
       
-      <div className="flex flex-col pt-1 sm:pt-4 md:pt-10 px-0 sm:px-6 md:px-10 md:flex-row gap-1 md:gap-4 items-center md:items-start">
+      <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 md:flex-row gap-3 md:gap-6 items-center md:items-start">
         {/* Daily chart section - primary chart */}
-        <div
-          className="w-full md:w-auto md:flex-1 flex flex-col items-center"
-        >
-          <div className="w-full text-center hidden md:block">
-            <h2 className="text-xl font-bold text-black">Timer: {timer}s</h2>
+        <div className="w-full md:w-auto md:flex-1 flex flex-col items-center bg-white rounded-lg shadow-md p-3 md:p-4 border border-turquoise-100">
+          <div className="w-full text-center hidden md:block mb-2">
+            <div className="flex items-center justify-center">
+              <svg className="w-5 h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <h2 className={`text-xl font-bold ${getTimerColor()}`}>Timer: {timer}s</h2>
+            </div>
           </div>
-          <div className="w-full mt-1 sm:mt-3 md:mt-6 relative aspect-[2/1]">
+          <div className="w-full mt-1 sm:mt-2 relative aspect-square rounded-lg overflow-hidden border border-turquoise-200">
             {/* D Label - positioned in the top left corner */}
-            <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+            <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-turquoise px-2 py-1 rounded-br-md">
               D
             </div>
             <StockChart csvData={orderedFiles[0].data} />
@@ -52,26 +67,22 @@ const ChartSection = React.memo(function ChartSection({
         </div>
 
         {/* Right Column: Second & Third Charts + Points Grid */}
-        <div className="flex flex-col w-full md:flex-1 gap-1 md:gap-4">
-          <div className="flex flex-col sm:flex-row gap-1 sm:gap-7">
+        <div className="flex flex-col w-full md:flex-1 gap-3 md:gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             {/* Second Chart */}
-            <div
-              className="w-full sm:w-3/5 flex flex-col items-center"
-            >
-              <div className="relative w-full aspect-[2/1]">
+            <div className="w-full sm:w-3/5 flex flex-col items-center bg-white rounded-lg shadow-md p-3 border border-turquoise-100">
+              <div className="relative w-full aspect-square rounded-lg overflow-hidden border border-turquoise-200">
                 {/* H Label - positioned in the top left corner */}
-                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
                   H
                 </div>
                 <StockChart csvData={orderedFiles[1].data} />
               </div>
             </div>
             {/* Third Chart with Auth Buttons - Hidden on mobile */}
-            <div
-              className="hidden sm:flex sm:w-2/5 flex-col items-center sm:items-end"
-            >
+            <div className="hidden sm:flex sm:w-2/5 flex-col items-center sm:items-end bg-white rounded-lg shadow-md p-3 border border-turquoise-100">
               {/* Desktop-only Auth Buttons */}
-              <div className="hidden md:flex w-full pb-2 sm:pb-6 justify-end gap-2">
+              <div className="hidden md:flex w-full pb-2 justify-end gap-2">
                 <AuthButtons onSignIn={() => setShowAuthModal(true)} />
               </div>
               {showAuthModal && (
@@ -81,9 +92,9 @@ const ChartSection = React.memo(function ChartSection({
                 />
               )}
               <div className="w-full flex justify-center">
-                <div className="w-full max-w-[300px] aspect-square relative">
+                <div className="w-full max-w-[300px] aspect-square relative rounded-lg overflow-hidden border border-turquoise-200">
                   {/* M Label - positioned in the top left corner */}
-                  <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+                  <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                     M
                   </div>
                   <StockChart csvData={orderedFiles[2].data} showSMA={false} />
@@ -93,23 +104,23 @@ const ChartSection = React.memo(function ChartSection({
           </div>
           
           {/* Mobile-only: Minute Chart next to Points Text Blocks */}
-          <div className="sm:hidden flex flex-row mt-2">
-            <div className="w-1/2 pr-1">
-              <div className="w-full aspect-square relative">
+          <div className="sm:hidden flex flex-row mt-2 gap-3">
+            <div className="w-1/2 bg-white rounded-lg shadow-md p-3 border border-turquoise-100">
+              <div className="w-full aspect-square relative rounded-lg overflow-hidden border border-turquoise-200">
                 {/* M Label - positioned in the top left corner */}
-                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-black bg-opacity-50 px-1">
+                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                   M
                 </div>
                 <StockChart csvData={orderedFiles[2].data} showSMA={false} />
               </div>
             </div>
-            <div className="w-1/2 pl-1 flex items-center">
-              <div className="w-full flex flex-col gap-1">
+            <div className="w-1/2 bg-white rounded-lg shadow-md p-3 flex items-center border border-turquoise-100">
+              <div className="w-full flex flex-col gap-2">
                 {pointsTextArray.map((text, index) => (
                   <div
                     key={index}
-                    className={`rounded shadow p-1 text-center text-xs flex items-center justify-center min-h-[1.5rem] ${
-                      text ? "bg-gray-300 text-black" : "invisible"
+                    className={`rounded-md shadow-sm p-2 text-center text-xs flex items-center justify-center min-h-[1.75rem] ${
+                      text ? "bg-turquoise-50 text-turquoise-800 border border-turquoise-200" : "invisible"
                     }`}
                   >
                     {text || "\u00A0"}
@@ -120,12 +131,12 @@ const ChartSection = React.memo(function ChartSection({
           </div>
           
           {/* Points Grid - Hidden on mobile */}
-          <div className="hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-0 sm:gap-4 md:gap-6 px-1 sm:px-0">
+          <div className="hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-white rounded-lg shadow-md p-3 border border-turquoise-100">
             {pointsTextArray.map((text, index) => (
               <div
                 key={index}
-                className={`rounded shadow p-1 text-center text-xs flex items-center justify-center min-h-[1rem] sm:min-h-[2rem] ${
-                  text ? "bg-gray-300 text-black" : "invisible"
+                className={`rounded-md shadow-sm p-2 text-center text-sm flex items-center justify-center min-h-[2rem] transition-all duration-200 ${
+                  text ? "bg-turquoise-50 text-turquoise-800 border border-turquoise-200 hover:bg-turquoise-100" : "invisible"
                 }`}
               >
                 {text || "\u00A0"}

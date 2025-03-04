@@ -3,14 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f0fdfa;
+  --foreground: #115e59;
+  --primary: #14b8a6;
+  --primary-light: #5eead4;
+  --primary-dark: #0f766e;
+  --accent: #0d9488;
+  --accent-light: #99f6e4;
+  --accent-dark: #134e4a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #042f2e;
+    --foreground: #ccfbf1;
+    --primary: #14b8a6;
+    --primary-light: #5eead4;
+    --primary-dark: #0f766e;
+    --accent: #2dd4bf;
+    --accent-light: #99f6e4;
+    --accent-dark: #115e59;
   }
 }
 
@@ -18,4 +30,29 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Turquoise theme utility classes */
+.bg-gradient-turquoise {
+  @apply bg-gradient-to-r from-turquoise-600 to-turquoise-500;
+}
+
+.bg-gradient-turquoise-light {
+  @apply bg-gradient-to-r from-turquoise-500 to-turquoise-400;
+}
+
+.bg-gradient-turquoise-dark {
+  @apply bg-gradient-to-r from-turquoise-700 to-turquoise-600;
+}
+
+.hover-gradient-turquoise {
+  @apply hover:from-turquoise-700 hover:to-turquoise-600;
+}
+
+.hover-gradient-turquoise-light {
+  @apply hover:from-turquoise-600 hover:to-turquoise-500;
+}
+
+.hover-gradient-turquoise-dark {
+  @apply hover:from-turquoise-800 hover:to-turquoise-700;
 }

@@ -4,12 +4,13 @@
  * Component for browsing and displaying historical stock data files.
  * Features:
  * - Fetches and displays historical stock data files for the current stock
+ * - Auto-expands items as user scrolls down and collapses when scrolling up
  * - Implements multiple fallback strategies to find relevant files
  * - Allows users to expand/collapse individual file charts
  * - Filters files to show only those with proper date formatting
  * - Parses and displays CSV data as interactive charts
  */
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import StockChart from "./StockChart";
 
 /**
@@ -23,6 +24,12 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
+  const [visibleItems, setVisibleItems] = useState([]);
+  const [autoExpandedItems, setAutoExpandedItems] = useState([]);
+  const [manuallyControlledItems, setManuallyControlledItems] = useState([]);
+  const fileRefs = useRef({});
+  const lastScrollY = useRef(0);
+  const scrollingDirection = useRef('down');
 
   // Main effect for fetching stock files when the current stock changes
   useEffect(() => {
@@ -355,6 +362,156 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     fetchAllStockFiles();
   }, [session, currentStock]);
 
+  // Initialize refs for each file
+  useEffect(() => {
+    allFiles.forEach(file => {
+      if (!fileRefs.current[file.id]) {
+        fileRefs.current[file.id] = React.createRef();
+      }
+    });
+  }, [allFiles]);
+
+  // Track scroll direction
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current) {
+        scrollingDirection.current = 'down';
+      } else {
+        scrollingDirection.current = 'up';
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Set up intersection observer for scroll reveal and auto-expand effect
+  useEffect(() => {
+    if (!allFiles.length) return; // Don't set up observer if there are no files
+    
+    const observerOptions = {
+      root: null, // use viewport
+      rootMargin: '0px',
+      threshold: 0.2 // Lower threshold to trigger earlier (20% visibility)
+    };
+
+    const observerCallback = (entries) => {
+      entries.forEach(entry => {
+        if (!entry.target || !entry.target.dataset) return; // Skip if target is invalid
+        
+        const id = entry.target.dataset.fileId;
+        if (!id) return; // Skip if no file ID
+        
+        if (entry.isIntersecting) {
+          // Always make the item visible when it enters the viewport
+          setVisibleItems(prev => {
+            if (!prev.includes(id)) {
+              return [...prev, id];
+            }
+            return prev;
+          });
+          
+          // Only auto-expand/collapse if the item is not manually controlled
+          if (!manuallyControlledItems.includes(id)) {
+            // Auto-expand when scrolling down, auto-collapse when scrolling up
+            if (scrollingDirection.current === 'down') {
+              setAutoExpandedItems(prev => {
+                if (!prev.includes(id)) {
+                  // Load file data if not already loaded
+                  if (!fileData[id]) {
+                    loadFileData(id);
+                  }
+                  return [...prev, id];
+                }
+                return prev;
+              });
+              setExpandedFile(id);
+            } else if (scrollingDirection.current === 'up') {
+              setAutoExpandedItems(prev => prev.filter(item => item !== id));
+              if (expandedFile === id) {
+                setExpandedFile(null);
+              }
+            }
+          }
+        } else {
+          // When scrolling up and item leaves viewport, remove from auto-expanded
+          // Only if not manually controlled
+          if (scrollingDirection.current === 'up' && !manuallyControlledItems.includes(id)) {
+            setAutoExpandedItems(prev => prev.filter(item => item !== id));
+          }
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+    
+    // Observe all file elements
+    Object.entries(fileRefs.current).forEach(([id, ref]) => {
+      if (ref && ref.current) {
+        observer.observe(ref.current);
+      }
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [allFiles, expandedFile, fileData, manuallyControlledItems]);
+
+  // Load file data for a specific file
+  const loadFileData = async (fileId) => {
+    const file = allFiles.find(f => f.id === fileId);
+    if (!file || fileData[fileId]) return;
+    
+    try {
+      // If file already has data property, use it
+      if (file.data) {
+        setFileData(prev => ({ ...prev, [fileId]: file.data }));
+        return;
+      }
+      
+      // Otherwise fetch the data
+      const response = await fetch(`/api/getFileContent?path=${encodeURIComponent(file.path)}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file content: ${response.statusText}`);
+      }
+      
+      const data = await response.text();
+      const parsedData = parseCSV(data);
+      setFileData(prev => ({ ...prev, [fileId]: parsedData }));
+    } catch (err) {
+      console.error(`Error loading file data for ${fileId}:`, err);
+      setError(`Failed to load chart data: ${err.message}`);
+    }
+  };
+
+  // Handle manual file expansion toggle
+  const handleFileToggle = async (fileId) => {
+    // Mark this item as manually controlled
+    if (!manuallyControlledItems.includes(fileId)) {
+      setManuallyControlledItems(prev => [...prev, fileId]);
+    }
+    
+    // If user manually toggles, override auto-expansion
+    if (expandedFile === fileId) {
+      // Add a small delay before closing to allow for exit animation
+      setTimeout(() => {
+        setExpandedFile(null);
+        setAutoExpandedItems(prev => prev.filter(item => item !== fileId));
+      }, 50);
+    } else {
+      // Immediately set as expanded for opening animation
+      setExpandedFile(fileId);
+      setAutoExpandedItems(prev => [...prev, fileId]);
+      
+      // Load file data if not already loaded
+      if (!fileData[fileId]) {
+        await loadFileData(fileId);
+      }
+    }
+  };
+
   /**
    * Process and filter files from API response
    */
@@ -482,160 +639,6 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     return files;
   };
   
-  /**
-   * Toggles the expansion state of a file and loads its content if needed
-   * 
-   * This function handles:
-   * 1. Collapsing an expanded file
-   * 2. Expanding a collapsed file
-   * 3. Loading file data if not already cached
-   * 4. Parsing file IDs to extract folder and file information
-   * 5. Fetching file content from the API
-   * 6. Processing CSV data for chart display
-   * 
-   * @param {string} fileId - The unique identifier for the file
-   *                         Format: either "subfolder/fileName" or "parentFolder/subfolder/fileName"
-   * @returns {Promise<void>}
-   */
-  const toggleFileExpansion = async (fileId) => {
-    // If already expanded, collapse it
-    if (expandedFile === fileId) {
-      setExpandedFile(null);
-      return;
-    }
-    
-    // Otherwise, expand it and load data if not already loaded
-    setExpandedFile(fileId);
-    
-    // If we already have data for this file, no need to fetch again
-    if (fileData[fileId]) {
-      return;
-    }
-    
-    try {
-      // Find the file in our list
-      const file = allFiles.find(f => f.id === fileId);
-      if (!file) return;
-      
-      // If the file already has data, use it
-      if (file.data) {
-        setFileData(prev => ({
-          ...prev,
-          [fileId]: file.data
-        }));
-        return;
-      }
-      
-      // Parse the fileId to get folder and file information
-      // Format could be either "subfolder/fileName" or "parentFolder/subfolder/fileName"
-      const parts = fileId.split('/');
-      let folder, fileName;
-      
-      if (parts.length === 2) {
-        // Simple format: "subfolder/fileName"
-        [folder, fileName] = parts;
-      } else if (parts.length >= 3) {
-        // Extended format: "parentFolder/subfolder/fileName"
-        // The fileName is the last part, and the folder is the second-to-last part
-        fileName = parts[parts.length - 1];
-        folder = parts[parts.length - 2];
-      } else {
-        throw new Error(`Invalid file ID format: ${fileId}`);
-      }
-      
-      // Otherwise, fetch the data
-      const res = await fetch(`/api/getFileContent?folder=${encodeURIComponent(folder)}&file=${encodeURIComponent(fileName)}`);
-      
-      if (!res.ok) {
-        throw new Error(`Failed to fetch file content: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      
-      // Process the data for the chart
-      let chartData = data;
-      
-      // If data is a string (CSV content), parse it
-      if (typeof data === 'string') {
-        chartData = parseCSV(data);
-      } else if (data.content && typeof data.content === 'string') {
-        chartData = parseCSV(data.content);
-      }
-      
-      // Update the file data state
-      setFileData(prev => ({
-        ...prev,
-        [fileId]: chartData
-      }));
-    } catch (error) {
-      setError(`Failed to load file data: ${error.message}`);
-    }
-  };
-  
-  /**
-   * Parse CSV string into structured data
-   */
-  const parseCSV = (csvString) => {
-    try {
-      if (!csvString || typeof csvString !== "string") {
-        console.error("Invalid CSV data: not a string");
-        return [];
-      }
-      
-      // Split by lines and filter out empty lines
-      const lines = csvString.split('\n').filter(line => line.trim());
-      
-      if (lines.length < 2) {
-        console.error("Invalid CSV data: insufficient lines");
-        return [];
-      }
-      
-      // Get headers from first line
-      const headers = lines[0].split(',').map(h => h.trim());
-      
-      if (headers.length === 0) {
-        console.error("Invalid CSV data: no headers found");
-        return [];
-      }
-      
-      // Parse data rows
-      const data = [];
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        
-        // Skip rows with incorrect number of values
-        if (values.length !== headers.length) {
-          console.warn(`Skipping row ${i}: incorrect number of values`);
-          continue;
-        }
-        
-        const row = {};
-        let hasValidData = false;
-        
-        headers.forEach((header, index) => {
-          // Convert numeric values
-          const value = values[index];
-          if (value !== undefined && value !== '') {
-            row[header] = isNaN(value) ? value : parseFloat(value);
-            hasValidData = true;
-          } else {
-            row[header] = null;
-          }
-        });
-        
-        // Only add rows with at least some valid data
-        if (hasValidData) {
-          data.push(row);
-        }
-      }
-      
-      return data;
-    } catch (error) {
-      console.error("Error parsing CSV:", error);
-      return [];
-    }
-  };
-
   /**
    * Check if a file is relevant to the current stock
    */
@@ -979,29 +982,51 @@ const DateFolderBrowser = ({ session, currentStock }) => {
 
   return (
     <div className="w-full pt-1 sm:pt-4 px-0 sm:px-6 md:px-10 pb-8">
-      <h3 className="text-lg font-semibold mb-2 text-black">Previous Setups:</h3>
+      <h3 className="text-xl font-bold mb-4 text-black flex items-center">
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        Previous Setups
+      </h3>
       
-      {loading && <p className="text-black">Loading historical data files...</p>}
+      {loading && (
+        <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg">
+          <svg className="animate-spin h-5 w-5 mr-3 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-black font-medium">Loading historical data files...</p>
+        </div>
+      )}
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-black px-4 py-3 rounded relative mb-4">
-          <span className="block sm:inline">{error}</span>
-          <span 
-            className="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer"
-            onClick={() => setError(null)}
-          >
-            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-              <title>Close</title>
-              <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
-            </svg>
-          </span>
+        <div className="bg-red-50 border-l-4 border-red-500 text-black p-4 rounded-md mb-4 shadow-sm">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium">{error}</p>
+              <button 
+                onClick={() => setError(null)}
+                className="mt-2 text-xs text-red-700 hover:text-red-900 font-medium"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
         </div>
       )}
       
       {!loading && allFiles.length === 0 && (
-        <div className="text-black">
-          <p>No historical data files found.</p>
-          <p className="text-xs mt-1">{debugInfo}</p>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <p className="mt-2 text-black font-medium">No historical data files found.</p>
+          <p className="text-xs mt-1 text-gray-500">{debugInfo}</p>
         </div>
       )}
       
@@ -1026,15 +1051,32 @@ const DateFolderBrowser = ({ session, currentStock }) => {
               // If neither has a valid date, sort alphabetically
               return a.fileName.localeCompare(b.fileName);
             })
-            .map((file) => (
-              <div key={file.id} className="border border-gray-300 rounded overflow-hidden shadow-sm">
+            .map((file, index) => (
+              <div 
+                key={file.id} 
+                ref={el => {
+                  if (el) fileRefs.current[file.id] = { current: el };
+                }}
+                data-file-id={file.id}
+                className={`border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
+                  visibleItems.includes(file.id) 
+                    ? 'opacity-100 translate-y-0' 
+                    : 'opacity-0 translate-y-16'
+                }`}
+                style={{ transitionDelay: `${index * 150}ms` }}
+              >
                 <button 
-                  className={`w-full p-3 text-left text-black bg-white hover:bg-gray-50 flex justify-between items-center ${expandedFile === file.id ? 'border-b border-gray-300' : ''}`}
-                  onClick={() => toggleFileExpansion(file.id)}
+                  className={`w-full p-4 text-left text-black bg-white hover:bg-gray-50 flex justify-between items-center setup-item-interactive transition-transform duration-150 ${expandedFile === file.id ? 'border-b border-gray-200' : ''} ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
+                  onClick={() => handleFileToggle(file.id)}
                 >
-                  <span className="font-medium">{displayFileName(file.fileName)}</span>
+                  <span className="font-medium flex items-center">
+                    <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    {displayFileName(file.fileName)}
+                  </span>
                   <svg 
-                    className={`w-5 h-5 transform transition-transform ${expandedFile === file.id ? 'rotate-180' : ''}`} 
+                    className={`w-5 h-5 transform transition-transform duration-500 ease-in-out text-gray-500 ${expandedFile === file.id ? 'rotate-180' : ''}`} 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24" 
@@ -1045,9 +1087,20 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                 </button>
                 
                 {expandedFile === file.id && (
-                  <div className="p-3 bg-white">
+                  <div 
+                    className="p-4 bg-white transition-all duration-700 ease-in-out origin-top"
+                    style={{
+                      animation: `expandContent 700ms ease-out forwards`
+                    }}
+                  >
                     {fileData[file.id] ? (
-                      <div className="bg-black rounded-md overflow-hidden w-full">
+                      <div 
+                        className="bg-black rounded-lg overflow-hidden w-full shadow-inner"
+                        style={{
+                          animation: `fadeIn 500ms ease-out forwards 200ms`,
+                          opacity: 0
+                        }}
+                      >
                         <StockChart 
                           csvData={fileData[file.id]} 
                           height={500} 
@@ -1055,7 +1108,18 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                         />
                       </div>
                     ) : (
-                      <p className="text-black text-center py-4">Loading chart data...</p>
+                      <div 
+                        className="flex justify-center items-center py-8"
+                        style={{
+                          animation: `fadeIn 300ms ease-out forwards`
+                        }}
+                      >
+                        <svg className="animate-spin h-5 w-5 mr-3 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p className="text-black font-medium">Loading chart data...</p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1063,6 +1127,62 @@ const DateFolderBrowser = ({ session, currentStock }) => {
             ))}
         </div>
       )}
+      
+      {/* Add CSS animations */}
+      <style jsx global>{`
+        @keyframes expandContent {
+          from {
+            max-height: 0;
+            opacity: 0;
+          }
+          to {
+            max-height: 600px;
+            opacity: 1;
+          }
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeOut {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+        }
+        
+        /* Add a class for manual interaction feedback */
+        .setup-item-interactive:active {
+          transform: scale(0.99);
+        }
+        
+        /* Style for manually controlled items */
+        .manually-controlled {
+          position: relative;
+        }
+        
+        .manually-controlled::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, rgba(56,178,172,0.7) 0%, rgba(129,230,217,0.7) 100%);
+        }
+      `}</style>
     </div>
   );
 };
