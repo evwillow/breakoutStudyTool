@@ -75,7 +75,7 @@ const Header = () => {
             {/* Sign Out Button - Only shown when user is authenticated */}
             {session && (
               <button
-                onClick={() => signOut()}
+                onClick={() => signOut({ redirect: false })}
                 className="px-4 py-2 bg-gray-800 text-white text-sm rounded-md shadow hover:bg-gray-700 transition flex items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -87,7 +87,7 @@ const Header = () => {
             )}
             
             {/* Sign In Button - Only shown when user is not authenticated */}
-            <SignInButton />
+            {!session && <SignInButton />}
             
             {/* Mobile menu button */}
             <button

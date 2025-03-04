@@ -889,7 +889,7 @@ export default function Flashcards() {
   } else {
     content = (
       <div className="bg-soft-gray-50 min-h-screen w-full flex justify-center">
-        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-full max-w-[1400px] bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
+        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] transition-all duration-300 ease-in-out max-w-[1400px] bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
           <ChartSection
             orderedFiles={orderedFiles}
             timer={timer}

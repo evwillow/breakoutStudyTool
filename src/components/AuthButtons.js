@@ -28,7 +28,7 @@ export default function AuthButtons({ onSignIn }) {
     // Render Sign Out button for authenticated users
     return (
       <button
-        onClick={() => signOut()}
+        onClick={() => signOut({ redirect: false })}
         className="px-3 py-1.5 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-sm rounded-md shadow hover:from-turquoise-800 hover:to-turquoise-700 transition flex items-center"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
