@@ -765,7 +765,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
    * 3. Returns a string showing "X days before breakout"
    * 
    * @param {string} fileName - The raw filename to format
-   * @returns {string} The formatted filename for display
+   * @returns {string|React.ReactNode} The formatted filename for display
    */
   const displayFileName = (fileName) => {
     // Remove .csv extension
@@ -798,63 +798,38 @@ const DateFolderBrowser = ({ session, currentStock }) => {
         // Try different methods to extract the date
         let breakoutDate = null;
         
-        // Method 1: Look for month name in the parts
-        if (!breakoutDate && stockParts.length >= 3) {
-          // Try to find the month, day, and year parts
-          let stockMonth = null;
-          let stockDay = null;
-          let stockYear = null;
+        // Method 1: Look for a date in format MMM_DD_YYYY (e.g., Feb_22_2016)
+        for (let i = 0; i < stockParts.length - 2; i++) {
+          const potentialMonth = stockParts[i];
+          const potentialDay = parseInt(stockParts[i + 1], 10);
+          const potentialYear = parseInt(stockParts[i + 2], 10);
           
-          // Look for a three-letter month abbreviation in the parts
-          for (let i = 0; i < stockParts.length; i++) {
-            const part = stockParts[i];
-            
-            // Check if this part is a month abbreviation
-            const normalizedPart = part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
-            console.log(`Checking part: ${part}, normalized: ${normalizedPart}`);
-            
-            if (normalizedPart in monthMap) {
-              stockMonth = normalizedPart;
-              console.log(`Found month: ${stockMonth}`);
-              
-              // The next part is likely the day
-              if (i + 1 < stockParts.length) {
-                stockDay = parseInt(stockParts[i + 1], 10);
-                console.log(`Found day: ${stockDay}`);
-              }
-              
-              // The part after that is likely the year
-              if (i + 2 < stockParts.length) {
-                stockYear = parseInt(stockParts[i + 2], 10);
-                console.log(`Found year: ${stockYear}`);
-              }
-              
-              break;
-            }
-          }
-          
-          // Create a Date object if we have valid components
-          if (stockMonth in monthMap && !isNaN(stockDay) && !isNaN(stockYear)) {
-            console.log(`Valid date components found: ${stockMonth} ${stockDay}, ${stockYear}`);
-            breakoutDate = new Date(stockYear, monthMap[stockMonth], stockDay);
-            console.log(`Breakout date (Method 1): ${breakoutDate.toDateString()}`);
-          }
-        }
-        
-        // Method 2: Try to extract date from a pattern like "stock_MM_DD_YYYY"
-        if (!breakoutDate && stockParts.length >= 4) {
-          // Check if parts 1, 2, and 3 could be month, day, year
-          const potentialMonth = parseInt(stockParts[1], 10);
-          const potentialDay = parseInt(stockParts[2], 10);
-          const potentialYear = parseInt(stockParts[3], 10);
-          
-          if (!isNaN(potentialMonth) && potentialMonth >= 1 && potentialMonth <= 12 &&
+          if (monthMap.hasOwnProperty(potentialMonth) && 
               !isNaN(potentialDay) && potentialDay >= 1 && potentialDay <= 31 &&
               !isNaN(potentialYear) && potentialYear >= 1900 && potentialYear <= 2100) {
             
-            console.log(`Found numeric date: ${potentialMonth}/${potentialDay}/${potentialYear}`);
-            breakoutDate = new Date(potentialYear, potentialMonth - 1, potentialDay);
-            console.log(`Breakout date (Method 2): ${breakoutDate.toDateString()}`);
+            console.log(`Found date in stock name: ${potentialMonth}_${potentialDay}_${potentialYear}`);
+            breakoutDate = new Date(potentialYear, monthMap[potentialMonth], potentialDay);
+            console.log(`Breakout date (Method 1): ${breakoutDate.toDateString()}`);
+            break;
+          }
+        }
+        
+        // Method 2: Look for a date in format MM_DD_YYYY (e.g., 2_22_2016)
+        if (!breakoutDate) {
+          for (let i = 0; i < stockParts.length - 2; i++) {
+            const potentialMonth = parseInt(stockParts[i], 10);
+            const potentialDay = parseInt(stockParts[i + 1], 10);
+            const potentialYear = parseInt(stockParts[i + 2], 10);
+            
+            if (!isNaN(potentialMonth) && potentialMonth >= 1 && potentialMonth <= 12 &&
+                !isNaN(potentialDay) && potentialDay >= 1 && potentialDay <= 31 &&
+                !isNaN(potentialYear) && potentialYear >= 1900 && potentialYear <= 2100) {
+              
+              console.log(`Found numeric date: ${potentialMonth}/${potentialDay}/${potentialYear}`);
+              breakoutDate = new Date(potentialYear, potentialMonth - 1, potentialDay);
+              console.log(`Breakout date (Method 2): ${breakoutDate.toDateString()}`);
+            }
           }
         }
         
@@ -876,19 +851,19 @@ const DateFolderBrowser = ({ session, currentStock }) => {
             
             if (yearsDiff >= 1) {
               // Use years if at least 1 year
-              return yearsDiff === 1 ? '1 year before' : `${yearsDiff} years before`;
+              return <span className="text-turquoise-600">{yearsDiff === 1 ? '1 year before' : `${yearsDiff} years before`}</span>;
             } else if (monthsDiff >= 1) {
               // Use months if at least 1 month
-              return monthsDiff === 1 ? '1 month before' : `${monthsDiff} months before`;
+              return <span className="text-turquoise-600">{monthsDiff === 1 ? '1 month before' : `${monthsDiff} months before`}</span>;
             } else if (weeksDiff >= 1) {
               // Use weeks if at least 1 week
-              return weeksDiff === 1 ? '1 week before' : `${weeksDiff} weeks before`;
+              return <span className="text-turquoise-600">{weeksDiff === 1 ? '1 week before' : `${weeksDiff} weeks before`}</span>;
             } else {
               // Use days for less than a week
-              return daysDiff === 1 ? '1 day before' : `${daysDiff} days before`;
+              return <span className="text-turquoise-600">{daysDiff === 1 ? '1 day before' : `${daysDiff} days before`}</span>;
             }
           } else if (daysDiff === 0) {
-            return 'Day of';
+            return <span className="text-turquoise-600">Day of</span>;
           } else {
             // For dates after the breakout
             const absDaysDiff = Math.abs(daysDiff);
@@ -897,25 +872,23 @@ const DateFolderBrowser = ({ session, currentStock }) => {
             const yearsAfter = Math.floor(absDaysDiff / 365); // Approximate
             
             if (yearsAfter >= 1) {
-              return yearsAfter === 1 ? '1 year after' : `${yearsAfter} years after`;
+              return <span className="text-turquoise-600">{yearsAfter === 1 ? '1 year after' : `${yearsAfter} years after`}</span>;
             } else if (monthsAfter >= 1) {
-              return monthsAfter === 1 ? '1 month after' : `${monthsAfter} months after`;
+              return <span className="text-turquoise-600">{monthsAfter === 1 ? '1 month after' : `${monthsAfter} months after`}</span>;
             } else if (weeksAfter >= 1) {
-              return weeksAfter === 1 ? '1 week after' : `${weeksAfter} weeks after`;
+              return <span className="text-turquoise-600">{weeksAfter === 1 ? '1 week after' : `${weeksAfter} weeks after`}</span>;
             } else {
-              return absDaysDiff === 1 ? '1 day after' : `${absDaysDiff} days after`;
+              return <span className="text-turquoise-600">{absDaysDiff === 1 ? '1 day after' : `${absDaysDiff} days after`}</span>;
             }
           }
-        } else {
-          console.log(`Could not extract a valid date from stock name: ${currentStock}`);
         }
       }
       
-      // Fallback to the original date format if we can't calculate days difference
+      // If we couldn't calculate a time difference, just return the formatted date
       return `${month} ${day}, ${year}`;
     }
     
-    // For all other files, just return the name without extension
+    // For non-date filenames, just return the name without extension
     return nameWithoutExtension;
   };
   

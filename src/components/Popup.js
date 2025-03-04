@@ -38,7 +38,7 @@ const Popup = ({ onSelect }) => {
             <button
               key={option.value}
               onClick={() => onSelect(option.value)}
-              className="px-4 sm:px-3 md:px-4 py-4 sm:py-2 bg-soft-gray-200 text-black rounded hover:bg-soft-gray-100 transition text-lg sm:text-sm md:text-base font-medium"
+              className="px-4 sm:px-3 md:px-4 py-4 sm:py-2 bg-soft-gray-200 text-turquoise-600 rounded hover:bg-soft-gray-100 transition text-lg sm:text-sm md:text-base font-medium"
             >
               {option.label}
             </button>

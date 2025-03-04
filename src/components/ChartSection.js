@@ -11,7 +11,6 @@
  */
 import React from "react";
 import StockChart from "./StockChart";
-import AuthButtons from "./AuthButtons";
 import AuthModal from "./AuthModal";
 import ActionButtonsRow from "./ActionButtonsRow";
 
@@ -44,7 +43,6 @@ const ChartSection = React.memo(function ChartSection({
           </svg>
           <h2 className={`text-2xl font-bold ${getTimerColor()}`}>{timer}s</h2>
         </div>
-        <AuthButtons onSignIn={() => setShowAuthModal(true)} />
       </div>
       
       <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 md:flex-row gap-3 md:gap-6 items-center md:items-start">
@@ -60,7 +58,7 @@ const ChartSection = React.memo(function ChartSection({
           </div>
           <div className="w-full mt-1 sm:mt-2 relative aspect-square rounded-lg overflow-hidden shadow-sm">
             {/* D Label - positioned in the top left corner */}
-            <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-turquoise px-2 py-1 rounded-br-md">
+            <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-2 py-1 rounded-br-md">
               D
             </div>
             <StockChart csvData={orderedFiles[0].data} />
@@ -74,18 +72,14 @@ const ChartSection = React.memo(function ChartSection({
             <div className="w-full sm:w-3/5 flex flex-col items-center bg-soft-white rounded-lg shadow-md p-3">
               <div className="relative w-full aspect-square rounded-lg overflow-hidden shadow-sm">
                 {/* H Label - positioned in the top left corner */}
-                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
+                <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
                   H
                 </div>
                 <StockChart csvData={orderedFiles[1].data} />
               </div>
             </div>
-            {/* Third Chart with Auth Buttons - Hidden on mobile */}
+            {/* Third Chart - Hidden on mobile */}
             <div className="hidden sm:flex sm:w-2/5 flex-col items-center sm:items-end bg-soft-white rounded-lg shadow-md p-3">
-              {/* Desktop-only Auth Buttons */}
-              <div className="hidden md:flex w-full pb-2 justify-end gap-2">
-                <AuthButtons onSignIn={() => setShowAuthModal(true)} />
-              </div>
               {showAuthModal && (
                 <AuthModal
                   open={showAuthModal}
@@ -95,7 +89,7 @@ const ChartSection = React.memo(function ChartSection({
               <div className="w-full flex justify-center">
                 <div className="w-full max-w-[300px] aspect-square relative rounded-lg overflow-hidden shadow-sm">
                   {/* M Label - positioned in the top left corner */}
-                  <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
+                  <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                     M
                   </div>
                   <StockChart csvData={orderedFiles[2].data} showSMA={false} />
@@ -109,7 +103,7 @@ const ChartSection = React.memo(function ChartSection({
             <div className="w-1/2 bg-soft-white rounded-lg shadow-md p-3">
               <div className="w-full aspect-square relative rounded-lg overflow-hidden shadow-sm">
                 {/* M Label - positioned in the top left corner */}
-                <div className="absolute top-0 left-0 text-white font-bold z-50 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
+                <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                   M
                 </div>
                 <StockChart csvData={orderedFiles[2].data} showSMA={false} />

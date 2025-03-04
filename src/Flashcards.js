@@ -12,7 +12,7 @@
  */
 "use client";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import ChartSection from "./components/ChartSection";
 import ActionButtonsRow from "./components/ActionButtonsRow";
 import FolderSection from "./components/FolderSection";
@@ -22,10 +22,15 @@ import RoundHistory from "./components/RoundHistory";
 import AfterChartPopup from "./components/AfterChartPopup";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
+import LandingPage from "./components/LandingPage";
 
 // Application constants
 const INITIAL_TIMER = 60;
 const actionButtons = ["-5%", "0%", "20%", "50%"];
+
+// Create a global variable to store the setShowAuthModal function
+// This allows the Header component to trigger the auth modal
+window.openAuthModal = null;
 
 export default function Flashcards() {
   const { data: session, status } = useSession();
@@ -823,60 +828,33 @@ export default function Flashcards() {
     }
   }, [status, session, roundId]); // Only run when authentication status changes or session changes
 
+  // Store the setShowAuthModal function in the global variable
+  useEffect(() => {
+    window.openAuthModal = () => setShowAuthModal(true);
+    
+    // Cleanup function to remove the global reference when component unmounts
+    return () => {
+      window.openAuthModal = null;
+    };
+  }, []);
+
+  // If user is not authenticated, show the landing page
+  if (status !== "authenticated" || !session) {
+    return (
+      <>
+        <LandingPage onSignIn={() => setShowAuthModal(true)} />
+        {showAuthModal && (
+          <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
+        )}
+      </>
+    );
+  }
+
   let content;
   if (status === "loading") {
     content = (
       <div className="flex justify-center items-center h-screen">
         <p className="text-black">Loading...</p>
-      </div>
-    );
-  } else if (!session) {
-    content = (
-      <div 
-        className="flex flex-col justify-center items-center w-full fixed inset-0 z-0"
-        style={{ 
-          backgroundImage: 'linear-gradient(135deg, #99f6e4 0%, #5eead4 50%, #f0fdfa 100%)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-          overflow: 'hidden',
-          paddingTop: 'calc(var(--header-height, 64px) - 5vh)'
-        }}
-      >
-        <div className="bg-white py-8 px-8 sm:py-10 sm:px-10 rounded-xl shadow-xl w-[90%] max-w-md mx-4 text-center transform hover:scale-[1.02] transition-all border-2 border-turquoise-300 -mt-16 sm:-mt-20">
-          <div className="mt-6 inline-block p-4 bg-turquoise-100 rounded-full mb-8 shadow-md">
-            <svg className="w-12 h-12 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-            </svg>
-          </div>
-          
-          <div className="px-2 sm:px-4">
-            <h1 className="text-3xl font-bold mb-6 text-turquoise-800">Welcome</h1>
-            <p className="mb-8 text-lg text-turquoise-700">Please sign in to start your trading practice.</p>
-            <div className="mx-2 sm:mx-4 mb-4">
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="w-full py-5 bg-gradient-turquoise text-white text-xl font-semibold rounded-lg shadow-lg hover-gradient-turquoise transform hover:scale-[1.02] transition-all active:scale-95"
-              >
-                <div className="flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clipRule="evenodd" />
-                  </svg>
-                  Sign In
-                </div>
-              </button>
-            </div>
-            <p className="mt-6 mb-6 text-sm text-turquoise-600 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Practice with real market data
-            </p>
-          </div>
-        </div>
-        {showAuthModal && (
-          <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />
-        )}
       </div>
     );
   } else if (loading) {
