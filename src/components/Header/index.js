@@ -25,15 +25,19 @@ const Header = () => {
   // Handle scroll effect for header
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 10) {
-        setScrolled(true)
-      } else {
-        setScrolled(false)
+      if (typeof window !== 'undefined') {
+        if (window.scrollY > 10) {
+          setScrolled(true)
+        } else {
+          setScrolled(false)
+        }
       }
     }
 
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', handleScroll)
+      return () => window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   // Navigation links

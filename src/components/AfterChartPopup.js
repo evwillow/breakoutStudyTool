@@ -19,16 +19,21 @@ const AfterChartPopup = ({ isOpen, onClose, afterCsvData, stockName }) => {
   const [showHint, setShowHint] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Check if user is on mobile device
+  // Check if on mobile device
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768 || 'ontouchstart' in window);
+      if (typeof window !== 'undefined') {
+        setIsMobile(window.innerWidth <= 768 || 'ontouchstart' in window);
+      }
     };
     
     checkMobile();
-    window.addEventListener('resize', checkMobile);
     
-    return () => window.removeEventListener('resize', checkMobile);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', checkMobile);
+      
+      return () => window.removeEventListener('resize', checkMobile);
+    }
   }, []);
 
   // Prevent scrolling when popup is open and handle keyboard events

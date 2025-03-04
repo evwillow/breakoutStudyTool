@@ -30,7 +30,10 @@ const actionButtons = ["-5%", "0%", "20%", "50%"];
 
 // Create a global variable to store the setShowAuthModal function
 // This allows the Header component to trigger the auth modal
-window.openAuthModal = null;
+// Safely check if window exists (for server-side rendering)
+if (typeof window !== 'undefined') {
+  window.openAuthModal = null;
+}
 
 export default function Flashcards() {
   const { data: session, status } = useSession();
@@ -830,12 +833,15 @@ export default function Flashcards() {
 
   // Store the setShowAuthModal function in the global variable
   useEffect(() => {
-    window.openAuthModal = () => setShowAuthModal(true);
-    
-    // Cleanup function to remove the global reference when component unmounts
-    return () => {
-      window.openAuthModal = null;
-    };
+    // Safely check if window exists (for server-side rendering)
+    if (typeof window !== 'undefined') {
+      window.openAuthModal = () => setShowAuthModal(true);
+      
+      // Cleanup function to remove the global reference when component unmounts
+      return () => {
+        window.openAuthModal = null;
+      };
+    }
   }, []);
 
   // If user is not authenticated, show the landing page
@@ -883,7 +889,7 @@ export default function Flashcards() {
   } else {
     content = (
       <div className="bg-soft-gray-50 min-h-screen w-full flex justify-center">
-        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[80%] xl:w-[75%] bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
+        <div className="w-full sm:w-[90%] md:w-[85%] lg:w-full max-w-[1400px] bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
           <ChartSection
             orderedFiles={orderedFiles}
             timer={timer}

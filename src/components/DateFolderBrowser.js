@@ -33,6 +33,16 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   const lastScrollY = useRef(0);
   const scrollingDirection = useRef('down');
 
+  // Function to expand visible items that aren't manually controlled
+  const expandVisibleItems = useCallback(() => {
+    visibleItems.forEach(fileId => {
+      if (!manuallyControlledItems.includes(fileId) && !expandedFiles.includes(fileId)) {
+        setExpandedFiles(prev => [...prev, fileId]);
+        setAutoExpandedItems(prev => [...prev, fileId]);
+      }
+    });
+  }, [visibleItems, manuallyControlledItems, expandedFiles]);
+
   // Main effect for fetching stock files when the current stock changes
   useEffect(() => {
     if (!session) return;
@@ -376,17 +386,21 @@ const DateFolderBrowser = ({ session, currentStock }) => {
   // Track scroll direction
   useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      if (currentScrollY > lastScrollY.current) {
-        scrollingDirection.current = 'down';
-      } else {
-        scrollingDirection.current = 'up';
+      if (typeof window !== 'undefined') {
+        const currentScrollY = window.scrollY;
+        if (currentScrollY > lastScrollY.current) {
+          scrollingDirection.current = 'down';
+        } else {
+          scrollingDirection.current = 'up';
+        }
+        lastScrollY.current = currentScrollY;
       }
-      lastScrollY.current = currentScrollY;
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
   }, []);
 
   // Set up intersection observer for scroll reveal and progressive auto-expand effect
@@ -951,6 +965,25 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     
     return null;
   };
+
+  // Handle scroll events to auto-expand items
+  useEffect(() => {
+    const handleScroll = () => {
+      if (typeof window !== 'undefined') {
+        const currentScrollY = window.scrollY;
+        // Only process if we have items to expand
+        if (visibleItems.length > 0 && !loading) {
+          // Auto-expand visible items as user scrolls down
+          expandVisibleItems();
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, [visibleItems, loading, expandVisibleItems]);
 
   return (
     <div className="w-full pt-1 sm:pt-4 px-0 sm:px-6 md:px-10 pb-8">
