@@ -8,7 +8,7 @@ import Flashcards from "@/Flashcards";
 
 export default function Home() {
   return (
-    <div className="min-h-screen py-8 flex justify-center items-start bg-soft-gray-50">
+    <div className="min-h-screen py-4 w-full" style={{ background: 'var(--background)' }}>
       <Flashcards />
     </div>
   );

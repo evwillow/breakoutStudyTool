@@ -44,7 +44,11 @@ export default function RootLayout({
       >
         <Providers>
           <Header />
-          {children}
+          <div className="w-full flex justify-center">
+            <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] transition-all duration-300 ease-in-out max-w-[1400px]">
+              {children}
+            </div>
+          </div>
         </Providers>
       </body>
     </html>

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #f0fdfa;
+  --background: #f2f7f5; /* Modern light mint/sage - trendy and clean */
   --foreground: #115e59;
   --primary: #14b8a6;
   --primary-light: #5eead4;
@@ -18,11 +18,12 @@
   --soft-gray-50: #f5f7f9;
   --soft-gray-100: #edf1f5;
   --soft-gray-200: #e3e8ed;
+  --slate-200: #e2e8f0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #042f2e;
+    --background: #1e2d2f; /* Modern dark teal-gray */
     --foreground: #ccfbf1;
     --primary: #14b8a6;
     --primary-light: #5eead4;
@@ -37,6 +38,7 @@
     --soft-gray-50: #072a28;
     --soft-gray-100: #052422;
     --soft-gray-200: #031e1c;
+    --slate-200: #1e293b; /* slate-800 for dark mode */
   }
 }
 
