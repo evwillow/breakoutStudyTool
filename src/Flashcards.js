@@ -11,18 +11,18 @@
  * - Auto-loading of the most recent in-progress round
  */
 "use client";
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSession, signIn } from "next-auth/react";
 import ChartSection from "./components/ChartSection";
 import ActionButtonsRow from "./components/ActionButtonsRow";
 import FolderSection from "./components/FolderSection";
 import AuthModal from "./components/AuthModal";
-import Popup from "./components/Popup";
 import RoundHistory from "./components/RoundHistory";
 import AfterChartPopup from "./components/AfterChartPopup";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
 import LandingPage from "./components/LandingPage";
+import TimeUpOverlay from "./components/TimeUpOverlay";
 
 // Application constants
 const INITIAL_TIMER = 60;
@@ -45,6 +45,9 @@ export default function Flashcards() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Timer duration state
+  const [timerDuration, setTimerDuration] = useState(INITIAL_TIMER);
+
   // Prevent scrolling when authentication is required
   useEffect(() => {
     if (!session && status !== "loading") {
@@ -64,8 +67,8 @@ export default function Flashcards() {
   const [correctCount, setCorrectCount] = useState(0);
   const [feedback, setFeedback] = useState(null); // "correct" or "incorrect"
   const [disableButtons, setDisableButtons] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
-  const [timer, setTimer] = useState(INITIAL_TIMER);
+  const [showTimeUpOverlay, setShowTimeUpOverlay] = useState(false);
+  const [timer, setTimer] = useState(timerDuration);
   const [timerPaused, setTimerPaused] = useState(false);
   const [showRoundHistory, setShowRoundHistory] = useState(false);
   
@@ -73,13 +76,16 @@ export default function Flashcards() {
   const [showAfterChart, setShowAfterChart] = useState(false);
   const [afterChartData, setAfterChartData] = useState(null);
 
+  // Ref for the action buttons section
+  const actionButtonsRef = useRef(null);
+
   // Timer countdown effect: runs only when not paused and no popup is shown.
   useEffect(() => {
-    if (!showPopup && !timerPaused) {
+    if (!showTimeUpOverlay && !timerPaused) {
       const interval = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
-            setShowPopup(true);
+            setShowTimeUpOverlay(true);
             clearInterval(interval);
             return 0;
           }
@@ -88,7 +94,7 @@ export default function Flashcards() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [showPopup, timerPaused]);
+  }, [showTimeUpOverlay, timerPaused]);
 
   // Fetch folders on component mount.
   useEffect(() => {
@@ -139,7 +145,7 @@ export default function Flashcards() {
           setCurrentMatchIndex(0);
           setMatchCount(0);
           setCorrectCount(0);
-          setTimer(INITIAL_TIMER);
+          setTimer(timerDuration);
           
           // Only create a new round if there's no current round or if explicitly requested
           if (!roundId && session.user && session.user.id) {
@@ -183,7 +189,7 @@ export default function Flashcards() {
     return () => {
       mounted = false;
     };
-  }, [selectedFolder, status, session, roundId]);
+  }, [selectedFolder, status, session, roundId, timerDuration]);
 
   const handleFolderChange = useCallback((e) => {
     const newFolder = e.target.value;
@@ -328,6 +334,11 @@ export default function Flashcards() {
   // Handle answer selection and log the match.
   const handleSelection = useCallback(
     async (selection) => {
+      // Hide the time's up overlay if it's showing
+      if (showTimeUpOverlay) {
+        setShowTimeUpOverlay(false);
+      }
+      
       if (!thingData.length) return;
       // Pause the timer until the glow effect is done.
       setTimerPaused(true);
@@ -476,14 +487,14 @@ export default function Flashcards() {
         }
       }, 1000);
     },
-    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterCsvData]
+    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterCsvData, showTimeUpOverlay]
   );
 
   // Function to proceed to the next stock
   const proceedToNextStock = useCallback(() => {
     setFeedback(null);
     setDisableButtons(false);
-    setTimer(INITIAL_TIMER);
+    setTimer(timerDuration);
     setTimerPaused(false);
     if (currentMatchIndex < thingData.length - 1) {
       setCurrentMatchIndex(currentMatchIndex + 1);
@@ -491,7 +502,7 @@ export default function Flashcards() {
       setCurrentMatchIndex(0);
       setCurrentIndex((prev) => (prev + 1) % flashcards.length);
     }
-  }, [currentMatchIndex, thingData, flashcards.length]);
+  }, [currentMatchIndex, thingData, flashcards.length, timerDuration]);
 
   // Handle closing the after chart popup
   const handleAfterChartClose = useCallback(() => {
@@ -499,11 +510,6 @@ export default function Flashcards() {
     setAfterChartData(null);
     proceedToNextStock();
   }, [proceedToNextStock]);
-
-  const handlePopupSelect = (selection) => {
-    setShowPopup(false);
-    handleSelection(selection);
-  };
 
   // Only calculate accuracy, removed win rate
   const accuracy = useMemo(() => {
@@ -599,7 +605,7 @@ export default function Flashcards() {
       setCurrentMatchIndex(0);
       setMatchCount(0);
       setCorrectCount(0);
-      setTimer(INITIAL_TIMER);
+      setTimer(timerDuration);
       
       console.log("New round started with ID:", newRoundId);
       return newRoundId;
@@ -730,7 +736,7 @@ export default function Flashcards() {
       
       // Reset feedback and timer
       setFeedback(null);
-      setTimer(INITIAL_TIMER);
+      setTimer(timerDuration);
       setTimerPaused(false);
       setDisableButtons(false);
       
@@ -844,6 +850,12 @@ export default function Flashcards() {
     }
   }, []);
 
+  // Handle timer duration change
+  const handleTimerDurationChange = useCallback((newDuration) => {
+    setTimerDuration(newDuration);
+    setTimer(newDuration); // Reset current timer to new duration
+  }, []);
+
   // If user is not authenticated, show the landing page
   if (status !== "authenticated" || !session) {
     return (
@@ -890,18 +902,11 @@ export default function Flashcards() {
     content = (
       <div className="bg-soft-gray-50 min-h-screen w-full flex justify-center">
         <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] transition-all duration-300 ease-in-out max-w-[1400px] bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
-          <ChartSection
-            orderedFiles={orderedFiles}
-            timer={timer}
-            pointsTextArray={pointsTextArray}
-            actionButtons={actionButtons}
-            selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
-            feedback={feedback}
-            onButtonClick={handleSelection}
-            disabled={disableButtons}
-          />
-          <div className="pb-2 sm:pb-8">
-            <ActionButtonsRow
+          <div className={showTimeUpOverlay ? 'filter blur-sm' : ''}>
+            <ChartSection
+              orderedFiles={orderedFiles}
+              timer={timer}
+              pointsTextArray={pointsTextArray}
               actionButtons={actionButtons}
               selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
               feedback={feedback}
@@ -909,29 +914,50 @@ export default function Flashcards() {
               disabled={disableButtons}
             />
           </div>
-          <FolderSection
-            selectedFolder={selectedFolder}
-            folderOptions={folderOptions}
-            onFolderChange={handleFolderChange}
-            accuracy={accuracy}
-            onNewRound={createNewRound}
-            onRoundHistory={viewRoundHistory}
-          />
-          
-          {/* Date Folder Browser Section */}
-          <div className="mt-8 pt-6 mb-20">
-            {console.log("Current subfolder:", currentSubfolder)}
-            <DateFolderBrowser 
-              session={session} 
-              currentStock={currentSubfolder && typeof currentSubfolder === 'object' ? 
-                (currentSubfolder.name || 
-                 (currentSubfolder.folderName) || 
-                 (currentSubfolder.csvFiles && currentSubfolder.csvFiles[0] && currentSubfolder.csvFiles[0].fileName.split('_')[0])) 
-                : null} 
+          <div className={`pb-2 sm:pb-8 ${showTimeUpOverlay ? 'relative z-[51]' : ''}`} ref={actionButtonsRef}>
+            <ActionButtonsRow
+              actionButtons={actionButtons}
+              selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
+              feedback={feedback}
+              onButtonClick={handleSelection}
+              disabled={disableButtons}
+              isTimeUp={showTimeUpOverlay}
             />
           </div>
+          <div className={showTimeUpOverlay ? 'filter blur-sm' : ''}>
+            <FolderSection
+              selectedFolder={selectedFolder}
+              folderOptions={folderOptions}
+              onFolderChange={handleFolderChange}
+              accuracy={accuracy}
+              onNewRound={createNewRound}
+              onRoundHistory={viewRoundHistory}
+              timerDuration={timerDuration}
+              onTimerDurationChange={handleTimerDurationChange}
+            />
+            
+            {/* Date Folder Browser Section */}
+            <div className="mt-8 pt-6 mb-20">
+              {console.log("Current subfolder:", currentSubfolder)}
+              <DateFolderBrowser 
+                session={session} 
+                currentStock={currentSubfolder && typeof currentSubfolder === 'object' ? 
+                  (currentSubfolder.name || 
+                   (currentSubfolder.folderName) || 
+                   (currentSubfolder.csvFiles && currentSubfolder.csvFiles[0] && currentSubfolder.csvFiles[0].fileName.split('_')[0])) 
+                  : null} 
+              />
+            </div>
+          </div>
           
-          {showPopup && <Popup onSelect={handlePopupSelect} />}
+          {showTimeUpOverlay && (
+            <TimeUpOverlay 
+              actionButtons={actionButtons}
+              onSelect={handleSelection}
+              actionButtonsRef={actionButtonsRef}
+            />
+          )}
+          
           {showRoundHistory && (
             <RoundHistory
               isOpen={showRoundHistory}
