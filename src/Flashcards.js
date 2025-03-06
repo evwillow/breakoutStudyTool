@@ -70,7 +70,22 @@ export default function Flashcards() {
   const [showTimeUpOverlay, setShowTimeUpOverlay] = useState(false);
   const [timer, setTimer] = useState(timerDuration);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [timerReady, setTimerReady] = useState(true); // Start as ready initially
   const [showRoundHistory, setShowRoundHistory] = useState(false);
+  
+  // Store the last known timer value to prevent flashing to initial value
+  const lastKnownTimerValue = useRef(timer);
+  // Create a separate ref for the displayed timer value
+  const displayedTimerValue = useRef(timer);
+  
+  // Update the ref whenever timer changes
+  useEffect(() => {
+    lastKnownTimerValue.current = timer;
+    // Only update the displayed value when timer is ready
+    if (timerReady) {
+      displayedTimerValue.current = timer;
+    }
+  }, [timer, timerReady]);
   
   // After chart popup state
   const [showAfterChart, setShowAfterChart] = useState(false);
@@ -78,23 +93,103 @@ export default function Flashcards() {
 
   // Ref for the action buttons section
   const actionButtonsRef = useRef(null);
+  // Store the target end time for the timer
+  const timerEndTimeRef = useRef(null);
 
-  // Timer countdown effect: runs only when not paused and no popup is shown.
+  // Timer countdown effect: uses Page Visibility API to keep running in background
   useEffect(() => {
     if (!showTimeUpOverlay && !timerPaused) {
-      const interval = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            setShowTimeUpOverlay(true);
-            clearInterval(interval);
-            return 0;
+      // Set the end time if not already set
+      if (!timerEndTimeRef.current) {
+        timerEndTimeRef.current = Date.now() + lastKnownTimerValue.current * 1000;
+      }
+
+      // Function to update the timer based on the current time
+      const updateTimer = () => {
+        const now = Date.now();
+        const remaining = Math.max(0, Math.ceil((timerEndTimeRef.current - now) / 1000));
+        
+        if (remaining <= 0) {
+          setShowTimeUpOverlay(true);
+          setTimer(0);
+          displayedTimerValue.current = 0;
+          timerEndTimeRef.current = null;
+          return false; // Return false to stop the animation frame
+        }
+        
+        setTimer(remaining);
+        displayedTimerValue.current = remaining;
+        setTimerReady(true);
+        return true; // Continue the animation frame
+      };
+
+      // Set up visibility change detection
+      let animationFrameId;
+      let lastUpdateTime = Date.now();
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          // Tab is visible again, update the timer immediately
+          const now = Date.now();
+          
+          // Use the end time reference to calculate the correct remaining time
+          if (timerEndTimeRef.current) {
+            // Calculate the correct remaining time
+            const remaining = Math.max(0, Math.ceil((timerEndTimeRef.current - now) / 1000));
+            
+            // Update the displayed timer value directly without changing the state yet
+            displayedTimerValue.current = remaining;
+            
+            // Then update the timer state
+            setTimer(remaining);
+            
+            if (remaining <= 0) {
+              setShowTimeUpOverlay(true);
+              timerEndTimeRef.current = null;
+            } else {
+              // Resume animation frame updates
+              lastUpdateTime = now; // Reset the last update time
+              tick();
+            }
           }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
+        }
+      };
+
+      // Animation frame loop for smooth updates
+      const tick = () => {
+        const now = Date.now();
+        // Update at most once per second to avoid unnecessary renders
+        if (now - lastUpdateTime >= 1000) {
+          lastUpdateTime = now;
+          const shouldContinue = updateTimer();
+          if (!shouldContinue) return;
+        }
+        animationFrameId = requestAnimationFrame(tick);
+      };
+
+      // Start the animation frame loop
+      tick();
+
+      // Add visibility change listener
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        // Clean up
+        cancelAnimationFrame(animationFrameId);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    } else if (timerPaused || showTimeUpOverlay) {
+      // Reset the end time reference when paused or overlay shown
+      timerEndTimeRef.current = null;
     }
   }, [showTimeUpOverlay, timerPaused]);
+
+  // Reset timer end time when timer duration changes
+  useEffect(() => {
+    if (!timerPaused && !showTimeUpOverlay) {
+      timerEndTimeRef.current = Date.now() + lastKnownTimerValue.current * 1000;
+    }
+  }, [timerDuration, timerPaused, showTimeUpOverlay]);
 
   // Fetch folders on component mount.
   useEffect(() => {
@@ -854,7 +949,13 @@ export default function Flashcards() {
   const handleTimerDurationChange = useCallback((newDuration) => {
     setTimerDuration(newDuration);
     setTimer(newDuration); // Reset current timer to new duration
-  }, []);
+    lastKnownTimerValue.current = newDuration; // Update the ref immediately
+    displayedTimerValue.current = newDuration; // Update the displayed value immediately
+    // Reset the timer end time when duration changes
+    if (!timerPaused && !showTimeUpOverlay) {
+      timerEndTimeRef.current = Date.now() + newDuration * 1000;
+    }
+  }, [timerPaused, showTimeUpOverlay]);
 
   // If user is not authenticated, show the landing page
   if (status !== "authenticated" || !session) {
@@ -905,7 +1006,7 @@ export default function Flashcards() {
           <div className={showTimeUpOverlay ? 'filter blur-sm' : ''}>
             <ChartSection
               orderedFiles={orderedFiles}
-              timer={timer}
+              timer={displayedTimerValue.current}
               pointsTextArray={pointsTextArray}
               actionButtons={actionButtons}
               selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}

@@ -73,10 +73,10 @@ const Header = () => {
   // Navigation links
   const navLinks = [
     { name: "Study", href: "/" },
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Learn", href: "/learn" },
     { name: "Analytics", href: "/analytics" },
+    { name: "Learn", href: "/learn" },
     { name: "Community", href: "/community" },
+    { name: "Support", href: "/support" },
   ]
 
   return (
