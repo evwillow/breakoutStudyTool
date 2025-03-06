@@ -1015,7 +1015,7 @@ export default function Flashcards() {
               disabled={disableButtons}
             />
           </div>
-          <div className={`pb-2 sm:pb-8 ${showTimeUpOverlay ? 'relative z-[51]' : ''}`} ref={actionButtonsRef}>
+          <div className={`pb-2 sm:pb-8 ${showTimeUpOverlay ? 'relative z-[45]' : ''}`} ref={actionButtonsRef}>
             <ActionButtonsRow
               actionButtons={actionButtons}
               selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}

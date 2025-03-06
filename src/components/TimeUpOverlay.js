@@ -36,11 +36,12 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
         // Get the button container's position information
         const buttonRect = actionButtonsRef.current.getBoundingClientRect();
         
-        // Calculate the scroll position needed to center the buttons vertically
+        // Calculate the scroll position to place buttons at 65% of the viewport height
+        // This makes them equidistant from the arrow at 42.5%
         const viewportHeight = window.innerHeight;
-        const targetScrollPosition = window.pageYOffset + buttonRect.top - (viewportHeight / 2) + (buttonRect.height / 2);
+        const targetScrollPosition = window.pageYOffset + buttonRect.top - (viewportHeight * 0.65) + (buttonRect.height / 2);
         
-        // Scroll to center the buttons
+        // Scroll to position the buttons
         window.scrollTo({
           top: targetScrollPosition,
           behavior: 'smooth'
@@ -50,7 +51,7 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
         const buttons = actionButtonsRef.current.querySelectorAll('button');
         buttons.forEach(button => {
           button.style.transition = 'all 0.3s ease-in-out';
-          button.classList.add('shadow-lg', 'z-[60]');
+          button.classList.add('shadow-lg', 'z-[46]');
           button.style.transform = 'scale(1.05)';
           button.style.margin = '0 4px';
         });
@@ -73,7 +74,7 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
       if (actionButtonsRef && actionButtonsRef.current) {
         const buttonRect = actionButtonsRef.current.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
-        const targetPosition = window.pageYOffset + buttonRect.top - (viewportHeight / 2) + (buttonRect.height / 2);
+        const targetPosition = window.pageYOffset + buttonRect.top - (viewportHeight * 0.65) + (buttonRect.height / 2);
         
         // Immediate scroll first
         window.scrollTo(0, targetPosition);
@@ -99,7 +100,7 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
         const buttons = actionButtonsRef.current.querySelectorAll('button');
         buttons.forEach(button => {
           button.style.transition = '';
-          button.classList.remove('shadow-lg', 'z-[60]');
+          button.classList.remove('shadow-lg', 'z-[46]');
           button.style.transform = '';
           button.style.margin = '';
         });
@@ -123,10 +124,13 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
   return (
     <div 
       ref={overlayRef}
-      className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-md z-50 flex flex-col items-center justify-start pt-20 transition-opacity duration-500 ease-in-out overflow-hidden"
+      className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-md z-40 flex flex-col items-center transition-opacity duration-500 ease-in-out overflow-hidden"
     >
-      {/* Time's Up message - all white, single line */}
-      <div className="message-container text-center px-4 transition-all duration-500">
+      {/* Subtle highlight for the action buttons area */}
+      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-turquoise-500/20 to-transparent pointer-events-none"></div>
+      
+      {/* Time's Up message - positioned higher in the screen */}
+      <div className="fixed top-[25%] left-0 right-0 text-center px-4 transition-all duration-500">
         <div className="flex items-center justify-center">
           <svg className="w-10 h-10 mr-3 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -137,15 +141,14 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
         </div>
       </div>
       
-      {/* Directional arrow pointing to buttons with enhanced animation */}
-      <div className="arrow-container mt-8 mb-8 text-turquoise-500 animate-bounce transition-transform duration-300">
-        <svg className="w-16 h-16 drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-        </svg>
+      {/* Directional arrow pointing to buttons - positioned slightly higher */}
+      <div className="fixed top-[42%] left-0 right-0 flex justify-center">
+        <div className="text-turquoise-500 animate-bounce transition-transform duration-300">
+          <svg className="w-20 h-20 drop-shadow-xl" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+          </svg>
+        </div>
       </div>
-      
-      {/* Subtle highlight for the action buttons area */}
-      <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-turquoise-500/20 to-transparent pointer-events-none"></div>
     </div>
   );
 };
