@@ -40,7 +40,7 @@ const PARENT_FOLDER_ID = "18q55oXvsOL2MboehLA1OglGdepBVDDub";
  * Implements a multi-stage search strategy:
  * 1. Look for exact match folders
  * 2. Search for stock folders within top-level folders
- * 3. Search for any CSV files containing the stock symbol
+ * 3. Search for any JSON files containing the stock symbol
  * 4. Fall back to sample data if nothing is found
  */
 export async function GET(request) {
@@ -79,31 +79,31 @@ export async function GET(request) {
       if (folder.name.toLowerCase() === stockSymbol.toLowerCase()) {
         console.log(`Found exact match folder: ${folder.name}`);
         
-        // Get all CSV files in this folder
+        // Get all JSON files in this folder
         const filesResponse = await drive.files.list({
-          q: `'${folder.id}' in parents and mimeType = 'text/csv'`,
+          q: `'${folder.id}' in parents and mimeType = 'application/json'`,
           fields: "files(id, name)",
           pageSize: 1000,
         });
 
-        console.log(`Found ${filesResponse.data.files.length} CSV files in ${folder.name}`);
+        console.log(`Found ${filesResponse.data.files.length} JSON files in ${folder.name}`);
         
         if (filesResponse.data.files.length > 0) {
-          // Fetch the content of each CSV file
-          const csvFiles = await Promise.all(
+          // Fetch the content of each JSON file
+          const jsonFiles = await Promise.all(
             filesResponse.data.files.map(async (file) => {
               try {
                 console.log(`Fetching content for file: ${file.name}`);
-                const csvData = await drive.files.get({
+                const jsonData = await drive.files.get({
                   fileId: file.id,
                   alt: "media",
                 });
                 return {
                   fileName: file.name,
-                  data: csvData.data,
+                  data: jsonData.data,
                 };
               } catch (error) {
-                console.error(`Error fetching CSV file ${file.name}:`, error.message);
+                console.error(`Error fetching JSON file ${file.name}:`, error.message);
                 return {
                   fileName: file.name,
                   data: null,
@@ -115,7 +115,7 @@ export async function GET(request) {
 
           stockFiles.push({
             folderName: folder.name,
-            csvFiles,
+            jsonFiles,
           });
           foundStockFolder = true;
         }
@@ -140,31 +140,31 @@ export async function GET(request) {
           foundStockFolder = true;
           console.log(`Found stock folder ${stockFolder.name} in ${folder.name}`);
 
-          // Get all CSV files in the stock folder
+          // Get all JSON files in the stock folder
           const filesResponse = await drive.files.list({
-            q: `'${stockFolder.id}' in parents and mimeType = 'text/csv'`,
+            q: `'${stockFolder.id}' in parents and mimeType = 'application/json'`,
             fields: "files(id, name)",
             pageSize: 1000,
           });
 
-          console.log(`Found ${filesResponse.data.files.length} CSV files in ${folder.name}/${stockFolder.name}`);
+          console.log(`Found ${filesResponse.data.files.length} JSON files in ${folder.name}/${stockFolder.name}`);
           
           if (filesResponse.data.files.length > 0) {
-            // Fetch the content of each CSV file
-            const csvFiles = await Promise.all(
+            // Fetch the content of each JSON file
+            const jsonFiles = await Promise.all(
               filesResponse.data.files.map(async (file) => {
                 try {
                   console.log(`Fetching content for file: ${file.name}`);
-                  const csvData = await drive.files.get({
+                  const jsonData = await drive.files.get({
                     fileId: file.id,
                     alt: "media",
                   });
                   return {
                     fileName: file.name,
-                    data: csvData.data,
+                    data: jsonData.data,
                   };
                 } catch (error) {
-                  console.error(`Error fetching CSV file ${file.name}:`, error.message);
+                  console.error(`Error fetching JSON file ${file.name}:`, error.message);
                   return {
                     fileName: file.name,
                     data: null,
@@ -177,7 +177,7 @@ export async function GET(request) {
             stockFiles.push({
               folderName: stockFolder.name,
               parentFolder: folder.name,
-              csvFiles,
+              jsonFiles,
             });
           }
         }
@@ -196,11 +196,11 @@ export async function GET(request) {
     // If we still didn't find any files, try a broader search
     console.log("No exact matches found, trying broader search...");
     
-    // Search for any CSV files that might contain the stock symbol in their name
+    // Search for any JSON files that might contain the stock symbol in their name
     for (const folder of foldersResponse.data.files) {
-      // Get all CSV files in this folder
+      // Get all JSON files in this folder
       const filesResponse = await drive.files.list({
-        q: `'${folder.id}' in parents and mimeType = 'text/csv'`,
+        q: `'${folder.id}' in parents and mimeType = 'application/json'`,
         fields: "files(id, name)",
         pageSize: 1000,
       });
@@ -211,23 +211,23 @@ export async function GET(request) {
       );
       
       if (relevantFiles.length > 0) {
-        console.log(`Found ${relevantFiles.length} relevant CSV files in ${folder.name}`);
+        console.log(`Found ${relevantFiles.length} relevant JSON files in ${folder.name}`);
         
-        // Fetch the content of each relevant CSV file
-        const csvFiles = await Promise.all(
+        // Fetch the content of each relevant JSON file
+        const jsonFiles = await Promise.all(
           relevantFiles.map(async (file) => {
             try {
               console.log(`Fetching content for file: ${file.name}`);
-              const csvData = await drive.files.get({
+              const jsonData = await drive.files.get({
                 fileId: file.id,
                 alt: "media",
               });
               return {
                 fileName: file.name,
-                data: csvData.data,
+                data: jsonData.data,
               };
             } catch (error) {
-              console.error(`Error fetching CSV file ${file.name}:`, error.message);
+              console.error(`Error fetching JSON file ${file.name}:`, error.message);
               return {
                 fileName: file.name,
                 data: null,
@@ -239,7 +239,7 @@ export async function GET(request) {
 
         stockFiles.push({
           folderName: folder.name,
-          csvFiles,
+          jsonFiles,
         });
         foundStockFolder = true;
       }
@@ -273,14 +273,33 @@ function createSampleData(stockSymbol) {
       {
         folderName: "POO_Jan_4_2019",
         parentFolder: "high_power",
-        csvFiles: [
+        jsonFiles: [
           {
-            fileName: "D.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2019-01-04,100,105,98,103,1000\n2019-01-03,98,102,97,100,950\n2019-01-02,95,99,94,98,900"
+            fileName: "D.json",
+            data: JSON.stringify([
+              { open: 100, high: 105, low: 98, close: 103, volume: 1000 },
+              { open: 98, high: 102, low: 97, close: 100, volume: 950 },
+              { open: 95, high: 99, low: 94, close: 98, volume: 900 }
+            ])
           },
           {
-            fileName: "H.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2019-01-04,100,105,98,103,1000\n2019-01-03,98,102,97,100,950"
+            fileName: "H.json",
+            data: JSON.stringify([
+              { open: 100, high: 105, low: 98, close: 103, volume: 1000 },
+              { open: 98, high: 102, low: 97, close: 100, volume: 950 }
+            ])
+          },
+          {
+            fileName: "thing.json",
+            data: JSON.stringify([{ thing: 4 }])
+          },
+          {
+            fileName: "points.json",
+            data: JSON.stringify([
+              { points: "MACD Divergence" },
+              { points: "EMA Cross" },
+              { points: "Inverse Head and Shoulders" }
+            ])
           }
         ]
       }
@@ -296,14 +315,33 @@ function createSampleData(stockSymbol) {
       {
         folderName: "SKI_Mar_9_2011",
         parentFolder: "high_power",
-        csvFiles: [
+        jsonFiles: [
           {
-            fileName: "D.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2011-03-09,45.20,46.75,44.80,46.25,2500\n2011-03-08,44.90,45.50,44.25,45.10,2200\n2011-03-07,45.30,45.80,44.50,44.85,2100"
+            fileName: "D.json",
+            data: JSON.stringify([
+              { open: 45.20, high: 46.75, low: 44.80, close: 46.25, volume: 2500 },
+              { open: 44.90, high: 45.50, low: 44.25, close: 45.10, volume: 2200 },
+              { open: 45.30, high: 45.80, low: 44.50, close: 44.85, volume: 2100 }
+            ])
           },
           {
-            fileName: "H.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2011-03-09,45.20,46.75,44.80,46.25,2500\n2011-03-08,44.90,45.50,44.25,45.10,2200"
+            fileName: "H.json",
+            data: JSON.stringify([
+              { open: 45.20, high: 46.75, low: 44.80, close: 46.25, volume: 2500 },
+              { open: 44.90, high: 45.50, low: 44.25, close: 45.10, volume: 2200 }
+            ])
+          },
+          {
+            fileName: "thing.json",
+            data: JSON.stringify([{ thing: 4 }])
+          },
+          {
+            fileName: "points.json",
+            data: JSON.stringify([
+              { points: "MACD Divergence" },
+              { points: "EMA Cross" },
+              { points: "Inverse Head and Shoulders" }
+            ])
           }
         ]
       }
@@ -319,14 +357,33 @@ function createSampleData(stockSymbol) {
       {
         folderName: "SLOT_Apr_14_2001",
         parentFolder: "original",
-        csvFiles: [
+        jsonFiles: [
           {
-            fileName: "D.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2001-04-14,75.50,78.25,74.80,77.50,3500\n2001-04-13,74.90,76.50,74.25,75.40,3200\n2001-04-12,76.30,76.80,73.50,74.85,3100"
+            fileName: "D.json",
+            data: JSON.stringify([
+              { open: 75.50, high: 78.25, low: 74.80, close: 77.50, volume: 3500 },
+              { open: 74.90, high: 76.50, low: 74.25, close: 75.40, volume: 3200 },
+              { open: 76.30, high: 76.80, low: 73.50, close: 74.85, volume: 3100 }
+            ])
           },
           {
-            fileName: "H.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2001-04-14,75.50,78.25,74.80,77.50,3500\n2001-04-13,74.90,76.50,74.25,75.40,3200"
+            fileName: "H.json",
+            data: JSON.stringify([
+              { open: 75.50, high: 78.25, low: 74.80, close: 77.50, volume: 3500 },
+              { open: 74.90, high: 76.50, low: 74.25, close: 75.40, volume: 3200 }
+            ])
+          },
+          {
+            fileName: "thing.json",
+            data: JSON.stringify([{ thing: 4 }])
+          },
+          {
+            fileName: "points.json",
+            data: JSON.stringify([
+              { points: "MACD Divergence" },
+              { points: "EMA Cross" },
+              { points: "Inverse Head and Shoulders" }
+            ])
           }
         ]
       }
@@ -342,14 +399,33 @@ function createSampleData(stockSymbol) {
       {
         folderName: "SHIT_Dec_11_2007",
         parentFolder: "original",
-        csvFiles: [
+        jsonFiles: [
           {
-            fileName: "D.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2007-12-11,35.20,36.75,34.80,36.25,4500\n2007-12-10,34.90,35.50,34.25,35.10,4200\n2007-12-09,35.30,35.80,34.50,34.85,4100"
+            fileName: "D.json",
+            data: JSON.stringify([
+              { open: 35.20, high: 36.75, low: 34.80, close: 36.25, volume: 4500 },
+              { open: 34.90, high: 35.50, low: 34.25, close: 35.10, volume: 4200 },
+              { open: 35.30, high: 35.80, low: 34.50, close: 34.85, volume: 4100 }
+            ])
           },
           {
-            fileName: "H.csv",
-            data: "Date,Open,High,Low,Close,Volume\n2007-12-11,35.20,36.75,34.80,36.25,4500\n2007-12-10,34.90,35.50,34.25,35.10,4200"
+            fileName: "H.json",
+            data: JSON.stringify([
+              { open: 35.20, high: 36.75, low: 34.80, close: 36.25, volume: 4500 },
+              { open: 34.90, high: 35.50, low: 34.25, close: 35.10, volume: 4200 }
+            ])
+          },
+          {
+            fileName: "thing.json",
+            data: JSON.stringify([{ thing: 4 }])
+          },
+          {
+            fileName: "points.json",
+            data: JSON.stringify([
+              { points: "MACD Divergence" },
+              { points: "EMA Cross" },
+              { points: "Inverse Head and Shoulders" }
+            ])
           }
         ]
       }
@@ -365,14 +441,33 @@ function createSampleData(stockSymbol) {
       {
         folderName: "EDGE_Oct_22_1999",
         parentFolder: "original",
-        csvFiles: [
+        jsonFiles: [
           {
-            fileName: "D.csv",
-            data: "Date,Open,High,Low,Close,Volume\n1999-10-22,55.20,56.75,54.80,56.25,5500\n1999-10-21,54.90,55.50,54.25,55.10,5200\n1999-10-20,55.30,55.80,54.50,54.85,5100"
+            fileName: "D.json",
+            data: JSON.stringify([
+              { open: 55.20, high: 56.75, low: 54.80, close: 56.25, volume: 5500 },
+              { open: 54.90, high: 55.50, low: 54.25, close: 55.10, volume: 5200 },
+              { open: 55.30, high: 55.80, low: 54.50, close: 54.85, volume: 5100 }
+            ])
           },
           {
-            fileName: "H.csv",
-            data: "Date,Open,High,Low,Close,Volume\n1999-10-22,55.20,56.75,54.80,56.25,5500\n1999-10-21,54.90,55.50,54.25,55.10,5200"
+            fileName: "H.json",
+            data: JSON.stringify([
+              { open: 55.20, high: 56.75, low: 54.80, close: 56.25, volume: 5500 },
+              { open: 54.90, high: 55.50, low: 54.25, close: 55.10, volume: 5200 }
+            ])
+          },
+          {
+            fileName: "thing.json",
+            data: JSON.stringify([{ thing: 4 }])
+          },
+          {
+            fileName: "points.json",
+            data: JSON.stringify([
+              { points: "MACD Divergence" },
+              { points: "EMA Cross" },
+              { points: "Inverse Head and Shoulders" }
+            ])
           }
         ]
       }

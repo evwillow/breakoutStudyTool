@@ -77,11 +77,11 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                 
                 // Process each folder in the results
                 stockFilesData.forEach(folderData => {
-                  if (folderData.csvFiles && folderData.csvFiles.length > 0) {
-                    stockTotalFiles += folderData.csvFiles.length;
+                  if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
+                    stockTotalFiles += folderData.jsonFiles.length;
                     
                     // Add each file to our results
-                    folderData.csvFiles.forEach(file => {
+                    folderData.jsonFiles.forEach(file => {
                       // Create a unique ID that includes the parent folder if available
                       const parentFolder = folderData.parentFolder ? `${folderData.parentFolder}/` : '';
                       const id = `${parentFolder}${folderData.folderName}/${file.fileName}`;
@@ -127,11 +127,11 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                 
                 // Process each folder in the search results
                 searchData.forEach(folderData => {
-                  if (folderData.csvFiles && folderData.csvFiles.length > 0) {
-                    searchTotalFiles += folderData.csvFiles.length;
+                  if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
+                    searchTotalFiles += folderData.jsonFiles.length;
                     
                     // Add each file to our results
-                    folderData.csvFiles.forEach(file => {
+                    folderData.jsonFiles.forEach(file => {
                       searchFiles.push({
                         id: `${folderData.folderName}/${file.fileName}`,
                         subfolder: folderData.folderName,
@@ -246,11 +246,11 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                   
                   // Process each folder in the search results
                   searchData.forEach(folderData => {
-                    if (folderData.csvFiles && folderData.csvFiles.length > 0) {
-                      searchTotalFiles += folderData.csvFiles.length;
+                    if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
+                      searchTotalFiles += folderData.jsonFiles.length;
                       
                       // Add each file to our results
-                      folderData.csvFiles.forEach(file => {
+                      folderData.jsonFiles.forEach(file => {
                         searchFiles.push({
                           id: `${folderData.folderName}/${file.fileName}`,
                           subfolder: folderData.folderName,
@@ -287,11 +287,11 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                   
                   // Process each folder in the results
                   stockFilesData.forEach(folderData => {
-                    if (folderData.csvFiles && folderData.csvFiles.length > 0) {
-                      stockTotalFiles += folderData.csvFiles.length;
+                    if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
+                      stockTotalFiles += folderData.jsonFiles.length;
                       
                       // Add each file to our results
-                      folderData.csvFiles.forEach(file => {
+                      folderData.jsonFiles.forEach(file => {
                         // Create a unique ID that includes the parent folder if available
                         const parentFolder = folderData.parentFolder ? `${folderData.parentFolder}/` : '';
                         const id = `${parentFolder}${folderData.folderName}/${file.fileName}`;
@@ -331,9 +331,9 @@ const DateFolderBrowser = ({ session, currentStock }) => {
               ];
               
               relevantFiles.push({
-                id: "POO_Jan_4_2019/sample.csv",
+                id: "POO_Jan_4_2019/sample.json",
                 subfolder: "POO_Jan_4_2019",
-                fileName: "sample.csv",
+                fileName: "sample.json",
                 data: sampleData
               });
               
@@ -350,9 +350,9 @@ const DateFolderBrowser = ({ session, currentStock }) => {
               ];
               
               relevantFiles.push({
-                id: "SKI_Mar_9_2011/sample.csv",
+                id: "SKI_Mar_9_2011/sample.json",
                 subfolder: "SKI_Mar_9_2011",
-                fileName: "sample.csv",
+                fileName: "sample.json",
                 data: sampleData
               });
               
@@ -490,9 +490,8 @@ const DateFolderBrowser = ({ session, currentStock }) => {
         throw new Error(`Failed to fetch file content: ${response.statusText}`);
       }
       
-      const data = await response.text();
-      const parsedData = parseCSV(data);
-      setFileData(prev => ({ ...prev, [fileId]: parsedData }));
+      const data = await response.json();
+      setFileData(prev => ({ ...prev, [fileId]: data }));
     } catch (err) {
       console.error(`Error loading file data for ${fileId}:`, err);
       setError(`Failed to load chart data: ${err.message}`);
@@ -539,12 +538,12 @@ const DateFolderBrowser = ({ session, currentStock }) => {
       
       // Count total files before filtering
       totalFilesBeforeFiltering = extractedFiles.filter(file => 
-        file.name && file.name.toLowerCase().endsWith('.csv')
+        file.name && file.name.toLowerCase().endsWith('.json')
       ).length;
       
       // Process each extracted file
       extractedFiles.forEach(file => {
-        if (file.name && file.name.toLowerCase().endsWith('.csv')) {
+        if (file.name && file.name.toLowerCase().endsWith('.json')) {
           // Check if the file is relevant to the current stock
           if (isRelevantToCurrentStock(file.name, stockSymbol)) {
             const fileKey = `${folderName}/${file.name}`;
@@ -565,12 +564,12 @@ const DateFolderBrowser = ({ session, currentStock }) => {
       return { relevantFiles, totalFilesBeforeFiltering };
     }
     
-    // Count total CSV files before filtering
+    // Count total JSON files before filtering
     totalFilesBeforeFiltering = data.filter(item => {
       if (typeof item === 'string') {
-        return item.toLowerCase().endsWith('.csv');
+        return item.toLowerCase().endsWith('.json');
       } else if (item && typeof item === 'object' && item.name) {
-        return item.name.toLowerCase().endsWith('.csv');
+        return item.name.toLowerCase().endsWith('.json');
       }
       return false;
     }).length;
@@ -580,7 +579,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
      */
     const addFileIfRelevant = (fileName, subfolder, fileData, filePath = null) => {
       // Skip files that don't match our criteria
-      if (!fileName || !fileName.toLowerCase().endsWith('.csv')) {
+      if (!fileName || !fileName.toLowerCase().endsWith('.json')) {
         return;
       }
       
@@ -602,7 +601,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     
     // Process array data
     data.forEach(item => {
-      if (typeof item === 'string' && item.toLowerCase().endsWith('.csv')) {
+      if (typeof item === 'string' && item.toLowerCase().endsWith('.json')) {
         // Simple string array of filenames
         addFileIfRelevant(item, folderName, null);
       } else if (item && typeof item === 'object') {
@@ -635,7 +634,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     
     if (typeof obj === 'object') {
       if (obj.name && obj.data && typeof obj.name === 'string' && 
-          obj.name.toLowerCase().endsWith('.csv')) {
+          obj.name.toLowerCase().endsWith('.json')) {
         files.push({
           name: obj.name,
           data: obj.data,
@@ -681,7 +680,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
         return true;
       }
       
-      // As a fallback for this specific case, include all CSV files
+      // As a fallback for this specific case, include all JSON files
       console.log(`Including ${fileName} as fallback for POO_Jan_4_2019`);
       return true;
     }
@@ -700,7 +699,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
         return true;
       }
       
-      // As a fallback for this specific case, include all CSV files
+      // As a fallback for this specific case, include all JSON files
       console.log(`Including ${fileName} as fallback for SKI_Mar_9_2011`);
       return true;
     }
@@ -716,7 +715,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
     }
     
     // Check parts of the filename (split by underscores, hyphens, or periods)
-    const parts = fileNameLower.replace('.csv', '').split(/[_\-\.]/);
+    const parts = fileNameLower.replace('.json', '').split(/[_\-\.]/);
     
     // Check if any part matches the stock symbol exactly
     const exactMatch = parts.some(part => part === stockSymbolOnly);
@@ -782,8 +781,8 @@ const DateFolderBrowser = ({ session, currentStock }) => {
    * @returns {string|React.ReactNode} The formatted filename for display
    */
   const displayFileName = (fileName) => {
-    // Remove .csv extension
-    const nameWithoutExtension = fileName.replace('.csv', '');
+    // Remove .json extension
+    const nameWithoutExtension = fileName.replace('.json', '');
     
     // Check if the filename is a date format like "Feb_22_2016"
     const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;
@@ -911,7 +910,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
    * 
    * This function filters files to:
    * 1. Only include files with date-formatted names (e.g., "Feb_22_2016")
-   * 2. Exclude single-letter files (D.csv, H.csv, M.csv)
+   * 2. Exclude single-letter files (D.json, H.json, M.json)
    * 3. Exclude any other files that don't match the date format pattern
    * 
    * The date format pattern is: three-letter month, underscore, one or two-digit day,
@@ -921,8 +920,8 @@ const DateFolderBrowser = ({ session, currentStock }) => {
    * @returns {boolean} True if the file should be included, false otherwise
    */
   const shouldIncludeInDropdown = (fileName) => {
-    // Remove .csv extension
-    const nameWithoutExtension = fileName.replace('.csv', '');
+    // Remove .json extension
+    const nameWithoutExtension = fileName.replace('.json', '');
     
     // Include only date format files (e.g., "Feb_22_2016")
     const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;
@@ -941,8 +940,8 @@ const DateFolderBrowser = ({ session, currentStock }) => {
    * @returns {Date|null} A Date object if parsing was successful, null otherwise
    */
   const parseDateFromFileName = (fileName) => {
-    // Remove .csv extension
-    const nameWithoutExtension = fileName.replace('.csv', '');
+    // Remove .json extension
+    const nameWithoutExtension = fileName.replace('.json', '');
     
     // Check if the filename is a date format like "Feb_22_2016"
     const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;

@@ -61,7 +61,7 @@ export async function GET(request) {
       return NextResponse.json([], { status: 200 });
     }
 
-    // Search for CSV files containing the search query in their name
+    // Search for JSON files containing the search query in their name
     const searchResults = [];
 
     // First, check if there's a folder with the exact name matching the search query
@@ -70,27 +70,27 @@ export async function GET(request) {
     );
 
     if (exactFolderMatch) {
-      // Get all CSV files in this folder
+      // Get all JSON files in this folder
       const filesInExactFolder = await drive.files.list({
-        q: `'${exactFolderMatch.id}' in parents and mimeType = 'text/csv'`,
+        q: `'${exactFolderMatch.id}' in parents and mimeType = 'application/json'`,
         fields: "files(id, name)",
         pageSize: 1000,
       });
 
       if (filesInExactFolder.data.files.length > 0) {
-        const csvFiles = await Promise.all(
+        const jsonFiles = await Promise.all(
           filesInExactFolder.data.files.map(async (file) => {
             try {
-              const csvData = await drive.files.get({
+              const jsonData = await drive.files.get({
                 fileId: file.id,
                 alt: "media",
               });
               return {
                 fileName: file.name,
-                data: csvData.data,
+                data: jsonData.data,
               };
             } catch (error) {
-              console.error(`Error fetching CSV file ${file.name}:`, error.message);
+              console.error(`Error fetching JSON file ${file.name}:`, error.message);
               return {
                 fileName: file.name,
                 data: null,
@@ -102,12 +102,12 @@ export async function GET(request) {
 
         searchResults.push({
           folderName: exactFolderMatch.name,
-          csvFiles,
+          jsonFiles,
         });
       }
     }
 
-    // Search for CSV files in all folders that might contain the search query
+    // Search for JSON files in all folders that might contain the search query
     const searchTerms = searchQuery.toLowerCase().split('_');
     
     // Process each folder
@@ -122,9 +122,9 @@ export async function GET(request) {
       const folderRelevant = searchTerms.some(term => folderNameLower.includes(term));
       
       if (folderRelevant) {
-        // Get all CSV files in this folder
+        // Get all JSON files in this folder
         const filesInFolder = await drive.files.list({
-          q: `'${folder.id}' in parents and mimeType = 'text/csv'`,
+          q: `'${folder.id}' in parents and mimeType = 'application/json'`,
           fields: "files(id, name)",
           pageSize: 1000,
         });
@@ -136,19 +136,19 @@ export async function GET(request) {
           });
 
           if (relevantFiles.length > 0) {
-            const csvFiles = await Promise.all(
+            const jsonFiles = await Promise.all(
               relevantFiles.map(async (file) => {
                 try {
-                  const csvData = await drive.files.get({
+                  const jsonData = await drive.files.get({
                     fileId: file.id,
                     alt: "media",
                   });
                   return {
                     fileName: file.name,
-                    data: csvData.data,
+                    data: jsonData.data,
                   };
                 } catch (error) {
-                  console.error(`Error fetching CSV file ${file.name}:`, error.message);
+                  console.error(`Error fetching JSON file ${file.name}:`, error.message);
                   return {
                     fileName: file.name,
                     data: null,
@@ -160,7 +160,7 @@ export async function GET(request) {
 
             searchResults.push({
               folderName: folder.name,
-              csvFiles,
+              jsonFiles,
             });
           }
         }
@@ -182,9 +182,9 @@ export async function GET(request) {
         
         searchResults.push({
           folderName: "POO_Jan_4_2019",
-          csvFiles: [
+          jsonFiles: [
             {
-              fileName: "sample.csv",
+              fileName: "sample.json",
               data: sampleData
             }
           ]
@@ -201,9 +201,9 @@ export async function GET(request) {
         
         searchResults.push({
           folderName: "SKI_Mar_9_2011",
-          csvFiles: [
+          jsonFiles: [
             {
-              fileName: "sample.csv",
+              fileName: "sample.json",
               data: sampleData
             }
           ]

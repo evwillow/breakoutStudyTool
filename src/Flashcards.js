@@ -307,19 +307,19 @@ export default function Flashcards() {
 
   const currentSubfolder = flashcards[currentIndex] || null;
 
-  // Extract ordered CSV files for charts (D.csv, H.csv, M.csv).
+  // Extract ordered JSON files for charts (D.json, H.json, M.json).
   const orderedFiles = useMemo(() => {
-    if (!currentSubfolder || !currentSubfolder.csvFiles) {
-      console.warn("No current subfolder or CSV files available");
+    if (!currentSubfolder || !currentSubfolder.jsonFiles) {
+      console.warn("No current subfolder or JSON files available");
       return [];
     }
     
     try {
       const files = new Map();
-      const requiredFiles = ["D.csv", "H.csv", "M.csv"];
+      const requiredFiles = ["D.json", "H.json", "M.json"];
       
       // Check if all required files are present
-      for (const file of currentSubfolder.csvFiles) {
+      for (const file of currentSubfolder.jsonFiles) {
         if (!file.fileName || !file.data) {
           console.warn(`Invalid file object found: ${JSON.stringify(file)}`);
           continue;
@@ -327,11 +327,11 @@ export default function Flashcards() {
         
         const fileName = file.fileName.toUpperCase(); // Case-insensitive matching
         
-        if (fileName.includes("D.CSV") || fileName.includes("D.csv")) {
+        if (fileName.includes("D.JSON") || fileName.includes("D.json")) {
           files.set("D", file);
-        } else if (fileName.includes("H.CSV") || fileName.includes("H.csv")) {
+        } else if (fileName.includes("H.JSON") || fileName.includes("H.json")) {
           files.set("H", file);
-        } else if (fileName.includes("M.CSV") || fileName.includes("M.csv")) {
+        } else if (fileName.includes("M.JSON") || fileName.includes("M.json")) {
           files.set("M", file);
         }
       }
@@ -351,77 +351,88 @@ export default function Flashcards() {
     }
   }, [currentSubfolder]);
 
-  // Extract after.csv data
-  const afterCsvData = useMemo(() => {
-    if (!currentSubfolder || !currentSubfolder.csvFiles) return null;
+  // Extract after.json data
+  const afterJsonData = useMemo(() => {
+    if (!currentSubfolder || !currentSubfolder.jsonFiles) return null;
     
-    const afterFile = currentSubfolder.csvFiles.find((file) =>
-      file.fileName.toLowerCase().includes("after.csv")
+    const afterFile = currentSubfolder.jsonFiles.find((file) =>
+      file.fileName.toLowerCase().includes("after.json")
     );
     
     if (!afterFile || !afterFile.data) {
-      console.warn("after.csv file not found or has no data");
+      console.warn("after.json file not found or has no data");
       return null;
     }
     
     return afterFile.data;
   }, [currentSubfolder]);
 
-  // Extract thing.csv data.
+  // Extract thing.json data.
   const thingData = useMemo(() => {
-    if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
+    if (!currentSubfolder || !currentSubfolder.jsonFiles) return [];
     
-    const thingFile = currentSubfolder.csvFiles.find((file) =>
-      file.fileName.toLowerCase().includes("thing.csv")
+    const thingFile = currentSubfolder.jsonFiles.find((file) =>
+      file.fileName.toLowerCase().includes("thing.json")
     );
     
     if (!thingFile || !thingFile.data) {
-      console.warn("thing.csv file not found or has no data");
+      console.warn("thing.json file not found or has no data");
       return [];
     }
     
     try {
-      return thingFile.data
-        .trim()
-        .split("\n")
-        .filter(line => line.trim()) // Filter out empty lines
-        .map((line) => {
-          const value = line.trim();
-          const parsedValue = parseInt(value, 10);
-          if (isNaN(parsedValue)) {
-            console.warn(`Invalid numeric value in thing.csv: ${value}`);
-            return null;
-          }
-          return parsedValue;
-        })
-        .filter((num) => num !== null);
+      // The data is already parsed JSON from the API
+      const jsonData = thingFile.data;
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        console.warn("thing.json data is not an array or is empty");
+        return [];
+      }
+      
+      // Extract the thing value from the first object
+      const thingValue = jsonData[0].thing;
+      if (typeof thingValue !== 'number') {
+        console.warn("Invalid thing value in thing.json:", thingValue);
+        return [];
+      }
+      
+      return [thingValue];
     } catch (error) {
-      console.error("Error processing thing.csv:", error);
+      console.error("Error processing thing.json:", error);
       return [];
     }
   }, [currentSubfolder]);
 
   // Generate points text array for the chart section.
   const pointsTextArray = useMemo(() => {
-    if (!currentSubfolder || !currentSubfolder.csvFiles) return [];
+    if (!currentSubfolder || !currentSubfolder.jsonFiles) return [];
      
-    const pointsFile = currentSubfolder.csvFiles.find(
-      (file) => file.fileName.toLowerCase() === "points.csv"
+    const pointsFile = currentSubfolder.jsonFiles.find(
+      (file) => file.fileName.toLowerCase() === "points.json"
     );
      
     if (!pointsFile || !pointsFile.data) {
-      console.warn("points.csv file not found or has no data");
+      console.warn("points.json file not found or has no data");
       return [];
     }
      
     try {
-      return pointsFile.data
-        .trim()
-        .split("\n")
-        .filter(line => line.trim()) // Filter out empty lines
-        .map(line => line.trim());
+      // The data is already parsed JSON from the API
+      const jsonData = pointsFile.data;
+      if (!Array.isArray(jsonData)) {
+        console.warn("points.json data is not an array");
+        return [];
+      }
+      
+      // Extract points values from each object
+      return jsonData.map(item => {
+        if (typeof item.points !== 'string') {
+          console.warn("Invalid points value in points.json:", item);
+          return null;
+        }
+        return item.points;
+      }).filter(Boolean);
     } catch (error) {
-      console.error("Error processing points.csv:", error);
+      console.error("Error processing points.json:", error);
       return [];
     }
   }, [currentSubfolder]);
@@ -572,17 +583,17 @@ export default function Flashcards() {
 
       // Wait 1 second before showing the after chart
       setTimeout(() => {
-        // Check if after.csv data exists
-        if (afterCsvData) {
-          setAfterChartData(afterCsvData);
+        // Check if after.json data exists
+        if (afterJsonData) {
+          setAfterChartData(afterJsonData);
           setShowAfterChart(true);
         } else {
-          // If no after.csv data, proceed with the normal flow
+          // If no after.json data, proceed with the normal flow
           proceedToNextStock();
         }
       }, 1000);
     },
-    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterCsvData, showTimeUpOverlay]
+    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterJsonData, showTimeUpOverlay]
   );
 
   // Function to proceed to the next stock
@@ -996,7 +1007,7 @@ export default function Flashcards() {
   ) {
     content = (
       <div className="flex justify-center items-center h-96">
-        <p className="text-black">No flashcards or thing.csv available.</p>
+        <p className="text-black">No flashcards or thing.json available.</p>
       </div>
     );
   } else {
@@ -1045,7 +1056,7 @@ export default function Flashcards() {
                 currentStock={currentSubfolder && typeof currentSubfolder === 'object' ? 
                   (currentSubfolder.name || 
                    (currentSubfolder.folderName) || 
-                   (currentSubfolder.csvFiles && currentSubfolder.csvFiles[0] && currentSubfolder.csvFiles[0].fileName.split('_')[0])) 
+                   (currentSubfolder.jsonFiles && currentSubfolder.jsonFiles[0] && currentSubfolder.jsonFiles[0].fileName.split('_')[0])) 
                   : null} 
               />
             </div>
@@ -1072,7 +1083,7 @@ export default function Flashcards() {
           <AfterChartPopup 
             isOpen={showAfterChart}
             onClose={handleAfterChartClose}
-            afterCsvData={afterChartData}
+            afterCsvData={afterJsonData}
             stockName={currentSubfolder ? currentSubfolder.name : 'Stock'}
           />
         </div>

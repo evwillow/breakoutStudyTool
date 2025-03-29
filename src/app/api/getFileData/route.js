@@ -47,26 +47,26 @@ export async function GET(request) {
     
     const selectedFolderId = folderResponse.data.files[0].id;
 
-    // First, check for CSV files directly in the selected folder
-    const directCsvResponse = await drive.files.list({
-      q: `'${selectedFolderId}' in parents and mimeType = 'text/csv'`,
+    // First, check for JSON files directly in the selected folder
+    const directJsonResponse = await drive.files.list({
+      q: `'${selectedFolderId}' in parents and mimeType = 'application/json'`,
       fields: "files(id, name)",
       pageSize: 1000,
     });
     
-    const directCsvFiles = await Promise.all(
-      directCsvResponse.data.files.map(async (file) => {
+    const directJsonFiles = await Promise.all(
+      directJsonResponse.data.files.map(async (file) => {
         try {
-          const csvData = await drive.files.get({
+          const jsonData = await drive.files.get({
             fileId: file.id,
             alt: "media",
           });
           return {
             fileName: file.name,
-            data: csvData.data,
+            data: jsonData.data,
           };
         } catch (error) {
-          console.error(`Error fetching CSV file ${file.name}:`, error.message);
+          console.error(`Error fetching JSON file ${file.name}:`, error.message);
           return {
             fileName: file.name,
             data: null,
@@ -76,12 +76,12 @@ export async function GET(request) {
       })
     );
     
-    // If we found CSV files directly in the folder, return them
-    if (directCsvFiles.length > 0) {
+    // If we found JSON files directly in the folder, return them
+    if (directJsonFiles.length > 0) {
       return NextResponse.json([
         {
           folderName: selectedFolderName,
-          csvFiles: directCsvFiles
+          jsonFiles: directJsonFiles
         }
       ], {
         status: 200,
@@ -96,36 +96,36 @@ export async function GET(request) {
       pageSize: 1000,
     });
     
-    // If no subfolders and no direct CSV files, return empty array
+    // If no subfolders and no direct JSON files, return empty array
     if (!subfolderResponse.data.files.length) {
-      console.log(`No subfolders or CSV files found in folder: ${selectedFolderName}`);
+      console.log(`No subfolders or JSON files found in folder: ${selectedFolderName}`);
       return NextResponse.json([], {
         status: 200,
         headers: { "Cache-Control": "public, max-age=300" },
       });
     }
 
-    // For each subfolder, fetch all CSV files
+    // For each subfolder, fetch all JSON files
     const flashcards = await Promise.all(
       subfolderResponse.data.files.map(async (folder) => {
         const fileResponse = await drive.files.list({
-          q: `'${folder.id}' in parents and mimeType = 'text/csv'`,
+          q: `'${folder.id}' in parents and mimeType = 'application/json'`,
           fields: "files(id, name)",
           pageSize: 1000,
         });
-        const csvFiles = await Promise.all(
+        const jsonFiles = await Promise.all(
           fileResponse.data.files.map(async (file) => {
             try {
-              const csvData = await drive.files.get({
+              const jsonData = await drive.files.get({
                 fileId: file.id,
                 alt: "media",
               });
               return {
                 fileName: file.name,
-                data: csvData.data,
+                data: jsonData.data,
               };
             } catch (error) {
-              console.error(`Error fetching CSV file ${file.name}:`, error.message);
+              console.error(`Error fetching JSON file ${file.name}:`, error.message);
               return {
                 fileName: file.name,
                 data: null,
@@ -136,7 +136,7 @@ export async function GET(request) {
         );
         return {
           folderName: folder.name,
-          csvFiles,
+          jsonFiles,
         };
       })
     );
