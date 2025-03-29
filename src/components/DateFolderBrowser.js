@@ -1106,7 +1106,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                         }}
                       >
                         <StockChart 
-                          csvData={fileData[file.id]} 
+                          data={fileData[file.id]} 
                           height={500} 
                           showSMA={true}
                         />

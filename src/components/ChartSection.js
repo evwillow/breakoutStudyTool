@@ -65,7 +65,7 @@ const ChartSection = React.memo(function ChartSection({
             <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-2 py-1 rounded-br-md">
               D
             </div>
-            <StockChart csvData={orderedFiles[0].data} />
+            <StockChart data={orderedFiles[0].data} />
           </div>
         </div>
 
@@ -79,7 +79,7 @@ const ChartSection = React.memo(function ChartSection({
                 <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
                   H
                 </div>
-                <StockChart csvData={orderedFiles[1].data} />
+                <StockChart data={orderedFiles[1].data} />
               </div>
             </div>
             {/* Third Chart - Hidden on mobile */}
@@ -96,7 +96,7 @@ const ChartSection = React.memo(function ChartSection({
                   <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                     M
                   </div>
-                  <StockChart csvData={orderedFiles[2].data} showSMA={false} />
+                  <StockChart data={orderedFiles[2].data} showSMA={false} />
                 </div>
               </div>
             </div>
@@ -110,7 +110,7 @@ const ChartSection = React.memo(function ChartSection({
                 <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                   M
                 </div>
-                <StockChart csvData={orderedFiles[2].data} showSMA={false} />
+                <StockChart data={orderedFiles[2].data} showSMA={false} />
               </div>
             </div>
             <div className="w-1/2 bg-soft-white rounded-lg shadow-md p-3 flex items-center">

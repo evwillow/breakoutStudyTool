@@ -9,7 +9,7 @@
  * - Supports different color schemes for up/down movements
  * - Optimized rendering with canvas for performance
  */
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { scaleLinear, scalePoint } from "d3-scale";
 import { line } from "d3-shape";
 import AuthButtons from "./AuthButtons";
@@ -34,8 +34,8 @@ const getChartConfig = (isMobile, chartType = 'default') => {
     BAR_PADDING: isMobile ? 1 : 2,
     PRICE_TICKS: isMobile ? 5 : 8,
     COLORS: {
-      UP: "#00E676",     // Green for price increases
-      DOWN: "#FF1744",   // Red for price decreases
+      UP: "#00C853",     // Standard green for price increases
+      DOWN: "#FF1744",   // Standard red for price decreases
       VOLUME: "#29B6F6", // Blue for volume bars
       GRID: "#1a1a1a",   // Dark gray for grid lines
       SMA10: "#e902f5",  // Purple for 10-period moving average
@@ -49,8 +49,8 @@ const getChartConfig = (isMobile, chartType = 'default') => {
   if (chartType === 'after') {
     config.COLORS = {
       ...config.COLORS,
-      UP: "#4CAF50",     // Darker green for after chart
-      DOWN: "#F44336",   // Darker red for after chart
+      UP: "#00C853",     // Standard green for after chart
+      DOWN: "#FF1744",   // Standard red for after chart
       VOLUME: "#42A5F5", // Darker blue for after chart
       SMA10: "#9C27B0",  // Darker purple for after chart
       SMA20: "#00BCD4",  // Darker cyan for after chart
@@ -68,6 +68,7 @@ const getChartConfig = (isMobile, chartType = 'default') => {
  */
 const StockChart = ({ 
   data,
+  csvData,
   showSMA = true, 
   includeAuth = false, 
   chartType = 'default', 
@@ -76,30 +77,63 @@ const StockChart = ({
 }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [dimensions, setDimensions] = useState(null);
+  const containerRef = useRef(null);
   
-  // Detect mobile devices
+  // Use either data or csvData prop
+  const chartData = data || csvData;
+  
+  // Handle container resize
   useEffect(() => {
-    const checkMobile = () => {
-      if (typeof window !== 'undefined') {
-        setIsMobile(window.innerWidth < 768);
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        const containerHeight = containerRef.current.clientHeight || 400;
+        const isMobileView = window.innerWidth < 768;
+        
+        setIsMobile(isMobileView);
+        
+        const margin = { 
+          top: isMobileView ? 10 : 20, 
+          right: isMobileView ? 10 : 20, 
+          bottom: isMobileView ? 20 : 30, 
+          left: isMobileView ? 10 : 20 // Match right margin
+        };
+        
+        const innerWidth = containerWidth - margin.left - margin.right;
+        const innerHeight = containerHeight - margin.top - margin.bottom;
+        
+        setDimensions({
+          width: containerWidth,
+          height: containerHeight,
+          margin,
+          innerWidth,
+          innerHeight
+        });
       }
     };
-    
-    checkMobile();
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', checkMobile);
-      
-      return () => {
-        window.removeEventListener('resize', checkMobile);
-      };
+
+    // Initial dimensions
+    updateDimensions();
+
+    // Create resize observer
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
     }
+
+    // Cleanup
+    return () => {
+      if (containerRef.current) {
+        resizeObserver.unobserve(containerRef.current);
+      }
+    };
   }, []);
   
   // Get responsive chart configuration
   const CHART_CONFIG = useMemo(() => getChartConfig(isMobile, chartType), [isMobile, chartType]);
 
-  if (!data) {
+  if (!chartData) {
     return (
       <div className="h-40 sm:h-60 flex items-center justify-center text-gray-500 text-sm sm:text-base">
         No data available
@@ -111,7 +145,7 @@ const StockChart = ({
   const stockData = useMemo(() => {
     try {
       // The data is already parsed JSON from the API
-      const jsonData = data;
+      const jsonData = chartData;
       if (!Array.isArray(jsonData)) {
         console.warn("Data is not an array");
         return [];
@@ -148,17 +182,11 @@ const StockChart = ({
       console.error("Error processing JSON data:", error);
       return [];
     }
-  }, [data]);
+  }, [chartData]);
 
-  // Calculate chart dimensions and scales
-  const dimensions = useMemo(() => {
-    if (!stockData.length) return null;
-
-    const width = 800;
-    const height = 400;
-    const margin = { top: 20, right: 30, bottom: 30, left: 40 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
+  // Calculate scales
+  const scales = useMemo(() => {
+    if (!dimensions || !stockData.length) return null;
 
     // Calculate price range including SMAs
     const allValues = stockData.flatMap(d => [
@@ -168,7 +196,7 @@ const StockChart = ({
       d.sma10,
       d.sma20,
       d.sma50
-    ].filter(v => !isNaN(v))); // Filter out any NaN values
+    ].filter(v => !isNaN(v)));
     const priceMin = Math.min(...allValues);
     const priceMax = Math.max(...allValues);
     const priceRange = priceMax - priceMin;
@@ -178,82 +206,83 @@ const StockChart = ({
     const volumeMax = Math.max(...stockData.map(d => d.volume));
     const volumePadding = volumeMax * 0.1;
 
+    // Calculate heights for price and volume sections
+    const totalHeight = dimensions.innerHeight;
+    const volumeHeight = totalHeight * 0.2; // 20% of total height for volume
+    const priceHeight = totalHeight - volumeHeight;
+
     return {
-      width,
-      height,
-      margin,
-      innerWidth,
-      innerHeight,
       priceScale: scaleLinear()
         .domain([priceMin - pricePadding, priceMax + pricePadding])
-        .range([innerHeight, 0]),
+        .range([priceHeight, 0]),
       volumeScale: scaleLinear()
         .domain([0, volumeMax + volumePadding])
-        .range([innerHeight * 0.2, 0]),
+        .range([volumeHeight, 0]),
       xScale: scalePoint()
         .domain(stockData.map((_, i) => i))
-        .range([0, innerWidth])
+        .range([0, dimensions.innerWidth])
         .padding(0.5),
+      priceHeight,
+      volumeHeight
     };
-  }, [stockData]);
+  }, [dimensions, stockData]);
 
   // Create price line generator
   const priceLine = useMemo(() => {
-    if (!dimensions) return null;
+    if (!scales) return null;
     return line()
-      .x((_, i) => dimensions.xScale(i))
-      .y(d => dimensions.priceScale(d.close));
-  }, [dimensions]);
+      .x((_, i) => scales.xScale(i))
+      .y(d => scales.priceScale(d.close));
+  }, [scales]);
 
   // Create SMA line generators
   const sma10Line = useMemo(() => {
-    if (!dimensions) return null;
+    if (!scales) return null;
     return line()
-      .x((_, i) => dimensions.xScale(i))
-      .y(d => dimensions.priceScale(d.sma10));
-  }, [dimensions]);
+      .x((_, i) => scales.xScale(i))
+      .y(d => scales.priceScale(d.sma10));
+  }, [scales]);
 
   const sma20Line = useMemo(() => {
-    if (!dimensions) return null;
+    if (!scales) return null;
     return line()
-      .x((_, i) => dimensions.xScale(i))
-      .y(d => dimensions.priceScale(d.sma20));
-  }, [dimensions]);
+      .x((_, i) => scales.xScale(i))
+      .y(d => scales.priceScale(d.sma20));
+  }, [scales]);
 
   const sma50Line = useMemo(() => {
-    if (!dimensions) return null;
+    if (!scales) return null;
     return line()
-      .x((_, i) => dimensions.xScale(i))
-      .y(d => dimensions.priceScale(d.sma50));
-  }, [dimensions]);
+      .x((_, i) => scales.xScale(i))
+      .y(d => scales.priceScale(d.sma50));
+  }, [scales]);
 
   // Create volume bars generator
   const volumeBars = useMemo(() => {
-    if (!dimensions) return null;
+    if (!scales) return null;
     return stockData.map((d, i) => {
-      const x = dimensions.xScale(i);
-      const width = dimensions.xScale.step() * 0.8;
-      const y = dimensions.priceScale(d.close);
-      const height = dimensions.volumeScale(d.volume);
+      const x = scales.xScale(i);
+      const width = scales.xScale.step() * 0.8;
+      const height = scales.volumeScale(d.volume);
       return {
         x: x - width / 2,
-        y: y - height,
+        y: scales.volumeHeight - height, // Position at bottom of volume section
         width,
         height,
       };
     });
-  }, [stockData, dimensions]);
+  }, [stockData, scales]);
 
   // Create candlestick elements
   const candlesticks = useMemo(() => {
-    if (!dimensions) return null;
+    if (!scales) return null;
     return stockData.map((d, i) => {
-      const x = dimensions.xScale(i);
-      const width = dimensions.xScale.step() * 0.8;
-      const openY = dimensions.priceScale(d.open);
-      const closeY = dimensions.priceScale(d.close);
-      const highY = dimensions.priceScale(d.high);
-      const lowY = dimensions.priceScale(d.low);
+      const x = scales.xScale(i);
+      const width = scales.xScale.step() * 0.8;
+      const openY = scales.priceScale(d.open);
+      const closeY = scales.priceScale(d.close);
+      const highY = scales.priceScale(d.high);
+      const lowY = scales.priceScale(d.low);
       const isUp = d.close > d.open;
       return {
         x: x - width / 2,
@@ -265,90 +294,101 @@ const StockChart = ({
         isUp,
       };
     });
-  }, [stockData, dimensions]);
+  }, [stockData, scales]);
 
-  if (!dimensions || !stockData.length) {
-    return <div>Loading chart data...</div>;
+  if (!dimensions || !scales || !stockData.length) {
+    return (
+      <div ref={containerRef} className="w-full h-full min-h-[400px]">
+        <div className="h-full flex items-center justify-center text-gray-500">
+          Loading chart data...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="w-full h-full min-h-[400px]">
       <svg
-        width={dimensions.width}
-        height={dimensions.height}
-        className="mx-auto"
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+        className="w-full h-full"
+        preserveAspectRatio="xMidYMid meet"
       >
+        {/* Add black background */}
+        <rect
+          x={0}
+          y={0}
+          width={dimensions.width}
+          height={dimensions.height}
+          fill="#000000"
+        />
         <g transform={`translate(${dimensions.margin.left},${dimensions.margin.top})`}>
-          {/* Price line */}
-          <path
-            d={priceLine(stockData)}
-            fill="none"
-            stroke="#4F46E5"
-            strokeWidth={2}
-          />
-          
-          {/* SMA lines */}
-          {showSMA && (
-            <>
-              <path
-                d={sma10Line(stockData)}
-                fill="none"
-                stroke="#EF4444"
-                strokeWidth={1}
-                strokeDasharray="4,4"
-              />
-              <path
-                d={sma20Line(stockData)}
-                fill="none"
-                stroke="#10B981"
-                strokeWidth={1}
-                strokeDasharray="4,4"
-              />
-              <path
-                d={sma50Line(stockData)}
-                fill="none"
-                stroke="#F59E0B"
-                strokeWidth={1}
-                strokeDasharray="4,4"
-              />
-            </>
-          )}
-          
-          {/* Volume bars */}
-          {volumeBars.map((bar, i) => (
-            <rect
-              key={i}
-              x={bar.x}
-              y={bar.y}
-              width={bar.width}
-              height={bar.height}
-              fill={candlesticks[i].isUp ? "#4F46E5" : "#EF4444"}
-              opacity={0.3}
-            />
-          ))}
-          
-          {/* Candlesticks */}
-          {candlesticks.map((candle, i) => (
-            <g key={i}>
-              <line
-                x1={candle.x + candle.width / 2}
-                y1={candle.highY}
-                x2={candle.x + candle.width / 2}
-                y2={candle.lowY}
-                stroke={candle.isUp ? "#4F46E5" : "#EF4444"}
-                strokeWidth={1}
-              />
+          {/* Price section */}
+          <g transform={`translate(0, 0)`}>
+            {/* SMA lines */}
+            {showSMA && (
+              <>
+                <path
+                  d={sma10Line(stockData)}
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth={1.5}
+                />
+                <path
+                  d={sma20Line(stockData)}
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth={1.5}
+                />
+                <path
+                  d={sma50Line(stockData)}
+                  fill="none"
+                  stroke="#F59E0B"
+                  strokeWidth={1.5}
+                />
+              </>
+            )}
+            
+            {/* Candlesticks */}
+            {candlesticks.map((candle, i) => (
+              <g key={i}>
+                <line
+                  x1={candle.x + candle.width / 2}
+                  y1={candle.highY}
+                  x2={candle.x + candle.width / 2}
+                  y2={candle.lowY}
+                  stroke={candle.isUp ? "#00C853" : "#FF1744"}
+                  strokeWidth={1}
+                />
+                <rect
+                  x={candle.x}
+                  y={Math.min(candle.openY, candle.closeY)}
+                  width={candle.width}
+                  height={Math.abs(candle.closeY - candle.openY)}
+                  fill={candle.isUp ? "#00C853" : "#FF1744"}
+                  stroke={candle.isUp ? "#00C853" : "#FF1744"}
+                  strokeWidth={1}
+                />
+              </g>
+            ))}
+          </g>
+
+          {/* Volume section */}
+          <g transform={`translate(0, ${scales.priceHeight})`}>
+            {/* Volume bars */}
+            {volumeBars.map((bar, i) => (
               <rect
-                x={candle.x}
-                y={Math.min(candle.openY, candle.closeY)}
-                width={candle.width}
-                height={Math.abs(candle.closeY - candle.openY)}
-                fill={candle.isUp ? "#4F46E5" : "#EF4444"}
-                stroke={candle.isUp ? "#4F46E5" : "#EF4444"}
-                strokeWidth={1}
+                key={i}
+                x={bar.x}
+                y={bar.y}
+                width={bar.width}
+                height={bar.height}
+                fill="#29B6F6"
+                opacity={0.3}
               />
-            </g>
-          ))}
+            ))}
+          </g>
         </g>
       </svg>
     </div>

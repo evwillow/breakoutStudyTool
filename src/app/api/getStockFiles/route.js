@@ -5,7 +5,6 @@
  * Features:
  * - Searches across all top-level folders in Google Drive
  * - Implements multiple search strategies with increasing scope
- * - Provides fallback to sample data when files aren't found
  * - Caches responses for performance optimization
  * - Handles authentication with Google Drive API
  */
@@ -36,12 +35,29 @@ const initializeAuth = async () => {
 const PARENT_FOLDER_ID = "18q55oXvsOL2MboehLA1OglGdepBVDDub";
 
 /**
+ * Formats the data to ensure consistent field names
+ */
+const formatData = (data) => {
+  if (!Array.isArray(data)) return data;
+  
+  return data.map(item => ({
+    Open: item.Open || item.open,
+    High: item.High || item.high,
+    Low: item.Low || item.low,
+    Close: item.Close || item.close,
+    Volume: item.Volume || item.volume,
+    "10sma": item["10sma"] || item["10SMA"] || item["10_sma"],
+    "20sma": item["20sma"] || item["20SMA"] || item["20_sma"],
+    "50sma": item["50sma"] || item["50SMA"] || item["50_sma"]
+  }));
+};
+
+/**
  * GET handler for stock file requests
  * Implements a multi-stage search strategy:
  * 1. Look for exact match folders
  * 2. Search for stock folders within top-level folders
  * 3. Search for any JSON files containing the stock symbol
- * 4. Fall back to sample data if nothing is found
  */
 export async function GET(request) {
   try {
@@ -62,7 +78,10 @@ export async function GET(request) {
 
     if (!foldersResponse.data.files.length) {
       console.log("No folders found in parent folder");
-      return createSampleData(stockSymbol);
+      return NextResponse.json([], {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=300" },
+      });
     }
 
     console.log(`Found ${foldersResponse.data.files.length} top-level folders`);
@@ -100,7 +119,7 @@ export async function GET(request) {
                 });
                 return {
                   fileName: file.name,
-                  data: jsonData.data,
+                  data: formatData(typeof jsonData.data === 'string' ? JSON.parse(jsonData.data) : jsonData.data),
                 };
               } catch (error) {
                 console.error(`Error fetching JSON file ${file.name}:`, error.message);
@@ -161,7 +180,7 @@ export async function GET(request) {
                   });
                   return {
                     fileName: file.name,
-                    data: jsonData.data,
+                    data: formatData(typeof jsonData.data === 'string' ? JSON.parse(jsonData.data) : jsonData.data),
                   };
                 } catch (error) {
                   console.error(`Error fetching JSON file ${file.name}:`, error.message);
@@ -224,7 +243,7 @@ export async function GET(request) {
               });
               return {
                 fileName: file.name,
-                data: jsonData.data,
+                data: formatData(typeof jsonData.data === 'string' ? JSON.parse(jsonData.data) : jsonData.data),
               };
             } catch (error) {
               console.error(`Error fetching JSON file ${file.name}:`, error.message);
@@ -245,243 +264,16 @@ export async function GET(request) {
       }
     }
 
-    // If we found stock files now, return them
-    if (stockFiles.length > 0) {
-      console.log(`Returning ${stockFiles.length} stock file groups from broader search`);
-      return NextResponse.json(stockFiles, {
-        status: 200,
-        headers: { "Cache-Control": "public, max-age=300" },
-      });
-    }
-
-    // If we still didn't find any files, return sample data
-    console.log(`No stock files found for ${stockSymbol}, returning sample data`);
-    return createSampleData(stockSymbol);
+    // Return the found files or empty array if none found
+    return NextResponse.json(stockFiles, {
+      status: 200,
+      headers: { "Cache-Control": "public, max-age=300" },
+    });
   } catch (error) {
     console.error("Error fetching stock files:", error.message);
-    const stockSymbol = new URL(request.url).searchParams.get("stock");
-    return createSampleData(stockSymbol);
-  }
-}
-
-// Helper function to create sample data for specific stock symbols
-function createSampleData(stockSymbol) {
-  console.log(`Creating sample data for ${stockSymbol}`);
-  
-  if (stockSymbol.toLowerCase() === "poo_jan_4_2019") {
-    const sampleData = [
-      {
-        folderName: "POO_Jan_4_2019",
-        parentFolder: "high_power",
-        jsonFiles: [
-          {
-            fileName: "D.json",
-            data: JSON.stringify([
-              { open: 100, high: 105, low: 98, close: 103, volume: 1000 },
-              { open: 98, high: 102, low: 97, close: 100, volume: 950 },
-              { open: 95, high: 99, low: 94, close: 98, volume: 900 }
-            ])
-          },
-          {
-            fileName: "H.json",
-            data: JSON.stringify([
-              { open: 100, high: 105, low: 98, close: 103, volume: 1000 },
-              { open: 98, high: 102, low: 97, close: 100, volume: 950 }
-            ])
-          },
-          {
-            fileName: "thing.json",
-            data: JSON.stringify([{ thing: 4 }])
-          },
-          {
-            fileName: "points.json",
-            data: JSON.stringify([
-              { points: "MACD Divergence" },
-              { points: "EMA Cross" },
-              { points: "Inverse Head and Shoulders" }
-            ])
-          }
-        ]
-      }
-    ];
-    
-    return NextResponse.json(sampleData, {
+    return NextResponse.json([], {
       status: 200,
       headers: { "Cache-Control": "public, max-age=300" },
     });
   }
-  else if (stockSymbol.toLowerCase() === "ski_mar_9_2011") {
-    const sampleData = [
-      {
-        folderName: "SKI_Mar_9_2011",
-        parentFolder: "high_power",
-        jsonFiles: [
-          {
-            fileName: "D.json",
-            data: JSON.stringify([
-              { open: 45.20, high: 46.75, low: 44.80, close: 46.25, volume: 2500 },
-              { open: 44.90, high: 45.50, low: 44.25, close: 45.10, volume: 2200 },
-              { open: 45.30, high: 45.80, low: 44.50, close: 44.85, volume: 2100 }
-            ])
-          },
-          {
-            fileName: "H.json",
-            data: JSON.stringify([
-              { open: 45.20, high: 46.75, low: 44.80, close: 46.25, volume: 2500 },
-              { open: 44.90, high: 45.50, low: 44.25, close: 45.10, volume: 2200 }
-            ])
-          },
-          {
-            fileName: "thing.json",
-            data: JSON.stringify([{ thing: 4 }])
-          },
-          {
-            fileName: "points.json",
-            data: JSON.stringify([
-              { points: "MACD Divergence" },
-              { points: "EMA Cross" },
-              { points: "Inverse Head and Shoulders" }
-            ])
-          }
-        ]
-      }
-    ];
-    
-    return NextResponse.json(sampleData, {
-      status: 200,
-      headers: { "Cache-Control": "public, max-age=300" },
-    });
-  }
-  else if (stockSymbol.toLowerCase() === "slot_apr_14_2001") {
-    const sampleData = [
-      {
-        folderName: "SLOT_Apr_14_2001",
-        parentFolder: "original",
-        jsonFiles: [
-          {
-            fileName: "D.json",
-            data: JSON.stringify([
-              { open: 75.50, high: 78.25, low: 74.80, close: 77.50, volume: 3500 },
-              { open: 74.90, high: 76.50, low: 74.25, close: 75.40, volume: 3200 },
-              { open: 76.30, high: 76.80, low: 73.50, close: 74.85, volume: 3100 }
-            ])
-          },
-          {
-            fileName: "H.json",
-            data: JSON.stringify([
-              { open: 75.50, high: 78.25, low: 74.80, close: 77.50, volume: 3500 },
-              { open: 74.90, high: 76.50, low: 74.25, close: 75.40, volume: 3200 }
-            ])
-          },
-          {
-            fileName: "thing.json",
-            data: JSON.stringify([{ thing: 4 }])
-          },
-          {
-            fileName: "points.json",
-            data: JSON.stringify([
-              { points: "MACD Divergence" },
-              { points: "EMA Cross" },
-              { points: "Inverse Head and Shoulders" }
-            ])
-          }
-        ]
-      }
-    ];
-    
-    return NextResponse.json(sampleData, {
-      status: 200,
-      headers: { "Cache-Control": "public, max-age=300" },
-    });
-  }
-  else if (stockSymbol.toLowerCase() === "shit_dec_11_2007") {
-    const sampleData = [
-      {
-        folderName: "SHIT_Dec_11_2007",
-        parentFolder: "original",
-        jsonFiles: [
-          {
-            fileName: "D.json",
-            data: JSON.stringify([
-              { open: 35.20, high: 36.75, low: 34.80, close: 36.25, volume: 4500 },
-              { open: 34.90, high: 35.50, low: 34.25, close: 35.10, volume: 4200 },
-              { open: 35.30, high: 35.80, low: 34.50, close: 34.85, volume: 4100 }
-            ])
-          },
-          {
-            fileName: "H.json",
-            data: JSON.stringify([
-              { open: 35.20, high: 36.75, low: 34.80, close: 36.25, volume: 4500 },
-              { open: 34.90, high: 35.50, low: 34.25, close: 35.10, volume: 4200 }
-            ])
-          },
-          {
-            fileName: "thing.json",
-            data: JSON.stringify([{ thing: 4 }])
-          },
-          {
-            fileName: "points.json",
-            data: JSON.stringify([
-              { points: "MACD Divergence" },
-              { points: "EMA Cross" },
-              { points: "Inverse Head and Shoulders" }
-            ])
-          }
-        ]
-      }
-    ];
-    
-    return NextResponse.json(sampleData, {
-      status: 200,
-      headers: { "Cache-Control": "public, max-age=300" },
-    });
-  }
-  else if (stockSymbol.toLowerCase() === "edge_oct_22_1999") {
-    const sampleData = [
-      {
-        folderName: "EDGE_Oct_22_1999",
-        parentFolder: "original",
-        jsonFiles: [
-          {
-            fileName: "D.json",
-            data: JSON.stringify([
-              { open: 55.20, high: 56.75, low: 54.80, close: 56.25, volume: 5500 },
-              { open: 54.90, high: 55.50, low: 54.25, close: 55.10, volume: 5200 },
-              { open: 55.30, high: 55.80, low: 54.50, close: 54.85, volume: 5100 }
-            ])
-          },
-          {
-            fileName: "H.json",
-            data: JSON.stringify([
-              { open: 55.20, high: 56.75, low: 54.80, close: 56.25, volume: 5500 },
-              { open: 54.90, high: 55.50, low: 54.25, close: 55.10, volume: 5200 }
-            ])
-          },
-          {
-            fileName: "thing.json",
-            data: JSON.stringify([{ thing: 4 }])
-          },
-          {
-            fileName: "points.json",
-            data: JSON.stringify([
-              { points: "MACD Divergence" },
-              { points: "EMA Cross" },
-              { points: "Inverse Head and Shoulders" }
-            ])
-          }
-        ]
-      }
-    ];
-    
-    return NextResponse.json(sampleData, {
-      status: 200,
-      headers: { "Cache-Control": "public, max-age=300" },
-    });
-  }
-  
-  // Default empty response for other stock symbols
-  return NextResponse.json([], {
-    status: 200,
-    headers: { "Cache-Control": "public, max-age=300" },
-  });
 } 
