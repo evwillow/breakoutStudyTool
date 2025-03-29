@@ -94,10 +94,10 @@ const StockChart = ({
         setIsMobile(isMobileView);
         
         const margin = { 
-          top: isMobileView ? 10 : 20, 
-          right: isMobileView ? 10 : 20, 
-          bottom: isMobileView ? 20 : 30, 
-          left: isMobileView ? 10 : 20 // Match right margin
+          top: isMobileView ? 10 : 15, 
+          right: isMobileView ? 10 : 15, 
+          bottom: isMobileView ? 10 : 15, 
+          left: isMobileView ? 10 : 15 // Match all margins
         };
         
         const innerWidth = containerWidth - margin.left - margin.right;
@@ -307,7 +307,7 @@ const StockChart = ({
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[400px]">
+    <div ref={containerRef} className="w-full h-full">
       <svg
         width="100%"
         height="100%"

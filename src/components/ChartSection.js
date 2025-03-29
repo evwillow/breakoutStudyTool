@@ -79,7 +79,9 @@ const ChartSection = React.memo(function ChartSection({
                 <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
                   H
                 </div>
-                <StockChart data={orderedFiles[1].data} />
+                <div className="absolute inset-0">
+                  <StockChart data={orderedFiles[1].data} />
+                </div>
               </div>
             </div>
             {/* Third Chart - Hidden on mobile */}
@@ -96,7 +98,9 @@ const ChartSection = React.memo(function ChartSection({
                   <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                     M
                   </div>
-                  <StockChart data={orderedFiles[2].data} showSMA={false} />
+                  <div className="absolute inset-0">
+                    <StockChart data={orderedFiles[2].data} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -110,7 +114,9 @@ const ChartSection = React.memo(function ChartSection({
                 <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                   M
                 </div>
-                <StockChart data={orderedFiles[2].data} showSMA={false} />
+                <div className="absolute inset-0">
+                  <StockChart data={orderedFiles[2].data} />
+                </div>
               </div>
             </div>
             <div className="w-1/2 bg-soft-white rounded-lg shadow-md p-3 flex items-center">

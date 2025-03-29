@@ -1107,7 +1107,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                       >
                         <StockChart 
                           data={fileData[file.id]} 
-                          height={500} 
+                          height={700} 
                           showSMA={true}
                         />
                       </div>
@@ -1140,7 +1140,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
             opacity: 0;
           }
           to {
-            max-height: 600px;
+            max-height: 840px;
             opacity: 1;
           }
         }
