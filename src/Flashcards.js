@@ -44,6 +44,8 @@ export default function Flashcards() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState('');
 
   // Timer duration state
   const [timerDuration, setTimerDuration] = useState(INITIAL_TIMER);
@@ -225,6 +227,9 @@ export default function Flashcards() {
     async function fetchFlashcards() {
       try {
         setLoading(true);
+        setLoadingProgress(0);
+        setLoadingStep('Initializing...');
+        
         const res = await fetch(
           `/api/getFileData?folder=${encodeURIComponent(selectedFolder)}`
         );
@@ -232,15 +237,23 @@ export default function Flashcards() {
           const errorData = await res.json();
           throw new Error(errorData.message || "Error fetching file data");
         }
+        setLoadingProgress(30);
+        setLoadingStep('Loading flashcards...');
+        
         const data = await res.json();
         if (mounted && Array.isArray(data) && data.length > 0) {
           setFlashcards(data);
+          setLoadingProgress(60);
+          setLoadingStep('Processing chart data...');
+          
           setCurrentIndex(0);
           // Reset match metrics for the new folder.
           setCurrentMatchIndex(0);
           setMatchCount(0);
           setCorrectCount(0);
           setTimer(timerDuration);
+          setLoadingProgress(90);
+          setLoadingStep('Finalizing...');
           
           // Only create a new round if there's no current round or if explicitly requested
           if (!roundId && session.user && session.user.id) {
@@ -270,6 +283,7 @@ export default function Flashcards() {
               console.error("Error creating initial round:", err);
             }
           }
+          setLoadingProgress(100);
         }
       } catch (error) {
         console.error("Error fetching flashcards:", error);
@@ -277,6 +291,8 @@ export default function Flashcards() {
       } finally {
         if (mounted) {
           setLoading(false);
+          setLoadingProgress(0);
+          setLoadingStep('');
         }
       }
     }
@@ -989,8 +1005,26 @@ export default function Flashcards() {
     );
   } else if (loading) {
     content = (
-      <div className="flex justify-center items-center h-96">
-        <p className="text-black">Loading data...</p>
+      <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-blue-500 font-semibold">{loadingProgress}%</span>
+          </div>
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-semibold text-gray-800">Loading Dataset</h2>
+          <p className="text-gray-600">{loadingStep}</p>
+          {selectedFolder && (
+            <p className="text-sm text-gray-500">Folder: {selectedFolder}</p>
+          )}
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div 
+            className="bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+            style={{ width: `${loadingProgress}%` }}
+          ></div>
+        </div>
       </div>
     );
   } else if (error) {
