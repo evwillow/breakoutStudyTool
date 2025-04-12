@@ -13,6 +13,7 @@ const useRecaptchaScript = () => {
   useEffect(() => {
     // Check if the script is already loaded
     if (window.grecaptcha) {
+      console.log("reCAPTCHA script already loaded");
       setIsLoaded(true);
       return;
     }
@@ -25,7 +26,7 @@ const useRecaptchaScript = () => {
     
     // Handle script load
     script.onload = () => {
-      console.log("reCAPTCHA script loaded");
+      console.log("reCAPTCHA script loaded successfully");
       setIsLoaded(true);
     };
     
@@ -36,12 +37,12 @@ const useRecaptchaScript = () => {
     };
     
     // Append script to document
-    document.body.appendChild(script);
+    document.head.appendChild(script);
     
     // Cleanup
     return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
       }
     };
   }, []);
@@ -59,14 +60,17 @@ export default function AuthModal({ open, onClose }) {
   const [captchaError, setCaptchaError] = useState(null);
   const { update } = useSession();
   const { isLoaded: isRecaptchaLoaded, error: recaptchaScriptError } = useRecaptchaScript();
+  const [siteKey, setSiteKey] = useState("");
 
   useEffect(() => {
     // Reset captcha when mode changes
     setCaptchaToken(null);
     setCaptchaError(null);
     
-    // Debug reCAPTCHA site key
-    console.log("reCAPTCHA site key:", process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
+    // Get the site key from environment variables
+    const key = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
+    console.log("reCAPTCHA site key:", key);
+    setSiteKey(key);
   }, [mode]);
 
   if (!open) return null;
@@ -140,17 +144,18 @@ export default function AuthModal({ open, onClose }) {
       return;
     }
 
-    // Normal Sign-in Flow
+    // Handle sign in
     try {
-      const result = await signIn("credentials", { 
-        redirect: false, 
-        email, 
-        password 
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
       });
-      
+
       if (result.error) {
         setError("Invalid username or password");
       } else {
+        update();
         onClose();
       }
     } catch (err) {
@@ -227,16 +232,16 @@ export default function AuthModal({ open, onClose }) {
                 <div className="text-gray-600 text-sm">
                   Loading reCAPTCHA...
                 </div>
-              ) : process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
+              ) : siteKey ? (
                 <ReCAPTCHA
-                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                  sitekey={siteKey}
                   onChange={(token) => {
                     console.log("reCAPTCHA token received");
                     setCaptchaToken(token);
                     setCaptchaError(null);
                   }}
-                  onErrored={() => {
-                    console.error("reCAPTCHA error occurred");
+                  onErrored={(error) => {
+                    console.error("reCAPTCHA error occurred:", error);
                     setCaptchaError("reCAPTCHA error. Please try again.");
                     setCaptchaToken(null);
                   }}
@@ -285,7 +290,7 @@ export default function AuthModal({ open, onClose }) {
             )}
           </button>
         </form>
-        
+
         <div className="mt-6 text-center">
           <button
             onClick={() => {
