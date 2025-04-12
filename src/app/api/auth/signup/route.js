@@ -2,19 +2,56 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import supabase from "@/lib/supabase";
+import { signupLimiter, rateLimit } from "@/lib/rateLimit";
 
 export async function POST(req) {
   try {
-    const { username, password } = await req.json();
-    if (!username || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    // Apply rate limiting
+    const rateLimitResponse = await rateLimit(req, signupLimiter);
+    if (rateLimitResponse) return rateLimitResponse;
+
+    const { email, password, captchaToken } = await req.json();
+    
+    // Validate required fields
+    if (!email || !password || !captchaToken) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
+    }
+
+    // Verify CAPTCHA
+    try {
+      console.log("Verifying CAPTCHA token...");
+      const captchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`,
+      });
+
+      const captchaData = await captchaResponse.json();
+      console.log("CAPTCHA verification response:", captchaData);
+      
+      if (!captchaData.success) {
+        console.error("CAPTCHA verification failed:", captchaData);
+        return NextResponse.json({ 
+          error: "Invalid CAPTCHA", 
+          details: captchaData["error-codes"] || "Unknown error" 
+        }, { status: 400 });
+      }
+    } catch (error) {
+      console.error("CAPTCHA verification error:", error);
+      return NextResponse.json({ error: "CAPTCHA verification failed" }, { status: 500 });
     }
 
     // Check if user already exists
     const { data: existingUser, error: checkError } = await supabase
       .from("users")
       .select("id")
-      .eq("username", username)
+      .eq("email", email)
       .single();
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -23,7 +60,7 @@ export async function POST(req) {
     }
 
     if (existingUser) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+      return NextResponse.json({ error: "Email already registered" }, { status: 400 });
     }
 
     // Hash password
@@ -32,8 +69,13 @@ export async function POST(req) {
     // Store user in Supabase
     const { data: newUser, error: insertError } = await supabase
       .from("users")
-      .insert([{ username, password: hashedPassword }])
-      .select("id, username")
+      .insert([{ 
+        email, 
+        password: hashedPassword,
+        email_verified: false,
+        created_at: new Date().toISOString()
+      }])
+      .select("id, email")
       .single();
 
     if (insertError) {
@@ -44,7 +86,7 @@ export async function POST(req) {
     // Return success - NextAuth will handle login separately
     return NextResponse.json({
       message: "User created successfully",
-      user: { id: newUser.id, username: newUser.username },
+      user: { id: newUser.id, email: newUser.email },
     });
   } catch (error) {
     console.error("Unexpected error:", error);

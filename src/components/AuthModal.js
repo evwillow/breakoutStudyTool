@@ -1,33 +1,106 @@
 // /src/components/AuthModal.js
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
+import ReCAPTCHA from "react-google-recaptcha";
+
+// Custom hook to ensure reCAPTCHA script is loaded
+const useRecaptchaScript = () => {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Check if the script is already loaded
+    if (window.grecaptcha) {
+      setIsLoaded(true);
+      return;
+    }
+
+    // Create a script element
+    const script = document.createElement('script');
+    script.src = 'https://www.google.com/recaptcha/api.js';
+    script.async = true;
+    script.defer = true;
+    
+    // Handle script load
+    script.onload = () => {
+      console.log("reCAPTCHA script loaded");
+      setIsLoaded(true);
+    };
+    
+    // Handle script error
+    script.onerror = () => {
+      console.error("Error loading reCAPTCHA script");
+      setError("Failed to load reCAPTCHA");
+    };
+    
+    // Append script to document
+    document.body.appendChild(script);
+    
+    // Cleanup
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  return { isLoaded, error };
+};
 
 export default function AuthModal({ open, onClose }) {
   const [mode, setMode] = useState("signin");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { update } = useSession(); // Hook to update session
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaError, setCaptchaError] = useState(null);
+  const { update } = useSession();
+  const { isLoaded: isRecaptchaLoaded, error: recaptchaScriptError } = useRecaptchaScript();
+
+  useEffect(() => {
+    // Reset captcha when mode changes
+    setCaptchaToken(null);
+    setCaptchaError(null);
+    
+    // Debug reCAPTCHA site key
+    console.log("reCAPTCHA site key:", process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
+  }, [mode]);
 
   if (!open) return null;
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      setIsLoading(false);
+      return;
+    }
+
     if (mode === "signup") {
+      if (!captchaToken) {
+        setError("Please complete the CAPTCHA verification");
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ email, password, captchaToken }),
         });
         
-        // Check if response is OK before trying to parse JSON
         if (!res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
@@ -47,7 +120,7 @@ export default function AuthModal({ open, onClose }) {
         // Automatically sign in using NextAuth session
         const signInRes = await signIn("credentials", {
           redirect: false,
-          username,
+          email,
           password,
         });
 
@@ -55,7 +128,7 @@ export default function AuthModal({ open, onClose }) {
           setError("Error signing in after signup.");
         } else {
           alert("Account created successfully! You are now logged in.");
-          update(); // Refresh the session
+          update();
           onClose();
         }
       } catch (err) {
@@ -71,7 +144,7 @@ export default function AuthModal({ open, onClose }) {
     try {
       const result = await signIn("credentials", { 
         redirect: false, 
-        username, 
+        email, 
         password 
       });
       
@@ -114,63 +187,86 @@ export default function AuthModal({ open, onClose }) {
             {mode === "signin" ? "Sign in to continue to the app" : "Sign up to get started"}
           </p>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-turquoise-700 mb-1">Username</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-turquoise-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-turquoise-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 transition-colors"
-                required
-              />
-            </div>
+            <label htmlFor="email" className="block text-sm font-medium text-turquoise-700">
+              Email
+            </label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full rounded-md border-turquoise-300 shadow-sm focus:border-turquoise-500 focus:ring-turquoise-500"
+              required
+            />
           </div>
-          
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-turquoise-700 mb-1">Password</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-turquoise-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-turquoise-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 transition-colors"
-                required
-              />
-            </div>
+            <label htmlFor="password" className="block text-sm font-medium text-turquoise-700">
+              Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border-turquoise-300 shadow-sm focus:border-turquoise-500 focus:ring-turquoise-500"
+              required
+            />
           </div>
-          
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
+
+          {mode === "signup" && (
+            <div className="flex flex-col items-center">
+              {recaptchaScriptError ? (
+                <div className="text-red-600 text-sm">
+                  {recaptchaScriptError}
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
+              ) : !isRecaptchaLoaded ? (
+                <div className="text-gray-600 text-sm">
+                  Loading reCAPTCHA...
                 </div>
-              </div>
+              ) : process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
+                <ReCAPTCHA
+                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                  onChange={(token) => {
+                    console.log("reCAPTCHA token received");
+                    setCaptchaToken(token);
+                    setCaptchaError(null);
+                  }}
+                  onErrored={() => {
+                    console.error("reCAPTCHA error occurred");
+                    setCaptchaError("reCAPTCHA error. Please try again.");
+                    setCaptchaToken(null);
+                  }}
+                  onExpired={() => {
+                    console.log("reCAPTCHA token expired");
+                    setCaptchaToken(null);
+                  }}
+                  theme="light"
+                  size="normal"
+                  hl="en"
+                />
+              ) : (
+                <div className="text-red-600 text-sm">
+                  reCAPTCHA configuration error. Please contact support.
+                </div>
+              )}
+              {captchaError && (
+                <div className="text-red-600 text-sm mt-2">
+                  {captchaError}
+                </div>
+              )}
             </div>
           )}
-          
+
+          {error && (
+            <div className="text-red-600 text-sm text-center">
+              {error}
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={isLoading}

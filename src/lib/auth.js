@@ -27,7 +27,7 @@ export const authConfig = {
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        username: { label: "Username", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" }
       },
       /**
@@ -35,16 +35,16 @@ export const authConfig = {
        * Retrieves user from Supabase and verifies password
        */
       async authorize(credentials) {
-        if (!credentials || !credentials.username || !credentials.password) {
+        if (!credentials || !credentials.email || !credentials.password) {
           return null;
         }
 
         try {
-          // Query Supabase for user with matching username
+          // Query Supabase for user with matching email
           const { data: user, error } = await supabase
             .from("users")
-            .select("id, username, password")
-            .eq("username", credentials.username)
+            .select("id, email, password")
+            .eq("email", credentials.email)
             .single();
 
           if (error || !user) {
@@ -62,8 +62,8 @@ export const authConfig = {
           // Return user details
           return { 
             id: user.id, 
-            name: user.username, 
-            email: user.username 
+            name: user.email, 
+            email: user.email 
           };
         } catch (error) {
           console.error("Authentication error:", error);

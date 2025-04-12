@@ -885,12 +885,16 @@ export default function Flashcards() {
       const autoLoadMostRecentRound = async () => {
         try {
           console.log("Attempting to auto-load the most recent in-progress round");
+          setLoading(true);
+          setLoadingProgress(0);
+          setLoadingStep('Checking for saved rounds...');
           
           // Fetch all user rounds
           const response = await fetch(`/api/getUserRounds?userId=${session.user.id}`);
           if (!response.ok) {
             throw new Error("Failed to fetch user rounds");
           }
+          setLoadingProgress(20);
           
           const data = await response.json();
           
@@ -898,20 +902,23 @@ export default function Flashcards() {
           const inProgressRounds = data.rounds.filter(round => !round.completed);
           
           if (inProgressRounds.length > 0) {
-            // Sort by created_at (most recent first) - should already be sorted, but just to be safe
+            // Sort by created_at (most recent first)
             inProgressRounds.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             
             const mostRecentRound = inProgressRounds[0];
             console.log("Auto-loading most recent in-progress round:", mostRecentRound);
+            setLoadingProgress(40);
+            setLoadingStep('Loading saved round...');
             
             // First set the selected folder to ensure data is loaded
             if (mostRecentRound.dataset_name) {
               setSelectedFolder(mostRecentRound.dataset_name);
               
               // Wait for folder data to be fetched before loading the round
-              // We'll fetch the flashcards data manually here to ensure it's loaded
               try {
-                setLoading(true);
+                setLoadingProgress(60);
+                setLoadingStep('Fetching dataset files...');
+                
                 const fileDataRes = await fetch(
                   `/api/getFileData?folder=${encodeURIComponent(mostRecentRound.dataset_name)}`
                 );
@@ -924,10 +931,14 @@ export default function Flashcards() {
                 const fileData = await fileDataRes.json();
                 if (Array.isArray(fileData) && fileData.length > 0) {
                   setFlashcards(fileData);
+                  setLoadingProgress(80);
+                  setLoadingStep('Restoring round state...');
                   
                   // Now that we have the folder data, load the round
                   try {
                     await loadRound(mostRecentRound.id, mostRecentRound.dataset_name);
+                    setLoadingProgress(100);
+                    setLoadingStep('Ready!');
                   } catch (loadError) {
                     console.error("Error loading round during auto-load:", loadError);
                     // If loading the round fails, create a new round instead
@@ -937,21 +948,27 @@ export default function Flashcards() {
                     }
                   }
                 } else {
-                  console.error("No flashcard data found for folder:", mostRecentRound.dataset_name);
+                  throw new Error(`Dataset "${mostRecentRound.dataset_name}" not found or is empty`);
                 }
               } catch (fileError) {
                 console.error("Error fetching flashcards for auto-loaded round:", fileError);
-              } finally {
-                setLoading(false);
+                setError(`Unable to load dataset "${mostRecentRound.dataset_name}". Please select a different dataset.`);
               }
             } else {
-              console.error("No dataset_name found for round:", mostRecentRound);
+              throw new Error("No dataset name found for the saved round");
             }
           } else {
+            setLoadingProgress(100);
+            setLoadingStep('No saved rounds found');
             console.log("No in-progress rounds found to auto-load");
           }
         } catch (error) {
           console.error("Error auto-loading most recent round:", error);
+          setError(error.message || "Failed to load saved round. Please select a dataset to begin.");
+        } finally {
+          setLoading(false);
+          setLoadingProgress(0);
+          setLoadingStep('');
         }
       };
       
@@ -1029,8 +1046,20 @@ export default function Flashcards() {
     );
   } else if (error) {
     content = (
-      <div className="flex justify-center items-center h-96">
-        <p className="text-red-500">⚠️ {error}</p>
+      <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+        <div className="text-red-500 text-4xl mb-2">⚠️</div>
+        <h2 className="text-xl font-semibold text-gray-800">Error Loading Data</h2>
+        <p className="text-gray-600 text-center">{error}</p>
+        <button 
+          onClick={() => {
+            setError(null);
+            setSelectedFolder(null);
+            setFlashcards([]);
+          }}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          Try Again
+        </button>
       </div>
     );
   } else if (
@@ -1040,8 +1069,18 @@ export default function Flashcards() {
     thingData.length === 0
   ) {
     content = (
-      <div className="flex justify-center items-center h-96">
-        <p className="text-black">No flashcards or thing.json available.</p>
+      <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+        <h2 className="text-xl font-semibold text-gray-800">No Data Available</h2>
+        <p className="text-gray-600 text-center">Please select a dataset to begin practicing.</p>
+        <button 
+          onClick={() => {
+            setSelectedFolder(null);
+            setFlashcards([]);
+          }}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          Select Dataset
+        </button>
       </div>
     );
   } else {
