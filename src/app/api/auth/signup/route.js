@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 import supabase from "@/lib/supabase";
 import { signupLimiter, rateLimit } from "@/lib/rateLimit";
 
+// Force Node.js runtime
+export const runtime = "nodejs";
+
 export async function POST(req) {
   try {
     // Apply rate limiting
