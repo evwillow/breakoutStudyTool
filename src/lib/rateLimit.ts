@@ -10,7 +10,7 @@ const redis = new Redis({
 // Create different rate limiters for different types of requests
 export const signupLimiter = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(3, '1 h'), // 3 attempts per hour
+  limiter: Ratelimit.slidingWindow(50, '1 h'), // 50 attempts per hour
   analytics: true,
   prefix: 'ratelimit:signup',
 });

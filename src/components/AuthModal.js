@@ -3,51 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
-import ReCAPTCHA from "react-google-recaptcha";
-
-// Custom hook to ensure reCAPTCHA script is loaded
-const useRecaptchaScript = () => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    // Check if the script is already loaded
-    if (window.grecaptcha) {
-      setIsLoaded(true);
-      return;
-    }
-
-    // Create a script element
-    const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js';
-    script.async = true;
-    script.defer = true;
-    
-    // Handle script load
-    script.onload = () => {
-      console.log("reCAPTCHA script loaded");
-      setIsLoaded(true);
-    };
-    
-    // Handle script error
-    script.onerror = () => {
-      console.error("Error loading reCAPTCHA script");
-      setError("Failed to load reCAPTCHA");
-    };
-    
-    // Append script to document
-    document.body.appendChild(script);
-    
-    // Cleanup
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
-
-  return { isLoaded, error };
-};
+import Link from "next/link";
 
 export default function AuthModal({ open, onClose }) {
   const [mode, setMode] = useState("signin");
@@ -55,19 +11,8 @@ export default function AuthModal({ open, onClose }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState(null);
-  const [captchaError, setCaptchaError] = useState(null);
+  const [databaseError, setDatabaseError] = useState(false);
   const { update } = useSession();
-  const { isLoaded: isRecaptchaLoaded, error: recaptchaScriptError } = useRecaptchaScript();
-
-  useEffect(() => {
-    // Reset captcha when mode changes
-    setCaptchaToken(null);
-    setCaptchaError(null);
-    
-    // Debug reCAPTCHA site key
-    console.log("reCAPTCHA site key:", process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY);
-  }, [mode]);
 
   if (!open) return null;
 
@@ -79,6 +24,7 @@ export default function AuthModal({ open, onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setDatabaseError(false);
     setIsLoading(true);
 
     if (!validateEmail(email)) {
@@ -88,24 +34,30 @@ export default function AuthModal({ open, onClose }) {
     }
 
     if (mode === "signup") {
-      if (!captchaToken) {
-        setError("Please complete the CAPTCHA verification");
-        setIsLoading(false);
-        return;
-      }
-
       try {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, captchaToken }),
+          body: JSON.stringify({ email, password }),
         });
         
         if (!res.ok) {
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json();
-            setError(errorData.error || "Failed to create account");
+            
+            // Check for database-related errors
+            if (errorData.error && (
+                errorData.error.includes("Database") || 
+                errorData.error.includes("database") ||
+                errorData.isPaused ||
+                errorData.tableIssue
+              )) {
+              setDatabaseError(true);
+              setError(errorData.error + (errorData.details ? `: ${errorData.details}` : ''));
+            } else {
+              setError(errorData.error || "Failed to create account");
+            }
           } else {
             const errorText = await res.text();
             console.error("Signup error response:", errorText);
@@ -217,87 +169,60 @@ export default function AuthModal({ open, onClose }) {
             />
           </div>
 
-          {mode === "signup" && (
-            <div className="flex flex-col items-center">
-              {recaptchaScriptError ? (
-                <div className="text-red-600 text-sm">
-                  {recaptchaScriptError}
-                </div>
-              ) : !isRecaptchaLoaded ? (
-                <div className="text-gray-600 text-sm">
-                  Loading reCAPTCHA...
-                </div>
-              ) : process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
-                <ReCAPTCHA
-                  sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-                  onChange={(token) => {
-                    console.log("reCAPTCHA token received");
-                    setCaptchaToken(token);
-                    setCaptchaError(null);
-                  }}
-                  onErrored={() => {
-                    console.error("reCAPTCHA error occurred");
-                    setCaptchaError("reCAPTCHA error. Please try again.");
-                    setCaptchaToken(null);
-                  }}
-                  onExpired={() => {
-                    console.log("reCAPTCHA token expired");
-                    setCaptchaToken(null);
-                  }}
-                  theme="light"
-                  size="normal"
-                  hl="en"
-                />
-              ) : (
-                <div className="text-red-600 text-sm">
-                  reCAPTCHA configuration error. Please contact support.
-                </div>
-              )}
-              {captchaError && (
-                <div className="text-red-600 text-sm mt-2">
-                  {captchaError}
-                </div>
-              )}
-            </div>
-          )}
-
           {error && (
-            <div className="text-red-600 text-sm text-center">
+            <div className="p-2 text-sm text-red-600 bg-red-50 rounded-md">
               {error}
+              {databaseError && (
+                <div className="mt-2">
+                  <Link 
+                    href="/database-status" 
+                    className="text-blue-600 underline font-medium"
+                    onClick={onClose}
+                  >
+                    Check Database Status
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-2 px-4 rounded-lg font-medium text-white bg-gradient-turquoise hover-gradient-turquoise focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:ring-offset-2 transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+            className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-turquoise-600 hover:bg-turquoise-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-turquoise-500 ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
             {isLoading ? (
-              <div className="flex items-center justify-center">
+              <span className="flex items-center justify-center">
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                {mode === "signin" ? "Signing In..." : "Signing Up..."}
-              </div>
+                Processing...
+              </span>
+            ) : mode === "signin" ? (
+              "Sign In"
             ) : (
-              <>{mode === "signin" ? "Sign In" : "Sign Up"}</>
+              "Create Account"
             )}
           </button>
         </form>
-        
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => {
-              setMode((prev) => (prev === "signin" ? "signup" : "signin"));
-              setError(null);
-            }}
-            className="text-turquoise-600 hover:text-turquoise-800 text-sm font-medium transition-colors"
-          >
-            {mode === "signin"
-              ? "Don't have an account? Sign Up"
-              : "Already have an account? Sign In"}
-          </button>
+
+        <div className="mt-6 text-center text-sm">
+          <p className="text-turquoise-600">
+            {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "signin" ? "signup" : "signin");
+                setError(null);
+              }}
+              className="ml-1 font-semibold text-turquoise-600 hover:text-turquoise-800 transition-colors focus:outline-none focus:underline"
+            >
+              {mode === "signin" ? "Sign up" : "Sign in"}
+            </button>
+          </p>
         </div>
       </div>
     </div>
