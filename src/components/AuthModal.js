@@ -21,15 +21,15 @@ const useRecaptchaScript = () => {
       return;
     }
 
-    // Define grecaptcha callback to handle explicit rendering
-    window.onRecaptchaLoaded = () => {
+    // Define grecaptcha callback globally
+    window.recaptchaOnLoad = () => {
       console.log("reCAPTCHA script loaded successfully");
       setIsLoaded(true);
     };
 
     // Create a script element
     const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit';
+    script.src = `https://www.google.com/recaptcha/api.js?onload=recaptchaOnLoad&render=explicit`;
     script.async = true;
     script.defer = true;
     
@@ -48,8 +48,8 @@ const useRecaptchaScript = () => {
         document.head.removeChild(script);
       }
       // Clean up the global callback
-      if (window.onRecaptchaLoaded) {
-        delete window.onRecaptchaLoaded;
+      if (window.recaptchaOnLoad) {
+        delete window.recaptchaOnLoad;
       }
     };
   }, []);
@@ -68,6 +68,7 @@ export default function AuthModal({ open, onClose }) {
   const { update } = useSession();
   const { isLoaded: isRecaptchaLoaded, error: recaptchaScriptError } = useRecaptchaScript();
   const [siteKey, setSiteKey] = useState("");
+  const recaptchaRef = React.useRef(null);
 
   useEffect(() => {
     // Reset captcha when mode changes
@@ -78,6 +79,15 @@ export default function AuthModal({ open, onClose }) {
     const key = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
     console.log("reCAPTCHA site key:", key);
     setSiteKey(key);
+
+    // Try to reset reCAPTCHA if already loaded
+    if (mode === "signup" && recaptchaRef.current && window.grecaptcha) {
+      try {
+        window.grecaptcha.reset(recaptchaRef.current);
+      } catch (err) {
+        console.warn("Could not reset reCAPTCHA:", err);
+      }
+    }
   }, [mode]);
 
   if (!open) return null;
@@ -241,20 +251,31 @@ export default function AuthModal({ open, onClose }) {
                 </div>
               ) : siteKey ? (
                 <ReCAPTCHA
+                  ref={recaptchaRef}
                   sitekey={siteKey}
                   onChange={(token) => {
                     console.log("reCAPTCHA token received");
                     setCaptchaToken(token);
                     setCaptchaError(null);
                   }}
-                  onErrored={(error) => {
-                    console.error("reCAPTCHA error occurred:", error);
-                    setCaptchaError("reCAPTCHA error. Please try again.");
+                  onErrored={(err) => {
+                    console.error("reCAPTCHA error occurred:", err);
+                    // More specific error handling
+                    let errorMsg = "reCAPTCHA error. Please try again.";
+                    if (err) {
+                      if (err.includes("network")) {
+                        errorMsg = "Network error. Please check your connection and try again.";
+                      } else if (err.includes("expired")) {
+                        errorMsg = "reCAPTCHA expired. Please verify again.";
+                      }
+                    }
+                    setCaptchaError(errorMsg);
                     setCaptchaToken(null);
                   }}
                   onExpired={() => {
                     console.log("reCAPTCHA token expired");
                     setCaptchaToken(null);
+                    setCaptchaError("reCAPTCHA expired. Please verify again.");
                   }}
                   theme="light"
                   size="normal"

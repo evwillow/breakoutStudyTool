@@ -43,23 +43,52 @@ export async function POST(req) {
     const { token } = await req.json();
     
     if (!token) {
-      return NextResponse.json({ error: "Missing token" }, { status: 400 });
+      return NextResponse.json({ 
+        error: "Missing token",
+        "error-codes": ["missing-input-response"]
+      }, { status: 400 });
     }
     
     console.log("Testing reCAPTCHA verification with token:", token.substring(0, 10) + "...");
     
+    const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+    if (!secretKey) {
+      console.error("Missing RECAPTCHA_SECRET_KEY environment variable");
+      return NextResponse.json({ 
+        error: "Server configuration error",
+        "error-codes": ["missing-secret-key"]
+      }, { status: 500 });
+    }
+    
     const captchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${token}`,
+      body: `secret=${secretKey}&response=${token}`,
     });
     
-    const captchaData = await captchaResponse.json();
-    console.log("reCAPTCHA test verification response:", captchaData);
+    if (!captchaResponse.ok) {
+      return NextResponse.json({ 
+        error: `Google API error: ${captchaResponse.status}`,
+        "error-codes": ["api-connection-error"]
+      }, { status: 500 });
+    }
     
-    return NextResponse.json(captchaData);
+    const captchaData = await captchaResponse.json();
+    console.log("reCAPTCHA verification response:", captchaData);
+    
+    // Add timestamp to the response
+    const responseWithTimestamp = {
+      ...captchaData,
+      verifiedAt: new Date().toISOString()
+    };
+    
+    return NextResponse.json(responseWithTimestamp);
   } catch (error) {
-    console.error("reCAPTCHA test verification error:", error);
-    return NextResponse.json({ error: "Verification failed", details: error.message }, { status: 500 });
+    console.error("reCAPTCHA verification error:", error);
+    return NextResponse.json({ 
+      error: "Verification failed", 
+      details: error.message,
+      "error-codes": ["server-error"]
+    }, { status: 500 });
   }
 } 
