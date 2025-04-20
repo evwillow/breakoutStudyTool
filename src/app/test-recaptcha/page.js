@@ -11,6 +11,9 @@ export default function TestRecaptchaPage() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
+    // Safety check for window object
+    if (typeof window === 'undefined') return;
+    
     // Get the site key from environment variables
     const key = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "";
     console.log("reCAPTCHA site key:", key);
@@ -23,16 +26,17 @@ export default function TestRecaptchaPage() {
       return;
     }
     
-    // Create a script element to load reCAPTCHA
-    const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js';
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => {
+    // Define grecaptcha callback to handle explicit rendering
+    window.onRecaptchaLoaded = () => {
       console.log("reCAPTCHA script loaded successfully");
       setScriptLoaded(true);
     };
+    
+    // Create a script element to load reCAPTCHA
+    const script = document.createElement('script');
+    script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit';
+    script.async = true;
+    script.defer = true;
     
     script.onerror = () => {
       console.error("Failed to load reCAPTCHA script");
@@ -45,6 +49,10 @@ export default function TestRecaptchaPage() {
       // Clean up script if component unmounts
       if (document.head.contains(script)) {
         document.head.removeChild(script);
+      }
+      // Clean up the global callback
+      if (window.onRecaptchaLoaded) {
+        delete window.onRecaptchaLoaded;
       }
     };
   }, []);

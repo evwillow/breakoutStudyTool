@@ -11,6 +11,9 @@ const useRecaptchaScript = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Add a safety check for window object
+    if (typeof window === 'undefined') return;
+    
     // Check if the script is already loaded
     if (window.grecaptcha) {
       console.log("reCAPTCHA script already loaded");
@@ -18,17 +21,17 @@ const useRecaptchaScript = () => {
       return;
     }
 
-    // Create a script element
-    const script = document.createElement('script');
-    script.src = 'https://www.google.com/recaptcha/api.js';
-    script.async = true;
-    script.defer = true;
-    
-    // Handle script load
-    script.onload = () => {
+    // Define grecaptcha callback to handle explicit rendering
+    window.onRecaptchaLoaded = () => {
       console.log("reCAPTCHA script loaded successfully");
       setIsLoaded(true);
     };
+
+    // Create a script element
+    const script = document.createElement('script');
+    script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit';
+    script.async = true;
+    script.defer = true;
     
     // Handle script error
     script.onerror = () => {
@@ -43,6 +46,10 @@ const useRecaptchaScript = () => {
     return () => {
       if (document.head.contains(script)) {
         document.head.removeChild(script);
+      }
+      // Clean up the global callback
+      if (window.onRecaptchaLoaded) {
+        delete window.onRecaptchaLoaded;
       }
     };
   }, []);
