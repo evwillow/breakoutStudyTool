@@ -14,11 +14,17 @@ async function verifyCaptcha(token) {
   
   // Return false if no token provided
   if (!token) {
+    console.error('No CAPTCHA token provided');
     return false;
   }
   
   try {
     const secret = process.env.HCAPTCHA_SECRET_KEY;
+    
+    if (!secret) {
+      console.error('Missing HCAPTCHA_SECRET_KEY environment variable');
+      return false;
+    }
     
     // Make request to hCaptcha verification API
     const response = await fetch(
@@ -32,7 +38,17 @@ async function verifyCaptcha(token) {
       }
     );
     
+    if (!response.ok) {
+      console.error('CAPTCHA verification API response not OK:', response.status);
+      return false;
+    }
+    
     const data = await response.json();
+    
+    if (!data.success) {
+      console.error('CAPTCHA verification failed:', data['error-codes'] || 'Unknown error');
+    }
+    
     return data.success;
   } catch (error) {
     console.error("CAPTCHA verification error:", error);
