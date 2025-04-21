@@ -1,9 +1,10 @@
 // /src/components/AuthModal.js
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 
 export default function AuthModal({ open, onClose }) {
   const [mode, setMode] = useState("signin");
@@ -12,13 +13,27 @@ export default function AuthModal({ open, onClose }) {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [databaseError, setDatabaseError] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
   const { update } = useSession();
+
+  // Reset form when mode changes
+  useEffect(() => {
+    if (captchaRef.current) {
+      captchaRef.current.resetCaptcha();
+    }
+    setCaptchaToken(null);
+  }, [mode]);
 
   if (!open) return null;
 
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  };
+
+  const handleCaptchaVerify = (token) => {
+    setCaptchaToken(token);
   };
 
   const handleSubmit = async (e) => {
@@ -34,11 +49,22 @@ export default function AuthModal({ open, onClose }) {
     }
 
     if (mode === "signup") {
+      // Check if captcha is completed
+      if (!captchaToken) {
+        setError("Please complete the CAPTCHA verification");
+        setIsLoading(false);
+        return;
+      }
+      
       try {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ 
+            email, 
+            password,
+            captchaToken 
+          }),
         });
         
         if (!res.ok) {
@@ -46,8 +72,16 @@ export default function AuthModal({ open, onClose }) {
           if (contentType && contentType.includes("application/json")) {
             const errorData = await res.json();
             
+            // Check for captcha-related errors
+            if (errorData.error === "Invalid CAPTCHA") {
+              setError("CAPTCHA verification failed. Please try again.");
+              if (captchaRef.current) {
+                captchaRef.current.resetCaptcha();
+              }
+              setCaptchaToken(null);
+            }
             // Check for database-related errors
-            if (errorData.error && (
+            else if (errorData.error && (
                 errorData.error.includes("Database") || 
                 errorData.error.includes("database") ||
                 errorData.isPaused ||
@@ -171,11 +205,22 @@ export default function AuthModal({ open, onClose }) {
           </div>
 
           {mode === "signup" && (
-            <div className="flex flex-col items-center">
-              <p className="text-sm text-turquoise-600 mb-2">
-                By creating an account, you agree to our <Link href="/terms" className="underline hover:text-turquoise-800">Terms of Service</Link>
-              </p>
-            </div>
+            <>
+              <div className="flex flex-col items-center">
+                <p className="text-sm text-turquoise-600 mb-2">
+                  By creating an account, you agree to our <Link href="/terms" className="underline hover:text-turquoise-800">Terms of Service</Link>
+                </p>
+              </div>
+              
+              {/* hCaptcha component */}
+              <div className="flex justify-center">
+                <HCaptcha
+                  ref={captchaRef}
+                  sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+                  onVerify={handleCaptchaVerify}
+                />
+              </div>
+            </>
           )}
 
           {error && (
@@ -198,7 +243,7 @@ export default function AuthModal({ open, onClose }) {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || (mode === "signup" && !captchaToken)}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-turquoise-600 hover:bg-turquoise-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-turquoise-500 disabled:bg-turquoise-300 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (

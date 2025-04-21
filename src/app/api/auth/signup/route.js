@@ -4,6 +4,42 @@ import bcrypt from "bcryptjs";
 import supabase from "@/lib/supabase";
 import { signupLimiter, rateLimit } from "@/lib/rateLimit";
 
+// Verify hCaptcha token
+async function verifyCaptcha(token) {
+  // Development mode bypass
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Development mode: CAPTCHA verification bypassed');
+    return true;
+  }
+  
+  // Return false if no token provided
+  if (!token) {
+    return false;
+  }
+  
+  try {
+    const secret = process.env.HCAPTCHA_SECRET_KEY;
+    
+    // Make request to hCaptcha verification API
+    const response = await fetch(
+      'https://hcaptcha.com/siteverify',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `response=${token}&secret=${secret}`,
+      }
+    );
+    
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error("CAPTCHA verification error:", error);
+    return false;
+  }
+}
+
 // Try using a direct query to bypass RLS
 const directQuery = async (email) => {
   try {
@@ -34,7 +70,7 @@ export async function POST(req) {
     const rateLimitResponse = await rateLimit(req, signupLimiter);
     if (rateLimitResponse) return rateLimitResponse;
 
-    const { email, password } = await req.json();
+    const { email, password, captchaToken } = await req.json();
     
     // Validate required fields
     if (!email || !password) {
@@ -45,6 +81,12 @@ export async function POST(req) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
+    }
+    
+    // Verify CAPTCHA token
+    const isValidCaptcha = await verifyCaptcha(captchaToken);
+    if (!isValidCaptcha) {
+      return NextResponse.json({ error: "Invalid CAPTCHA" }, { status: 400 });
     }
 
     // Check if the database connection is working
