@@ -170,12 +170,12 @@ export default function DatabaseStatus() {
               Fixing database issue...
             </div>
           ) : (
-            'Auto-Fix Database Issue'
+            'Configure Secure Database Policies'
           )}
         </button>
         
         <p className="text-xs mt-1 text-gray-500">
-          This will attempt to disable Row Level Security on the users table
+          This will configure Row Level Security with appropriate policies for the users table
         </p>
         
         {fixResult && (

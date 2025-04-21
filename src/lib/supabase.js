@@ -9,10 +9,6 @@
  */
 import { createClient } from "@supabase/supabase-js";
 
-// Log environment variable status (without revealing secrets)
-console.log("Supabase URL configured:", !!process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log("Supabase Anon Key configured:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-
 // Validate that required environment variables are present
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
   throw new Error("Missing Supabase environment variables");

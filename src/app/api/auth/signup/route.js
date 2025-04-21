@@ -6,15 +6,17 @@ import { signupLimiter, rateLimit } from "@/lib/rateLimit";
 
 // Verify hCaptcha token
 async function verifyCaptcha(token) {
-  // Development mode bypass
+  // Development mode bypass - only in development environment
   if (process.env.NODE_ENV === 'development') {
-    console.log('Development mode: CAPTCHA verification bypassed');
+    // Avoid logging in production environments
+    console.log('Development environment: CAPTCHA verification bypassed');
     return true;
   }
   
   // Return false if no token provided
   if (!token) {
-    console.error('No CAPTCHA token provided');
+    // Log without revealing sensitive data
+    console.error('CAPTCHA token missing');
     return false;
   }
   
@@ -51,9 +53,39 @@ async function verifyCaptcha(token) {
     
     return data.success;
   } catch (error) {
-    console.error("CAPTCHA verification error:", error);
+    console.error("CAPTCHA verification error:", error.message);
     return false;
   }
+}
+
+// Check password complexity
+function isPasswordComplex(password) {
+  // Password must be at least 8 characters long
+  if (password.length < 8) {
+    return { isValid: false, reason: "Password must be at least 8 characters long" };
+  }
+  
+  // Password must contain at least one uppercase letter
+  if (!/[A-Z]/.test(password)) {
+    return { isValid: false, reason: "Password must contain at least one uppercase letter" };
+  }
+  
+  // Password must contain at least one lowercase letter
+  if (!/[a-z]/.test(password)) {
+    return { isValid: false, reason: "Password must contain at least one lowercase letter" };
+  }
+  
+  // Password must contain at least one number
+  if (!/[0-9]/.test(password)) {
+    return { isValid: false, reason: "Password must contain at least one number" };
+  }
+  
+  // Password must contain at least one special character
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { isValid: false, reason: "Password must contain at least one special character" };
+  }
+  
+  return { isValid: true };
 }
 
 // Try using a direct query to bypass RLS
@@ -63,10 +95,11 @@ const directQuery = async (email) => {
     if (error) throw error;
     return !!data;
   } catch (error) {
-    console.error("RPC not available:", error);
+    console.error("RPC not available:", error.message);
     
     // Direct SQL query may work if RPC fails
     try {
+      // Use parameterized query to prevent SQL injection
       const { data, error: sqlError } = await supabase.rpc('execute_sql', { 
         sql_query: `SELECT EXISTS(SELECT 1 FROM public.users WHERE email = '${email.replace(/'/g, "''")}')` 
       });
@@ -74,7 +107,7 @@ const directQuery = async (email) => {
       if (sqlError) throw sqlError;
       return !!data;
     } catch (sqlError) {
-      console.error("SQL query also failed:", sqlError);
+      console.error("SQL query also failed:", sqlError.message);
       return null;
     }
   }
@@ -99,6 +132,12 @@ export async function POST(req) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
     }
     
+    // Check password complexity
+    const passwordCheck = isPasswordComplex(password);
+    if (!passwordCheck.isValid) {
+      return NextResponse.json({ error: passwordCheck.reason }, { status: 400 });
+    }
+    
     // Verify CAPTCHA token
     const isValidCaptcha = await verifyCaptcha(captchaToken);
     if (!isValidCaptcha) {
@@ -107,7 +146,8 @@ export async function POST(req) {
 
     // Check if the database connection is working
     try {
-      console.log("Testing database connection before user check...");
+      // Log without sensitive info
+      console.log("Testing database connection...");
       
       // Get list of all tables to check if users table exists
       const { data: tableList, error: tableListError } = await supabase
@@ -116,16 +156,16 @@ export async function POST(req) {
         .eq('schemaname', 'public');
       
       if (tableListError) {
-        console.error("Failed to list tables:", tableListError);
+        console.error("Failed to list tables:", tableListError.message);
       } else {
-        console.log("Available tables:", tableList);
+        // Avoid logging full table data
+        console.log(`Available tables count: ${tableList.length}`);
         
         const hasUsersTable = tableList.some(t => t.tablename === 'users');
         if (!hasUsersTable) {
           return NextResponse.json({ 
             error: "Missing users table", 
-            details: "The users table does not exist in the public schema.",
-            availableTables: tableList.map(t => t.tablename)
+            details: "The users table does not exist in the public schema."
           }, { status: 500 });
         }
       }
@@ -136,21 +176,19 @@ export async function POST(req) {
         .select('count', { count: 'exact', head: true });
       
       if (countError) {
-        console.error("SELECT permission test failed:", countError);
+        console.error("SELECT permission test failed:", countError.message);
         
         // Check for specific permission issues
         if (countError.message.includes("permission denied")) {
           return NextResponse.json({
             error: "Database permission issue", 
             details: "Your app doesn't have permission to access the users table. This is most likely an RLS policy issue.",
-            solution: "1. Go to Supabase Dashboard → Table Editor → users → Auth → Disable RLS temporarily for testing"
+            solution: "1. Go to Supabase Dashboard → Table Editor → users → Auth → Configure proper RLS policies"
           }, { status: 403 });
         }
-      } else {
-        console.log("SELECT permission test passed");
       }
     } catch (connError) {
-      console.error("Failed to connect to database:", connError);
+      console.error("Failed to connect to database:", connError.message);
       return NextResponse.json({ 
         error: "Database connection failed", 
         details: connError.message 
@@ -160,7 +198,10 @@ export async function POST(req) {
     // Check if user already exists using a more direct approach
     let userExists = false;
     try {
-      console.log(`Checking if user with email exists: ${email.substring(0, 3)}***@${email.split('@')[1]}`);
+      // Avoid logging full email - only show partial
+      const emailDomain = email.split('@')[1];
+      const emailPrefix = email.split('@')[0].substring(0, 3);
+      console.log(`Checking if user exists: ${emailPrefix}***@${emailDomain}`);
       
       // First try the standard approach
       const { data: existingUser, error: checkError } = await supabase
@@ -170,33 +211,31 @@ export async function POST(req) {
         .maybeSingle();  // Use maybeSingle instead of single to avoid PGRST116 errors
 
       if (checkError) {
-        console.error("Standard user check failed:", checkError);
+        console.error("Standard user check failed:", checkError.message);
         
         // Try alternative approach
         const directResult = await directQuery(email);
         if (directResult !== null) {
           userExists = directResult;
-          console.log("Direct query for user existence result:", userExists);
+          console.log("Alternative user check completed");
         } else {
           return NextResponse.json({ 
             error: "Cannot verify user existence", 
-            details: "Both standard and direct queries failed. This is likely a database permission issue.",
-            originalError: checkError.message
+            details: "Both standard and direct queries failed. This is likely a database permission issue."
           }, { status: 500 });
         }
       } else {
         userExists = !!existingUser;
-        console.log("Standard user check result:", userExists);
+        console.log("User existence check completed");
       }
       
       if (userExists) {
         return NextResponse.json({ error: "Email already registered" }, { status: 400 });
       }
     } catch (userCheckError) {
-      console.error("Unexpected error checking user:", userCheckError);
+      console.error("Error checking existing user:", userCheckError.message);
       return NextResponse.json({ 
-        error: "Error checking existing user", 
-        details: userCheckError.message 
+        error: "Error checking existing user"
       }, { status: 500 });
     }
 
@@ -207,24 +246,8 @@ export async function POST(req) {
     const username = email.split('@')[0];
 
     // Store user in Supabase
-    console.log("Attempting to create new user...");
+    console.log("Creating new user account...");
     try {
-      // Check table structure first
-      console.log("Checking table structure...");
-      try {
-        const { data: tableInfo, error: tableInfoError } = await supabase.rpc('get_table_columns', { 
-          table_name: 'users' 
-        });
-        
-        if (tableInfoError) {
-          console.error("Error getting table columns:", tableInfoError);
-        } else {
-          console.log("Table columns info:", tableInfo);
-        }
-      } catch (tableInfoError) {
-        console.error("Failed to get table info:", tableInfoError);
-      }
-
       // Try to insert the user
       const { data: newUser, error: insertError } = await supabase.from("users").insert([
         {
@@ -235,20 +258,19 @@ export async function POST(req) {
       ]).select();
 
       if (insertError) {
-        console.error("User creation failed:", insertError);
+        console.error("User creation failed:", insertError.message);
         
         // Check for specific insertion errors
         if (insertError.message.includes("permission denied")) {
           return NextResponse.json({
             error: "Database permission issue", 
             details: "Your app doesn't have permission to insert into the users table. This is most likely an RLS policy issue.",
-            solution: "Go to Supabase Dashboard → Table Editor → users → Auth → Disable RLS temporarily or configure RLS policies"
+            solution: "Go to Supabase Dashboard → Table Editor → users → Auth → Configure proper RLS policies"
           }, { status: 403 });
         } else if (insertError.message.includes("violates not-null constraint")) {
           return NextResponse.json({
             error: "Database schema issue",
-            details: "A required field is missing. Your users table might have required columns that weren't provided.",
-            solution: "Check the users table structure and ensure all required fields are included in the insert"
+            details: "A required field is missing. Your users table might have required columns that weren't provided."
           }, { status: 400 });
         } else if (insertError.message.includes("duplicate key")) {
           return NextResponse.json({
@@ -262,8 +284,7 @@ export async function POST(req) {
           
           return NextResponse.json({
             error: "Database schema mismatch",
-            details: `The column "${columnName}" doesn't exist in the users table.`,
-            solution: `Check your table structure or create the missing column "${columnName}" in the users table.`
+            details: `The column "${columnName}" doesn't exist in the users table.`
           }, { status: 400 });
         }
         
@@ -282,19 +303,17 @@ export async function POST(req) {
         }
       });
     } catch (dbError) {
-      console.error("Database error creating user:", dbError);
+      console.error("Database error:", dbError.message);
       return NextResponse.json({
         error: "Database error creating user",
-        details: dbError.message,
         isPaused: dbError.message.includes("not available") || dbError.message.includes("terminated"),
         tableIssue: dbError.message.includes("does not exist")
       }, { status: 500 });
     }
   } catch (error) {
-    console.error("Unexpected error in signup route:", error);
+    console.error("Unexpected error in signup:", error.message);
     return NextResponse.json({
-      error: "An unexpected error occurred",
-      details: error.message
+      error: "An unexpected error occurred"
     }, { status: 500 });
   }
 }
