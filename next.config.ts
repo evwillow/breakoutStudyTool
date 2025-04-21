@@ -16,6 +16,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  env: {
+    // Enable mock database by default in development mode
+    NEXT_PUBLIC_USE_MOCK_DB: process.env.NODE_ENV === 'development' ? 'true' : 'false',
+  },
 };
 
 module.exports = nextConfig;

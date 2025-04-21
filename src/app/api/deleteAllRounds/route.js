@@ -12,6 +12,14 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function DELETE(req) {
+  // Check if supabase is configured properly.
+  if (!supabaseUrl || !supabaseKey) {
+    return NextResponse.json(
+      { error: "Supabase is not configured properly." },
+      { status: 500 }
+    );
+  }
+
   try {
     const url = new URL(req.url);
     const userId = url.searchParams.get("userId");
@@ -23,55 +31,70 @@ export async function DELETE(req) {
       );
     }
 
-    console.log("API: Deleting all rounds for user:", userId);
-
+    console.log("Server: Deleting all rounds for user:", userId);
+    
     // First, get all rounds for this user
-    const { data: userRounds, error: roundsError } = await supabase
-      .from('rounds')
-      .select('id')
-      .eq('user_id', userId);
-      
+    const { data: rounds, error: fetchError } = await supabase
+      .from("rounds")
+      .select("id")
+      .eq("user_id", userId);
+    
+    if (fetchError) {
+      console.error("Server: Error fetching rounds:", fetchError);
+      return NextResponse.json(
+        { error: "Failed to fetch rounds", details: fetchError.message },
+        { status: 500 }
+      );
+    }
+    
+    if (!rounds || rounds.length === 0) {
+      return NextResponse.json({ 
+        success: true, 
+        message: "No rounds found to delete" 
+      });
+    }
+    
+    const roundIds = rounds.map(round => round.id);
+    console.log("Server: Found rounds to delete:", roundIds);
+    
+    // Delete all matches associated with these rounds
+    const { error: matchesError } = await supabase
+      .from("matches")
+      .delete()
+      .in("round_id", roundIds);
+    
+    if (matchesError) {
+      console.error("Server: Error deleting matches:", matchesError);
+      return NextResponse.json(
+        { error: "Failed to delete matches", details: matchesError.message },
+        { status: 500 }
+      );
+    }
+    
+    // Now delete the rounds
+    const { error: roundsError } = await supabase
+      .from("rounds")
+      .delete()
+      .eq("user_id", userId);
+    
     if (roundsError) {
-      console.error("API: Error fetching user rounds:", roundsError);
-      return NextResponse.json({ error: roundsError.message }, { status: 500 });
+      console.error("Server: Error deleting rounds:", roundsError);
+      return NextResponse.json(
+        { error: "Failed to delete rounds", details: roundsError.message },
+        { status: 500 }
+      );
     }
     
-    if (!userRounds || userRounds.length === 0) {
-      return NextResponse.json({ message: "No rounds found to delete" });
-    }
-    
-    const roundIds = userRounds.map(round => round.id);
-    console.log(`API: Found ${roundIds.length} rounds to delete`);
-    
-    // Delete all matches for these rounds
-    const { error: matchesDeleteError } = await supabase
-      .from('matches')
-      .delete()
-      .in('round_id', roundIds);
-      
-    if (matchesDeleteError) {
-      console.error("API: Error deleting matches:", matchesDeleteError);
-      return NextResponse.json({ error: matchesDeleteError.message }, { status: 500 });
-    }
-    
-    // Delete all rounds for this user
-    const { error: roundsDeleteError } = await supabase
-      .from('rounds')
-      .delete()
-      .eq('user_id', userId);
-      
-    if (roundsDeleteError) {
-      console.error("API: Error deleting rounds:", roundsDeleteError);
-      return NextResponse.json({ error: roundsDeleteError.message }, { status: 500 });
-    }
-    
-    console.log(`API: Successfully deleted ${roundIds.length} rounds and their matches`);
+    console.log("Server: Successfully deleted all rounds for user:", userId);
     return NextResponse.json({ 
       success: true, 
       message: `Successfully deleted ${roundIds.length} rounds` 
     });
   } catch (err) {
-    console.error("API: Unexpected error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    console.error("Server: Unexpected error:", err);
+    return NextResponse.json(
+      { error: "Server error", details: err.message },
+      { status: 500 }
+    );
   }
 } 

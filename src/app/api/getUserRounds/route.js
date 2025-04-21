@@ -1,9 +1,21 @@
 // /src/app/api/getUserRounds/route.js
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { 
+  withErrorHandling, 
+  createSuccessResponse, 
+  createErrorResponse 
+} from '@/app/api/middleware';
+import { 
+  AppError, 
+  ErrorCodes, 
+  DatabaseError 
+} from '@/utils/errorHandling';
+import { Logger } from "@/utils/logger";
 
 // Server-side Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+// Fallback to anon key if service role key is not available
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
@@ -35,14 +47,19 @@ export async function GET(req) {
       
     if (roundsError) {
       console.error("API: Error fetching user rounds:", roundsError);
-      return NextResponse.json({ error: roundsError.message }, { status: 500 });
+      
+      // Return empty array instead of throwing an error
+      return NextResponse.json({ 
+        rounds: [],
+        warning: "Failed to retrieve rounds data. Please try again later."
+      });
     }
     
     if (!userRounds || userRounds.length === 0) {
       return NextResponse.json({ rounds: [] });
     }
     
-    console.log(`API: Found ${userRounds.length} rounds`);
+    console.log(`API: Found ${userRounds.length} rounds for user`, userId);
     
     // For each round, get matches and calculate stats
     const roundsWithStats = await Promise.all(userRounds.map(async (round) => {
@@ -87,6 +104,9 @@ export async function GET(req) {
     return NextResponse.json({ rounds: roundsWithStats });
   } catch (err) {
     console.error("API: Unexpected error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ 
+      rounds: [],
+      warning: "There was an error retrieving your rounds. Some data may be missing."
+    });
   }
 }

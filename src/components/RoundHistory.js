@@ -26,54 +26,76 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
   const [deletingId, setDeletingId] = useState(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const fetchRounds = async () => {
-    if (!isOpen || !userId) return;
-    
-    setLoading(true);
     try {
-      // Direct fetch from the server API
-      const response = await fetch(`/api/getUserRounds?userId=${userId}`);
-      const data = await response.json();
+      setLoading(true);
+      setError(null);
+      console.log('RoundHistory: Fetching rounds for user ID:', userId);
       
-      if (!response.ok) {
+      if (!userId) {
+        console.error('RoundHistory: Missing user ID, cannot fetch rounds');
+        setError("User ID not found. Please try logging in again.");
+        setLoading(false);
+        return;
+      }
+
+      // Determine if we're using mock database
+      const response = await fetch('/api/checkMockDb');
+      const { useMockDb } = await response.json();
+      console.log('RoundHistory: Using mock database:', useMockDb);
+      
+      const fetchResponse = await fetch(`/api/getUserRounds?userId=${userId}`);
+      const data = await fetchResponse.json();
+      
+      if (!fetchResponse.ok) {
+        console.error('RoundHistory: Error fetching rounds:', data.error);
         throw new Error(data.error || "Failed to fetch rounds");
       }
       
-      console.log("Received rounds data:", data.rounds);
+      console.log('RoundHistory: Received rounds data:', data);
+      console.log('RoundHistory: Number of rounds found:', data.rounds?.length || 0);
       
-      // Format the accuracy to ensure it's displayed correctly
-      const formattedRounds = data.rounds.map(round => ({
-        ...round,
-        accuracy: parseFloat(round.accuracy).toFixed(2)
-      }));
-      
-      setRounds(formattedRounds || []);
-    } catch (err) {
-      console.error("Error fetching round history:", err);
-      setError("Failed to load round history");
+      if (data.rounds && Array.isArray(data.rounds)) {
+        setRounds(data.rounds);
+      } else {
+        console.warn('RoundHistory: No rounds array in response');
+        setRounds([]);
+      }
+    } catch (error) {
+      console.error("Error fetching rounds:", error);
+      setError(error.message || "Failed to load rounds. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRounds();
-  }, [isOpen, userId]);
+    if (isOpen) {
+      fetchRounds();
+    }
+  }, [isOpen, userId, retryCount]);
 
   const handleDeleteRound = async (roundId) => {
     if (confirm("Are you sure you want to delete this round?")) {
       setIsDeleting(true);
       setDeletingId(roundId);
       try {
-        await fetch(`/api/deleteRound?id=${roundId}`, {
+        const response = await fetch(`/api/deleteRound?id=${roundId}`, {
           method: 'DELETE'
         });
+        
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error?.message || "Failed to delete round");
+        }
+        
         // Refresh the list after deletion
         setRounds(rounds.filter(r => r.id !== roundId));
       } catch (err) {
         console.error("Error deleting round:", err);
-        alert("Failed to delete round.");
+        alert("Failed to delete round: " + (err.message || "Unknown error"));
       } finally {
         setIsDeleting(false);
         setDeletingId(null);
@@ -92,7 +114,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
       const result = await response.json();
       
       if (!response.ok) {
-        throw new Error(result.error || "Failed to delete rounds");
+        throw new Error(result.error?.message || "Failed to delete rounds");
       }
       
       // Clear the rounds list
@@ -100,10 +122,16 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
       console.log("All rounds deleted successfully");
     } catch (err) {
       console.error("Error deleting all rounds:", err);
-      alert("Failed to delete all rounds.");
+      alert("Failed to delete all rounds: " + (err.message || "Unknown error"));
     } finally {
       setIsDeletingAll(false);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryCount(prevCount => prevCount + 1);
   };
 
   if (!isOpen) return null;
@@ -242,11 +270,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
               <h3 className="text-red-800 font-medium">Error Loading Rounds</h3>
               <p className="text-red-700 mt-1">{error}</p>
               <button 
-                onClick={() => {
-                  setError(null);
-                  setLoading(true);
-                  fetchRounds();
-                }}
+                onClick={handleRetry}
                 className="mt-2 text-teal-600 underline hover:text-teal-700"
               >
                 Try Again

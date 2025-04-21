@@ -1,24 +1,7 @@
 // /src/app/api/getFileData/route.js
 import { google } from "googleapis";
 import { NextResponse } from "next/server";
-import path from "path";
-
-let authClient = null;
-let drive = null;
-
-const initializeAuth = async () => {
-  if (!authClient) {
-    const keyFilePath = path.join(process.cwd(), "src", "config", "service-account.json");
-    authClient = new google.auth.GoogleAuth({
-      keyFile: keyFilePath,
-      scopes: ["https://www.googleapis.com/auth/drive.readonly"],
-    });
-    drive = google.drive({ version: "v3", auth: authClient });
-  }
-  return drive;
-};
-
-const PARENT_FOLDER_ID = "18q55oXvsOL2MboehLA1OglGdepBVDDub";
+import { initializeDriveClient, getParentFolderId } from "@/lib/googleDrive";
 
 export async function GET(request) {
   try {
@@ -27,7 +10,11 @@ export async function GET(request) {
       return NextResponse.json({ error: "No folder selected" }, { status: 400 });
     }
 
-    const drive = await initializeAuth();
+    // Use the googleDrive utility to initialize the client and get parent folder ID
+    const drive = await initializeDriveClient();
+    const PARENT_FOLDER_ID = getParentFolderId();
+
+    console.log(`Fetching data for folder: ${selectedFolderName} from parent: ${PARENT_FOLDER_ID}`);
 
     // Find the selected folder
     const folderResponse = await drive.files.list({
@@ -80,6 +67,7 @@ export async function GET(request) {
     if (directJsonFiles.length > 0) {
       return NextResponse.json([
         {
+          name: selectedFolderName,
           folderName: selectedFolderName,
           jsonFiles: directJsonFiles
         }
@@ -135,6 +123,7 @@ export async function GET(request) {
           })
         );
         return {
+          name: folder.name, // Add name property to match expected format
           folderName: folder.name,
           jsonFiles,
         };
@@ -146,7 +135,7 @@ export async function GET(request) {
       headers: { "Cache-Control": "public, max-age=300" },
     });
   } catch (error) {
-    console.error("Error fetching files:", error.message);
+    console.error("Error fetching files:", error.message, error.stack);
     // Return empty array instead of error
     return NextResponse.json([], {
       status: 200,

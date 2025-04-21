@@ -127,6 +127,52 @@ TradeMaster uses NextAuth.js with Supabase for authentication:
 - `/api/updateStats`: Update user statistics
 - `/api/getUserRounds`: Retrieve user's practice history
 
+## 🛡️ Error Handling System
+
+TradeMaster includes a comprehensive error handling system to ensure a robust user experience:
+
+### Features
+
+- **Centralized Error Processing**: All errors are managed through a unified error handling utility
+- **Custom Error Classes**: Specialized error types for different scenarios (API, Auth, Database, etc.)
+- **Structured Logging**: Detailed error logging with contextual information for debugging
+- **Environment-Specific Behavior**: Different error handling strategies for development and production
+- **Graceful Degradation**: Fallback UI components when errors occur
+- **Network Status Detection**: Automatic detection and handling of offline states
+- **Retry Mechanisms**: Automatic retries for transient errors with exponential backoff
+
+### Error Boundaries
+
+React Error Boundaries prevent the entire application from crashing when component errors occur:
+
+- **Global Error Boundary**: Catches errors at the application level
+- **Component-Specific Boundaries**: Isolate errors to specific UI sections
+- **Fallback UI Components**: User-friendly error messages with retry options
+
+### API Error Standardization
+
+All API responses follow a consistent error format:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": 1001,
+    "message": "User-friendly error message",
+    "details": "Technical details (in development only)"
+  }
+}
+```
+
+### Error Recovery
+
+The application includes various recovery strategies:
+
+- **Automatic Retries**: For network and transient errors
+- **Circuit Breakers**: Prevent cascading failures from external service errors
+- **Offline Detection**: Graceful handling of connectivity issues
+- **Form Validation**: Clear error messages for input validation
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

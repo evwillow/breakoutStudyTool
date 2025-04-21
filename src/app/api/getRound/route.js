@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Server-side Supabase client with service role key
+// Server-side Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -15,7 +15,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export async function GET(req) {
   // Check if supabase is configured properly.
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: "Supabase is not configured properly." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Supabase is not configured properly." },
+      { status: 500 }
+    );
   }
 
   try {
@@ -38,7 +41,18 @@ export async function GET(req) {
 
     if (roundError) {
       console.error("Server: Error fetching round:", roundError);
-      return NextResponse.json({ error: roundError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: roundError.message }, 
+        { status: roundError.code === "PGRST116" ? 404 : 500 }
+      );
+    }
+
+    if (!round) {
+      console.error("Server: Round not found:", roundId);
+      return NextResponse.json(
+        { error: "Round not found" }, 
+        { status: 404 }
+      );
     }
 
     // Get matches for this round

@@ -453,6 +453,131 @@ export default function Flashcards() {
     }
   }, [currentSubfolder]);
 
+  const createNewRound = useCallback(async () => {
+    // Wait until auth is fully loaded
+    if (status === "loading") {
+      console.log("Authentication is still loading, please wait...");
+      return null;
+    }
+    
+    // Check if user is authenticated
+    if (status !== "authenticated" || !session) {
+      console.log("You need to be signed in to create a round");
+      setShowAuthModal(true);
+      return null;
+    }
+    
+    // Verify user ID exists
+    if (!session.user?.id) {
+      console.error("User ID not found in session");
+      console.log("Session object:", session);
+      return null;
+    }
+    
+    // Check if folder is selected
+    if (!selectedFolder) {
+      console.error("No folder selected");
+      alert("Please select a folder first");
+      return null;
+    }
+
+    // Show loading state
+    setLoading(true);
+    setLoadingProgress(0);
+    setLoadingStep('Creating new round...');
+    
+    try {
+      // End current round if exists
+      if (roundId) {
+        try {
+          const response = await fetch(`/api/updateRound`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: roundId,
+              completed: true
+            }),
+          });
+          
+          if (!response.ok) {
+            console.warn("Failed to mark previous round as completed, but continuing anyway");
+          }
+        } catch (err) {
+          console.error("Error updating previous round:", err);
+          // Continue anyway
+        }
+      }
+      
+      setLoadingProgress(30);
+      setLoadingStep('Initializing round data...');
+      
+      console.log("Creating new round with dataset:", selectedFolder);
+      
+      // Create a new round via server API route
+      const response = await fetch("/api/createRound", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dataset_name: selectedFolder,
+          user_id: session.user.id,
+          completed: false
+        }),
+      });
+      
+      setLoadingProgress(70);
+      setLoadingStep('Processing data...');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create a new round. Please try again.");
+      }
+      
+      const result = await response.json();
+      
+      if (!result.data || !result.data.id) {
+        throw new Error("No round ID returned from API");
+      }
+      
+      // Make sure to set the roundId here
+      const newRoundId = result.data.id;
+      setRoundId(newRoundId);
+      console.log("New round started with ID:", newRoundId);
+      
+      // Reset other state
+      setCurrentMatchIndex(0);
+      setMatchCount(0);
+      setCorrectCount(0);
+      setTimer(timerDuration);
+      
+      setLoadingProgress(100);
+      setLoadingStep('Round created successfully!');
+      
+      // Short delay to show the success message
+      setTimeout(() => {
+        setLoading(false);
+      }, 500);
+      
+      return newRoundId;
+    } catch (err) {
+      console.error("Unexpected error creating round:", err);
+      setError(`Failed to create a new round: ${err.message}. Please try again.`);
+      return null;
+    } finally {
+      // Ensure loading is always turned off
+      setTimeout(() => {
+        if (loading) {
+          setLoading(false);
+          setLoadingProgress(0);
+          setLoadingStep('');
+        }
+      }, 1000);
+    }
+  }, [roundId, session, selectedFolder, status, timerDuration]);
+
   // Handle answer selection and log the match.
   const handleSelection = useCallback(
     async (selection) => {
@@ -474,27 +599,32 @@ export default function Flashcards() {
       console.log("Current round ID:", roundId);
       console.log("Current user ID:", session?.user?.id);
 
-      // Only log match if we have a valid roundId
-      if (!roundId) {
-        console.warn("No round ID available - match not logged. Create a new round first.");
-        // Create a new round if one doesn't exist
+      // Only log match if we have a valid roundId and session
+      if (!roundId || !session?.user?.id) {
+        console.warn("Missing round ID or user ID - creating a new round");
+        
+        // Create a new round if the user is authenticated and folder is selected
         if (session?.user?.id && selectedFolder) {
-          console.log("Automatically creating a new round since none exists");
           try {
-            await createNewRound();
-            // After creating a new round, try logging the match again with a delay
-            // to ensure the state has been updated
-            setTimeout(() => {
-              if (roundId) {
-                console.log("Retrying match logging with new round ID:", roundId);
-                // Use a direct API call instead of recursively calling handleSelection
+            console.log("Automatically creating a new round");
+            const newRoundId = await createNewRound();
+            
+            // If a new round was successfully created
+            if (newRoundId) {
+              console.log("New round created with ID:", newRoundId);
+              
+              // Wait for state update
+              setTimeout(() => {
+                // Log the match with the new round ID
                 const matchData = {
-                  round_id: roundId,
+                  round_id: newRoundId, // Use the returned ID directly
                   stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
                   user_selection: selection,
                   correct,
                   user_id: session?.user?.id,
                 };
+                
+                console.log("Logging match with new round ID:", matchData);
                 
                 fetch("/api/logMatch", {
                   method: "POST",
@@ -504,22 +634,26 @@ export default function Flashcards() {
                   body: JSON.stringify(matchData),
                 }).then(response => {
                   if (!response.ok) {
-                    console.error("Error logging match after creating new round");
+                    console.error("Error logging match after creating new round:", response.status);
+                    response.json().then(data => console.error("Error details:", data));
                   } else {
                     console.log("Match logged successfully after creating new round");
                   }
                 }).catch(err => {
                   console.error("Error calling log match API after creating new round:", err);
                 });
-              }
-            }, 500);
+              }, 500);
+            } else {
+              console.error("Failed to create new round - no round ID returned");
+            }
           } catch (err) {
             console.error("Failed to create new round for match logging:", err);
           }
-          return;
+        } else {
+          console.error("Cannot create round - missing user ID or folder selection");
         }
       } else {
-        // Log match via server-side API route instead of direct Supabase client.
+        // Log match via server-side API route
         try {
           const matchData = {
             round_id: roundId,
@@ -540,52 +674,54 @@ export default function Flashcards() {
             body: JSON.stringify(matchData),
           });
           
-          const result = await response.json();
-          
           if (!response.ok) {
-            console.error("Error logging match via API:", result.error, result.details || "");
+            // Get the error details from the response
+            const errorData = await response.json();
+            console.error("Error logging match via API:", errorData.error, errorData.details || "");
             
             // If the round doesn't exist in the database, create a new one
-            if (response.status === 404 && result.error === "Round not found") {
+            if (response.status === 404 && errorData.error === "Round not found") {
               console.warn("Round not found in database. Creating a new round...");
               
               try {
-                // Create a new round
-                await createNewRound();
+                // Create a new round and get the new ID directly
+                const newRoundId = await createNewRound();
                 
-                // Wait a moment for the round to be created
-                setTimeout(() => {
-                  if (roundId) {
-                    console.log("Retrying match logging with new round ID:", roundId);
-                    // Update the match data with the new round ID
-                    const updatedMatchData = {
-                      ...matchData,
-                      round_id: roundId
-                    };
-                    
-                    // Try logging the match again
-                    fetch("/api/logMatch", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify(updatedMatchData),
-                    }).then(retryResponse => {
-                      if (!retryResponse.ok) {
-                        console.error("Error logging match after creating new round");
-                      } else {
-                        console.log("Match logged successfully after creating new round");
-                      }
-                    }).catch(retryErr => {
-                      console.error("Error calling log match API after creating new round:", retryErr);
-                    });
+                if (newRoundId) {
+                  console.log("Successfully created new round with ID:", newRoundId);
+                  
+                  // Update the match data with the new round ID
+                  const updatedMatchData = {
+                    ...matchData,
+                    round_id: newRoundId // Use the returned ID directly
+                  };
+                  
+                  console.log("Retrying match logging with new round ID:", updatedMatchData);
+                  
+                  // Try logging the match again
+                  const retryResponse = await fetch("/api/logMatch", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(updatedMatchData),
+                  });
+                  
+                  if (!retryResponse.ok) {
+                    const retryError = await retryResponse.json();
+                    console.error("Error logging match after creating new round:", retryError);
+                  } else {
+                    console.log("Match logged successfully after creating new round");
                   }
-                }, 500);
+                } else {
+                  console.error("Failed to create new round - no ID returned");
+                }
               } catch (createErr) {
                 console.error("Failed to create new round after round not found:", createErr);
               }
             }
           } else {
+            const result = await response.json();
             if (result.warning) {
               console.warn("Match logged with warning:", result.warning);
             } else {
@@ -609,7 +745,7 @@ export default function Flashcards() {
         }
       }, 1000);
     },
-    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterJsonData, showTimeUpOverlay]
+    [thingData, currentMatchIndex, currentSubfolder, roundId, session, afterJsonData, showTimeUpOverlay, selectedFolder, createNewRound]
   );
 
   // Function to proceed to the next stock
@@ -637,106 +773,6 @@ export default function Flashcards() {
   const accuracy = useMemo(() => {
     return matchCount > 0 ? ((correctCount / matchCount) * 100).toFixed(2) : "0.00";
   }, [correctCount, matchCount]);
-
-  const createNewRound = async () => {
-    // Wait until auth is fully loaded
-    if (status === "loading") {
-      console.log("Authentication is still loading, please wait...");
-      return null;
-    }
-    
-    // Check if user is authenticated
-    if (status !== "authenticated" || !session) {
-      console.log("You need to be signed in to create a round");
-      setShowAuthModal(true);
-      return null;
-    }
-    
-    // Verify user ID exists
-    if (!session.user?.id) {
-      console.error("User ID not found in session");
-      console.log("Session object:", session);
-      return null;
-    }
-    
-    // Check if folder is selected
-    if (!selectedFolder) {
-      console.error("No folder selected");
-      alert("Please select a folder first");
-      return null;
-    }
-    
-    // End current round if exists
-    if (roundId) {
-      try {
-        const response = await fetch(`/api/updateRound`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: roundId,
-            completed: true
-          }),
-        });
-        
-        if (!response.ok) {
-          console.warn("Failed to mark previous round as completed, but continuing anyway");
-        }
-      } catch (err) {
-        console.error("Error updating previous round:", err);
-        // Continue anyway
-      }
-    }
-    
-    try {
-      console.log("Creating new round with dataset:", selectedFolder);
-      
-      // Create a new round via server API route
-      const response = await fetch("/api/createRound", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          dataset_name: selectedFolder,
-          user_id: session.user.id,
-          completed: false
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        console.error("Error creating round via API:", result.error, result.details || "");
-        alert("Failed to create a new round. Please try again.");
-        return null;
-      }
-      
-      console.log("Round created successfully:", result.data);
-      
-      if (!result.data || !result.data.id) {
-        console.error("No round ID returned from API");
-        alert("Failed to create a new round. Please try again.");
-        return null;
-      }
-      
-      // Make sure to set the roundId here
-      const newRoundId = result.data.id;
-      setRoundId(newRoundId);
-      setCurrentMatchIndex(0);
-      setMatchCount(0);
-      setCorrectCount(0);
-      setTimer(timerDuration);
-      
-      console.log("New round started with ID:", newRoundId);
-      return newRoundId;
-    } catch (err) {
-      console.error("Unexpected error creating round:", err);
-      alert("An error occurred while creating a new round. Please try again.");
-      return null;
-    }
-  };
 
   // Round history function
   const viewRoundHistory = async () => {
@@ -899,7 +935,9 @@ export default function Flashcards() {
           const data = await response.json();
           
           // Find the most recent in-progress round
-          const inProgressRounds = data.rounds.filter(round => !round.completed);
+          const inProgressRounds = data.rounds && Array.isArray(data.rounds) 
+            ? data.rounds.filter(round => !round.completed)
+            : [];
           
           if (inProgressRounds.length > 0) {
             // Sort by created_at (most recent first)
@@ -1000,6 +1038,35 @@ export default function Flashcards() {
       timerEndTimeRef.current = Date.now() + newDuration * 1000;
     }
   }, [timerPaused, showTimeUpOverlay]);
+
+  // Add a beforeunload event handler to mark the round as completed when page is closed
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      // Mark the current round as completed if it exists
+      if (roundId && session?.user?.id) {
+        try {
+          console.log("Marking round as completed on page unload:", roundId);
+          
+          // Use the fetch API to update the round status
+          navigator.sendBeacon(
+            '/api/updateRound',
+            JSON.stringify({
+              id: roundId,
+              completed: true
+            })
+          );
+        } catch (err) {
+          console.error("Error marking round as completed on unload:", err);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [roundId, session]);
 
   // If user is not authenticated, show the landing page
   if (status !== "authenticated" || !session) {
