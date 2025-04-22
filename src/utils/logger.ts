@@ -4,25 +4,36 @@
  */
 export class Logger {
   private context: string;
+  private metadata?: Record<string, any>;
 
-  constructor(context: string) {
+  constructor(context: string, metadata?: Record<string, any>) {
     this.context = context;
+    this.metadata = metadata;
+  }
+
+  createChildLogger(metadata: Record<string, any>): Logger {
+    return new Logger(this.context, { ...this.metadata, ...metadata });
   }
 
   info(message: string, data?: any) {
-    console.log(`[INFO] [${this.context}] ${message}`, data || '');
+    console.log(`[INFO] [${this.context}] ${message}`, data || '', this.metadata || '');
   }
 
   warn(message: string, data?: any) {
-    console.warn(`[WARN] [${this.context}] ${message}`, data || '');
+    console.warn(`[WARN] [${this.context}] ${message}`, data || '', this.metadata || '');
   }
 
-  error(message: string, error?: any) {
-    console.error(`[ERROR] [${this.context}] ${message}`, error || '');
+  error(message: string, error?: any, additionalData?: any) {
+    console.error(
+      `[ERROR] [${this.context}] ${message}`, 
+      error || '', 
+      additionalData || '', 
+      this.metadata || ''
+    );
   }
 
   debug(message: string, data?: any) {
-    console.debug(`[DEBUG] [${this.context}] ${message}`, data || '');
+    console.debug(`[DEBUG] [${this.context}] ${message}`, data || '', this.metadata || '');
   }
 }
 
