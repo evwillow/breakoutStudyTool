@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { 
-  withErrorHandling, 
-  createSuccessResponse, 
-  createErrorResponse 
-} from '@/app/api/middleware';
-import { 
-  AppError, 
-  ErrorCodes, 
-  DatabaseError 
-} from '@/utils/errorHandling';
 import { Logger } from "@/utils/logger";
 
 // Server-side Supabase client with admin privileges
@@ -41,7 +31,7 @@ interface Match {
  * @param userId - The ID of the user to fetch rounds for
  * @returns An array of rounds, each with accuracy and match metrics
  */
-export async function getUserRounds(userId: string) {
+async function getUserRounds(userId: string) {
   if (!userId) {
     logger.error("No user ID provided");
     return { rounds: [] };
