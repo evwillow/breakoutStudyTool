@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BackButton from '../components/BackButton';
 
 /**
  * Custom 404 Not Found page
@@ -22,12 +23,7 @@ export default function NotFound() {
             Go to Home
           </Link>
           
-          <button 
-            onClick={() => window.history.back()}
-            className="px-6 py-3 text-gray-700 font-medium bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-          >
-            Go Back
-          </button>
+          <BackButton />
         </div>
       </div>
     </div>
