@@ -23,16 +23,16 @@ const Logo = () => {
           {/* Qullamaggie breakout chart pattern - perfectly aligned */}
           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             {/* Initial uptrend */}
-            <polyline points="6,19 9,13" />
+            <polyline points="6,19 9,10" />
             
             {/* Pennant/wedge with clear connection to initial leg */}
-            <polyline points="9,13 9,10" /> {/* Left vertical line up */}
-            <polyline points="9,13 9,16" /> {/* Left vertical line down */}
-            <polyline points="9,10 15,12" /> {/* Upper wedge line */}
-            <polyline points="9,16 15,12" /> {/* Lower wedge line */}
+            {/* Upper wedge */}
+            <polyline points="10,10 15,12" /> {/* Upper wedge line - adjusted start point */}
+            {/* Lower wedge */}
+            <polyline points="8,16 15,12" /> {/* Lower wedge line - extended left */}
             
             {/* Breakout parallel to initial uptrend */}
-            <polyline points="15,12 18,6" />
+            <polyline points="15,12 18,4" />
           </svg>
         </div>
         
