@@ -19,6 +19,14 @@
   --soft-gray-100: #edf1f5;
   --soft-gray-200: #e3e8ed;
   --slate-200: #e2e8f0;
+
+  /* Font family variables */
+  --font-primary: var(--font-geist-sans);
+  --font-secondary: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+  --font-data: var(--font-space-grotesk);
+  --font-minimal: var(--font-dm-sans);
+  --font-professional: var(--font-plus-jakarta);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,7 +53,45 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-primary);
+}
+
+/* Font utility classes */
+.font-primary {
+  font-family: var(--font-primary);
+}
+
+.font-secondary {
+  font-family: var(--font-secondary);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-data {
+  font-family: var(--font-data);
+}
+
+.font-minimal {
+  font-family: var(--font-minimal);
+}
+
+.font-professional {
+  font-family: var(--font-professional);
+}
+
+/* Specific use cases */
+.font-financial-numbers {
+  font-family: var(--font-data);
+}
+
+.font-code {
+  font-family: var(--font-mono);
+}
+
+.font-ui {
+  font-family: var(--font-secondary);
 }
 
 /* Turquoise theme utility classes */

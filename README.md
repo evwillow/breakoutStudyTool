@@ -1,15 +1,15 @@
-# TradeMaster - Stock Trading Flashcard Application
+# Breakout Study Tool - Stock Trading Flashcard Application
 
 <div align="center">
-  <img src="public/tradeMaster-logo.png" alt="TradeMaster Logo" width="200"/>
+  <img src="public/tradeMaster-logo.png" alt="Breakout Study Tool Logo" width="200"/>
   <p><em>Enhance your stock trading skills through interactive practice</em></p>
 </div>
 
 ## 🚀 Overview
 
-TradeMaster is an interactive web application designed to help traders improve their chart reading and decision-making skills. The application presents users with historical stock charts and challenges them to predict price movements within a timed environment, simulating real-world trading scenarios.
+Breakout Study Tool is an interactive web application designed to help traders improve their chart reading and decision-making skills. The application presents users with historical stock charts and challenges them to predict price movements within a timed environment, simulating real-world trading scenarios.
 
-![TradeMaster Demo](https://github.com/evwillow/trade/raw/main/public/demo.gif)
+![Breakout Study Tool Demo](https://github.com/evwillow/trade/raw/main/public/demo.gif)
 
 ## ✨ Features
 
@@ -42,8 +42,8 @@ TradeMaster is an interactive web application designed to help traders improve t
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/trade.git
-   cd trade
+   git clone https://github.com/yourusername/breakout-study-tool.git
+   cd breakout-study-tool
    ```
 
 2. Install dependencies:
@@ -89,7 +89,7 @@ TradeMaster is an interactive web application designed to help traders improve t
 ## 🏗️ Project Structure
 
 ```
-trade/
+breakout-study-tool/
 ├── src/
 │   ├── app/                 # Next.js app router
 │   │   ├── api/             # API endpoints
@@ -110,7 +110,7 @@ trade/
 
 ## 🔐 Authentication
 
-TradeMaster uses NextAuth.js with Supabase for authentication:
+Breakout Study Tool uses NextAuth.js with Supabase for authentication:
 
 - **Sign Up**: Create a new account with email and password
 - **Sign In**: Log in with existing credentials
@@ -129,7 +129,7 @@ TradeMaster uses NextAuth.js with Supabase for authentication:
 
 ## 🛡️ Error Handling System
 
-TradeMaster includes a comprehensive error handling system to ensure a robust user experience:
+Breakout Study Tool includes a comprehensive error handling system to ensure a robust user experience:
 
 ### Features
 

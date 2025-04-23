@@ -1102,12 +1102,12 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                         className="bg-black rounded-lg overflow-hidden w-full shadow-inner"
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
-                          opacity: 0
+                          opacity: 0,
+                          height: "700px" /* Container 40% taller than default */
                         }}
                       >
                         <StockChart 
                           data={fileData[file.id]} 
-                          height={700} 
                           showSMA={true}
                         />
                       </div>

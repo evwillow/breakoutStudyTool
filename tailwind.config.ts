@@ -10,6 +10,14 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        primary: ["var(--font-geist-sans)"],
+        secondary: ["var(--font-inter)"],
+        mono: ["var(--font-geist-mono)"],
+        data: ["var(--font-space-grotesk)"],
+        minimal: ["var(--font-dm-sans)"],
+        professional: ["var(--font-plus-jakarta)"],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
