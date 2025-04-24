@@ -21,7 +21,6 @@ import RoundHistory from "./components/RoundHistory";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
 import LandingPage from "./components/LandingPage";
-import TimeUpOverlay from "./components/TimeUpOverlay";
 
 // Application constants
 const INITIAL_TIMER = 60;
@@ -115,19 +114,8 @@ export default function Flashcards() {
         const remaining = Math.max(0, Math.ceil((timerEndTimeRef.current - now) / 1000));
         
         if (remaining <= 0) {
-          // Using a local function to decide whether to show the overlay
-          // This way we don't need afterChartData in the dependency array
-          const shouldShowOverlay = () => {
-            // Only show the overlay if we're not in a transition state 
-            // and not after a selection has been made
-            return !timerPaused && 
-                   !document.hidden && 
-                   !afterChartData && 
-                   !disableButtons &&
-                   !feedback; // Don't show if user just made a selection and feedback is visible
-          };
-          
-          if (shouldShowOverlay()) {
+          // Show the time's up overlay if timer reaches zero
+          if (!timerPaused && !disableButtons && !feedback) {
             setShowTimeUpOverlay(true);
           }
           setTimer(0);
@@ -163,19 +151,8 @@ export default function Flashcards() {
             setTimer(remaining);
             
             if (remaining <= 0) {
-              // Using a local function to decide whether to show the overlay
-              // This way we don't need afterChartData in the dependency array
-              const shouldShowOverlay = () => {
-                // Only show the overlay if we're not in a transition state
-                // and not after a selection has been made
-                return !timerPaused && 
-                       !document.hidden && 
-                       !afterChartData && 
-                       !disableButtons &&
-                       !feedback; // Don't show if user just made a selection and feedback is visible
-              };
-              
-              if (shouldShowOverlay()) {
+              // Show time's up if timer reaches zero
+              if (!timerPaused && !disableButtons && !feedback) {
                 setShowTimeUpOverlay(true);
               }
               timerEndTimeRef.current = null;
@@ -1113,10 +1090,18 @@ export default function Flashcards() {
 
   // Handle timer duration change
   const handleTimerDurationChange = useCallback((newDuration) => {
+    console.log(`Timer duration changed to ${newDuration} seconds`);
+    // Ensure newDuration is a positive number
+    newDuration = Math.max(1, Number(newDuration));
+    
     setTimerDuration(newDuration);
     setTimer(newDuration); // Reset current timer to new duration
-    lastKnownTimerValue.current = newDuration; // Update the ref immediately
-    displayedTimerValue.current = newDuration; // Update the displayed value immediately
+    setTimerReady(true); // Ensure timer is marked as ready
+    
+    // Update refs
+    lastKnownTimerValue.current = newDuration;
+    displayedTimerValue.current = newDuration;
+    
     // Reset the timer end time when duration changes
     if (!timerPaused && !showTimeUpOverlay) {
       timerEndTimeRef.current = Date.now() + newDuration * 1000;
@@ -1155,12 +1140,10 @@ export default function Flashcards() {
     };
   }, [roundId, session]);
 
-  // Add keyboard shortcut handling - with stable dependencies
+  // Add keyboard shortcut handling
   useEffect(() => {
     // Skip setup if essential conditions aren't met
     if (!flashcards.length) return;
-
-    console.log("Setting up keyboard shortcuts");
     
     const handleKeyDown = (e) => {
       // Get the current state of buttons
@@ -1169,40 +1152,17 @@ export default function Flashcards() {
       // Only handle number keys 1-4
       if (e.key >= '1' && e.key <= '4') {
         const selection = parseInt(e.key);
-        console.log(`Key ${e.key} pressed, selecting option ${selection}`);
         
         // Check if button exists and is selectable
-        if (selection >= 1 && selection <= 4) {
-          // Apply visual feedback
-          const button = document.querySelector(`[data-index="${selection - 1}"]`);
-          if (button) {
-            // Store original styles
-            const originalBoxShadow = button.style.boxShadow;
-            const originalOpacity = button.style.opacity;
-            
-            // Apply a subtle inset glow effect
-            button.style.boxShadow = 'inset 0 0 5px rgba(255, 255, 255, 0.7)';
-            button.style.opacity = '0.95';
-            
-            // Reset after animation
-            setTimeout(() => {
-              button.style.boxShadow = originalBoxShadow;
-              button.style.opacity = originalOpacity;
-            }, 120);
-          }
-          
+        if (selection >= 1 && selection <= 4) {          
           // Only trigger selection if buttons aren't disabled (game is active)
           if (!areButtonsDisabled && handleSelection) {
-            console.log(`Calling handleSelection with ${selection}`);
             handleSelection(selection);
             e.preventDefault();
-          } else if (showTimeUpOverlay && onTimeUpSelection) {
-            // If time is up but we have a timeup handler
-            console.log(`Time's up! Calling onTimeUpSelection with ${selection}`);
-            onTimeUpSelection(selection);
+          } else if (showTimeUpOverlay) {
+            // If time is up
+            handleSelection(selection);
             e.preventDefault();
-          } else {
-            console.log(`Buttons are disabled or no handler available. areButtonsDisabled: ${areButtonsDisabled}`);
           }
         }
       }
@@ -1213,10 +1173,71 @@ export default function Flashcards() {
     
     // Clean up
     return () => {
-      console.log("Cleaning up keyboard shortcuts");
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [disableButtons, showTimeUpOverlay, loading, actionButtons.length, handleSelection]);
+  }, [disableButtons, showTimeUpOverlay, flashcards.length, handleSelection]);
+
+  // Simplified header handling when time's up
+  useEffect(() => {
+    // No need to modify header z-index with our simpler implementation
+    // Just let CSS handle it naturally with fixed positioning
+  }, [showTimeUpOverlay]);
+
+  // Handle scrolling to action buttons when time's up
+  useEffect(() => {
+    if (showTimeUpOverlay && actionButtonsRef.current) {
+      // Function to scroll to and highlight the action buttons
+      const scrollToActionButtons = () => {
+        // Get the button container's position
+        const buttonRect = actionButtonsRef.current.getBoundingClientRect();
+        
+        // Calculate the scroll position to center the buttons in the viewport
+        const viewportHeight = window.innerHeight;
+        const targetPosition = window.pageYOffset + buttonRect.top - (viewportHeight * 0.4) + (buttonRect.height / 2);
+        
+        // Scroll to the buttons
+        window.scrollTo({
+          top: targetPosition,
+          behavior: 'smooth'
+        });
+        
+        // Highlight the buttons with subtle effects
+        const buttons = actionButtonsRef.current.querySelectorAll('button');
+        buttons.forEach(button => {
+          button.style.transition = 'all 0.3s ease-in-out';
+          button.style.transform = 'scale(1.01)'; // Very minimal scaling to prevent overlap
+          button.style.boxShadow = '0 0 8px 2px rgba(45, 212, 191, 0.3)'; // Subtle glow
+          button.style.zIndex = '50';
+          button.style.position = 'relative';
+          button.style.margin = '0 1px'; // Minimal margin
+        });
+      };
+      
+      // Scroll immediately first, then again after a short delay to ensure it works
+      scrollToActionButtons();
+      setTimeout(scrollToActionButtons, 100);
+      
+      // Add resize listener to maintain button position
+      window.addEventListener('resize', scrollToActionButtons);
+      
+      // Clean up
+      return () => {
+        window.removeEventListener('resize', scrollToActionButtons);
+        
+        // Reset button styles when time-up is dismissed
+        if (actionButtonsRef.current) {
+          const buttons = actionButtonsRef.current.querySelectorAll('button');
+          buttons.forEach(button => {
+            button.style.transform = '';
+            button.style.boxShadow = '';
+            button.style.zIndex = '';
+            button.style.position = '';
+            button.style.margin = '';
+          });
+        }
+      };
+    }
+  }, [showTimeUpOverlay]);
 
   // If user is not authenticated, show the landing page
   if (status !== "authenticated" || !session) {
@@ -1304,7 +1325,7 @@ export default function Flashcards() {
     content = (
       <div className="min-h-screen w-full flex justify-center items-center p-4 sm:p-8" style={{ background: 'var(--background)' }}>
         <div className="w-full max-w-7xl bg-black rounded-3xl shadow-2xl overflow-hidden border border-white">
-          <div className={showTimeUpOverlay ? 'filter blur-sm' : ''}>
+          <div>
             <ChartSection
               orderedFiles={orderedFiles}
               afterData={afterChartData}
@@ -1315,10 +1336,11 @@ export default function Flashcards() {
               feedback={feedback}
               onButtonClick={handleSelection}
               disabled={disableButtons}
+              isTimeUp={showTimeUpOverlay}
             />
           </div>
-          {/* Action buttons row - kept outside of blur when time's up */}
-          <div className={`pb-2 sm:pb-8 relative ${showTimeUpOverlay ? 'z-[60]' : ''}`} ref={actionButtonsRef}>
+          {/* Action buttons row */}
+          <div className="pb-2 sm:pb-8 relative" ref={actionButtonsRef}>
             <ActionButtonsRow
               actionButtons={actionButtons}
               selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
@@ -1328,7 +1350,7 @@ export default function Flashcards() {
               isTimeUp={showTimeUpOverlay}
             />
           </div>
-          <div className={showTimeUpOverlay ? 'filter blur-sm' : ''}>
+          <div>
             <FolderSection
               selectedFolder={selectedFolder}
               folderOptions={folderOptions}
@@ -1354,13 +1376,46 @@ export default function Flashcards() {
             </div>
           </div>
           
+          {/* Time's Up Notification */}
           {showTimeUpOverlay && (
-            <TimeUpOverlay 
-              actionButtons={actionButtons}
-              onSelect={handleSelection}
-              actionButtonsRef={actionButtonsRef}
-            />
+            <div className="fixed inset-x-0 top-[120px] flex justify-center z-50 pointer-events-none">
+              <div className="pointer-events-auto bg-black bg-opacity-90 border border-turquoise-500 shadow-lg rounded-lg px-8 py-4 animate-pulse-slow">
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold mb-1 text-turquoise-500 animate-glow">Time's Up!</h2>
+                  <p className="text-white opacity-90">Please make your selection</p>
+                </div>
+              </div>
+            </div>
           )}
+          
+          {/* Add animation keyframes to global styles */}
+          <style jsx global>{`
+            @keyframes pulse-slow {
+              0%, 100% {
+                box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.7);
+              }
+              50% {
+                box-shadow: 0 0 0 8px rgba(45, 212, 191, 0);
+              }
+            }
+            
+            @keyframes glow {
+              0%, 100% {
+                text-shadow: 0 0 5px rgba(45, 212, 191, 0.7);
+              }
+              50% {
+                text-shadow: 0 0 15px rgba(45, 212, 191, 0.9);
+              }
+            }
+            
+            .animate-pulse-slow {
+              animation: pulse-slow 2s infinite;
+            }
+            
+            .animate-glow {
+              animation: glow 2s infinite;
+            }
+          `}</style>
           
           {showRoundHistory && (
             <RoundHistory

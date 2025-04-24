@@ -24,6 +24,7 @@ const ChartSection = React.memo(function ChartSection({
   feedback,
   onButtonClick,
   disabled,
+  isTimeUp,
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -201,7 +202,7 @@ const ChartSection = React.memo(function ChartSection({
             <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-2 py-1 rounded-br-md">
               D
             </div>
-            <div className="absolute inset-0 rounded-lg overflow-hidden">
+            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               <StockChart 
                 data={orderedFiles[0].data} 
@@ -227,7 +228,7 @@ const ChartSection = React.memo(function ChartSection({
                 <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
                   H
                 </div>
-                <div className="absolute inset-0 rounded-lg overflow-hidden">
+                <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
                   <StockChart 
                     data={orderedFiles[1].data}
                     backgroundColor="black" 
@@ -249,11 +250,16 @@ const ChartSection = React.memo(function ChartSection({
               <div className="w-full flex justify-center">
                 <div className="w-full max-w-[300px] aspect-square relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
                   {/* M Label - positioned in the top left corner */}
-                  <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
+                  <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
                     M
                   </div>
-                  <div className="absolute inset-0 rounded-lg overflow-hidden">
-                    <StockChart data={orderedFiles[2].data} backgroundColor="black" showSMA={true} chartType="minute" />
+                  <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
+                    <StockChart 
+                      data={orderedFiles[2].data}
+                      backgroundColor="black" 
+                      chartType="minute"
+                      showVolume={true}
+                    />
                   </div>
                 </div>
               </div>
@@ -268,13 +274,13 @@ const ChartSection = React.memo(function ChartSection({
                 <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-500 to-turquoise-400 px-2 py-1 rounded-br-md">
                   M
                 </div>
-                <div className="absolute inset-0 rounded-lg overflow-hidden">
+                <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
                   <StockChart data={orderedFiles[2].data} backgroundColor="black" showSMA={true} chartType="minute" />
                 </div>
               </div>
             </div>
             <div className="w-1/2 bg-transparent rounded-lg shadow-md p-3 flex items-center">
-              <div className="w-full flex flex-col gap-2">
+              <div className={`w-full flex flex-col gap-2 ${isTimeUp ? 'filter blur-xl' : ''}`}>
                 {pointsTextArray.map((text, index) => (
                   <div
                     key={index}
@@ -290,7 +296,7 @@ const ChartSection = React.memo(function ChartSection({
           </div>
           
           {/* Points Grid - Hidden on mobile */}
-          <div className="hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-transparent rounded-lg shadow-md p-3">
+          <div className={`hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-transparent rounded-lg shadow-md p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
             {pointsTextArray.map((text, index) => (
               <div
                 key={index}

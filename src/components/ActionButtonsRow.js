@@ -8,7 +8,7 @@
  * - Compact mode for space-constrained layouts
  * - Optimized with React.memo for performance
  * - Consistent color scheme for different actions
- * - Keyboard shortcuts (1-4) for quick selection
+ * - Keyboard shortcuts (1-4) for quick selection (hidden on mobile)
  */
 import React from "react";
 
@@ -70,7 +70,7 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
     
     // Add time's up highlighting
     if (isTimeUp) {
-      classes += " transform scale-110 shadow-xl";
+      classes += " transform scale-105 shadow-lg";
     }
     
     return classes;
@@ -101,20 +101,21 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
   };
 
   return (
-    <div className={`${isCompact ? 'my-0 px-0' : 'my-2 sm:my-4 md:my-8 px-4 sm:px-4 md:px-8 lg:px-16'} flex flex-col sm:flex-row justify-between ${isCompact ? 'gap-1' : 'gap-2 sm:gap-3'} ${isTimeUp ? 'relative z-[52]' : ''}`}>
+    <div className={`${isCompact ? 'my-0 px-0' : 'my-2 sm:my-4 md:my-8 px-4 sm:px-4 md:px-8 lg:px-16'} flex flex-col sm:flex-row justify-between ${isCompact ? 'gap-1' : 'gap-2 sm:gap-3'} ${isTimeUp ? 'relative z-[40]' : ''}`}>
       {actionButtons.map((action, index) => (
         <button
           key={index}
-          className={`${getButtonClasses(index)} flex-1 ${isCompact ? 'mb-1' : 'mb-2 sm:mb-0'} ${isTimeUp ? 'animate-pulse' : ''} relative`}
+          className={`${getButtonClasses(index)} flex-1 ${isCompact ? 'mb-1' : 'mb-2 sm:mb-0'} relative`}
           onClick={() => handleClick(index)}
           disabled={disabled}
+          data-index={index}
         >
           <div className="flex items-center justify-center">
             {buttonIcons[index]}
             <span>{action}</span>
           </div>
-          {/* Keyboard shortcut indicator */}
-          <div className="absolute top-1 right-1.5 bg-black bg-opacity-30 rounded-md px-1.5 py-0.5 text-xs opacity-80">
+          {/* Keyboard shortcut indicator - hidden on mobile */}
+          <div className="absolute top-1 right-1.5 bg-black bg-opacity-30 rounded-md px-1.5 py-0.5 text-xs opacity-80 hidden sm:block">
             {index + 1}
           </div>
         </button>
