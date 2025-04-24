@@ -116,10 +116,15 @@ const processChartData = (chartData, chartType) => {
       
       // Direct property access for the exact structure provided
       if (firstItem && typeof firstItem === 'object') {
-        // Explicitly check for each property with the exact case
-        hasSMA10 = firstItem.hasOwnProperty('10sma') && !isNaN(parseFloat(firstItem['10sma']));
-        hasSMA20 = firstItem.hasOwnProperty('20sma') && !isNaN(parseFloat(firstItem['20sma']));
-        hasSMA50 = firstItem.hasOwnProperty('50sma') && !isNaN(parseFloat(firstItem['50sma']));
+        // Check for SMAs in both property formats (10sma and sma10)
+        hasSMA10 = (firstItem.hasOwnProperty('10sma') && !isNaN(parseFloat(firstItem['10sma']))) ||
+                  (firstItem.hasOwnProperty('sma10') && !isNaN(parseFloat(firstItem['sma10'])));
+        
+        hasSMA20 = (firstItem.hasOwnProperty('20sma') && !isNaN(parseFloat(firstItem['20sma']))) ||
+                  (firstItem.hasOwnProperty('sma20') && !isNaN(parseFloat(firstItem['sma20'])));
+        
+        hasSMA50 = (firstItem.hasOwnProperty('50sma') && !isNaN(parseFloat(firstItem['50sma']))) ||
+                  (firstItem.hasOwnProperty('sma50') && !isNaN(parseFloat(firstItem['sma50'])));
       }
     }
     
@@ -139,21 +144,28 @@ const processChartData = (chartData, chartType) => {
         const close = parseFloat(item.Close);
         const volume = parseFloat(item.Volume);
         
-        // Parse SMAs directly from the provided keys
+        // Parse SMAs from both property formats
         let sma10 = null;
         let sma20 = null;
         let sma50 = null;
         
+        // Try both property formats for each SMA
         if (item.hasOwnProperty('10sma')) {
           sma10 = parseFloat(item['10sma']);
+        } else if (item.hasOwnProperty('sma10')) {
+          sma10 = parseFloat(item['sma10']);
         }
         
         if (item.hasOwnProperty('20sma')) {
           sma20 = parseFloat(item['20sma']);
+        } else if (item.hasOwnProperty('sma20')) {
+          sma20 = parseFloat(item['sma20']);
         }
         
         if (item.hasOwnProperty('50sma')) {
           sma50 = parseFloat(item['50sma']);
+        } else if (item.hasOwnProperty('sma50')) {
+          sma50 = parseFloat(item['sma50']);
         }
         
         // Only include valid data points
@@ -161,7 +173,8 @@ const processChartData = (chartData, chartType) => {
           return null;
         }
         
-        return {
+        // Store SMAs in both property formats for compatibility
+        const result = {
           open,
           high,
           low,
@@ -171,6 +184,13 @@ const processChartData = (chartData, chartType) => {
           sma20: !isNaN(sma20) ? sma20 : null,
           sma50: !isNaN(sma50) ? sma50 : null
         };
+        
+        // Also store in the alternative format for compatibility
+        if (!isNaN(sma10)) result['10sma'] = sma10;
+        if (!isNaN(sma20)) result['20sma'] = sma20;
+        if (!isNaN(sma50)) result['50sma'] = sma50;
+        
+        return result;
       }).filter(Boolean),
       hasSMA10,
       hasSMA20,
@@ -452,26 +472,22 @@ const StockChart = React.memo(({
   const sma10Line = useMemo(() => {
     if (!scales || !stockData.data.length) return null;
     
-    // Log the data points for hourly chart
-    if (chartType === 'hourly') {
-      console.log('SMA10 Data for line generator:', 
-        stockData.data.map(d => ({
-          sma10: d.sma10,
-          y: d.sma10 !== null && !isNaN(d.sma10) ? scales.priceScale(d.sma10) : null
-        }))
-      );
-    }
-    
     return line()
       .x((d, i) => scales.xScale(i))
       .y(d => {
-        if (d.sma10 !== null && !isNaN(d.sma10)) {
-          return scales.priceScale(d.sma10);
+        // Check both sma10 and '10sma' properties
+        const smaValue = d.sma10 !== null && !isNaN(d.sma10) 
+          ? d.sma10 
+          : (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma'])) ? parseFloat(d['10sma']) : null);
+        
+        if (smaValue !== null) {
+          return scales.priceScale(smaValue);
         }
         return null;
       })
-      .defined(d => d.sma10 !== null && !isNaN(d.sma10));
-  }, [scales, stockData.data, chartType]);
+      .defined(d => (d.sma10 !== null && !isNaN(d.sma10)) || 
+                   (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma']))));
+  }, [scales, stockData.data]);
   
   const sma20Line = useMemo(() => {
     if (!scales || !stockData.data.length) return null;
@@ -479,12 +495,18 @@ const StockChart = React.memo(({
     return line()
       .x((d, i) => scales.xScale(i))
       .y(d => {
-        if (d.sma20 !== null && !isNaN(d.sma20)) {
-          return scales.priceScale(d.sma20);
+        // Check both sma20 and '20sma' properties
+        const smaValue = d.sma20 !== null && !isNaN(d.sma20) 
+          ? d.sma20 
+          : (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma'])) ? parseFloat(d['20sma']) : null);
+        
+        if (smaValue !== null) {
+          return scales.priceScale(smaValue);
         }
         return null;
       })
-      .defined(d => d.sma20 !== null && !isNaN(d.sma20));
+      .defined(d => (d.sma20 !== null && !isNaN(d.sma20)) || 
+                   (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma']))));
   }, [scales, stockData.data]);
   
   const sma50Line = useMemo(() => {
@@ -493,12 +515,18 @@ const StockChart = React.memo(({
     return line()
       .x((d, i) => scales.xScale(i))
       .y(d => {
-        if (d.sma50 !== null && !isNaN(d.sma50)) {
-          return scales.priceScale(d.sma50);
+        // Check both sma50 and '50sma' properties
+        const smaValue = d.sma50 !== null && !isNaN(d.sma50) 
+          ? d.sma50 
+          : (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma'])) ? parseFloat(d['50sma']) : null);
+          
+        if (smaValue !== null) {
+          return scales.priceScale(smaValue);
         }
         return null;
       })
-      .defined(d => d.sma50 !== null && !isNaN(d.sma50));
+      .defined(d => (d.sma50 !== null && !isNaN(d.sma50)) || 
+                   (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma']))));
   }, [scales, stockData.data]);
 
   // Create SMA line generators for after data
@@ -507,8 +535,19 @@ const StockChart = React.memo(({
     
     return line()
       .x((d, i) => scales.xScale(stockData.data.length + i))
-      .y(d => d.sma10 !== null && !isNaN(d.sma10) ? scales.priceScale(d.sma10) : null)
-      .defined(d => d.sma10 !== null && !isNaN(d.sma10));
+      .y(d => {
+        // Check both sma10 and '10sma' properties
+        const smaValue = d.sma10 !== null && !isNaN(d.sma10) 
+          ? d.sma10 
+          : (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma'])) ? parseFloat(d['10sma']) : null);
+        
+        if (smaValue !== null) {
+          return scales.priceScale(smaValue);
+        }
+        return null;
+      })
+      .defined(d => (d.sma10 !== null && !isNaN(d.sma10)) || 
+                   (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma']))));
   }, [scales, stockData.data.length, afterStockData.data, visibleAfterData]);
   
   const afterSma20Line = useMemo(() => {
@@ -516,8 +555,19 @@ const StockChart = React.memo(({
     
     return line()
       .x((d, i) => scales.xScale(stockData.data.length + i))
-      .y(d => d.sma20 !== null && !isNaN(d.sma20) ? scales.priceScale(d.sma20) : null)
-      .defined(d => d.sma20 !== null && !isNaN(d.sma20));
+      .y(d => {
+        // Check both sma20 and '20sma' properties
+        const smaValue = d.sma20 !== null && !isNaN(d.sma20) 
+          ? d.sma20 
+          : (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma'])) ? parseFloat(d['20sma']) : null);
+        
+        if (smaValue !== null) {
+          return scales.priceScale(smaValue);
+        }
+        return null;
+      })
+      .defined(d => (d.sma20 !== null && !isNaN(d.sma20)) || 
+                   (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma']))));
   }, [scales, stockData.data.length, afterStockData.data, visibleAfterData]);
   
   const afterSma50Line = useMemo(() => {
@@ -525,8 +575,19 @@ const StockChart = React.memo(({
     
     return line()
       .x((d, i) => scales.xScale(stockData.data.length + i))
-      .y(d => d.sma50 !== null && !isNaN(d.sma50) ? scales.priceScale(d.sma50) : null)
-      .defined(d => d.sma50 !== null && !isNaN(d.sma50));
+      .y(d => {
+        // Check both sma50 and '50sma' properties
+        const smaValue = d.sma50 !== null && !isNaN(d.sma50) 
+          ? d.sma50 
+          : (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma'])) ? parseFloat(d['50sma']) : null);
+        
+        if (smaValue !== null) {
+          return scales.priceScale(smaValue);
+        }
+        return null;
+      })
+      .defined(d => (d.sma50 !== null && !isNaN(d.sma50)) || 
+                   (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma']))));
   }, [scales, stockData.data.length, afterStockData.data, visibleAfterData]);
 
   // Create volume bars generator
@@ -803,52 +864,10 @@ const StockChart = React.memo(({
           {/* Price section */}
           <g transform={`translate(0, 0)`}>
             {/* SMA lines for main data */}
-            {(showSMA || forceShowSMA || chartType === 'hourly') && (
+            {(showSMA || forceShowSMA) && (
               <>
-                {/* For hourly chart, always attempt to show all SMAs */}
-                {chartType === 'hourly' && (
-                  <path
-                    d={line()
-                      .x((d, i) => scales.xScale(i))
-                      .y(d => scales.priceScale(parseFloat(d['10sma'])))
-                      .defined(d => d.hasOwnProperty('10sma') && !isNaN(parseFloat(d['10sma'])))
-                      (stockData.data)}
-                    fill="none"
-                    stroke={CHART_CONFIG.COLORS.SMA10}
-                    strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
-                    strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
-                  />
-                )}
-                
-                {chartType === 'hourly' && (
-                  <path
-                    d={line()
-                      .x((d, i) => scales.xScale(i))
-                      .y(d => scales.priceScale(parseFloat(d['20sma'])))
-                      .defined(d => d.hasOwnProperty('20sma') && !isNaN(parseFloat(d['20sma'])))
-                      (stockData.data)}
-                    fill="none"
-                    stroke={CHART_CONFIG.COLORS.SMA20}
-                    strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
-                    strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
-                  />
-                )}
-                
-                {chartType === 'hourly' && (
-                  <path
-                    d={line()
-                      .x((d, i) => scales.xScale(i))
-                      .y(d => scales.priceScale(parseFloat(d['50sma'])))
-                      .defined(d => d.hasOwnProperty('50sma') && !isNaN(parseFloat(d['50sma'])))
-                      (stockData.data)}
-                    fill="none"
-                    stroke={CHART_CONFIG.COLORS.SMA50}
-                    strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
-                    strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
-                  />
-                )}
-                
-                {(chartType !== 'hourly' && stockData.hasSMA10) && sma10Line && (
+                {/* SMA lines for all chart types */}
+                {sma10Line && (stockData.hasSMA10 || chartType === 'hourly') && (
                   <path
                     d={sma10Line(stockData.data)}
                     fill="none"
@@ -857,7 +876,8 @@ const StockChart = React.memo(({
                     strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
                   />
                 )}
-                {(chartType !== 'hourly' && stockData.hasSMA20) && sma20Line && (
+                
+                {sma20Line && (stockData.hasSMA20 || chartType === 'hourly') && (
                   <path
                     d={sma20Line(stockData.data)}
                     fill="none"
@@ -866,7 +886,8 @@ const StockChart = React.memo(({
                     strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
                   />
                 )}
-                {(chartType !== 'hourly' && stockData.hasSMA50) && sma50Line && (
+                
+                {sma50Line && (stockData.hasSMA50 || chartType === 'hourly') && (
                   <path
                     d={sma50Line(stockData.data)}
                     fill="none"
@@ -879,7 +900,7 @@ const StockChart = React.memo(({
                 {/* SMA lines for after data - only show if after data is visible */}
                 {(showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && (
                   <>
-                    {afterStockData.hasSMA10 && afterSma10Line && (
+                    {afterSma10Line && (afterStockData.hasSMA10 || chartType === 'hourly') && (
                       <path
                         d={afterSma10Line(visibleAfterData)}
                         fill="none"
@@ -888,7 +909,7 @@ const StockChart = React.memo(({
                         strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
                       />
                     )}
-                    {afterStockData.hasSMA20 && afterSma20Line && (
+                    {afterSma20Line && (afterStockData.hasSMA20 || chartType === 'hourly') && (
                       <path
                         d={afterSma20Line(visibleAfterData)}
                         fill="none"
@@ -897,7 +918,7 @@ const StockChart = React.memo(({
                         strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
                       />
                     )}
-                    {afterStockData.hasSMA50 && afterSma50Line && (
+                    {afterSma50Line && (afterStockData.hasSMA50 || chartType === 'hourly') && (
                       <path
                         d={afterSma50Line(visibleAfterData)}
                         fill="none"
@@ -1029,7 +1050,6 @@ function calculateSMA(data, sma10Period = 10, sma20Period = 20, sma50Period = 50
   const processedData = JSON.parse(JSON.stringify(data));
   
   console.log("Calculating SMAs for", processedData.length, "data points");
-  console.log("First data point before calculation:", processedData[0]);
   
   // Calculate SMA10
   for (let i = 0; i < processedData.length; i++) {
@@ -1041,8 +1061,10 @@ function calculateSMA(data, sma10Period = 10, sma20Period = 20, sma50Period = 50
           sum += closeValue;
         }
       }
-      processedData[i]["10sma"] = sum / sma10Period;
-      processedData[i].sma10 = sum / sma10Period; // Also set on sma10 for backwards compatibility
+      const sma10Value = sum / sma10Period;
+      // Set both property formats for consistency
+      processedData[i]["10sma"] = sma10Value;
+      processedData[i].sma10 = sma10Value;
     } else {
       processedData[i]["10sma"] = null;
       processedData[i].sma10 = null;
@@ -1059,8 +1081,10 @@ function calculateSMA(data, sma10Period = 10, sma20Period = 20, sma50Period = 50
           sum += closeValue;
         }
       }
-      processedData[i]["20sma"] = sum / sma20Period;
-      processedData[i].sma20 = sum / sma20Period; // Also set on sma20 for backwards compatibility
+      const sma20Value = sum / sma20Period;
+      // Set both property formats for consistency
+      processedData[i]["20sma"] = sma20Value;
+      processedData[i].sma20 = sma20Value;
     } else {
       processedData[i]["20sma"] = null;
       processedData[i].sma20 = null;
@@ -1077,8 +1101,10 @@ function calculateSMA(data, sma10Period = 10, sma20Period = 20, sma50Period = 50
           sum += closeValue;
         }
       }
-      processedData[i]["50sma"] = sum / sma50Period;
-      processedData[i].sma50 = sum / sma50Period; // Also set on sma50 for backwards compatibility
+      const sma50Value = sum / sma50Period;
+      // Set both property formats for consistency
+      processedData[i]["50sma"] = sma50Value;
+      processedData[i].sma50 = sma50Value;
     } else {
       processedData[i]["50sma"] = null;
       processedData[i].sma50 = null;
@@ -1086,12 +1112,7 @@ function calculateSMA(data, sma10Period = 10, sma20Period = 20, sma50Period = 50
   }
   
   // For debugging
-  console.log("First data point after calculation:", {
-    ...processedData[0],
-    "10sma": processedData[processedData.length-1]["10sma"],
-    "20sma": processedData[processedData.length-1]["20sma"],
-    "50sma": processedData[processedData.length-1]["50sma"],
-  });
+  console.log("SMA calculation complete");
   
   return processedData;
 }

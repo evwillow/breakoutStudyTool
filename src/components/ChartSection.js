@@ -32,9 +32,25 @@ const ChartSection = React.memo(function ChartSection({
   const [zoomPercentage, setZoomPercentage] = useState(0);
   const [completionDelay, setCompletionDelay] = useState(false);
   const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const delayTimerRef = useRef(null);
   const delayStartTimeRef = useRef(null);
   const debugIntervalRef = useRef(null);
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768 || 'ontouchstart' in window;
+      setIsMobile(mobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
 
   // Handle zoom animation and data reveal
   useEffect(() => {
@@ -58,11 +74,21 @@ const ChartSection = React.memo(function ChartSection({
       return;
     }
 
-    console.log("Animation sequence started");
+    console.log("Animation sequence starting...");
     
-    // Simplified animation sequence with guaranteed 9-second delay
+    // Animation sequence with proper timing
     const animate = async () => {
       try {
+        // Initial 1.5-second delay before any animation starts
+        // This gives the user time to see the correct answer feedback
+        await new Promise(resolve => {
+          console.log("Initial 1.5-second delay started");
+          setTimeout(() => {
+            console.log("Initial delay completed, beginning animation sequence");
+            resolve();
+          }, 1500); // 1.5-second initial delay
+        });
+        
         // Step 1: Zoom animation
         await new Promise(resolve => {
           let startTime = performance.now();
@@ -115,23 +141,23 @@ const ChartSection = React.memo(function ChartSection({
         
         console.log("Reveal animation completed");
         
-        // Step 3: Extended delay - now much longer (20 seconds)
+        // Step 3: Observation delay
         setCompletionDelay(true);
         delayStartTimeRef.current = Date.now();
         
-        console.log(`EXTENDED DELAY STARTED at ${new Date().toISOString()} - Will last 20 seconds`);
+        console.log(`Observation delay started at ${new Date().toISOString()} - Will last 15 seconds`);
         
-        // Debug interval to track actual time elapsed
+        // Debug interval to track actual time elapsed (for development)
         debugIntervalRef.current = setInterval(() => {
           const elapsed = (Date.now() - delayStartTimeRef.current) / 1000;
-          console.log(`DELAY RUNNING: ${elapsed.toFixed(1)} seconds elapsed of 20 seconds total`);
+          console.log(`Delay running: ${elapsed.toFixed(1)} seconds elapsed of 15 seconds total`);
         }, 1000);
         
-        // Wait exactly 20 seconds now for an extended delay
+        // Wait 15 seconds for user to observe the completed chart
         await new Promise(resolve => {
           delayTimerRef.current = setTimeout(() => {
             const actualDelay = (Date.now() - delayStartTimeRef.current) / 1000;
-            console.log(`EXTENDED DELAY ENDED after ${actualDelay.toFixed(1)} seconds`);
+            console.log(`Observation delay ended after ${actualDelay.toFixed(1)} seconds`);
             
             if (debugIntervalRef.current) {
               clearInterval(debugIntervalRef.current);
@@ -139,8 +165,35 @@ const ChartSection = React.memo(function ChartSection({
             }
             
             setCompletionDelay(false);
+            
+            // Scroll to top on mobile after delay completes
+            if (isMobile) {
+              console.log("Scrolling to top on mobile device");
+              
+              // Find the D chart element for better positioning
+              const dChartElement = document.querySelector('.bg-gradient-turquoise');
+              
+              if (dChartElement) {
+                // Get the chart's container for better positioning
+                const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
+                const rect = chartContainer.getBoundingClientRect();
+                
+                // Scroll to position the D chart near the top of the viewport
+                window.scrollTo({
+                  top: window.pageYOffset + rect.top - 100, // Position with some padding at top
+                  behavior: 'smooth'
+                });
+              } else {
+                // Fallback to scrolling to top if D chart not found
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth'
+                });
+              }
+            }
+            
             resolve();
-          }, 20000); // Increased to 20 seconds for a much longer delay
+          }, 15000); // Reduced from 20 to 15 seconds for a better user experience
         });
       } catch (error) {
         console.error("Animation sequence error:", error);
@@ -161,7 +214,7 @@ const ChartSection = React.memo(function ChartSection({
         debugIntervalRef.current = null;
       }
     };
-  }, [afterData]);
+  }, [afterData, isMobile]);
 
   // Timer color based on remaining time
   const getTimerColor = () => {

@@ -45,6 +45,12 @@ export default function Flashcards() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
 
+  // Utility function to detect mobile devices
+  const isMobileDevice = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768 || 'ontouchstart' in window;
+  }, []);
+
   // Add negative top margin to move the component closer to the header
   const containerStyle = { marginTop: "-20px" };
 
@@ -649,6 +655,9 @@ export default function Flashcards() {
       console.log("Current round ID:", roundId);
       console.log("Current user ID:", session?.user?.id);
 
+      // Check if on a mobile device
+      const isMobile = isMobileDevice();
+
       // Only log match if we have a valid roundId and session
       if (!roundId || !session?.user?.id) {
         console.warn("Missing round ID or user ID - creating a new round");
@@ -789,10 +798,37 @@ export default function Flashcards() {
         if (afterJsonData) {
           setAfterChartData(afterJsonData);
           
-          // Set a timeout to automatically proceed to next stock after 5 seconds
+          // If on mobile, scroll to top after 2.5 seconds to see the D chart
+          if (isMobileDevice()) {
+            setTimeout(() => {
+              console.log("Mobile detected: Scrolling to top to view D chart");
+              // First find any element with "D" label, which would be the D chart
+              const dChartElement = document.querySelector('.bg-gradient-turquoise');
+              
+              if (dChartElement) {
+                // Get the chart's container for better positioning
+                const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
+                const rect = chartContainer.getBoundingClientRect();
+                
+                // Scroll to position the D chart near the top of the viewport
+                window.scrollTo({
+                  top: window.pageYOffset + rect.top - 100, // Position with some padding at top
+                  behavior: 'smooth'
+                });
+              } else {
+                // Fallback to scrolling to top if D chart not found
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth'
+                });
+              }
+            }, 2500);
+          }
+          
+          // Set a timeout to automatically proceed to next stock after 7 seconds
           setTimeout(() => {
             proceedToNextStock();
-          }, 5000);
+          }, 7000); // 7 seconds to give time for the entire animation sequence
         } else {
           // If no after.json data, proceed with the normal flow
           proceedToNextStock();
@@ -822,7 +858,37 @@ export default function Flashcards() {
       setCurrentMatchIndex(0);
       setCurrentIndex((prev) => (prev + 1) % flashcards.length);
     }
-  }, [currentMatchIndex, thingData, flashcards.length, timerDuration]);
+
+    // Check if on mobile and scroll to top with a short delay
+    const isMobile = isMobileDevice();
+    if (isMobile) {
+      // Small delay to allow state updates to complete
+      setTimeout(() => {
+        console.log("Mobile detected: Scrolling to top on stock transition");
+        
+        // First find any element with "D" label, which would be the D chart
+        const dChartElement = document.querySelector('.bg-gradient-turquoise');
+        
+        if (dChartElement) {
+          // Get the chart's container for better positioning
+          const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
+          const rect = chartContainer.getBoundingClientRect();
+          
+          // Scroll to position the D chart near the top of the viewport
+          window.scrollTo({
+            top: window.pageYOffset + rect.top - 100, // Position with some padding at top
+            behavior: 'smooth'
+          });
+        } else {
+          // Fallback to scrolling to top if D chart not found
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        }
+      }, 200); // Slightly longer delay to ensure the DOM has updated
+    }
+  }, [currentMatchIndex, thingData, flashcards.length, timerDuration, isMobileDevice]);
 
   // Only calculate accuracy, removed win rate
   const accuracy = useMemo(() => {
