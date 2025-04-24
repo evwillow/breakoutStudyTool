@@ -36,7 +36,7 @@ const FolderSection = React.memo(function FolderSection({
   onTimerDurationChange,
 }) {
   return (
-    <div className="px-1 sm:px-8 md:px-16 lg:px-24 xl:px-56 pb-2 sm:pb-6 md:pb-10 pt-2 sm:pt-0 bg-soft-white">
+    <div className="px-1 sm:px-8 md:px-16 lg:px-24 xl:px-56 pb-2 sm:pb-6 md:pb-10 pt-2 sm:pt-0 bg-transparent">
       <div className="flex flex-col gap-4">
         {/* Dataset and Timer selectors - side by side on all screen sizes */}
         <div className="flex flex-row flex-wrap gap-3">
@@ -53,7 +53,7 @@ const FolderSection = React.memo(function FolderSection({
                 id="dataset-selector"
                 value={selectedFolder || ""}
                 onChange={onFolderChange}
-                className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
+                className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
               >
                 {folderOptions.map(({ key, value, label }) => (
                   <option key={key} value={value} className="text-turquoise-900 font-medium">

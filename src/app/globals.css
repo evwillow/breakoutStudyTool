@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --background: #f2f7f5; /* Modern light mint/sage - trendy and clean */
-  --foreground: #115e59;
-  --primary: #14b8a6;
+  --foreground: #1d3124; /* Rich forest green - great for text */
+  --background: #000000; /* Changed from #f2f7f5 (mint/sage) to pure black */
+  --primary: #4f7942; /* Forest green - strong and natural */
   --primary-light: #5eead4;
   --primary-dark: #0f766e;
   --accent: #0d9488;
@@ -13,11 +13,11 @@
   --accent-dark: #134e4a;
   
   /* New soothing background colors */
-  --soft-white: #f8fafb;
-  --soft-white-hover: #f0f4f5;
-  --soft-gray-50: #f5f7f9;
-  --soft-gray-100: #edf1f5;
-  --soft-gray-200: #e3e8ed;
+  --soft-white: #000000; /* Changed from light green to black */
+  --soft-white-hover: #121212;
+  --soft-gray-50: #181818;
+  --soft-gray-100: #1e1e1e;
+  --soft-gray-200: #252525;
   --slate-200: #e2e8f0;
 
   /* Font family variables */

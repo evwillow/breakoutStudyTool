@@ -40,16 +40,85 @@ const PARENT_FOLDER_ID = "18q55oXvsOL2MboehLA1OglGdepBVDDub";
 const formatData = (data) => {
   if (!Array.isArray(data)) return data;
   
-  return data.map(item => ({
-    Open: item.Open || item.open,
-    High: item.High || item.high,
-    Low: item.Low || item.low,
-    Close: item.Close || item.close,
-    Volume: item.Volume || item.volume,
-    "10sma": item["10sma"] || item["10SMA"] || item["10_sma"],
-    "20sma": item["20sma"] || item["20SMA"] || item["20_sma"],
-    "50sma": item["50sma"] || item["50SMA"] || item["50_sma"]
-  }));
+  // Process H data to add SMAs if missing
+  const isHourlyFile = data.length > 0 && 
+    data[0] && 
+    !data[0]["10sma"] && !data[0].SMA10 && !data[0].sma10;
+  
+  let processedData = [...data];
+  
+  // Calculate SMAs for hourly data if they're missing
+  if (isHourlyFile) {
+    // Calculate SMA10
+    for (let i = 0; i < processedData.length; i++) {
+      if (i >= 9) { // Need at least 10 points for 10-period SMA
+        let sum = 0;
+        for (let j = 0; j < 10; j++) {
+          sum += parseFloat(processedData[i - j].Close);
+        }
+        processedData[i].sma10 = sum / 10;
+      }
+    }
+    
+    // Calculate SMA20
+    for (let i = 0; i < processedData.length; i++) {
+      if (i >= 19) { // Need at least 20 points for 20-period SMA
+        let sum = 0;
+        for (let j = 0; j < 20; j++) {
+          sum += parseFloat(processedData[i - j].Close);
+        }
+        processedData[i].sma20 = sum / 20;
+      }
+    }
+    
+    // Calculate SMA50
+    for (let i = 0; i < processedData.length; i++) {
+      if (i >= 49) { // Need at least 50 points for 50-period SMA
+        let sum = 0;
+        for (let j = 0; j < 50; j++) {
+          sum += parseFloat(processedData[i - j].Close);
+        }
+        processedData[i].sma50 = sum / 50;
+      }
+    }
+    
+    console.log("Added SMA calculations to hourly data");
+  }
+  
+  return processedData.map(item => {
+    // Special handling for H.json SMA formatting
+    const isHourlyData = 
+      (item.SMA10 !== undefined && item.SMA20 !== undefined) || 
+      (item.sma10 !== undefined && item.sma20 !== undefined);
+      
+    // Ensure SMAs are consistently named and present
+    const sma10 = item["10sma"] || item["10SMA"] || item["10_sma"] || item.SMA10 || item.sma10 || null;
+    const sma20 = item["20sma"] || item["20SMA"] || item["20_sma"] || item.SMA20 || item.sma20 || null;
+    const sma50 = item["50sma"] || item["50SMA"] || item["50_sma"] || item.SMA50 || item.sma50 || null;
+    
+    // Log SMA values for debugging
+    if (item.SMA10 !== undefined || item.sma10 !== undefined) {
+      console.log("Found hourly SMA data:", { 
+        SMA10: item.SMA10,
+        sma10: item.sma10,
+        SMA20: item.SMA20, 
+        sma20: item.sma20,
+        SMA50: item.SMA50,
+        sma50: item.sma50
+      });
+    }
+    
+    return {
+      Open: item.Open || item.open,
+      High: item.High || item.high,
+      Low: item.Low || item.low,
+      Close: item.Close || item.close,
+      Volume: item.Volume || item.volume,
+      "10sma": sma10,
+      "20sma": sma20,
+      "50sma": sma50
+    };
+  });
 };
 
 /**

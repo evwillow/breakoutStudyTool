@@ -103,11 +103,11 @@ const Header = () => {
 
           {/* Authentication Buttons */}
           <div className="flex items-center space-x-4">
-            {/* Sign Out Button - Only shown when user is authenticated */}
+            {/* Sign Out Button - Only shown when user is authenticated and on desktop */}
             {session && (
               <button
                 onClick={() => signOut({ redirect: false })}
-                className="px-4 py-2 bg-gray-800 text-white text-sm rounded-md shadow hover:bg-gray-700 transition flex items-center"
+                className="hidden md:flex px-4 py-2 bg-gray-800 text-white text-sm rounded-md shadow hover:bg-gray-700 transition items-center"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414l-5-5H3zM2 4a2 2 0 012-2h5.586a1 1 0 01.707.293l6 6a1 1 0 01.293.707V16a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" clipRule="evenodd" />
@@ -118,7 +118,7 @@ const Header = () => {
             )}
             
             {/* Sign In Button - Only shown when user is not authenticated */}
-            {!session && <SignInButton />}
+            {!session && <SignInButton className="hidden md:flex" />}
             
             {/* Mobile menu button - Enhanced with animation and vertically centered */}
             <button

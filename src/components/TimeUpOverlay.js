@@ -7,6 +7,7 @@
  * - Fixed position overlay that darkens and blurs the background
  * - Scrolls to and highlights the action buttons
  * - Prevents scrolling of the page until a selection is made
+ * - Supports keyboard shortcuts (1-4) for making selections
  * - Responsive design that works on all screen sizes
  * - Smooth transitions and animations for better user experience
  */
@@ -54,6 +55,11 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
           button.classList.add('shadow-lg', 'z-[46]');
           button.style.transform = 'scale(1.05)';
           button.style.margin = '0 4px';
+          // Ensure buttons are clickable by setting a higher z-index than the overlay
+          button.style.zIndex = "100";
+          button.style.position = "relative";
+          // Remove disabled attribute if present
+          button.disabled = false;
         });
         
         // Add a subtle highlight to the button container
@@ -61,10 +67,13 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
         actionButtonsRef.current.style.padding = '12px 8px';
         actionButtonsRef.current.style.backgroundColor = 'rgba(45, 212, 191, 0.1)';
         actionButtonsRef.current.style.borderRadius = '8px';
+        // Ensure the container is clickable
+        actionButtonsRef.current.style.zIndex = "50";
+        actionButtonsRef.current.style.position = "relative";
       }
     };
     
-    // Prevent scrolling
+    // Prevent scrolling but allow interaction
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
     
@@ -90,10 +99,52 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
     // Also recenter on window resize
     window.addEventListener('resize', centerButtonsVertically);
     
+    // Handle keyboard shortcuts specifically for TimeUpOverlay
+    const handleKeyDown = (e) => {
+      // Map keys 1-4 to selection values
+      if (e.key >= '1' && e.key <= '4') {
+        const selection = parseInt(e.key);
+        console.log(`TimeUpOverlay: Keyboard shortcut ${e.key} pressed, selecting option ${selection}`);
+        
+        // Only proceed if we have action buttons and valid selection
+        if (selection >= 1 && selection <= actionButtons.length && onSelect) {
+          // Highlight the corresponding button briefly
+          if (actionButtonsRef && actionButtonsRef.current) {
+            const buttons = actionButtonsRef.current.querySelectorAll('button');
+            if (buttons[selection - 1]) {
+              const button = buttons[selection - 1];
+              
+              // Store original styles
+              const originalBoxShadow = button.style.boxShadow;
+              const originalOpacity = button.style.opacity;
+              
+              // Apply a subtle inset glow effect
+              button.style.boxShadow = 'inset 0 0 5px rgba(255, 255, 255, 0.7)';
+              button.style.opacity = '0.95';
+              
+              // Reset after animation
+              setTimeout(() => {
+                button.style.boxShadow = originalBoxShadow;
+                button.style.opacity = originalOpacity;
+              }, 120);
+            }
+          }
+          
+          // Trigger the selection
+          onSelect(selection);
+          e.preventDefault();
+        }
+      }
+    };
+    
+    // Add keyboard event listener
+    window.addEventListener('keydown', handleKeyDown);
+    
     // Cleanup function
     return () => {
       clearInterval(centerCheckInterval);
       window.removeEventListener('resize', centerButtonsVertically);
+      window.removeEventListener('keydown', handleKeyDown);
       
       // Remove button highlights
       if (actionButtonsRef && actionButtonsRef.current) {
@@ -103,6 +154,8 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
           button.classList.remove('shadow-lg', 'z-[46]');
           button.style.transform = '';
           button.style.margin = '';
+          button.style.zIndex = '';
+          button.style.position = '';
         });
         
         // Remove container highlight
@@ -110,6 +163,8 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
         actionButtonsRef.current.style.padding = '';
         actionButtonsRef.current.style.backgroundColor = '';
         actionButtonsRef.current.style.borderRadius = '';
+        actionButtonsRef.current.style.zIndex = '';
+        actionButtonsRef.current.style.position = '';
       }
       
       // Restore original styles
@@ -119,12 +174,12 @@ const TimeUpOverlay = ({ actionButtons, onSelect, actionButtonsRef }) => {
       // Restore original scroll position
       window.scrollTo(0, originalPosition);
     };
-  }, [actionButtonsRef]);
+  }, [actionButtonsRef, actionButtons, onSelect]);
 
   return (
     <div 
       ref={overlayRef}
-      className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-md z-40 flex flex-col items-center transition-opacity duration-500 ease-in-out overflow-hidden"
+      className="fixed inset-0 bg-black bg-opacity-90 backdrop-blur-md z-40 flex flex-col items-center transition-opacity duration-500 ease-in-out overflow-hidden pointer-events-none"
     >
       {/* Subtle highlight for the action buttons area */}
       <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-turquoise-500/20 to-transparent pointer-events-none"></div>

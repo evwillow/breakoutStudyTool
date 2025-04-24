@@ -18,7 +18,6 @@ import ActionButtonsRow from "./components/ActionButtonsRow";
 import FolderSection from "./components/FolderSection";
 import AuthModal from "./components/AuthModal";
 import RoundHistory from "./components/RoundHistory";
-import AfterChartPopup from "./components/AfterChartPopup";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
 import LandingPage from "./components/LandingPage";
@@ -47,6 +46,9 @@ export default function Flashcards() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState('');
 
+  // Add negative top margin to move the component closer to the header
+  const containerStyle = { marginTop: "-20px" };
+
   // Timer duration state
   const [timerDuration, setTimerDuration] = useState(INITIAL_TIMER);
 
@@ -64,6 +66,8 @@ export default function Flashcards() {
 
   // Round management & match metrics
   const [roundId, setRoundId] = useState(null);
+  // Track if we're checking for existing rounds
+  const [isCheckingExistingRounds, setIsCheckingExistingRounds] = useState(true);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
@@ -89,8 +93,7 @@ export default function Flashcards() {
     }
   }, [timer, timerReady]);
   
-  // After chart popup state
-  const [showAfterChart, setShowAfterChart] = useState(false);
+  // State for after chart visualization (now displayed in-place instead of popup)
   const [afterChartData, setAfterChartData] = useState(null);
 
   // Ref for the action buttons section
@@ -112,7 +115,21 @@ export default function Flashcards() {
         const remaining = Math.max(0, Math.ceil((timerEndTimeRef.current - now) / 1000));
         
         if (remaining <= 0) {
-          setShowTimeUpOverlay(true);
+          // Using a local function to decide whether to show the overlay
+          // This way we don't need afterChartData in the dependency array
+          const shouldShowOverlay = () => {
+            // Only show the overlay if we're not in a transition state 
+            // and not after a selection has been made
+            return !timerPaused && 
+                   !document.hidden && 
+                   !afterChartData && 
+                   !disableButtons &&
+                   !feedback; // Don't show if user just made a selection and feedback is visible
+          };
+          
+          if (shouldShowOverlay()) {
+            setShowTimeUpOverlay(true);
+          }
           setTimer(0);
           displayedTimerValue.current = 0;
           timerEndTimeRef.current = null;
@@ -146,7 +163,21 @@ export default function Flashcards() {
             setTimer(remaining);
             
             if (remaining <= 0) {
-              setShowTimeUpOverlay(true);
+              // Using a local function to decide whether to show the overlay
+              // This way we don't need afterChartData in the dependency array
+              const shouldShowOverlay = () => {
+                // Only show the overlay if we're not in a transition state
+                // and not after a selection has been made
+                return !timerPaused && 
+                       !document.hidden && 
+                       !afterChartData && 
+                       !disableButtons &&
+                       !feedback; // Don't show if user just made a selection and feedback is visible
+              };
+              
+              if (shouldShowOverlay()) {
+                setShowTimeUpOverlay(true);
+              }
               timerEndTimeRef.current = null;
             } else {
               // Resume animation frame updates
@@ -186,12 +217,39 @@ export default function Flashcards() {
     }
   }, [showTimeUpOverlay, timerPaused]);
 
+  // useEffect specifically for handling afterChartData changes
+  useEffect(() => {
+    // Pause the timer when afterChartData is present (showing the "after" visualization)
+    if (afterChartData) {
+      setTimerPaused(true);
+    }
+  }, [afterChartData]);
+
   // Reset timer end time when timer duration changes
   useEffect(() => {
     if (!timerPaused && !showTimeUpOverlay) {
       timerEndTimeRef.current = Date.now() + lastKnownTimerValue.current * 1000;
     }
   }, [timerDuration, timerPaused, showTimeUpOverlay]);
+
+  // Load roundId from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && session?.user?.id) {
+      const savedRoundId = localStorage.getItem(`roundId_${session.user.id}`);
+      if (savedRoundId) {
+        console.log("Loaded roundId from localStorage:", savedRoundId);
+        setRoundId(savedRoundId);
+      }
+    }
+  }, [session]);
+
+  // Save roundId to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && roundId && session?.user?.id) {
+      console.log("Saving roundId to localStorage:", roundId);
+      localStorage.setItem(`roundId_${session.user.id}`, roundId);
+    }
+  }, [roundId, session]);
 
   // Fetch folders on component mount.
   useEffect(() => {
@@ -256,7 +314,8 @@ export default function Flashcards() {
           setLoadingStep('Finalizing...');
           
           // Only create a new round if there's no current round or if explicitly requested
-          if (!roundId && session.user && session.user.id) {
+          // And we're not in the process of checking for existing rounds
+          if (!roundId && session.user && session.user.id && !isCheckingExistingRounds) {
             try {
               console.log("Creating initial round for user:", session.user.id);
               
@@ -300,7 +359,7 @@ export default function Flashcards() {
     return () => {
       mounted = false;
     };
-  }, [selectedFolder, status, session, roundId, timerDuration]);
+  }, [selectedFolder, status, session, roundId, timerDuration, isCheckingExistingRounds]);
 
   const handleFolderChange = useCallback((e) => {
     const newFolder = e.target.value;
@@ -581,17 +640,31 @@ export default function Flashcards() {
   // Handle answer selection and log the match.
   const handleSelection = useCallback(
     async (selection) => {
+      console.log("handleSelection called with selection:", selection);
+      console.log("Current thingData:", thingData);
+      console.log("Current matchIndex:", currentMatchIndex);
+      
       // Hide the time's up overlay if it's showing
       if (showTimeUpOverlay) {
         setShowTimeUpOverlay(false);
       }
       
-      if (!thingData.length) return;
+      if (!thingData.length) {
+        console.error("No thingData available for comparison");
+        return;
+      }
+      
       // Pause the timer until the glow effect is done.
       setTimerPaused(true);
       setDisableButtons(true);
+      // Immediately reset the timer end time reference to prevent overlay from showing
+      timerEndTimeRef.current = null;
       const expected = thingData[currentMatchIndex];
+      console.log("Expected value:", expected);
+      
       const correct = selection === expected;
+      console.log("Is selection correct?", correct);
+      
       if (correct) setCorrectCount((prev) => prev + 1);
       setFeedback(correct ? "correct" : "incorrect");
       setMatchCount((prev) => prev + 1);
@@ -738,7 +811,11 @@ export default function Flashcards() {
         // Check if after.json data exists
         if (afterJsonData) {
           setAfterChartData(afterJsonData);
-          setShowAfterChart(true);
+          
+          // Set a timeout to automatically proceed to next stock after 5 seconds
+          setTimeout(() => {
+            proceedToNextStock();
+          }, 5000);
         } else {
           // If no after.json data, proceed with the normal flow
           proceedToNextStock();
@@ -754,6 +831,14 @@ export default function Flashcards() {
     setDisableButtons(false);
     setTimer(timerDuration);
     setTimerPaused(false);
+    setShowTimeUpOverlay(false); // Ensure the time's up overlay is not shown when proceeding to next stock
+    setAfterChartData(null); // Reset the after chart data
+    
+    // Make sure timer end time is set correctly for the new timer
+    if (timerDuration > 0) {
+      timerEndTimeRef.current = Date.now() + timerDuration * 1000;
+    }
+    
     if (currentMatchIndex < thingData.length - 1) {
       setCurrentMatchIndex(currentMatchIndex + 1);
     } else {
@@ -761,13 +846,6 @@ export default function Flashcards() {
       setCurrentIndex((prev) => (prev + 1) % flashcards.length);
     }
   }, [currentMatchIndex, thingData, flashcards.length, timerDuration]);
-
-  // Handle closing the after chart popup
-  const handleAfterChartClose = useCallback(() => {
-    setShowAfterChart(false);
-    setAfterChartData(null);
-    proceedToNextStock();
-  }, [proceedToNextStock]);
 
   // Only calculate accuracy, removed win rate
   const accuracy = useMemo(() => {
@@ -917,7 +995,8 @@ export default function Flashcards() {
   // Auto-load the most recent in-progress round when the user is authenticated
   useEffect(() => {
     // Only run this effect when the user is authenticated and we don't have an active round
-    if (status === "authenticated" && session?.user?.id && !roundId) {
+    if (status === "authenticated" && session?.user?.id) {
+      setIsCheckingExistingRounds(true);
       const autoLoadMostRecentRound = async () => {
         try {
           console.log("Attempting to auto-load the most recent in-progress round");
@@ -1007,12 +1086,17 @@ export default function Flashcards() {
           setLoading(false);
           setLoadingProgress(0);
           setLoadingStep('');
+          // We're done checking for existing rounds
+          setIsCheckingExistingRounds(false);
         }
       };
       
       autoLoadMostRecentRound();
+    } else {
+      // If we're not authenticated, we're not checking for existing rounds
+      setIsCheckingExistingRounds(false);
     }
-  }, [status, session, roundId]); // Only run when authentication status changes or session changes
+  }, [status, session]); // Remove roundId dependency to ensure this runs on every auth status change
 
   // Store the setShowAuthModal function in the global variable
   useEffect(() => {
@@ -1047,6 +1131,9 @@ export default function Flashcards() {
         try {
           console.log("Marking round as completed on page unload:", roundId);
           
+          // Clear the localStorage roundId to prevent auto-loading a completed round
+          localStorage.removeItem(`roundId_${session.user.id}`);
+          
           // Use the fetch API to update the round status
           navigator.sendBeacon(
             '/api/updateRound',
@@ -1068,6 +1155,69 @@ export default function Flashcards() {
     };
   }, [roundId, session]);
 
+  // Add keyboard shortcut handling - with stable dependencies
+  useEffect(() => {
+    // Skip setup if essential conditions aren't met
+    if (!flashcards.length) return;
+
+    console.log("Setting up keyboard shortcuts");
+    
+    const handleKeyDown = (e) => {
+      // Get the current state of buttons
+      const areButtonsDisabled = disableButtons && !showTimeUpOverlay;
+      
+      // Only handle number keys 1-4
+      if (e.key >= '1' && e.key <= '4') {
+        const selection = parseInt(e.key);
+        console.log(`Key ${e.key} pressed, selecting option ${selection}`);
+        
+        // Check if button exists and is selectable
+        if (selection >= 1 && selection <= 4) {
+          // Apply visual feedback
+          const button = document.querySelector(`[data-index="${selection - 1}"]`);
+          if (button) {
+            // Store original styles
+            const originalBoxShadow = button.style.boxShadow;
+            const originalOpacity = button.style.opacity;
+            
+            // Apply a subtle inset glow effect
+            button.style.boxShadow = 'inset 0 0 5px rgba(255, 255, 255, 0.7)';
+            button.style.opacity = '0.95';
+            
+            // Reset after animation
+            setTimeout(() => {
+              button.style.boxShadow = originalBoxShadow;
+              button.style.opacity = originalOpacity;
+            }, 120);
+          }
+          
+          // Only trigger selection if buttons aren't disabled (game is active)
+          if (!areButtonsDisabled && handleSelection) {
+            console.log(`Calling handleSelection with ${selection}`);
+            handleSelection(selection);
+            e.preventDefault();
+          } else if (showTimeUpOverlay && onTimeUpSelection) {
+            // If time is up but we have a timeup handler
+            console.log(`Time's up! Calling onTimeUpSelection with ${selection}`);
+            onTimeUpSelection(selection);
+            e.preventDefault();
+          } else {
+            console.log(`Buttons are disabled or no handler available. areButtonsDisabled: ${areButtonsDisabled}`);
+          }
+        }
+      }
+    };
+    
+    // Add the event listener
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up
+    return () => {
+      console.log("Cleaning up keyboard shortcuts");
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [disableButtons, showTimeUpOverlay, loading, actionButtons.length, handleSelection]);
+
   // If user is not authenticated, show the landing page
   if (status !== "authenticated" || !session) {
     return (
@@ -1084,12 +1234,12 @@ export default function Flashcards() {
   if (status === "loading") {
     content = (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-black">Loading...</p>
+        <p className="text-white">Loading...</p>
       </div>
     );
   } else if (loading) {
     content = (
-      <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+      <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto border border-gray-300 mt-20">
         <div className="relative">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
           <div className="absolute inset-0 flex items-center justify-center">
@@ -1113,10 +1263,10 @@ export default function Flashcards() {
     );
   } else if (error) {
     content = (
-      <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
+      <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-black rounded-lg shadow-lg max-w-md mx-auto border border-white">
         <div className="text-red-500 text-4xl mb-2">⚠️</div>
-        <h2 className="text-xl font-semibold text-gray-800">Error Loading Data</h2>
-        <p className="text-gray-600 text-center">{error}</p>
+        <h2 className="text-xl font-semibold text-white">Error Loading Data</h2>
+        <p className="text-gray-300 text-center">{error}</p>
         <button 
           onClick={() => {
             setError(null);
@@ -1136,9 +1286,9 @@ export default function Flashcards() {
     thingData.length === 0
   ) {
     content = (
-      <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto">
-        <h2 className="text-xl font-semibold text-gray-800">No Data Available</h2>
-        <p className="text-gray-600 text-center">Please select a dataset to begin practicing.</p>
+      <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-black rounded-lg shadow-lg max-w-md mx-auto border border-white">
+        <h2 className="text-xl font-semibold text-white">No Data Available</h2>
+        <p className="text-gray-300 text-center">Please select a dataset to begin practicing.</p>
         <button 
           onClick={() => {
             setSelectedFolder(null);
@@ -1152,11 +1302,12 @@ export default function Flashcards() {
     );
   } else {
     content = (
-      <div className="bg-soft-gray-50 min-h-screen w-full flex justify-center">
-        <div className="w-full bg-soft-white rounded-lg shadow-lg p-0 sm:p-4 pb-0">
+      <div className="min-h-screen w-full flex justify-center items-center p-4 sm:p-8" style={{ background: 'var(--background)' }}>
+        <div className="w-full max-w-7xl bg-black rounded-3xl shadow-2xl overflow-hidden border border-white">
           <div className={showTimeUpOverlay ? 'filter blur-sm' : ''}>
             <ChartSection
               orderedFiles={orderedFiles}
+              afterData={afterChartData}
               timer={displayedTimerValue.current}
               pointsTextArray={pointsTextArray}
               actionButtons={actionButtons}
@@ -1166,13 +1317,14 @@ export default function Flashcards() {
               disabled={disableButtons}
             />
           </div>
-          <div className={`pb-2 sm:pb-8 ${showTimeUpOverlay ? 'relative z-[45]' : ''}`} ref={actionButtonsRef}>
+          {/* Action buttons row - kept outside of blur when time's up */}
+          <div className={`pb-2 sm:pb-8 relative ${showTimeUpOverlay ? 'z-[60]' : ''}`} ref={actionButtonsRef}>
             <ActionButtonsRow
               actionButtons={actionButtons}
               selectedButtonIndex={feedback ? thingData[currentMatchIndex] - 1 : null}
               feedback={feedback}
               onButtonClick={handleSelection}
-              disabled={disableButtons}
+              disabled={showTimeUpOverlay ? false : disableButtons}
               isTimeUp={showTimeUpOverlay}
             />
           </div>
@@ -1218,18 +1370,10 @@ export default function Flashcards() {
               userId={session?.user?.id}
             />
           )}
-          
-          {/* After Chart Popup */}
-          <AfterChartPopup 
-            isOpen={showAfterChart}
-            onClose={handleAfterChartClose}
-            afterCsvData={afterJsonData}
-            stockName={currentSubfolder ? currentSubfolder.name : 'Stock'}
-          />
         </div>
       </div>
     );
   }
 
-  return <>{content}</>;
+  return <div style={containerStyle}>{content}</div>;
 }

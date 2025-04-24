@@ -3,12 +3,12 @@
 import { SessionProvider } from "next-auth/react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { ErrorFallback, NetworkErrorFallback } from "@/components/FallbackUI";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { logger } from "@/utils/logger";
 import { AppError, ErrorCodes } from "@/utils/errorHandling";
 
 /**
- * Global error handler for unhandled errors and Promise rejections
+ * Memory-optimized global error handler for unhandled errors and Promise rejections
  * @param error The error that was thrown
  */
 const handleGlobalError = (error: any) => {
@@ -21,33 +21,31 @@ const handleGlobalError = (error: any) => {
  */
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
+  
+  // Memoize event handlers to prevent recreation on each render
+  const handleOnline = useCallback(() => setIsOnline(true), []);
+  const handleOffline = useCallback(() => setIsOnline(false), []);
+  
+  const errorHandler = useCallback((event: ErrorEvent) => {
+    event.preventDefault();
+    handleGlobalError(event.error || new Error(event.message));
+  }, []);
+  
+  const rejectionHandler = useCallback((event: PromiseRejectionEvent) => {
+    event.preventDefault();
+    handleGlobalError(event.reason);
+  }, []);
 
-  // Set up global error handlers
+  // Set up global error handlers with optimized listeners
   useEffect(() => {
-    // Handle uncaught errors
-    const errorHandler = (event: ErrorEvent) => {
-      event.preventDefault();
-      handleGlobalError(event.error || new Error(event.message));
-    };
-
-    // Handle unhandled promise rejections
-    const rejectionHandler = (event: PromiseRejectionEvent) => {
-      event.preventDefault();
-      handleGlobalError(event.reason);
-    };
-
-    // Set up network status monitoring
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
+    // Initialize with current network status
+    setIsOnline(navigator.onLine);
+    
     // Add all event listeners
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', rejectionHandler);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    // Initialize with current network status
-    setIsOnline(navigator.onLine);
 
     // Clean up event listeners on unmount
     return () => {
@@ -56,7 +54,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [errorHandler, rejectionHandler, handleOnline, handleOffline]);
 
   // Log initialization for debugging
   logger.debug("Providers initialized", { isOnline });
