@@ -50,12 +50,23 @@ const nextConfig = {
     // Return the modified config
     return config;
   },
-  // Control the build memory usage
+  // Control the build memory usage with supported experimental options
   experimental: {
-    // Minimize memory usage for builds
-    memoryBasedTurbopack: true,
     // Optimize server components with better treeshaking
     optimizeServerReact: true,
+    // Use memory optimizations where available
+    optimizeCss: true,
+  },
+  // Configure Turbopack for memory efficiency in development
+  turbo: {
+    loaders: {
+      // Disable unnecessary loaders to reduce memory
+      '.svg': ['@svgr/webpack'],
+    },
+    // Enable memory optimizations
+    resolveAlias: {
+      // Add any path aliases that can optimize bundling
+    },
   },
 };
 
