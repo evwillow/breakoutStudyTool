@@ -68,9 +68,9 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
         : "";
     }
     
-    // Add time's up highlighting
+    // Add time's up highlighting - enhanced for mobile visibility
     if (isTimeUp) {
-      classes += " transform scale-105 shadow-lg";
+      classes += " transform scale-[1.03] shadow-xl";
     }
     
     return classes;
@@ -101,11 +101,22 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
   };
 
   return (
-    <div className={`${isCompact ? 'my-0 px-0' : 'my-2 sm:my-4 md:my-8 px-4 sm:px-4 md:px-8 lg:px-16'} flex flex-col sm:flex-row justify-between ${isCompact ? 'gap-1' : 'gap-2 sm:gap-3'} ${isTimeUp ? 'relative z-[40]' : ''}`}>
+    <div className={`
+      ${isCompact ? 'my-0 px-0' : 'my-2 sm:my-4 md:my-8 px-4 sm:px-4 md:px-8 lg:px-16'} 
+      flex flex-col sm:flex-row justify-between 
+      ${isCompact ? 'gap-1' : isTimeUp ? 'gap-3 sm:gap-3 md:gap-4' : 'gap-2 sm:gap-3'} 
+      ${isTimeUp ? 'relative z-[40] p-2 sm:p-0 bg-black bg-opacity-20 sm:bg-opacity-0 rounded-lg sm:rounded-none' : ''}
+    `}>
       {actionButtons.map((action, index) => (
         <button
           key={index}
-          className={`${getButtonClasses(index)} flex-1 ${isCompact ? 'mb-1' : 'mb-2 sm:mb-0'} relative`}
+          className={`
+            ${getButtonClasses(index)} 
+            flex-1 
+            ${isCompact ? 'mb-1' : isTimeUp ? 'mb-3 sm:mb-0 h-32 sm:h-28 md:h-16 py-6 sm:py-6 md:py-0 text-xl sm:text-lg md:text-lg' : 'mb-2 sm:mb-0'} 
+            relative
+            ${isTimeUp ? 'min-w-[80px]' : ''}
+          `}
           onClick={() => handleClick(index)}
           disabled={disabled}
           data-index={index}

@@ -1099,11 +1099,12 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className={`bg-black rounded-lg overflow-hidden w-full shadow-inner ${isTimeUp ? 'filter blur-xl' : ''}`}
+                        className={`bg-black rounded-lg overflow-hidden w-full shadow-inner chart-container ${isTimeUp ? 'filter blur-xl' : ''}`}
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,
-                          height: "700px" /* Container 40% taller than default */
+                          height: "500px",
+                          maxHeight: "calc(100vw - 2rem)"
                         }}
                       >
                         <StockChart 
@@ -1141,7 +1142,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
             opacity: 0;
           }
           to {
-            max-height: 840px;
+            max-height: calc(100vw + 3rem);
             opacity: 1;
           }
         }
@@ -1165,6 +1166,14 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
           to {
             opacity: 0;
             transform: translateY(10px);
+          }
+        }
+        
+        /* Charts become square only on smaller screens where height might exceed width */
+        @media (max-width: 768px) {
+          .chart-container {
+            aspect-ratio: 1 / 1 !important;
+            height: auto !important;
           }
         }
         

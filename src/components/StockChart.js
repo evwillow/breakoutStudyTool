@@ -1315,7 +1315,7 @@ const StockChart = React.memo(({
   const progressiveMaskWidth = getProgressiveMaskWidth();
 
   return (
-    <div ref={containerRef} className="w-full h-full">
+    <div ref={containerRef} className="w-full h-full stock-chart-container">
       <svg
         width="100%"
         height="100%"
@@ -1323,6 +1323,20 @@ const StockChart = React.memo(({
         className="w-full h-full"
         preserveAspectRatio="xMidYMid meet"
       >
+        {/* Add CSS to ensure proper sizing */}
+        <defs>
+          <style>
+            {`
+              @media (max-width: 1024px) {
+                .stock-chart-container {
+                  aspect-ratio: 1 / 1;
+                  min-height: 300px;
+                }
+              }
+            `}
+          </style>
+        </defs>
+        
         {/* Background fill when backgroundColor is provided */}
         {backgroundColor && (
           <rect

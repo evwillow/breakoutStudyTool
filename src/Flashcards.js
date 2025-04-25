@@ -57,18 +57,6 @@ export default function Flashcards() {
   // Timer duration state
   const [timerDuration, setTimerDuration] = useState(INITIAL_TIMER);
 
-  // Prevent scrolling when authentication is required
-  useEffect(() => {
-    if (!session && status !== "loading") {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [session, status]);
-
   // Round management & match metrics
   const [roundId, setRoundId] = useState(null);
   // Track if we're checking for existing rounds
@@ -1260,9 +1248,11 @@ export default function Flashcards() {
         // Get the button container's position
         const buttonRect = actionButtonsRef.current.getBoundingClientRect();
         
-        // Calculate the scroll position to center the buttons in the viewport
+        // Calculate the scroll position to center the buttons vertically in the viewport
         const viewportHeight = window.innerHeight;
-        const targetPosition = window.pageYOffset + buttonRect.top - (viewportHeight * 0.4) + (buttonRect.height / 2);
+        
+        // Center the buttons exactly in the middle of the screen
+        const targetPosition = window.pageYOffset + buttonRect.top - (viewportHeight / 2) + (buttonRect.height / 2);
         
         // Scroll to the buttons
         window.scrollTo({
@@ -1274,8 +1264,8 @@ export default function Flashcards() {
         const buttons = actionButtonsRef.current.querySelectorAll('button');
         buttons.forEach(button => {
           button.style.transition = 'all 0.3s ease-in-out';
-          button.style.transform = 'scale(1.01)'; // Very minimal scaling to prevent overlap
-          button.style.boxShadow = '0 0 8px 2px rgba(45, 212, 191, 0.3)'; // Subtle glow
+          button.style.transform = 'scale(1.02)'; // Slightly increased scale for better visibility on mobile
+          button.style.boxShadow = '0 0 12px 4px rgba(45, 212, 191, 0.4)'; // Enhanced glow for mobile visibility
           button.style.zIndex = '50';
           button.style.position = 'relative';
           button.style.margin = '0 1px'; // Minimal margin
@@ -1284,14 +1274,24 @@ export default function Flashcards() {
       
       // Scroll immediately first, then again after a short delay to ensure it works
       scrollToActionButtons();
+      
+      // Use multiple timeouts to ensure proper scrolling on different devices and screen sizes
       setTimeout(scrollToActionButtons, 100);
+      setTimeout(scrollToActionButtons, 300);
       
       // Add resize listener to maintain button position
       window.addEventListener('resize', scrollToActionButtons);
       
+      // Handle orientation change specifically for mobile devices
+      window.addEventListener('orientationchange', () => {
+        // Wait for orientation change to complete
+        setTimeout(scrollToActionButtons, 200);
+      });
+      
       // Clean up
       return () => {
         window.removeEventListener('resize', scrollToActionButtons);
+        window.removeEventListener('orientationchange', scrollToActionButtons);
         
         // Reset button styles when time-up is dismissed
         if (actionButtonsRef.current) {
@@ -1448,11 +1448,11 @@ export default function Flashcards() {
           
           {/* Time's Up Notification */}
           {showTimeUpOverlay && (
-            <div className="fixed inset-x-0 top-[120px] flex justify-center z-50 pointer-events-none">
-              <div className="pointer-events-auto bg-black bg-opacity-90 border border-turquoise-500 shadow-lg rounded-lg px-8 py-4 animate-pulse-slow">
+            <div className="fixed inset-x-0 top-[80px] sm:top-[120px] flex justify-center z-50 pointer-events-none px-4">
+              <div className="pointer-events-auto bg-black bg-opacity-90 border-2 border-turquoise-500 shadow-xl rounded-lg px-6 sm:px-8 py-3 sm:py-4 animate-pulse-slow max-w-[90%] sm:max-w-md mx-auto">
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold mb-1 text-turquoise-500 animate-glow">Time's Up!</h2>
-                  <p className="text-white opacity-90">Please make your selection</p>
+                  <h2 className="text-2xl sm:text-2xl font-bold mb-1 text-turquoise-500 animate-glow">Time's Up!</h2>
+                  <p className="text-white opacity-90 text-base sm:text-lg">Please make your selection</p>
                 </div>
               </div>
             </div>
@@ -1462,19 +1462,25 @@ export default function Flashcards() {
           <style jsx global>{`
             @keyframes pulse-slow {
               0%, 100% {
+                opacity: 1;
                 box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.7);
+                transform: scale(1);
               }
               50% {
-                box-shadow: 0 0 0 8px rgba(45, 212, 191, 0);
+                opacity: 0.95;
+                box-shadow: 0 0 15px 10px rgba(45, 212, 191, 0.35);
+                transform: scale(1.02);
               }
             }
             
             @keyframes glow {
               0%, 100% {
-                text-shadow: 0 0 5px rgba(45, 212, 191, 0.7);
+                text-shadow: 0 0 8px rgba(45, 212, 191, 0.7);
+                letter-spacing: normal;
               }
               50% {
-                text-shadow: 0 0 15px rgba(45, 212, 191, 0.9);
+                text-shadow: 0 0 20px rgba(45, 212, 191, 1);
+                letter-spacing: 0.5px;
               }
             }
             

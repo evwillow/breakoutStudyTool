@@ -4,7 +4,7 @@
  * Component for displaying stock charts in a responsive layout.
  * Features:
  * - Responsive design with different layouts for mobile and desktop
- * - Displays daily and hourly charts in an organized grid
+ * - Displays multiple charts (daily, hourly, minute) in an organized grid
  * - Shows timer and authentication controls
  * - Optimized with React.memo for performance
  * - Clean, borderless design with soft backgrounds for reduced eye strain
@@ -238,10 +238,9 @@ const ChartSection = React.memo(function ChartSection({
         </div>
       </div>
       
-      {/* Main content with Daily and Hourly charts */}
-      <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
+      <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 lg:flex-row gap-3 md:gap-6 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-3 md:p-4">
+        <div className="w-full lg:w-auto lg:flex-1 flex flex-col items-center bg-transparent rounded-lg shadow-md p-3 md:p-4">
           <div className="w-full text-center hidden md:block mb-2">
             <div className="flex items-center justify-center">
               <svg className="w-5 h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -273,29 +272,107 @@ const ChartSection = React.memo(function ChartSection({
           </div>
         </div>
 
-        {/* Right Column: H Chart + Points Grid */}
-        <div className="w-full lg:w-2/5 flex flex-col gap-4">
-          {/* H Chart */}
-          <div className="w-full flex flex-col items-center bg-transparent rounded-lg shadow-md p-3">
-            <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
-              {/* H Label - positioned in the top left corner */}
-              <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
-                H
+        {/* Right Column: Second & Third Charts + Points Grid */}
+        <div className="flex flex-col w-full lg:flex-1 gap-3 md:gap-4">
+          <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
+            {/* Second Chart - H Chart */}
+            <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-3">
+              {/* Make sure H chart has aspect-square class with same styling as D chart */}
+              <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
+                {/* H Label - positioned in the top left corner */}
+                <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
+                  H
+                </div>
+                <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
+                  <StockChart 
+                    data={orderedFiles[1].data}
+                    backgroundColor="black" 
+                    showSMA={true} 
+                    chartType="hourly"
+                    forceShowSMA={true}
+                  />
+                </div>
               </div>
-              <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
-                <StockChart 
-                  data={orderedFiles[1].data}
-                  backgroundColor="black" 
-                  showSMA={true} 
-                  chartType="hourly"
-                  forceShowSMA={true}
+            </div>
+            {/* Third Chart - Shown except on smallest screens */}
+            <div className="hidden sm:flex lg:w-2/5 w-full flex-col items-center bg-transparent rounded-lg shadow-md p-3">
+              {showAuthModal && (
+                <AuthModal
+                  open={showAuthModal}
+                  onClose={() => setShowAuthModal(false)}
                 />
+              )}
+              <div className="w-full flex justify-center">
+                <div className="w-full max-w-full lg:max-w-[300px] aspect-square relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
+                  {/* M Label - positioned in the top left corner */}
+                  <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
+                    M
+                  </div>
+                  <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
+                    <StockChart 
+                      data={orderedFiles[2].data}
+                      backgroundColor="black" 
+                      chartType="minute"
+                      showVolume={true}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           
-          {/* Points Grid - Responsive across all screen sizes */}
-          <div className={`grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-transparent rounded-lg shadow-md p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+          {/* Mobile-only: Minute Chart next to Points Text Blocks */}
+          <div className="sm:hidden flex flex-row mt-2 gap-3">
+            {/* Mobile M Chart */}
+            <div className="w-1/2 bg-transparent rounded-lg shadow-md p-3">
+              <div className="w-full aspect-square relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
+                {/* M Label - positioned in the top left corner */}
+                <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
+                  M
+                </div>
+                <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
+                  <StockChart 
+                    data={orderedFiles[2].data} 
+                    backgroundColor="black" 
+                    showSMA={true} 
+                    chartType="minute"
+                    showVolume={true}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="w-1/2 bg-transparent rounded-lg shadow-md p-3 flex items-center">
+              <div className={`w-full flex flex-col gap-2 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+                {pointsTextArray.map((text, index) => (
+                  <div
+                    key={index}
+                    className={`rounded-md shadow-sm p-2 text-center text-xs flex items-center justify-center min-h-[1.75rem] ${
+                      text ? "bg-turquoise-600 text-white" : "invisible"
+                    }`}
+                  >
+                    {text || "\u00A0"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Points Grid - Hidden on mobile */}
+          <div className={`hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-transparent rounded-lg shadow-md p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+            {pointsTextArray.map((text, index) => (
+              <div
+                key={index}
+                className={`rounded-md shadow-sm p-2 text-center text-sm flex items-center justify-center min-h-[2rem] transition-all duration-200 ${
+                  text ? "bg-turquoise-600 text-white hover:bg-turquoise-700" : "invisible"
+                }`}
+              >
+                {text || "\u00A0"}
+              </div>
+            ))}
+          </div>
+
+          {/* Points Grid - Hidden on smallest screens only */}
+          <div className={`hidden sm:grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-transparent rounded-lg shadow-md p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
             {pointsTextArray.map((text, index) => (
               <div
                 key={index}
