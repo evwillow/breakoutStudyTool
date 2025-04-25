@@ -1254,6 +1254,9 @@ export default function Flashcards() {
     if (showTimeUpOverlay && actionButtonsRef.current) {
       // Function to scroll to and highlight the action buttons
       const scrollToActionButtons = () => {
+        // Check if actionButtonsRef.current exists before accessing properties
+        if (!actionButtonsRef.current) return;
+        
         // Get the button container's position
         const buttonRect = actionButtonsRef.current.getBoundingClientRect();
         
@@ -1438,6 +1441,7 @@ export default function Flashcards() {
                    (currentSubfolder.folderName) || 
                    (currentSubfolder.jsonFiles && currentSubfolder.jsonFiles[0] && currentSubfolder.jsonFiles[0].fileName.split('_')[0])) 
                   : null} 
+                isTimeUp={showTimeUpOverlay}
               />
             </div>
           </div>

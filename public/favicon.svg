@@ -9,11 +9,11 @@
     
     <!-- Pennant/wedge with clear connection to initial leg -->
     <!-- Upper wedge -->
-    <polyline points="9,9 15,12" /> <!-- Upper wedge line - adjusted left extension -->
+    <polyline points="8,10 15,12" stroke-linecap="butt" /> <!-- Upper wedge line with flat caps -->
     <!-- Lower wedge -->
-    <polyline points="6,18 15,12" /> <!-- Lower wedge line - extended further left -->
+    <polyline points="6,16 15,12" stroke-linecap="butt" /> <!-- Lower wedge line with less steep angle -->
     
     <!-- Breakout parallel to initial uptrend -->
-    <polyline points="15,12 19,2" />
+    <polyline points="15,12 19,3" />
   </g>
 </svg> 

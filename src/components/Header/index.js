@@ -83,31 +83,33 @@ const Header = () => {
     <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
       scrolled ? "bg-white shadow-md" : "bg-white/95"
     }`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
-          {/* Logo */}
-          <Logo />
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+        <div className="flex justify-between items-center py-3 md:py-4">
+          {/* Logo with minimum width to prevent compression */}
+          <div className="flex-shrink-0 mr-1 sm:mr-2 z-20">
+            <Logo />
+          </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          {/* Dynamic breakpoint for navigation links - using custom 800px breakpoint */}
+          <nav className="hidden max-[800px]:hidden min-[800px]:flex space-x-4 z-10">
             {navLinks.map((link) => (
               <Link 
                 key={link.name} 
                 href={link.href}
-                className="text-gray-600 hover:text-turquoise-600 font-medium transition-colors"
+                className="text-gray-600 hover:text-turquoise-600 font-medium transition-colors whitespace-nowrap px-1"
               >
                 {link.name}
               </Link>
             ))}
           </nav>
 
-          {/* Authentication Buttons */}
-          <div className="flex items-center space-x-4">
-            {/* Sign Out Button - Only shown when user is authenticated and on desktop */}
+          {/* Authentication Buttons - perfectly aligned vertically */}
+          <div className="flex items-center ml-1 sm:ml-2 z-20">
+            {/* Sign Out Button - Using the same breakpoint as navigation */}
             {session && (
               <button
                 onClick={() => signOut({ redirect: false })}
-                className="hidden md:flex px-4 py-2 bg-gray-800 text-white text-sm rounded-md shadow hover:bg-gray-700 transition items-center"
+                className="hidden min-[800px]:inline-flex items-center justify-center px-4 py-2 bg-gray-800 text-white text-sm rounded-md shadow hover:bg-gray-700 transition whitespace-nowrap"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414l-5-5H3zM2 4a2 2 0 012-2h5.586a1 1 0 01.707.293l6 6a1 1 0 01.293.707V16a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" clipRule="evenodd" />
@@ -117,13 +119,13 @@ const Header = () => {
               </button>
             )}
             
-            {/* Sign In Button - Only shown when user is not authenticated */}
-            {!session && <SignInButton className="hidden md:flex" />}
+            {/* Sign In Button - Using the same breakpoint as navigation, perfect vertical alignment */}
+            {!session && <SignInButton className="hidden min-[800px]:inline-flex items-center" />}
             
-            {/* Mobile menu button - Enhanced with animation and vertically centered */}
+            {/* Mobile menu button - Shown only when navigation is hidden */}
             <button
               type="button"
-              className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-turquoise-600 hover:bg-gray-100 focus:outline-none transition-colors my-auto"
+              className="min-[800px]:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-turquoise-600 hover:bg-gray-100 focus:outline-none transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-expanded={mobileMenuOpen}
             >
@@ -141,7 +143,7 @@ const Header = () => {
       {/* Enhanced Mobile Navigation with slide-in animation */}
       <div 
         ref={mobileMenuRef}
-        className={`fixed inset-0 bg-gray-800 bg-opacity-50 z-40 md:hidden transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-gray-800 bg-opacity-50 z-40 min-[800px]:hidden transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         aria-hidden={!mobileMenuOpen}
       >
         <div 
@@ -194,8 +196,9 @@ const Header = () => {
                   Sign Out
                 </button>
               ) : (
+                /* Mobile sign in button - restored as requested */
                 <div onClick={() => setMobileMenuOpen(false)}>
-                  <SignInButton />
+                  <SignInButton className="w-full justify-center" />
                 </div>
               )}
             </div>

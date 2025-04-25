@@ -19,7 +19,7 @@ import StockChart from "./StockChart";
  * DateFolderBrowser component displays historical stock data files
  * and allows viewing them as charts
  */
-const DateFolderBrowser = ({ session, currentStock }) => {
+const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
   const [allFiles, setAllFiles] = useState([]);
   const [expandedFiles, setExpandedFiles] = useState([]);
   const [fileData, setFileData] = useState({});
@@ -1099,7 +1099,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className="bg-black rounded-lg overflow-hidden w-full shadow-inner"
+                        className={`bg-black rounded-lg overflow-hidden w-full shadow-inner ${isTimeUp ? 'filter blur-xl' : ''}`}
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,
