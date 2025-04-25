@@ -784,39 +784,42 @@ export default function Flashcards() {
       setTimeout(() => {
         // Check if after.json data exists
         if (afterJsonData) {
-          setAfterChartData(afterJsonData);
-          
-          // If on mobile, scroll to top after 2.5 seconds to see the D chart
-          if (isMobileDevice()) {
-            setTimeout(() => {
-              console.log("Mobile detected: Scrolling to top to view D chart");
-              // First find any element with "D" label, which would be the D chart
-              const dChartElement = document.querySelector('.bg-gradient-turquoise');
-              
-              if (dChartElement) {
-                // Get the chart's container for better positioning
-                const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
-                const rect = chartContainer.getBoundingClientRect();
-                
-                // Scroll to position the D chart near the top of the viewport
-                window.scrollTo({
-                  top: window.pageYOffset + rect.top - 100, // Position with some padding at top
-                  behavior: 'smooth'
-                });
-              } else {
-                // Fallback to scrolling to top if D chart not found
-                window.scrollTo({
-                  top: 0,
-                  behavior: 'smooth'
-                });
-              }
-            }, 2500);
-          }
-          
-          // Set a timeout to automatically proceed to next stock after 7 seconds
+          // Add 1.5 second pause before starting the animation
           setTimeout(() => {
-            proceedToNextStock();
-          }, 7000); // 7 seconds to give time for the entire animation sequence
+            setAfterChartData(afterJsonData);
+            
+            // If on mobile, scroll to top after 2.5 seconds to see the D chart
+            if (isMobileDevice()) {
+              setTimeout(() => {
+                console.log("Mobile detected: Scrolling to top to view D chart");
+                // First find any element with "D" label, which would be the D chart
+                const dChartElement = document.querySelector('.bg-gradient-turquoise');
+                
+                if (dChartElement) {
+                  // Get the chart's container for better positioning
+                  const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
+                  const rect = chartContainer.getBoundingClientRect();
+                  
+                  // Scroll to position the D chart near the top of the viewport
+                  window.scrollTo({
+                    top: window.pageYOffset + rect.top - 100, // Position with some padding at top
+                    behavior: 'smooth'
+                  });
+                } else {
+                  // Fallback to scrolling to top if D chart not found
+                  window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                  });
+                }
+              }, 2500);
+            }
+            
+            // Set a timeout to automatically proceed to next stock after 13 seconds
+            setTimeout(() => {
+              proceedToNextStock();
+            }, 13000); // 13 seconds to give time to observe the completed chart
+          }, 1500); // 1.5 second pause before starting the animation
         } else {
           // If no after.json data, proceed with the normal flow
           proceedToNextStock();

@@ -61,9 +61,23 @@ export default function StockDataDiagnostic() {
         });
         
         if (Array.isArray(data) && data.length > 0) {
-          setFolders(data);
+          // Shuffle the folders array to randomize the order
+          const shuffleFolders = (array) => {
+            // Fisher-Yates shuffle algorithm
+            for (let i = array.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+          };
+          
+          // Apply the shuffle to randomize folder order
+          const shuffledFolders = shuffleFolders([...data]);
+          console.log('Folders have been randomly shuffled for display');
+          
+          setFolders(shuffledFolders);
           if (!selectedFolder) {
-            setSelectedFolder(data[0].name);
+            setSelectedFolder(shuffledFolders[0].name);
           }
         }
       } catch (error) {

@@ -61,11 +61,25 @@ export async function GET(request) {
       return NextResponse.json([], { status: 200 });
     }
 
+    // Shuffle the folders array to randomize the order
+    const shuffleFolders = (array) => {
+      // Fisher-Yates shuffle algorithm
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    };
+    
+    // Apply the shuffle to randomize folder order
+    const shuffledFolders = shuffleFolders([...foldersResponse.data.files]);
+    console.log('Folders have been randomly shuffled for search');
+
     // Search for JSON files containing the search query in their name
     const searchResults = [];
 
     // First, check if there's a folder with the exact name matching the search query
-    const exactFolderMatch = foldersResponse.data.files.find(
+    const exactFolderMatch = shuffledFolders.find(
       folder => folder.name.toLowerCase() === searchQuery.toLowerCase()
     );
 
@@ -111,7 +125,7 @@ export async function GET(request) {
     const searchTerms = searchQuery.toLowerCase().split('_');
     
     // Process each folder
-    for (const folder of foldersResponse.data.files) {
+    for (const folder of shuffledFolders) {
       // Skip the exact match folder we already processed
       if (exactFolderMatch && folder.id === exactFolderMatch.id) {
         continue;

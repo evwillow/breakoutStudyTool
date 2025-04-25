@@ -33,12 +33,26 @@ export async function GET() {
 
     const folders = foldersResponse.data.files;
     
+    // Shuffle the folders array to randomize the order
+    const shuffleFolders = (array) => {
+      // Fisher-Yates shuffle algorithm
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    };
+    
+    // Apply the shuffle to randomize folder order
+    const shuffledFolders = shuffleFolders([...folders]);
+    console.log('Folders have been randomly shuffled in API response');
+    
     // Update cache
-    cachedFolders = folders;
+    cachedFolders = shuffledFolders;
     cacheTime = Date.now();
     
     // Return data with cache headers
-    return NextResponse.json(folders, {
+    return NextResponse.json(shuffledFolders, {
       headers: {
         'Cache-Control': 'public, max-age=3600',
         'X-Cache': 'MISS'

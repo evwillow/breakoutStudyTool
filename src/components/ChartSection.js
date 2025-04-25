@@ -142,20 +142,53 @@ const ChartSection = React.memo(function ChartSection({
         
         console.log("Reveal animation completed");
         
-        // Step 3: Observation delay
-        setCompletionDelay(true);
-        delayStartTimeRef.current = Date.now();
+        // Set the visual state to complete first
+        setProgressPercentage(100);
+        setAfterAnimationComplete(true);
         
-        console.log(`Observation delay started at ${new Date().toISOString()} - Will last 15 seconds`);
+        // Ensure all visual updates have been applied before starting the delay timer
+        // This forces the browser to complete all rendering before we start counting the 5 seconds
+        await new Promise(resolve => {
+          // Use RAF to ensure we're in the next frame after all rendering is complete
+          requestAnimationFrame(() => {
+            // Then use setTimeout with a small delay to be absolutely sure rendering is done
+            setTimeout(() => {
+              console.log("Rendering complete, now starting the FIXED 5-second delay");
+              resolve();
+            }, 100);
+          });
+        });
+        
+        // Step 3: Observation delay - GUARANTEED FULL 5 SECONDS
+        console.log("Starting GUARANTEED 5-second observation delay");
+        setCompletionDelay(true);
+        
+        // Reset delay timer reference to ensure fresh state
+        if (delayTimerRef.current) {
+          clearTimeout(delayTimerRef.current);
+          delayTimerRef.current = null;
+        }
+        
+        // Reset and restart the debug interval
+        if (debugIntervalRef.current) {
+          clearInterval(debugIntervalRef.current);
+          debugIntervalRef.current = null;
+        }
+        
+        // Start counting from NOW (after rendering is complete)
+        delayStartTimeRef.current = Date.now();
         
         // Debug interval to track actual time elapsed (for development)
         debugIntervalRef.current = setInterval(() => {
           const elapsed = (Date.now() - delayStartTimeRef.current) / 1000;
-          console.log(`Delay running: ${elapsed.toFixed(1)} seconds elapsed of 15 seconds total`);
+          console.log(`Delay running: ${elapsed.toFixed(1)} seconds elapsed of 5 seconds total`);
         }, 1000);
         
-        // Wait 15 seconds for user to observe the completed chart
+        // Use a precise timeout to ensure EXACTLY 5 seconds AFTER all data is visible
         await new Promise(resolve => {
+          console.log(`Observation delay started at ${new Date().toISOString()} - Will last EXACTLY 5 seconds`);
+          
+          // Set a fixed 5-second (5000ms) delay that starts NOW (after rendering is complete)
           delayTimerRef.current = setTimeout(() => {
             const actualDelay = (Date.now() - delayStartTimeRef.current) / 1000;
             console.log(`Observation delay ended after ${actualDelay.toFixed(1)} seconds`);
@@ -194,7 +227,7 @@ const ChartSection = React.memo(function ChartSection({
             }
             
             resolve();
-          }, 15000); // Reduced from 20 to 15 seconds for a better user experience
+          }, 5000); // GUARANTEED EXACTLY 5000ms (5 seconds) delay
         });
       } catch (error) {
         console.error("Animation sequence error:", error);

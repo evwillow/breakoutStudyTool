@@ -158,12 +158,26 @@ export async function GET(request) {
       console.log(`- ${folder.name} (${folder.id})`);
     });
 
+    // Shuffle the folders array to randomize the order
+    const shuffleFolders = (array) => {
+      // Fisher-Yates shuffle algorithm
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    };
+    
+    // Apply the shuffle to randomize folder order
+    const shuffledFolders = shuffleFolders([...foldersResponse.data.files]);
+    console.log('Folders have been randomly shuffled for stock search');
+
     // Search for the stock folder in each top-level folder
     let stockFiles = [];
     let foundStockFolder = false;
 
     // First, try to find folders that exactly match the stock symbol
-    for (const folder of foldersResponse.data.files) {
+    for (const folder of shuffledFolders) {
       if (folder.name.toLowerCase() === stockSymbol.toLowerCase()) {
         console.log(`Found exact match folder: ${folder.name}`);
         
@@ -211,7 +225,7 @@ export async function GET(request) {
     }
 
     // Next, search for stock folders within each top-level folder
-    for (const folder of foldersResponse.data.files) {
+    for (const folder of shuffledFolders) {
       console.log(`Searching for ${stockSymbol} in ${folder.name}`);
       
       // Look for the stock folder within this top-level folder
@@ -285,7 +299,7 @@ export async function GET(request) {
     console.log("No exact matches found, trying broader search...");
     
     // Search for any JSON files that might contain the stock symbol in their name
-    for (const folder of foldersResponse.data.files) {
+    for (const folder of shuffledFolders) {
       // Get all JSON files in this folder
       const filesResponse = await drive.files.list({
         q: `'${folder.id}' in parents and mimeType = 'application/json'`,

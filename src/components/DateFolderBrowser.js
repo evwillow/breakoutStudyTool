@@ -163,8 +163,22 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
         
         const folders = await foldersRes.json();
         
+        // Shuffle the folders array to randomize the order
+        const shuffleFolders = (array) => {
+          // Fisher-Yates shuffle algorithm
+          for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+          }
+          return array;
+        };
+        
+        // Apply the shuffle to randomize folder order
+        const shuffledFolders = shuffleFolders([...folders]);
+        console.log('Folders have been randomly shuffled');
+        
         // Filter to include only folders with underscores (date-like folders)
-        const dateFolders = folders.filter(folder => folder.name && folder.name.includes('_'));
+        const dateFolders = shuffledFolders.filter(folder => folder.name && folder.name.includes('_'));
         
         // Process each folder to find relevant files
         let relevantFiles = [];
