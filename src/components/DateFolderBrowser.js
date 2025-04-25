@@ -1109,6 +1109,7 @@ const DateFolderBrowser = ({ session, currentStock }) => {
                         <StockChart 
                           data={fileData[file.id]} 
                           showSMA={true}
+                          chartType="previous"
                         />
                       </div>
                     ) : (

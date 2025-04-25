@@ -95,111 +95,333 @@ const MemoizedChartConfig = React.memo(
 );
 
 /**
- * Process chart data function - extracted for memoization
+ * Calculate SMA for a given period - Completely rewritten for reliability
+ * @param {Array} data - Array of price data objects
+ * @param {number} period - SMA period (10, 20, 50, etc.)
+ * @param {string} priceKey - The key to use for price (defaults to checking multiple possibilities)
+ * @param {string} outputKey - The property name to use for the output (defaults to sma{period})
+ * @returns {Array} - Array of data with SMA values added
  */
-const processChartData = (chartData, chartType) => {
-  try {
-    // The data is already parsed JSON from the API
-    const jsonData = chartData;
-    if (!Array.isArray(jsonData)) {
-      console.warn("Data is not an array");
-      return { data: [], hasSMA10: false, hasSMA20: false, hasSMA50: false };
+const calculateSMA = (data, period, priceKey = null, outputKey = null) => {
+  console.log(`Starting SMA ${period} calculation for ${data.length} data points`);
+  
+  if (!Array.isArray(data) || data.length === 0) {
+    console.warn("Cannot calculate SMA: Invalid or empty data array");
+    return data;
+  }
+  
+  if (period <= 0 || period >= data.length) {
+    console.warn(`Cannot calculate SMA: Invalid period ${period} for data length ${data.length}`);
+    return data;
+  }
+  
+  // Determine the output property name to use
+  const actualOutputKey = outputKey || `sma${period}`;
+  
+  // Create deep copy of data to avoid modifying original
+  const result = data.map(item => ({...item}));
+  
+  // Helper function for flexible property access
+  const getPrice = (item, props) => {
+    for (const prop of props) {
+      if (item[prop] !== undefined && item[prop] !== null) {
+        const val = parseFloat(item[prop]);
+        return isNaN(val) ? null : val;
+      }
+    }
+    return null;
+  };
+  
+  // Detect price key if not provided
+  const firstItem = result[0];
+  const possiblePriceKeys = ['close', 'Close', 'CLOSE', 'price', 'Price', 'PRICE', 'last', 'Last', 'LAST'];
+  
+  // Find which price key to use
+  let actualPriceKey = priceKey;
+  if (!actualPriceKey) {
+    for (const key of possiblePriceKeys) {
+      if (key in firstItem && firstItem[key] !== null && firstItem[key] !== undefined) {
+        actualPriceKey = key;
+        console.log(`Using ${key} for SMA calculation`);
+        break;
+      }
+    }
+  }
+  
+  if (!actualPriceKey) {
+    console.error("No valid price key found in data");
+    return data;
+  }
+  
+  // Precalculate all numeric prices once (with validation)
+  // Use flexible property access instead of relying on a specific property name
+  const numericPrices = result.map(item => {
+    const price = priceKey ? getPrice(item, [priceKey]) : getPrice(item, possiblePriceKeys);
+    return price;
+  });
+  
+  // Calculate SMA for each point
+  for (let i = 0; i < result.length; i++) {
+    // Not enough data points for calculation yet
+    if (i < period - 1) {
+      result[i][actualOutputKey] = null;
+      continue;
     }
     
-    // Check if this is the exact data format from the example
-    let hasSMA10 = false;
-    let hasSMA20 = false;
-    let hasSMA50 = false;
+    // Sum the previous 'period' prices
+    let sum = 0;
+    let validPoints = 0;
     
-    if (jsonData.length > 0) {
-      const firstItem = jsonData[0];
-      
-      // Direct property access for the exact structure provided
-      if (firstItem && typeof firstItem === 'object') {
-        // Check for SMAs in both property formats (10sma and sma10)
-        hasSMA10 = (firstItem.hasOwnProperty('10sma') && !isNaN(parseFloat(firstItem['10sma']))) ||
-                  (firstItem.hasOwnProperty('sma10') && !isNaN(parseFloat(firstItem['sma10'])));
-        
-        hasSMA20 = (firstItem.hasOwnProperty('20sma') && !isNaN(parseFloat(firstItem['20sma']))) ||
-                  (firstItem.hasOwnProperty('sma20') && !isNaN(parseFloat(firstItem['sma20'])));
-        
-        hasSMA50 = (firstItem.hasOwnProperty('50sma') && !isNaN(parseFloat(firstItem['50sma']))) ||
-                  (firstItem.hasOwnProperty('sma50') && !isNaN(parseFloat(firstItem['sma50'])));
+    for (let j = 0; j < period; j++) {
+      const price = numericPrices[i - j];
+      if (price !== null && !isNaN(price)) {
+        sum += price;
+        validPoints++;
       }
     }
     
-    // For hourly charts, always set SMAs to true
-    if (chartType === 'hourly') {
-      hasSMA10 = true;
-      hasSMA20 = true;
-      hasSMA50 = true;
+    // Only calculate SMA if we have at least 80% of valid data points
+    if (validPoints >= period * 0.8) {
+      const sma = sum / validPoints;
+      result[i][actualOutputKey] = sma;
+    } else {
+      result[i][actualOutputKey] = null;
     }
+  }
+  
+  // Debug output
+  let validSMACount = 0;
+  result.forEach(item => {
+    if (item[actualOutputKey] !== null && !isNaN(item[actualOutputKey])) {
+      validSMACount++;
+    }
+  });
+  
+  console.log(`SMA ${period} calculation complete (output as '${actualOutputKey}'): ${validSMACount} valid points out of ${data.length}`);
+  if (validSMACount > 0) {
+    // Use flexible property access here too
+    console.log(`SMA ${period} examples:`, 
+      result.filter(item => item[actualOutputKey] !== null)
+        .slice(0, 3)
+        .map(item => {
+          const price = priceKey ? getPrice(item, [priceKey]) : getPrice(item, possiblePriceKeys);
+          return {
+            price: price,
+            sma: item[actualOutputKey]
+          };
+        })
+    );
+  }
+  
+  return result;
+};
+
+/**
+ * Process chart data function - extracted for memoization
+ */
+const processChartData = (chartData, chartType) => {
+  if (!chartData || !Array.isArray(chartData) || chartData.length === 0) {
+    console.warn('Invalid chart data:', chartData);
+    return [];
+  }
+
+  console.log(`Processing ${chartData.length} data points for chart type: ${chartType}`);
+
+  // Create a deep copy of the data to avoid modifying the original
+  let processedData = chartData.map(item => ({...item}));
+
+  // Special handling for hourly data - log more details
+  if (chartType === 'hourly' || chartType === 'H') {
+    console.log('HOURLY CHART DATA DEBUGGING:');
+    // Check the first few data points to see if SMAs exist
+    const samplePoints = processedData.slice(0, 3);
+    console.log('First 3 data points:', JSON.stringify(samplePoints));
     
-    return {
-      data: jsonData.map(item => {
-        // Parse numeric values
-        const open = parseFloat(item.Open);
-        const high = parseFloat(item.High);
-        const low = parseFloat(item.Low);
-        const close = parseFloat(item.Close);
-        const volume = parseFloat(item.Volume);
-        
-        // Parse SMAs from both property formats
-        let sma10 = null;
-        let sma20 = null;
-        let sma50 = null;
-        
-        // Try both property formats for each SMA
-        if (item.hasOwnProperty('10sma')) {
-          sma10 = parseFloat(item['10sma']);
-        } else if (item.hasOwnProperty('sma10')) {
-          sma10 = parseFloat(item['sma10']);
-        }
-        
-        if (item.hasOwnProperty('20sma')) {
-          sma20 = parseFloat(item['20sma']);
-        } else if (item.hasOwnProperty('sma20')) {
-          sma20 = parseFloat(item['sma20']);
-        }
-        
-        if (item.hasOwnProperty('50sma')) {
-          sma50 = parseFloat(item['50sma']);
-        } else if (item.hasOwnProperty('sma50')) {
-          sma50 = parseFloat(item['sma50']);
-        }
-        
-        // Only include valid data points
-        if (isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close) || isNaN(volume)) {
-          return null;
-        }
-        
-        // Store SMAs in both property formats for compatibility
-        const result = {
-          open,
-          high,
-          low,
-          close,
-          volume,
-          sma10: !isNaN(sma10) ? sma10 : null,
-          sma20: !isNaN(sma20) ? sma20 : null,
-          sma50: !isNaN(sma50) ? sma50 : null
-        };
-        
-        // Also store in the alternative format for compatibility
-        if (!isNaN(sma10)) result['10sma'] = sma10;
-        if (!isNaN(sma20)) result['20sma'] = sma20;
-        if (!isNaN(sma50)) result['50sma'] = sma50;
-        
-        return result;
-      }).filter(Boolean),
+    // Check for SMA properties
+    const firstPoint = samplePoints[0] || {};
+    const hasSMA10 = 'sma10' in firstPoint || 'SMA10' in firstPoint || 'ma10' in firstPoint || 'MA10' in firstPoint || '10sma' in firstPoint;
+    const hasSMA20 = 'sma20' in firstPoint || 'SMA20' in firstPoint || 'ma20' in firstPoint || 'MA20' in firstPoint || '20sma' in firstPoint;
+    
+    console.log('Hourly data SMA detection:', {
       hasSMA10,
       hasSMA20,
-      hasSMA50
-    };
-  } catch (error) {
-    console.error("Error processing chart data:", error);
-    return { data: [], hasSMA10: false, hasSMA20: false, hasSMA50: false };
+      sma10Value: firstPoint.sma10 || firstPoint.SMA10 || firstPoint.ma10 || firstPoint.MA10 || firstPoint['10sma'],
+      sma20Value: firstPoint.sma20 || firstPoint.SMA20 || firstPoint.ma20 || firstPoint.MA20 || firstPoint['20sma']
+    });
   }
+
+  // Handle case where data might be in a JSON string
+  processedData = processedData.map(item => {
+    // Check if we're dealing with a JSON string in a 'json' property
+    if (item.json && typeof item.json === 'string') {
+      try {
+        // Parse the JSON string
+        const parsedJson = JSON.parse(item.json);
+        console.log('Parsed JSON data:', parsedJson);
+        // Merge the parsed JSON with the item
+        return { ...item, ...parsedJson };
+      } catch (err) {
+        console.error('Error parsing JSON data:', err);
+        return item;
+      }
+    }
+    return item;
+  });
+
+  // Log structure of first data point
+  const samplePoint = processedData[0];
+  console.log('Raw data first point:', JSON.stringify(samplePoint));
+  
+  // Verify that OHLC properties exist
+  const hasOpen = 'open' in samplePoint || 'Open' in samplePoint;
+  const hasHigh = 'high' in samplePoint || 'High' in samplePoint;
+  const hasLow = 'low' in samplePoint || 'Low' in samplePoint;
+  const hasClose = 'close' in samplePoint || 'Close' in samplePoint;
+  const hasVolume = 'volume' in samplePoint || 'Volume' in samplePoint;
+  
+  console.log('Data contains OHLCV properties:', {
+    hasOpen,
+    hasHigh,
+    hasLow,
+    hasClose,
+    hasVolume
+  });
+  
+  // Check if SMA data already exists in the JSON
+  const hasSMA10Data = 'sma10' in samplePoint || 'SMA10' in samplePoint || 'ma10' in samplePoint || 'MA10' in samplePoint || '10sma' in samplePoint;
+  const hasSMA20Data = 'sma20' in samplePoint || 'SMA20' in samplePoint || 'ma20' in samplePoint || 'MA20' in samplePoint || '20sma' in samplePoint;
+  const hasSMA50Data = 'sma50' in samplePoint || 'SMA50' in samplePoint || 'ma50' in samplePoint || 'MA50' in samplePoint || '50sma' in samplePoint;
+  
+  console.log('SMA data in JSON:', {
+    hasSMA10Data,
+    hasSMA20Data,
+    hasSMA50Data
+  });
+  
+  // Ensure we have the right case for price and SMA properties - normalize them
+  processedData = processedData.map(item => {
+    // Create a standardized version with consistent property names
+    const result = {...item};
+    
+    // Normalize OHLCV property names to lowercase
+    if ('Open' in item && !('open' in item)) result.open = item.Open;
+    if ('High' in item && !('high' in item)) result.high = item.High;
+    if ('Low' in item && !('low' in item)) result.low = item.Low;
+    if ('Close' in item && !('close' in item)) result.close = item.Close;
+    if ('Volume' in item && !('volume' in item)) result.volume = item.Volume;
+    
+    // Normalize SMA property names to lowercase with expanded variants
+    // Check multiple possible property names for SMAs
+    if (!('sma10' in result)) {
+      if ('SMA10' in item) result.sma10 = item.SMA10;
+      else if ('ma10' in item) result.sma10 = item.ma10;
+      else if ('MA10' in item) result.sma10 = item.MA10;
+      else if ('ema10' in item) result.sma10 = item.ema10; // Sometimes EMA is used instead
+      else if ('EMA10' in item) result.sma10 = item.EMA10;
+      else if ('10sma' in item) result.sma10 = item['10sma']; // New format
+      else if ('10SMA' in item) result.sma10 = item['10SMA']; // New format
+    }
+    
+    if (!('sma20' in result)) {
+      if ('SMA20' in item) result.sma20 = item.SMA20;
+      else if ('ma20' in item) result.sma20 = item.ma20;
+      else if ('MA20' in item) result.sma20 = item.MA20;
+      else if ('ema20' in item) result.sma20 = item.ema20;
+      else if ('EMA20' in item) result.sma20 = item.EMA20;
+      else if ('20sma' in item) result.sma20 = item['20sma']; // New format
+      else if ('20SMA' in item) result.sma20 = item['20SMA']; // New format
+    }
+    
+    if (!('sma50' in result)) {
+      if ('SMA50' in item) result.sma50 = item.SMA50;
+      else if ('ma50' in item) result.sma50 = item.ma50;
+      else if ('MA50' in item) result.sma50 = item.MA50;
+      else if ('ema50' in item) result.sma50 = item.ema50;
+      else if ('EMA50' in item) result.sma50 = item.EMA50;
+      else if ('50sma' in item) result.sma50 = item['50sma']; // New format
+      else if ('50SMA' in item) result.sma50 = item['50SMA']; // New format
+    }
+    
+    return result;
+  });
+  
+  // Log the number of data points
+  console.log(`Processing ${processedData.length} data points`);
+  
+  // Check if SMAs exist in the data
+  const hasSMA10 = processedData.some(d => d.sma10 !== null && d.sma10 !== undefined);
+  const hasSMA20 = processedData.some(d => d.sma20 !== null && d.sma20 !== undefined);
+  const hasSMA50 = processedData.some(d => d.sma50 !== null && d.sma50 !== undefined);
+  
+  console.log(`SMA data present: SMA10: ${hasSMA10}, SMA20: ${hasSMA20}, SMA50: ${hasSMA50}`);
+  
+  // Calculate SMAs if they don't exist in the data
+  if (!hasSMA10 && (chartType !== 'monthly' && chartType !== 'M')) {
+    console.log('Calculating SMA10 as it is not present in the data');
+    calculateSMA(processedData, 10, 'close', 'sma10');
+  }
+  
+  if (!hasSMA20 && (chartType !== 'monthly' && chartType !== 'M')) {
+    console.log('Calculating SMA20 as it is not present in the data');
+    calculateSMA(processedData, 20, 'close', 'sma20');
+  }
+  
+  if (!hasSMA50 && (chartType !== 'monthly' && chartType !== 'M') && chartType !== 'hourly' && chartType !== 'H') {
+    console.log('Calculating SMA50 as it is not present in the data');
+    calculateSMA(processedData, 50, 'close', 'sma50');
+  }
+  
+  // Control which SMAs to display for each chart type
+  let showSMA10 = true;
+  let showSMA20 = true;
+  let showSMA50 = true;
+  
+  // Log chart type to help with debugging
+  console.log(`Chart type detected: "${chartType}"`);
+  
+  // For hourly charts, only display SMA10 and SMA20
+  if (chartType === 'hourly' || chartType === 'H') {
+    showSMA10 = true;
+    showSMA20 = true;
+    showSMA50 = false; // Don't show SMA50 for hourly
+    console.log(`Hourly chart detected - showing only SMA10 and SMA20`);
+  }
+  
+  // For monthly charts, don't display any SMAs
+  else if (chartType === 'monthly' || chartType === 'M' || chartType === 'minute') {
+    showSMA10 = false;
+    showSMA20 = false;
+    showSMA50 = false;
+    console.log(`${chartType} chart detected - not showing any SMAs as requested`);
+  }
+  else {
+    console.log(`Using default SMA display settings: showing SMA10, SMA20, and SMA50`);
+  }
+  
+  // Apply display settings - set SMAs to null if they shouldn't be shown
+  processedData = processedData.map(item => {
+    const result = {...item};
+    
+    // Apply display settings - set SMAs to null if they shouldn't be shown
+    if (!showSMA10) result.sma10 = null;
+    if (!showSMA20) result.sma20 = null;
+    if (!showSMA50) result.sma50 = null;
+    
+    return result;
+  });
+  
+  // Log the normalized first point with SMA data
+  console.log('Normalized first point with SMA settings applied:', 
+    JSON.stringify(processedData[0]));
+
+  // Check how many data points have SMAs after processing
+  const sma10Count = processedData.filter(d => d.sma10 !== null && d.sma10 !== undefined).length;
+  const sma20Count = processedData.filter(d => d.sma20 !== null && d.sma20 !== undefined).length;
+  const sma50Count = processedData.filter(d => d.sma50 !== null && d.sma50 !== undefined).length;
+  
+  console.log(`After processing: SMA10: ${sma10Count}, SMA20: ${sma20Count}, SMA50: ${sma50Count} valid points`);
+
+  return processedData;
 };
 
 /**
@@ -298,24 +520,29 @@ const StockChart = React.memo(({
   // Parse JSON data into an array of stock objects - memoized for performance
   const stockData = useMemo(() => processChartData(chartData, chartType), [chartData, chartType]);
   const afterStockData = useMemo(() => 
-    afterData ? processChartData(afterData, chartType) : { data: [], hasSMA10: false, hasSMA20: false, hasSMA50: false }
+    afterData ? processChartData(afterData, chartType) : []
   , [afterData, chartType]);
+
+  // Check if SMAs are available
+  const hasSMA10 = stockData.some(item => item.sma10 !== null && item.sma10 !== undefined && !isNaN(item.sma10));
+  const hasSMA20 = stockData.some(item => item.sma20 !== null && item.sma20 !== undefined && !isNaN(item.sma20));
+  const hasSMA50 = stockData.some(item => item.sma50 !== null && item.sma50 !== undefined && !isNaN(item.sma50));
 
   // Memoize visible after data calculation
   const visibleAfterData = useMemo(() => {
-    if (!afterStockData.data.length) return [];
+    if (!afterStockData.length) return [];
     
     // Calculate how many bars to show based on progress percentage
-    const totalAfterBars = afterStockData.data.length;
+    const totalAfterBars = afterStockData.length;
     const visibleBars = Math.floor(totalAfterBars * (progressPercentage / 100));
     
     // Return the visible portion of after data
-    return afterStockData.data.slice(0, visibleBars);
-  }, [afterStockData.data, progressPercentage]);
+    return afterStockData.slice(0, visibleBars);
+  }, [afterStockData, progressPercentage]);
 
   // Determine if we should be zooming based on animation state
   const shouldZoom = useMemo(() => 
-    afterStockData.data.length > 0 && zoomPercentage > 0
+    afterStockData.length > 0 && zoomPercentage > 0
   , [afterStockData, zoomPercentage]);
 
   // Determine if we should show the background based on zoom progress
@@ -323,22 +550,42 @@ const StockChart = React.memo(({
 
   // Calculate scales with zoom out for combined data view
   const scales = useMemo(() => {
-    if (!dimensions || !stockData.data.length) return null;
+    if (!dimensions || !stockData.length) return null;
 
     // Log the first data point in hourly mode
     if (chartType === 'hourly') {
-      console.log("First data point for hourly with SMAs:", stockData.data[0]);
+      console.log("First data point for hourly with SMAs:", stockData[0]);
     }
 
+    // Debug SMA detection for chart scaling
+    console.log("SMA status for chart scaling:", {
+      hasSMA10: hasSMA10,
+      hasSMA20: hasSMA20, 
+      hasSMA50: hasSMA50,
+      sampleSMA10: stockData[0]?.sma10,
+      sampleSMA20: stockData[0]?.sma20,
+      sampleSMA50: stockData[0]?.sma50
+    });
+
     // Get initial min/max for main data only
-    const mainValues = stockData.data.flatMap(d => [
-      d.high,
-      d.low,
-      d.close,
-      ...(stockData.hasSMA10 ? [d.sma10] : []),
-      ...(stockData.hasSMA20 ? [d.sma20] : []),
-      ...(stockData.hasSMA50 ? [d.sma50] : [])
-    ].filter(v => v !== null && !isNaN(v)));
+    const mainValues = stockData.flatMap(d => {
+      // Start with price values
+      const values = [d.high, d.low, d.close];
+      
+      // Add SMA values if they exist
+      if (hasSMA10 && d.sma10 !== null && !isNaN(d.sma10)) values.push(d.sma10);
+      if (hasSMA20 && d.sma20 !== null && !isNaN(d.sma20)) values.push(d.sma20);
+      if (hasSMA50 && d.sma50 !== null && !isNaN(d.sma50)) values.push(d.sma50);
+      
+      return values.filter(v => v !== null && !isNaN(v) && v > 0.001); // Filter out zero or extremely small values
+    });
+
+    // Ensure we have valid values
+    if (mainValues.length === 0) {
+      console.warn("No valid price values found in data");
+      // Provide fallback values
+      return null;
+    }
 
     const mainMin = Math.min(...mainValues);
     const mainMax = Math.max(...mainValues);
@@ -347,15 +594,18 @@ const StockChart = React.memo(({
     let afterMin = mainMin;
     let afterMax = mainMax;
 
-    if (afterStockData.data.length > 0) {
-      const afterValues = afterStockData.data.flatMap(d => [
-        d.high,
-        d.low,
-        d.close,
-        ...(afterStockData.hasSMA10 ? [d.sma10] : []),
-        ...(afterStockData.hasSMA20 ? [d.sma20] : []),
-        ...(afterStockData.hasSMA50 ? [d.sma50] : [])
-      ].filter(v => v !== null && !isNaN(v)));
+    if (afterStockData.length > 0) {
+      const afterValues = afterStockData.flatMap(d => {
+        // Start with price values
+        const values = [d.high, d.low, d.close];
+        
+        // Add SMA values if they exist
+        if (hasSMA10 && d.sma10 !== null && !isNaN(d.sma10)) values.push(d.sma10);
+        if (hasSMA20 && d.sma20 !== null && !isNaN(d.sma20)) values.push(d.sma20);
+        if (hasSMA50 && d.sma50 !== null && !isNaN(d.sma50)) values.push(d.sma50);
+        
+        return values.filter(v => v !== null && !isNaN(v) && v > 0.001); // Filter out zero or extremely small values
+      });
       
       if (afterValues.length > 0) {
         afterMin = Math.min(...afterValues);
@@ -403,7 +653,7 @@ const StockChart = React.memo(({
     const pricePadding = priceRange * paddingFactor;
 
     // Calculate volume range
-    const volumeMax = Math.max(...stockData.data.map(d => d.volume));
+    const volumeMax = Math.max(...stockData.map(d => d.volume));
     const volumePadding = volumeMax * 0.1;
 
     // Calculate heights for price and volume sections
@@ -416,7 +666,7 @@ const StockChart = React.memo(({
     const useFullDomain = zoomPercentage >= 40; // Lower threshold for smoother transition
     
     // Calculate the midpoint of the data for bidirectional zooming
-    const totalDataPoints = stockData.data.length + (afterStockData.data.length > 0 ? afterStockData.data.length : 0);
+    const totalDataPoints = stockData.length + (afterStockData.length > 0 ? afterStockData.length : 0);
     
     // Create indices for the full domain
     const fullIndices = [...Array(totalDataPoints).keys()];
@@ -424,19 +674,24 @@ const StockChart = React.memo(({
     // For bidirectional zoom, we'll apply horizontal scaling around a transition point
     let combinedIndices;
     
-    if (useFullDomain && afterStockData.data.length > 0) {
+    // FIXED: Always include all indices from the main stockData for proper rendering
+    // This ensures candlesticks are always visible for the main data
+    if (afterStockData.length === 0) {
+      // If there's no after data, just use all indices from main data
+      combinedIndices = [...Array(stockData.length).keys()];
+    } else if (useFullDomain) {
       // Show full domain when zoomed out enough
       combinedIndices = fullIndices;
     } else {
       // When zooming, focus around the boundary between main and after data
-      const transitionPoint = stockData.data.length - 1;
+      const transitionPoint = stockData.length - 1;
       
       // Smoother calculation for better zoom effect
       const zoomRatio = Math.min(1, zoomFactor * 1.2); // Slightly accelerate the zoom
       
       // Use a consistent formula based on the original data length plus a portion of the after data
       // This creates a steadier expansion from the edge
-      const visibleRange = stockData.data.length + (totalDataPoints - stockData.data.length) * zoomRatio;
+      const visibleRange = stockData.length + (totalDataPoints - stockData.length) * zoomRatio;
       
       // Calculate which indices to include, with a gradually shifting center point
       // This prevents sudden jumps in the visible range
@@ -448,7 +703,18 @@ const StockChart = React.memo(({
       
       // Create array of visible indices
       combinedIndices = [...Array(endIdx - startIdx + 1).keys()].map(i => i + startIdx);
+      
+      // FIXED: Ensure ALL indices from main data are included
+      // This is critical to make sure candlesticks are rendered for the main chart
+      if (startIdx > 0) {
+        const mainIndices = [...Array(startIdx).keys()];
+        combinedIndices = [...mainIndices, ...combinedIndices];
+      }
     }
+
+    // Get the last valid price for labels
+    const lastValidDataPoint = stockData[stockData.length - 1];
+    const lastPrice = lastValidDataPoint?.close || lastValidDataPoint?.Close;
 
     return {
       priceScale: scaleLinear()
@@ -464,264 +730,538 @@ const StockChart = React.memo(({
       priceHeight,
       volumeHeight,
       useFullDomain,
-      zoomFactor
+      zoomFactor,
+      lastPrice
     };
-  }, [dimensions, stockData, afterStockData, zoomPercentage, shouldZoom]);
+  }, [dimensions, stockData, afterStockData, zoomPercentage, shouldZoom, hasSMA10, hasSMA20, hasSMA50]);
 
   // Create line generators for SMA
   const sma10Line = useMemo(() => {
-    if (!scales || !stockData.data.length) return null;
+    if (!scales || !stockData.length) return null;
     
+    // Special handling for hourly chart
+    if (chartType === 'hourly' || chartType === 'H') {
+      console.log('Attempting to create SMA10 line for hourly chart');
+      console.log('SMA10 availability check:', stockData.filter(d => 
+        d.sma10 !== null && d.sma10 !== undefined && !isNaN(d.sma10)
+      ).length, 'out of', stockData.length);
+    }
+    
+    // Check if we have valid SMA10 values to render
+    const validSMA10Points = stockData.filter(d => 
+      d.sma10 !== null && d.sma10 !== undefined && !isNaN(d.sma10)
+    );
+    
+    console.log(`SMA10 line generation: ${validSMA10Points.length} valid points out of ${stockData.length} total points`);
+    
+    // If no valid points, don't try to create a line
+    if (validSMA10Points.length === 0) {
+      console.warn("No valid SMA10 points to render");
+      return null;
+    }
+    
+    // Rest of the function continues as before...
+
     return line()
-      .x((d, i) => scales.xScale(i))
-      .y(d => {
-        // Check both sma10 and '10sma' properties
-        const smaValue = d.sma10 !== null && !isNaN(d.sma10) 
-          ? d.sma10 
-          : (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma'])) ? parseFloat(d['10sma']) : null);
+      .x((d, i) => {
+        // FIXED: Check if index is in domain and handle accordingly
+        const isInDomain = scales.xScale.domain().includes(i);
+        const xPos = isInDomain ? scales.xScale(i) : null;
         
-        if (smaValue !== null) {
-          return scales.priceScale(smaValue);
+        // If point isn't in the domain, it will be excluded from the path
+        if (xPos === null) return null;
+        
+        // Debug occasional points
+        if (i % 100 === 0) {
+          console.log(`SMA10 x-position for point ${i}:`, xPos);
         }
-        return null;
+        return xPos;
       })
-      .defined(d => (d.sma10 !== null && !isNaN(d.sma10)) || 
-                   (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma']))));
-  }, [scales, stockData.data]);
+      .y(d => {
+        // Make sure we have a valid numeric value
+        if (d.sma10 === null || d.sma10 === undefined || isNaN(d.sma10)) {
+          return null; // This point will be skipped in the path
+        }
+        const yPos = scales.priceScale(d.sma10);
+        return yPos;
+      })
+      // Only include points where sma10 is a valid number AND in the domain
+      .defined((d, i) => {
+        const hasValidValue = d.sma10 !== null && d.sma10 !== undefined && !isNaN(d.sma10);
+        const isInDomain = scales.xScale.domain().includes(i);
+        return hasValidValue && isInDomain;
+      });
+  }, [scales, stockData]);
   
+  // Create line generators for SMA20 and SMA50 (similar to SMA10)
   const sma20Line = useMemo(() => {
-    if (!scales || !stockData.data.length) return null;
+    if (!scales || !stockData.length) return null;
+    
+    // Special handling for hourly chart
+    if (chartType === 'hourly' || chartType === 'H') {
+      console.log('Attempting to create SMA20 line for hourly chart');
+      console.log('SMA20 availability check:', stockData.filter(d => 
+        d.sma20 !== null && d.sma20 !== undefined && !isNaN(d.sma20)
+      ).length, 'out of', stockData.length);
+    }
+    
+    // Check if we have valid SMA20 values to render
+    const validSMA20Points = stockData.filter(d => 
+      d.sma20 !== null && d.sma20 !== undefined && !isNaN(d.sma20)
+    );
+    
+    console.log(`SMA20 line generation: ${validSMA20Points.length} valid points out of ${stockData.length} total points`);
+    
+    // If no valid points, don't try to create a line
+    if (validSMA20Points.length === 0) {
+      console.warn("No valid SMA20 points to render");
+      return null;
+    }
     
     return line()
-      .x((d, i) => scales.xScale(i))
-      .y(d => {
-        // Check both sma20 and '20sma' properties
-        const smaValue = d.sma20 !== null && !isNaN(d.sma20) 
-          ? d.sma20 
-          : (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma'])) ? parseFloat(d['20sma']) : null);
-        
-        if (smaValue !== null) {
-          return scales.priceScale(smaValue);
-        }
-        return null;
+      .x((d, i) => {
+        // FIXED: Check if index is in domain and handle accordingly
+        const isInDomain = scales.xScale.domain().includes(i);
+        const xPos = isInDomain ? scales.xScale(i) : null;
+        return xPos;
       })
-      .defined(d => (d.sma20 !== null && !isNaN(d.sma20)) || 
-                   (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma']))));
-  }, [scales, stockData.data]);
+      .y(d => {
+        // Make sure we have a valid numeric value
+        if (d.sma20 === null || d.sma20 === undefined || isNaN(d.sma20)) {
+          return null; // This point will be skipped in the path
+        }
+        return scales.priceScale(d.sma20);
+      })
+      // Only include points where sma20 is a valid number AND in the domain
+      .defined((d, i) => {
+        const hasValidValue = d.sma20 !== null && d.sma20 !== undefined && !isNaN(d.sma20);
+        const isInDomain = scales.xScale.domain().includes(i);
+        return hasValidValue && isInDomain;
+      });
+  }, [scales, stockData]);
   
   const sma50Line = useMemo(() => {
-    if (!scales || !stockData.data.length) return null;
+    if (!scales || !stockData.length) return null;
+    
+    // Check if we have valid SMA50 values to render
+    const validSMA50Points = stockData.filter(d => 
+      d.sma50 !== null && d.sma50 !== undefined && !isNaN(d.sma50)
+    );
+    
+    console.log(`SMA50 line generation: ${validSMA50Points.length} valid points out of ${stockData.length} total points`);
+    
+    // If no valid points, don't try to create a line
+    if (validSMA50Points.length === 0) {
+      console.warn("No valid SMA50 points to render");
+      return null;
+    }
     
     return line()
-      .x((d, i) => scales.xScale(i))
-      .y(d => {
-        // Check both sma50 and '50sma' properties
-        const smaValue = d.sma50 !== null && !isNaN(d.sma50) 
-          ? d.sma50 
-          : (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma'])) ? parseFloat(d['50sma']) : null);
-          
-        if (smaValue !== null) {
-          return scales.priceScale(smaValue);
-        }
-        return null;
+      .x((d, i) => {
+        // FIXED: Check if index is in domain and handle accordingly
+        const isInDomain = scales.xScale.domain().includes(i);
+        const xPos = isInDomain ? scales.xScale(i) : null;
+        return xPos;
       })
-      .defined(d => (d.sma50 !== null && !isNaN(d.sma50)) || 
-                   (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma']))));
-  }, [scales, stockData.data]);
+      .y(d => {
+        // Make sure we have a valid numeric value
+        if (d.sma50 === null || d.sma50 === undefined || isNaN(d.sma50)) {
+          return null; // This point will be skipped in the path
+        }
+        return scales.priceScale(d.sma50);
+      })
+      // Only include points where sma50 is a valid number AND in the domain
+      .defined((d, i) => {
+        const hasValidValue = d.sma50 !== null && d.sma50 !== undefined && !isNaN(d.sma50);
+        const isInDomain = scales.xScale.domain().includes(i);
+        return hasValidValue && isInDomain;
+      });
+  }, [scales, stockData]);
 
   // Create SMA line generators for after data
   const afterSma10Line = useMemo(() => {
-    if (!scales || !afterStockData.data.length || !visibleAfterData.length) return null;
+    if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line()
-      .x((d, i) => scales.xScale(stockData.data.length + i))
+      .x((d, i) => scales.xScale(stockData.length + i))
       .y(d => {
-        // Check both sma10 and '10sma' properties
-        const smaValue = d.sma10 !== null && !isNaN(d.sma10) 
-          ? d.sma10 
-          : (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma'])) ? parseFloat(d['10sma']) : null);
-        
-        if (smaValue !== null) {
-          return scales.priceScale(smaValue);
+        // Make sure we have a valid numeric value
+        if (d.sma10 === null || d.sma10 === undefined || isNaN(d.sma10)) {
+          return null; // This point will be skipped in the path
         }
-        return null;
+        return scales.priceScale(d.sma10);
       })
-      .defined(d => (d.sma10 !== null && !isNaN(d.sma10)) || 
-                   (d['10sma'] !== undefined && !isNaN(parseFloat(d['10sma']))));
-  }, [scales, stockData.data.length, afterStockData.data, visibleAfterData]);
+      // Only include points where sma10 is a valid number
+      .defined(d => d.sma10 !== null && d.sma10 !== undefined && !isNaN(d.sma10));
+  }, [scales, stockData.length, afterStockData, visibleAfterData]);
   
   const afterSma20Line = useMemo(() => {
-    if (!scales || !afterStockData.data.length || !visibleAfterData.length) return null;
+    if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line()
-      .x((d, i) => scales.xScale(stockData.data.length + i))
+      .x((d, i) => scales.xScale(stockData.length + i))
       .y(d => {
-        // Check both sma20 and '20sma' properties
-        const smaValue = d.sma20 !== null && !isNaN(d.sma20) 
-          ? d.sma20 
-          : (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma'])) ? parseFloat(d['20sma']) : null);
-        
-        if (smaValue !== null) {
-          return scales.priceScale(smaValue);
+        // Make sure we have a valid numeric value
+        if (d.sma20 === null || d.sma20 === undefined || isNaN(d.sma20)) {
+          return null; // This point will be skipped in the path
         }
-        return null;
+        return scales.priceScale(d.sma20);
       })
-      .defined(d => (d.sma20 !== null && !isNaN(d.sma20)) || 
-                   (d['20sma'] !== undefined && !isNaN(parseFloat(d['20sma']))));
-  }, [scales, stockData.data.length, afterStockData.data, visibleAfterData]);
+      // Only include points where sma20 is a valid number
+      .defined(d => d.sma20 !== null && d.sma20 !== undefined && !isNaN(d.sma20));
+  }, [scales, stockData.length, afterStockData, visibleAfterData]);
   
   const afterSma50Line = useMemo(() => {
-    if (!scales || !afterStockData.data.length || !visibleAfterData.length) return null;
+    if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line()
-      .x((d, i) => scales.xScale(stockData.data.length + i))
+      .x((d, i) => scales.xScale(stockData.length + i))
       .y(d => {
-        // Check both sma50 and '50sma' properties
-        const smaValue = d.sma50 !== null && !isNaN(d.sma50) 
-          ? d.sma50 
-          : (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma'])) ? parseFloat(d['50sma']) : null);
-        
-        if (smaValue !== null) {
-          return scales.priceScale(smaValue);
+        // Make sure we have a valid numeric value
+        if (d.sma50 === null || d.sma50 === undefined || isNaN(d.sma50)) {
+          return null; // This point will be skipped in the path
         }
-        return null;
+        return scales.priceScale(d.sma50);
       })
-      .defined(d => (d.sma50 !== null && !isNaN(d.sma50)) || 
-                   (d['50sma'] !== undefined && !isNaN(parseFloat(d['50sma']))));
-  }, [scales, stockData.data.length, afterStockData.data, visibleAfterData]);
-
-  // Create volume bars generator
-  const volumeBars = useMemo(() => {
-    if (!scales) return null;
-    return stockData.data.map((d, i) => {
-      const index = scales.xScale.domain().indexOf(i);
-      // Skip if index is not in the domain (could happen during zoom transitions)
-      if (index === -1) return null;
-      
-      const x = scales.xScale(i);
-      const width = scales.xScale.step() * 0.8;
-      const height = scales.volumeScale(d.volume);
-      
-      if (isNaN(x) || isNaN(height)) return null;
-      
-      return {
-        x: x - width / 2,
-        y: scales.volumeHeight - height, // Position at bottom of volume section
-        width,
-        height,
-      };
-    }).filter(Boolean); // Filter out null values
-  }, [stockData.data, scales]);
-  
-  // Create volume bars for after data
-  const afterVolumeBars = useMemo(() => {
-    if (!scales || !visibleAfterData.length) return null;
-    
-    // Calculate offset based on original data length - must perfectly match the divider line calculation
-    const offset = stockData.data.length;
-    
-    return visibleAfterData.map((d, i) => {
-      const index = offset + i;
-      // Skip if index is not in the domain
-      if (!scales.xScale.domain().includes(index)) return null;
-      
-      const x = scales.xScale(index);
-      // Use same width calculation as main data for consistency at the boundary
-      const width = scales.xScale.step() * 0.8;
-      const height = scales.volumeScale(d.volume);
-      
-      if (isNaN(x) || isNaN(height)) return null;
-      
-      return {
-        x: x - width / 2,
-        y: scales.volumeHeight - height,
-        width,
-        height,
-      };
-    }).filter(Boolean); // Filter out null values
-  }, [visibleAfterData, stockData.data, scales]);
+      // Only include points where sma50 is a valid number
+      .defined(d => d.sma50 !== null && d.sma50 !== undefined && !isNaN(d.sma50));
+  }, [scales, stockData.length, afterStockData, visibleAfterData]);
 
   // Create candlestick elements for main data
   const candlesticks = useMemo(() => {
-    if (!scales) return null;
+    if (!scales || !stockData || stockData.length === 0) {
+      console.log("Cannot generate candlesticks: missing scales or stock data");
+      return [];
+    }
     
-    // Use a constant width scale instead of an animation-dependent one
-    // This prevents unwanted width changes during zoom animation
-    const candleWidthScale = 0.85; // Fixed width scale for consistent appearance
+    // Simple approach: generate candlesticks for ALL data points
+    console.log(`Generating candlesticks for ${stockData.length} data points`);
     
-    return stockData.data.map((d, i) => {
-      // Skip processing if the candlestick won't be visible in the current domain
-      // This improves performance and prevents visual artifacts
-      if (!scales.xScale.domain().includes(i)) {
+    const result = stockData.map((d, i) => {
+      // More flexible property access - check various property names
+      const getPrice = (item, props) => {
+        for (const prop of props) {
+          if (item[prop] !== undefined && item[prop] !== null) {
+            const val = parseFloat(item[prop]);
+            return isNaN(val) ? null : val;
+          }
+        }
+        return null;
+      };
+      
+      // Get OHLC values with fallbacks for different property names
+      const open = getPrice(d, ['open', 'Open', 'OPEN']);
+      const high = getPrice(d, ['high', 'High', 'HIGH']);
+      const low = getPrice(d, ['low', 'Low', 'LOW']);
+      const close = getPrice(d, ['close', 'Close', 'CLOSE']);
+      
+      // Debug data for a sample point
+      if (i === 0) {
+        console.log('First candlestick data point:', {
+          raw: d,
+          processed: { open, high, low, close }
+        });
+      }
+      
+      // Skip invalid data points
+      if (open === null || high === null || low === null || close === null) {
+        if (i === 0) console.warn('Missing price data on first point:', d);
         return null;
       }
       
+      // Skip if prices are all zero or extremely small (likely bad data)
+      const isTooSmall = (open <= 0.0001 && high <= 0.0001 && low <= 0.0001 && close <= 0.0001);
+      if (isTooSmall) {
+        if (i === 0) console.warn('Values too small on data point, likely bad data:', { open, high, low, close });
+        return null;
+      }
+      
+      // Skip if high and low are the same (would create a flat line)
+      if (Math.abs(high - low) < 0.0001) {
+        if (i === 0) console.warn('High and low are identical, skipping point');
+        return null;
+      }
+      
+      try {
+        // Calculate position using scale
       const x = scales.xScale(i);
-      const width = scales.xScale.step() * 0.8 * candleWidthScale;
-      const openY = scales.priceScale(d.open);
-      const closeY = scales.priceScale(d.close);
-      const highY = scales.priceScale(d.high);
-      const lowY = scales.priceScale(d.low);
-      const isUp = d.close > d.open;
-      
-      // Verify that all calculated values are valid numbers
-      if (isNaN(x) || isNaN(openY) || isNaN(closeY) || isNaN(highY) || isNaN(lowY)) {
-        return null;
-      }
+        // If x is undefined or NaN, use a simple fallback calculation
+        const finalX = (x === undefined || isNaN(x)) 
+          ? (i * (dimensions.innerWidth / stockData.length)) 
+          : x;
+          
+      const width = scales.xScale.step() * 0.8;
+        const openY = scales.priceScale(open);
+        const closeY = scales.priceScale(close);
+        const highY = scales.priceScale(high);
+        const lowY = scales.priceScale(low);
+        const isUp = close > open;
+        
+        // Skip if any positions are invalid
+        if (isNaN(openY) || isNaN(closeY) || isNaN(highY) || isNaN(lowY)) {
+          return null;
+        }
       
       return {
-        x,
-        openY,
-        closeY,
-        highY,
-        lowY,
-        width,
-        isUp,
+          x: finalX,
+          openY,
+          closeY,
+          highY,
+          lowY,
+          width: width || 6, // Fallback width if calculation fails
+          isUp
+        };
+      } catch (err) {
+        console.error(`Error generating candlestick for index ${i}:`, err);
+        return null;
+      }
+    }).filter(Boolean); // Remove any null entries
+    
+    console.log(`Generated ${result.length} valid candlesticks out of ${stockData.length} data points`);
+    return result;
+  }, [scales, stockData, dimensions]);
+  
+  // Create volume bars generator - simplified approach
+  const volumeBars = useMemo(() => {
+    if (!scales || !stockData || stockData.length === 0) {
+      return [];
+    }
+    
+    console.log(`Generating volume bars for ${stockData.length} data points`);
+    
+    const result = stockData.map((d, i) => {
+      // More flexible property access for volume
+      const getVolume = (item) => {
+        for (const prop of ['volume', 'Volume', 'VOLUME']) {
+          if (item[prop] !== undefined && item[prop] !== null) {
+            const val = parseFloat(item[prop]);
+            return isNaN(val) ? null : val;
+          }
+        }
+        return null;
       };
-    }).filter(Boolean); // Filter out null values
-  }, [stockData.data, scales]);
+      
+      const volume = getVolume(d);
+      
+      // Skip invalid data points
+      if (volume === null) {
+        return null;
+      }
+      
+      try {
+        // Calculate position using scale
+        const x = scales.xScale(i);
+        // If x is undefined or NaN, use a simple fallback calculation
+        const finalX = (x === undefined || isNaN(x)) 
+          ? (i * (dimensions.innerWidth / stockData.length)) 
+          : x;
+          
+      const width = scales.xScale.step() * 0.8;
+        const height = scales.volumeScale(volume);
+      
+        // Skip if any positions are invalid
+        if (isNaN(height)) {
+          return null;
+        }
+      
+      return {
+          x: finalX - (width / 2),
+        y: scales.volumeHeight - height,
+          width: width || 6, // Fallback width if calculation fails
+          height
+        };
+      } catch (err) {
+        console.error(`Error generating volume bar for index ${i}:`, err);
+        return null;
+      }
+    }).filter(Boolean); // Remove any null entries
+    
+    console.log(`Generated ${result.length} valid volume bars out of ${stockData.length} data points`);
+    return result;
+  }, [scales, stockData, dimensions]);
 
   // Create candlestick elements for after data with progressive reveal
   const afterCandlesticks = useMemo(() => {
-    if (!scales || !visibleAfterData.length) return null;
+    if (!scales || !visibleAfterData || visibleAfterData.length === 0) {
+      return [];
+    }
     
-    // Calculate offset based on original data length - this must match the divider line position exactly
-    const offset = stockData.data.length;
+    // Calculate offset based on original data length
+    const offset = stockData.length;
     
-    return visibleAfterData.map((d, i) => {
-      const index = offset + i;
-      // Skip if index is not in the domain
-      if (!scales.xScale.domain().includes(index)) {
+    console.log(`Generating after candlesticks for ${visibleAfterData.length} data points`);
+    
+    const result = visibleAfterData.map((d, i) => {
+      // More flexible property access - check various property names
+      const getPrice = (item, props) => {
+        for (const prop of props) {
+          if (item[prop] !== undefined && item[prop] !== null) {
+            const val = parseFloat(item[prop]);
+            return isNaN(val) ? null : val;
+          }
+        }
+        return null;
+      };
+      
+      // Get OHLC values with fallbacks for different property names
+      const open = getPrice(d, ['open', 'Open', 'OPEN']);
+      const high = getPrice(d, ['high', 'High', 'HIGH']);
+      const low = getPrice(d, ['low', 'Low', 'LOW']);
+      const close = getPrice(d, ['close', 'Close', 'CLOSE']);
+      
+      // Skip invalid data points
+      if (open === null || high === null || low === null || close === null) {
         return null;
       }
       
-      const x = scales.xScale(index);
-      // Use same width calculation as main data for consistency at the boundary
-      const width = scales.xScale.step() * 0.8;
-      const openY = scales.priceScale(d.open);
-      const closeY = scales.priceScale(d.close);
-      const highY = scales.priceScale(d.high);
-      const lowY = scales.priceScale(d.low);
-      const isUp = d.close > d.open;
+      // Skip if prices are all zero or extremely small (likely bad data)
+      const isTooSmall = (open <= 0.0001 && high <= 0.0001 && low <= 0.0001 && close <= 0.0001);
+      if (isTooSmall) {
+        return null;
+      }
       
-      // Verify that all calculated values are valid numbers
-      if (isNaN(x) || isNaN(openY) || isNaN(closeY) || isNaN(highY) || isNaN(lowY)) {
+      // Skip if high and low are the same (would create a flat line)
+      if (Math.abs(high - low) < 0.0001) {
+        return null;
+      }
+      
+      try {
+        // Calculate position using scale
+        const index = offset + i;
+        const x = scales.xScale(index);
+        // If x is undefined or NaN, use a simple fallback calculation
+        const finalX = (x === undefined || isNaN(x)) 
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + visibleAfterData.length)))
+          : x;
+          
+        const width = scales.xScale.step() * 0.8;
+        const openY = scales.priceScale(open);
+        const closeY = scales.priceScale(close);
+        const highY = scales.priceScale(high);
+        const lowY = scales.priceScale(low);
+        const isUp = close > open;
+        
+        // Skip if any positions are invalid
+        if (isNaN(openY) || isNaN(closeY) || isNaN(highY) || isNaN(lowY)) {
         return null;
       }
       
       return {
-        x,
+          x: finalX,
         openY,
         closeY,
         highY,
         lowY,
-        width,
-        isUp,
-      };
-    }).filter(Boolean); // Filter out null values
-  }, [visibleAfterData, stockData.data, scales]);
+          width: width || 6, // Fallback width if calculation fails
+          isUp
+        };
+      } catch (err) {
+        console.error(`Error generating after candlestick for index ${i}:`, err);
+        return null;
+      }
+    }).filter(Boolean); // Remove any null entries
+    
+    console.log(`Generated ${result.length} valid after candlesticks out of ${visibleAfterData.length} data points`);
+    return result;
+  }, [scales, stockData.length, visibleAfterData, dimensions]);
 
-  if (!dimensions || !scales || !stockData.data.length) {
+  // Create volume bars for after data with the same simplified approach
+  const afterVolumeBars = useMemo(() => {
+    if (!scales || !visibleAfterData || visibleAfterData.length === 0) {
+      return [];
+    }
+    
+    // Calculate offset based on original data length
+    const offset = stockData.length;
+    
+    console.log(`Generating after volume bars for ${visibleAfterData.length} data points`);
+    
+    const result = visibleAfterData.map((d, i) => {
+      // More flexible property access for volume
+      const getVolume = (item) => {
+        for (const prop of ['volume', 'Volume', 'VOLUME']) {
+          if (item[prop] !== undefined && item[prop] !== null) {
+            const val = parseFloat(item[prop]);
+            return isNaN(val) ? null : val;
+          }
+        }
+        return null;
+      };
+      
+      const volume = getVolume(d);
+      
+      // Skip invalid data points
+      if (volume === null) {
+        return null;
+      }
+      
+      try {
+        // Calculate position using scale
+        const index = offset + i;
+      const x = scales.xScale(index);
+        // If x is undefined or NaN, use a simple fallback calculation
+        const finalX = (x === undefined || isNaN(x)) 
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + visibleAfterData.length))) 
+          : x;
+          
+      const width = scales.xScale.step() * 0.8;
+        const height = scales.volumeScale(volume);
+        
+        // Skip if any positions are invalid
+        if (isNaN(height)) {
+        return null;
+      }
+      
+      return {
+          x: finalX - (width / 2),
+          y: scales.volumeHeight - height,
+          width: width || 6, // Fallback width if calculation fails
+          height
+        };
+      } catch (err) {
+        console.error(`Error generating after volume bar for index ${i}:`, err);
+        return null;
+      }
+    }).filter(Boolean); // Remove any null entries
+    
+    console.log(`Generated ${result.length} valid after volume bars out of ${visibleAfterData.length} data points`);
+    return result;
+  }, [scales, stockData.length, visibleAfterData, dimensions]);
+
+  // Debugging before render
+  useEffect(() => {
+    // Only run in development and not too frequently
+    if (process.env.NODE_ENV !== 'production' && stockData && stockData.length > 0) {
+      console.group('StockChart Debug Info');
+      console.log('Data summary:', {
+        stockDataLength: stockData?.length || 0,
+        candlesticksLength: candlesticks?.length || 0,
+        volumeBarsLength: volumeBars?.length || 0,
+        hasSMA10, hasSMA20, hasSMA50
+      });
+      
+      if (stockData.length > 0 && (!candlesticks || candlesticks.length === 0)) {
+        console.warn('Missing candlesticks despite having stock data!');
+        console.log('First data point:', stockData[0]);
+        
+        // Check if scales are working properly
+        if (scales) {
+          const i = 0; // First point
+          console.log('Scale test for first data point:', {
+            domainIncludes: scales.xScale.domain().includes(i),
+            xPos: scales.xScale(i),
+            yPosOpen: scales.priceScale(stockData[i].open),
+            yPosClose: scales.priceScale(stockData[i].close),
+            yPosHigh: scales.priceScale(stockData[i].high),
+            yPosLow: scales.priceScale(stockData[i].low)
+          });
+        }
+      }
+      console.groupEnd();
+    }
+  }, [stockData, candlesticks, volumeBars, scales, hasSMA10, hasSMA20, hasSMA50]);
+
+  if (!dimensions || !scales || !stockData.length) {
     return (
       <div ref={containerRef} className="w-full h-full min-h-[400px]">
         <div className="h-full flex items-center justify-center bg-black text-white">
@@ -736,7 +1276,7 @@ const StockChart = React.memo(({
   
   // Calculate the x position and width for the dark background
   // Get the exact x-coordinate of the last candle of the main data
-  const mainDataEndX = scales.xScale(stockData.data.length - 1);
+  const mainDataEndX = scales.xScale(stockData.length - 1);
   
   // For precise alignment, we need the actual width of candlesticks
   // Used in the rendering to ensure consistent sizing
@@ -745,16 +1285,16 @@ const StockChart = React.memo(({
   
   // EXTREME FIX: Calculate the exact position for the vertical divider line
   // Get position of the last point in the main data
-  const lastMainDataX = scales.xScale(stockData.data.length - 1);
+  const lastMainDataX = scales.xScale(stockData.length - 1);
   
   // Calculate the correct position for the divider line - EXACTLY at the split point
   // Position it precisely at the boundary between the last point of main data and first point of after data
-  const dividerLineX = scales.xScale(stockData.data.length - 1) + scales.xScale.step();
+  const dividerLineX = scales.xScale(stockData.length - 1) + scales.xScale.step();
   
   // Debug logs to verify exact positioning
   console.log("EXACT DIVIDER POSITIONING:", {
     lastMainDataX,
-    firstAfterDataX: scales.xScale(stockData.data.length),
+    firstAfterDataX: scales.xScale(stockData.length),
     step: scales.xScale.step(),
     finalDividerX: dividerLineX
   });
@@ -795,26 +1335,26 @@ const StockChart = React.memo(({
         )}
         
         {/* SMA Legend */}
-        {(showSMA || forceShowSMA) && (chartType === 'hourly' || stockData.hasSMA10 || stockData.hasSMA20 || stockData.hasSMA50) && (
+        {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
           <g transform={`translate(${dimensions.margin.left + 10}, ${dimensions.margin.top + 10})`}>
-            {/* 10 SMA */}
-            {(chartType === 'hourly' || stockData.hasSMA10) && (
+            {/* 10 SMA - Always show for daily or if data exists */}
+            {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA10) && (
               <g transform="translate(0, 0)">
                 <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA10} strokeWidth="2" />
                 <text x="20" y="4" fontSize="10" fill="#ffffff">10 SMA</text>
               </g>
             )}
             
-            {/* 20 SMA */}
-            {(chartType === 'hourly' || stockData.hasSMA20) && (
+            {/* 20 SMA - Always show for daily or if data exists */}
+            {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA20) && (
               <g transform="translate(0, 15)">
                 <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA20} strokeWidth="2" />
                 <text x="20" y="4" fontSize="10" fill="#ffffff">20 SMA</text>
               </g>
             )}
             
-            {/* 50 SMA */}
-            {(chartType === 'hourly' || stockData.hasSMA50) && (
+            {/* 50 SMA - Don't show for hourly charts, show for daily even if no data */}
+            {(chartType !== 'hourly' && chartType !== 'H') && (chartType === 'default' || chartType === 'D' || hasSMA50) && (
               <g transform="translate(0, 30)">
                 <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA50} strokeWidth="2" />
                 <text x="20" y="4" fontSize="10" fill="#ffffff">50 SMA</text>
@@ -824,7 +1364,7 @@ const StockChart = React.memo(({
         )}
         
         {/* Dark background for after data area only - only applies to the main chart (D) */}
-        {shouldShowBackground && !backgroundColor && (
+        {shouldShowBackground && !backgroundColor && chartType !== 'previous' && (
           <>
             {/* Vertical divider line EXACTLY at the split point boundary */}
             <line
@@ -864,12 +1404,25 @@ const StockChart = React.memo(({
           {/* Price section */}
           <g transform={`translate(0, 0)`}>
             {/* SMA lines for main data */}
-            {(showSMA || forceShowSMA) && (
+            {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
               <>
-                {/* SMA lines for all chart types */}
-                {sma10Line && (stockData.hasSMA10 || chartType === 'hourly') && (
+                {/* SMA10 line - make sure it works for hourly charts too */}
+                {sma10Line && (hasSMA10 || chartType === 'hourly' || chartType === 'H') && (
                   <path
-                    d={sma10Line(stockData.data)}
+                    d={(() => {
+                      try {
+                        const pathData = sma10Line(stockData);
+                        if (chartType === 'hourly' || chartType === 'H') {
+                          console.log("Generated SMA10 path for hourly:", pathData ? "Valid path data" : "Empty path");
+                        } else {
+                          console.log("Generated SMA10 path:", pathData ? "Valid path data" : "Empty path");
+                        }
+                        return pathData || "";
+                      } catch (error) {
+                        console.error("Error generating SMA10 path:", error);
+                        return "";
+                      }
+                    })()}
                     fill="none"
                     stroke={CHART_CONFIG.COLORS.SMA10}
                     strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
@@ -877,9 +1430,23 @@ const StockChart = React.memo(({
                   />
                 )}
                 
-                {sma20Line && (stockData.hasSMA20 || chartType === 'hourly') && (
+                {/* SMA20 line - make sure it works for hourly charts too */}
+                {sma20Line && (hasSMA20 || chartType === 'hourly' || chartType === 'H') && (
                   <path
-                    d={sma20Line(stockData.data)}
+                    d={(() => {
+                      try {
+                        const pathData = sma20Line(stockData);
+                        if (chartType === 'hourly' || chartType === 'H') {
+                          console.log("Generated SMA20 path for hourly:", pathData ? "Valid path data" : "Empty path");
+                        } else {
+                          console.log("Generated SMA20 path:", pathData ? "Valid path data" : "Empty path");
+                        }
+                        return pathData || "";
+                      } catch (error) {
+                        console.error("Error generating SMA20 path:", error);
+                        return "";
+                      }
+                    })()}
                     fill="none"
                     stroke={CHART_CONFIG.COLORS.SMA20}
                     strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
@@ -887,9 +1454,19 @@ const StockChart = React.memo(({
                   />
                 )}
                 
-                {sma50Line && (stockData.hasSMA50 || chartType === 'hourly') && (
+                {/* SMA50 line */}
+                {sma50Line && hasSMA50 && chartType !== 'hourly' && chartType !== 'H' && (
                   <path
-                    d={sma50Line(stockData.data)}
+                    d={(() => {
+                      try {
+                        const pathData = sma50Line(stockData);
+                        console.log("Generated SMA50 path:", pathData ? "Valid path data" : "Empty path");
+                        return pathData || "";
+                      } catch (error) {
+                        console.error("Error generating SMA50 path:", error);
+                        return "";
+                      }
+                    })()}
                     fill="none"
                     stroke={CHART_CONFIG.COLORS.SMA50}
                     strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
@@ -897,30 +1474,61 @@ const StockChart = React.memo(({
                   />
                 )}
                 
+                {/* Fallback for hourly chart type */}
+                {chartType === 'hourly' && !(hasSMA10 || hasSMA20) && (
+                  <text x="10" y="20" fill="white" fontSize="12">
+                    SMA indicators not available for hourly data
+                  </text>
+                )}
+                
                 {/* SMA lines for after data - only show if after data is visible */}
-                {(showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && (
+                {(showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
                   <>
-                    {afterSma10Line && (afterStockData.hasSMA10 || chartType === 'hourly') && (
+                    {afterSma10Line && (hasSMA10 || chartType === 'hourly') && (
                       <path
-                        d={afterSma10Line(visibleAfterData)}
+                        d={(() => {
+                          try {
+                            const pathData = afterSma10Line(visibleAfterData);
+                            return pathData || "";
+                          } catch (error) {
+                            console.error("Error generating after SMA10 path:", error);
+                            return "";
+                          }
+                        })()}
                         fill="none"
                         stroke={CHART_CONFIG.COLORS.SMA10}
                         strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
                         strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
                       />
                     )}
-                    {afterSma20Line && (afterStockData.hasSMA20 || chartType === 'hourly') && (
+                    {afterSma20Line && (hasSMA20 || chartType === 'hourly') && (
                       <path
-                        d={afterSma20Line(visibleAfterData)}
+                        d={(() => {
+                          try {
+                            const pathData = afterSma20Line(visibleAfterData);
+                            return pathData || "";
+                          } catch (error) {
+                            console.error("Error generating after SMA20 path:", error);
+                            return "";
+                          }
+                        })()}
                         fill="none"
                         stroke={CHART_CONFIG.COLORS.SMA20}
                         strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
                         strokeOpacity={CHART_CONFIG.SMA_LINE_OPACITY}
                       />
                     )}
-                    {afterSma50Line && (afterStockData.hasSMA50 || chartType === 'hourly') && (
+                    {afterSma50Line && hasSMA50 && chartType !== 'hourly' && chartType !== 'H' && (
                       <path
-                        d={afterSma50Line(visibleAfterData)}
+                        d={(() => {
+                          try {
+                            const pathData = afterSma50Line(visibleAfterData);
+                            return pathData || "";
+                          } catch (error) {
+                            console.error("Error generating after SMA50 path:", error);
+                            return "";
+                          }
+                        })()}
                         fill="none"
                         stroke={CHART_CONFIG.COLORS.SMA50}
                         strokeWidth={CHART_CONFIG.SMA_LINE_WIDTH}
@@ -933,9 +1541,11 @@ const StockChart = React.memo(({
             )}
             
             {/* Candlesticks for main data */}
+            {candlesticks && candlesticks.length > 0 ? (
+              <>
+                {console.log(`Rendering ${candlesticks.length} candlesticks`)}
             {candlesticks.map((candle, i) => (
               <g key={`main-${i}`}>
-                {!isNaN(candle.x) && !isNaN(candle.highY) && !isNaN(candle.lowY) && (
                   <line
                     x1={candle.x + candle.width / 2}
                     y1={candle.highY}
@@ -944,20 +1554,23 @@ const StockChart = React.memo(({
                     stroke={candle.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
                     strokeWidth={1}
                   />
-                )}
-                {!isNaN(candle.x) && !isNaN(candle.openY) && !isNaN(candle.closeY) && (
                   <rect
                     x={candle.x - candle.width / 2}
                     y={Math.min(candle.openY, candle.closeY)}
                     width={candle.width}
-                    height={Math.abs(candle.closeY - candle.openY)}
+                      height={Math.max(1, Math.abs(candle.closeY - candle.openY))} 
                     fill={candle.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
                     stroke={candle.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
                     strokeWidth={1}
                   />
-                )}
               </g>
             ))}
+              </>
+            ) : (
+              <text x="10" y="50" fill="white" fontSize="12">
+                No candlesticks to render ({stockData.length} data points available)
+              </text>
+            )}
             
             {/* Candlesticks for after data */}
             {showAfterAnimation && afterCandlesticks && afterCandlesticks.map((candle, i) => (
@@ -990,7 +1603,10 @@ const StockChart = React.memo(({
           {/* Volume section */}
           <g transform={`translate(0, ${scales.priceHeight})`}>
             {/* Volume bars for main data */}
-            {volumeBars && volumeBars.map((bar, i) => (
+            {volumeBars && volumeBars.length > 0 ? (
+              <>
+                {console.log(`Rendering ${volumeBars.length} volume bars`)}
+                {volumeBars.map((bar, i) => (
               <rect
                 key={`vol-${i}`}
                 x={bar.x}
@@ -1001,6 +1617,12 @@ const StockChart = React.memo(({
                 opacity={backgroundColor ? 0.6 : 0.3}
               />
             ))}
+              </>
+            ) : (
+              <text x="10" y={scales.priceHeight + 20} fill="white" fontSize="12">
+                No volume bars to render
+              </text>
+            )}
             
             {/* Volume bars for after data */}
             {showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar, i) => (
@@ -1041,80 +1663,5 @@ const StockChart = React.memo(({
     prevProps.forceShowSMA === nextProps.forceShowSMA
   );
 });
-
-// Function to calculate SMA values for a dataset
-function calculateSMA(data, sma10Period = 10, sma20Period = 20, sma50Period = 50) {
-  if (!data || data.length === 0) return data;
-
-  // Make a deep copy to avoid modifying the original data
-  const processedData = JSON.parse(JSON.stringify(data));
-  
-  console.log("Calculating SMAs for", processedData.length, "data points");
-  
-  // Calculate SMA10
-  for (let i = 0; i < processedData.length; i++) {
-    if (i >= sma10Period - 1) {
-      let sum = 0;
-      for (let j = 0; j < sma10Period; j++) {
-        const closeValue = parseFloat(processedData[i - j].Close);
-        if (!isNaN(closeValue)) {
-          sum += closeValue;
-        }
-      }
-      const sma10Value = sum / sma10Period;
-      // Set both property formats for consistency
-      processedData[i]["10sma"] = sma10Value;
-      processedData[i].sma10 = sma10Value;
-    } else {
-      processedData[i]["10sma"] = null;
-      processedData[i].sma10 = null;
-    }
-  }
-  
-  // Calculate SMA20
-  for (let i = 0; i < processedData.length; i++) {
-    if (i >= sma20Period - 1) {
-      let sum = 0;
-      for (let j = 0; j < sma20Period; j++) {
-        const closeValue = parseFloat(processedData[i - j].Close);
-        if (!isNaN(closeValue)) {
-          sum += closeValue;
-        }
-      }
-      const sma20Value = sum / sma20Period;
-      // Set both property formats for consistency
-      processedData[i]["20sma"] = sma20Value;
-      processedData[i].sma20 = sma20Value;
-    } else {
-      processedData[i]["20sma"] = null;
-      processedData[i].sma20 = null;
-    }
-  }
-  
-  // Calculate SMA50
-  for (let i = 0; i < processedData.length; i++) {
-    if (i >= sma50Period - 1) {
-      let sum = 0;
-      for (let j = 0; j < sma50Period; j++) {
-        const closeValue = parseFloat(processedData[i - j].Close);
-        if (!isNaN(closeValue)) {
-          sum += closeValue;
-        }
-      }
-      const sma50Value = sum / sma50Period;
-      // Set both property formats for consistency
-      processedData[i]["50sma"] = sma50Value;
-      processedData[i].sma50 = sma50Value;
-    } else {
-      processedData[i]["50sma"] = null;
-      processedData[i].sma50 = null;
-    }
-  }
-  
-  // For debugging
-  console.log("SMA calculation complete");
-  
-  return processedData;
-}
 
 export default StockChart;
