@@ -356,7 +356,7 @@ export default function Flashcards() {
   // Extract ordered JSON files for charts (D.json, H.json, M.json).
   const orderedFiles = useMemo(() => {
     if (!currentSubfolder || !currentSubfolder.jsonFiles) {
-      console.warn("No current subfolder or JSON files available");
+      // Remove warning, just return empty array silently
       return [];
     }
     
@@ -367,7 +367,6 @@ export default function Flashcards() {
       // Check if all required files are present
       for (const file of currentSubfolder.jsonFiles) {
         if (!file.fileName || !file.data) {
-          console.warn(`Invalid file object found: ${JSON.stringify(file)}`);
           continue;
         }
         
@@ -382,14 +381,7 @@ export default function Flashcards() {
         }
       }
       
-      // Log warning if any required files are missing
-      for (const requiredFile of requiredFiles) {
-        const key = requiredFile.charAt(0);
-        if (!files.has(key)) {
-          console.warn(`Required file ${requiredFile} not found`);
-        }
-      }
-      
+      // Remove warnings for missing files - they're optional
       return ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean);
     } catch (error) {
       console.error("Error processing ordered files:", error);
@@ -406,7 +398,7 @@ export default function Flashcards() {
     );
     
     if (!afterFile || !afterFile.data) {
-      console.warn("after.json file not found or has no data");
+      // Remove warning - after.json is optional
       return null;
     }
     
@@ -422,7 +414,7 @@ export default function Flashcards() {
     );
     
     if (!thingFile || !thingFile.data) {
-      console.warn("thing.json file not found or has no data");
+      // Remove warning - thing.json is optional
       return [];
     }
     
@@ -430,14 +422,12 @@ export default function Flashcards() {
       // The data is already parsed JSON from the API
       const jsonData = thingFile.data;
       if (!Array.isArray(jsonData) || jsonData.length === 0) {
-        console.warn("thing.json data is not an array or is empty");
         return [];
       }
       
       // Extract the thing value from the first object
       const thingValue = jsonData[0].thing;
       if (typeof thingValue !== 'number') {
-        console.warn("Invalid thing value in thing.json:", thingValue);
         return [];
       }
       
@@ -457,7 +447,7 @@ export default function Flashcards() {
     );
      
     if (!pointsFile || !pointsFile.data) {
-      console.warn("points.json file not found or has no data");
+      // Remove warning - points.json is optional
       return [];
     }
      
@@ -465,14 +455,12 @@ export default function Flashcards() {
       // The data is already parsed JSON from the API
       const jsonData = pointsFile.data;
       if (!Array.isArray(jsonData)) {
-        console.warn("points.json data is not an array");
         return [];
       }
       
       // Extract points values from each object
       return jsonData.map(item => {
         if (typeof item.points !== 'string') {
-          console.warn("Invalid points value in points.json:", item);
           return null;
         }
         return item.points;
@@ -1375,7 +1363,7 @@ export default function Flashcards() {
   } else if (
     !flashcards.length ||
     !currentSubfolder ||
-    orderedFiles.length !== 3 ||
+    orderedFiles.length === 0 ||
     thingData.length === 0
   ) {
     content = (
