@@ -57,17 +57,6 @@ const nextConfig = {
     // Use memory optimizations where available
     optimizeCss: true,
   },
-  // Configure Turbopack for memory efficiency in development
-  turbo: {
-    loaders: {
-      // Disable unnecessary loaders to reduce memory
-      '.svg': ['@svgr/webpack'],
-    },
-    // Enable memory optimizations
-    resolveAlias: {
-      // Add any path aliases that can optimize bundling
-    },
-  },
 };
 
 module.exports = nextConfig;

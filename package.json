@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev --turbo",
-    "dev:light": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev --turbo",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
+    "dev:light": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "build:light": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
@@ -16,6 +16,7 @@
     "@upstash/ratelimit": "^2.0.5",
     "@upstash/redis": "^1.34.7",
     "bcryptjs": "^3.0.2",
+    "critters": "^0.0.23",
     "dotenv": "^16.5.0",
     "geist": "^1.3.1",
     "googleapis": "^144.0.0",
