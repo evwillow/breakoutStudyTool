@@ -12,6 +12,7 @@ import type { Metadata } from "next"
 import "./globals.css"
 import Header from "@/components/Header"
 import Providers from "./providers";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 // Define metadata for SEO and browser tab
 export const metadata: Metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
+        <GoogleAnalytics />
         <Providers>
           <Header />
           <div className="w-full flex justify-center">
