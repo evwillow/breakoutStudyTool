@@ -156,12 +156,19 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
         
         // Normal flow for non-special stocks or if special handling failed
         // Fetch all folders
-        const foldersRes = await fetch("/api/getFolders");
+        const foldersRes = await fetch("/api/files/folders");
         if (!foldersRes.ok) {
-          throw new Error(`Error fetching folders: ${foldersRes.status}`);
+          console.error(`Error fetching folders: ${foldersRes.status}`);
+          return;
         }
         
-        const folders = await foldersRes.json();
+        const foldersData = await foldersRes.json();
+        if (!foldersData.success || !Array.isArray(foldersData.data)) {
+          console.error("Invalid folders data format");
+          return;
+        }
+        
+        const folders = foldersData.data;
         
         // Shuffle the folders array to randomize the order
         const shuffleFolders = (array) => {
@@ -188,20 +195,26 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
         for (const folder of dateFolders) {
           try {
             // Use getFileData endpoint which returns more complete data
-            const filesRes = await fetch(`/api/getFileData?folder=${encodeURIComponent(folder.name)}`);
+            const filesRes = await fetch(`/api/files/data?folder=${encodeURIComponent(folder.name)}`);
             if (!filesRes.ok) {
               console.error(`Error fetching files for folder ${folder.name}: ${filesRes.status}`);
               continue;
             }
             
             const filesData = await filesRes.json();
+            if (!filesData.success || !Array.isArray(filesData.data)) {
+              console.error(`Invalid file data format for folder ${folder.name}`);
+              continue;
+            }
+            
+            const files = filesData.data;
             processedFolders++;
             
             // Log raw data for debugging
             console.log(`Files data for folder ${folder.name}:`, filesData);
             
             // Handle case where API returns an empty array
-            if (!filesData || filesData.length === 0) {
+            if (!files || files.length === 0) {
               console.log(`No files found in folder ${folder.name}`);
               continue;
             }
@@ -212,7 +225,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
               continue;
             }
             
-            const { relevantFiles: filteredFiles, totalFilesBeforeFiltering } = processAndFilterFiles(filesData, folder.name, currentStock);
+            const { relevantFiles: filteredFiles, totalFilesBeforeFiltering } = processAndFilterFiles(files, folder.name, currentStock);
             totalFilesFound += totalFilesBeforeFiltering;
             relevantFiles = [...relevantFiles, ...filteredFiles];
           } catch (error) {
@@ -227,14 +240,14 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
           
           // First fallback: Try to fetch files directly from a folder with the same name as the stock
           try {
-            const stockFolderRes = await fetch(`/api/getFileData?folder=${encodeURIComponent(currentStock)}`);
+            const stockFolderRes = await fetch(`/api/files/data?folder=${encodeURIComponent(currentStock)}`);
             if (stockFolderRes.ok) {
               const stockFolderData = await stockFolderRes.json();
               
-              if (stockFolderData && stockFolderData.length > 0) {
-                console.log(`Found files in folder ${currentStock}:`, stockFolderData);
+              if (stockFolderData.success && stockFolderData.data && stockFolderData.data.length > 0) {
+                console.log(`Found files in folder ${currentStock}:`, stockFolderData.data);
                 
-                const { relevantFiles: stockFiles, totalFilesBeforeFiltering: stockTotalFiles } = processAndFilterFiles(stockFolderData, currentStock, null); // Pass null to include all files
+                const { relevantFiles: stockFiles, totalFilesBeforeFiltering: stockTotalFiles } = processAndFilterFiles(stockFolderData.data, currentStock, null); // Pass null to include all files
                 totalFilesFound += stockTotalFiles;
                 relevantFiles = [...relevantFiles, ...stockFiles];
               }
@@ -247,19 +260,19 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
           if (relevantFiles.length === 0) {
             try {
               console.log(`Trying searchFiles API for ${currentStock}...`);
-              const searchRes = await fetch(`/api/searchFiles?query=${encodeURIComponent(currentStock)}`);
+              const searchRes = await fetch(`/api/files/search?query=${encodeURIComponent(currentStock)}`);
               
               if (searchRes.ok) {
                 const searchData = await searchRes.json();
                 
-                if (searchData && searchData.length > 0) {
-                  console.log(`Found files via search for ${currentStock}:`, searchData);
+                if (searchData.success && searchData.data && searchData.data.length > 0) {
+                  console.log(`Found files via search for ${currentStock}:`, searchData.data);
                   
                   let searchTotalFiles = 0;
                   const searchFiles = [];
                   
                   // Process each folder in the search results
-                  searchData.forEach(folderData => {
+                  searchData.data.forEach(folderData => {
                     if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
                       searchTotalFiles += folderData.jsonFiles.length;
                       
@@ -288,19 +301,19 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
           if (relevantFiles.length === 0) {
             try {
               console.log(`Trying getStockFiles API for ${currentStock}...`);
-              const stockFilesRes = await fetch(`/api/getStockFiles?stock=${encodeURIComponent(currentStock)}`);
+              const stockFilesRes = await fetch(`/api/files/stocks?stock=${encodeURIComponent(currentStock)}`);
               
               if (stockFilesRes.ok) {
                 const stockFilesData = await stockFilesRes.json();
                 
-                if (stockFilesData && stockFilesData.length > 0) {
-                  console.log(`Found files via getStockFiles for ${currentStock}:`, stockFilesData);
+                if (stockFilesData.success && stockFilesData.data && stockFilesData.data.length > 0) {
+                  console.log(`Found files via getStockFiles for ${currentStock}:`, stockFilesData.data);
                   
                   let stockTotalFiles = 0;
                   const stockFiles = [];
                   
                   // Process each folder in the results
-                  stockFilesData.forEach(folderData => {
+                  stockFilesData.data.forEach(folderData => {
                     if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
                       stockTotalFiles += folderData.jsonFiles.length;
                       

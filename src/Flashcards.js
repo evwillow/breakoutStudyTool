@@ -222,16 +222,24 @@ export default function Flashcards() {
     let mounted = true;
     async function fetchFolders() {
       try {
-        const res = await fetch("/api/getFolders");
+        console.log("Fetching folders...");
+        const res = await fetch("/api/files/folders");
+        console.log("Folders response status:", res.ok, res.status);
+        
         if (!res.ok) {
           const errorData = await res.json();
+          console.error("Folders error:", errorData);
           throw new Error(errorData.message || "Error fetching folders");
         }
         const data = await res.json();
-        if (mounted && Array.isArray(data)) {
-          setFolders(data);
-          if (data.length > 0 && !selectedFolder) {
-            setSelectedFolder(data[0].name);
+        console.log("Folders data received:", data);
+        
+        if (mounted && Array.isArray(data.data)) {
+          console.log("Setting folders:", data.data);
+          setFolders(data.data);
+          if (data.data.length > 0 && !selectedFolder) {
+            console.log("Setting selected folder to:", data.data[0].name);
+            setSelectedFolder(data.data[0].name);
           }
         }
       } catch (error) {
@@ -246,27 +254,44 @@ export default function Flashcards() {
 
   // Fetch flashcards when selectedFolder changes.
   useEffect(() => {
-    if (!selectedFolder || status !== "authenticated" || !session) return;
+    console.log("Flashcard fetch effect triggered. selectedFolder:", selectedFolder, "status:", status, "session:", !!session);
+    
+    if (!selectedFolder || status !== "authenticated" || !session) {
+      console.log("Skipping flashcard fetch - missing requirements");
+      return;
+    }
+    
     let mounted = true;
     async function fetchFlashcards() {
       try {
+        console.log("Starting flashcard fetch for folder:", selectedFolder);
         setLoading(true);
         setLoadingProgress(0);
         setLoadingStep('Initializing...');
         
+        // Start with a smaller initial load to prevent timeouts
         const res = await fetch(
-          `/api/getFileData?folder=${encodeURIComponent(selectedFolder)}`
+          `/api/files/data?folder=${encodeURIComponent(selectedFolder)}&limit=5&offset=0`
         );
+        console.log("Flashcard response status:", res.ok, res.status);
+        
         if (!res.ok) {
           const errorData = await res.json();
+          console.error("Flashcard fetch error:", errorData);
           throw new Error(errorData.message || "Error fetching file data");
         }
         setLoadingProgress(30);
         setLoadingStep('Loading flashcards...');
         
         const data = await res.json();
-        if (mounted && Array.isArray(data) && data.length > 0) {
-          setFlashcards(data);
+        console.log("API Response:", data);
+        console.log("Data array:", data.data);
+        console.log("Is data.data an array?", Array.isArray(data.data));
+        console.log("Data length:", data.data?.length);
+        
+        if (mounted && Array.isArray(data.data) && data.data.length > 0) {
+          console.log("Setting flashcards:", data.data);
+          setFlashcards(data.data);
           setLoadingProgress(60);
           setLoadingStep('Processing chart data...');
           
@@ -285,35 +310,46 @@ export default function Flashcards() {
             try {
               console.log("Creating initial round for user:", session.user.id);
               
-              const { data: newRoundData, error: roundError } = await supabase
-                .from("rounds")
-                .insert([
-                  { 
-                    dataset_name: selectedFolder, 
-                    user_id: session.user.id, 
-                    completed: false 
-                  },
-                ])
-                .select();
-                
-              if (roundError) {
-                console.error("Error creating round:", roundError);
-              } else if (!newRoundData || newRoundData.length === 0) {
-                console.error("No round data returned after creation");
+              const response = await fetch("/api/game/rounds", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  dataset_name: selectedFolder,
+                  user_id: session.user.id,
+                  completed: false
+                }),
+              });
+              
+              if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Error creating round:", errorData);
               } else {
-                console.log("Round created successfully:", newRoundData[0]);
-                setRoundId(newRoundData[0].id);
+                const result = await response.json();
+                if (result.success && result.data) {
+                  console.log("Round created successfully:", result.data);
+                  setRoundId(result.data.id);
+                } else {
+                  console.error("No round data returned after creation");
+                }
               }
             } catch (err) {
               console.error("Error creating initial round:", err);
             }
           }
           setLoadingProgress(100);
+        } else {
+          console.log("No flashcard data or empty array received");
+          // If no data received, show a helpful message
+          setError("No flashcard data found in this folder. Please try selecting a different folder.");
         }
       } catch (error) {
         console.error("Error fetching flashcards:", error);
+        console.error("Error details:", error.message, error.stack);
         setError(error.message);
       } finally {
+        console.log("Flashcard fetch finally block - setting loading to false");
         if (mounted) {
           setLoading(false);
           setLoadingProgress(0);
@@ -321,8 +357,10 @@ export default function Flashcards() {
         }
       }
     }
+    console.log("About to call fetchFlashcards()");
     fetchFlashcards();
     return () => {
+      console.log("Flashcard fetch effect cleanup");
       mounted = false;
     };
   }, [selectedFolder, status, session, roundId, timerDuration, isCheckingExistingRounds]);
@@ -347,13 +385,20 @@ export default function Flashcards() {
   );
 
   const currentSubfolder = flashcards[currentIndex] || null;
+  console.log("Current subfolder:", currentSubfolder);
+  console.log("Current index:", currentIndex);
+  console.log("Flashcards length:", flashcards.length);
 
   // Extract ordered JSON files for charts (D.json, H.json, M.json).
   const orderedFiles = useMemo(() => {
+    console.log("Processing orderedFiles for currentSubfolder:", currentSubfolder);
+    
     if (!currentSubfolder || !currentSubfolder.jsonFiles) {
-      // Remove warning, just return empty array silently
+      console.log("No currentSubfolder or jsonFiles, returning empty array");
       return [];
     }
+    
+    console.log("jsonFiles found:", currentSubfolder.jsonFiles);
     
     try {
       const files = new Map();
@@ -361,6 +406,8 @@ export default function Flashcards() {
       
       // Check if all required files are present
       for (const file of currentSubfolder.jsonFiles) {
+        console.log("Processing file:", file.fileName, "has data:", !!file.data);
+        
         if (!file.fileName || !file.data) {
           continue;
         }
@@ -369,15 +416,19 @@ export default function Flashcards() {
         
         if (fileName.includes("D.JSON") || fileName.includes("D.json")) {
           files.set("D", file);
+          console.log("Found D file:", file.fileName);
         } else if (fileName.includes("H.JSON") || fileName.includes("H.json")) {
           files.set("H", file);
+          console.log("Found H file:", file.fileName);
         } else if (fileName.includes("M.JSON") || fileName.includes("M.json")) {
           files.set("M", file);
+          console.log("Found M file:", file.fileName);
         }
       }
       
-      // Remove warnings for missing files - they're optional
-      return ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean);
+      const result = ["D", "H", "M"].map((key) => files.get(key)).filter(Boolean);
+      console.log("Ordered files result:", result);
+      return result;
     } catch (error) {
       console.error("Error processing ordered files:", error);
       return [];
@@ -402,31 +453,46 @@ export default function Flashcards() {
 
   // Extract thing.json data.
   const thingData = useMemo(() => {
-    if (!currentSubfolder || !currentSubfolder.jsonFiles) return [];
+    console.log("Processing thingData for currentSubfolder:", currentSubfolder);
+    
+    if (!currentSubfolder || !currentSubfolder.jsonFiles) {
+      console.log("No currentSubfolder or jsonFiles for thingData");
+      return [];
+    }
     
     const thingFile = currentSubfolder.jsonFiles.find((file) =>
       file.fileName.toLowerCase().includes("thing.json")
     );
     
+    console.log("Thing file found:", thingFile);
+    
     if (!thingFile || !thingFile.data) {
-      // Remove warning - thing.json is optional
+      console.log("No thing file or data found");
       return [];
     }
     
     try {
       // The data is already parsed JSON from the API
       const jsonData = thingFile.data;
+      console.log("Thing file data:", jsonData);
+      
       if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        console.log("Thing data is not an array or is empty");
         return [];
       }
       
       // Extract the thing value from the first object
       const thingValue = jsonData[0].thing;
+      console.log("Thing value:", thingValue);
+      
       if (typeof thingValue !== 'number') {
+        console.log("Thing value is not a number:", typeof thingValue);
         return [];
       }
       
-      return [thingValue];
+      const result = [thingValue];
+      console.log("Thing data result:", result);
+      return result;
     } catch (error) {
       console.error("Error processing thing.json:", error);
       return [];
@@ -503,20 +569,18 @@ export default function Flashcards() {
       // End current round if exists
       if (roundId) {
         try {
-          const response = await fetch(`/api/updateRound`, {
-            method: "POST",
+          const response = await fetch(`/api/game/rounds/${roundId}`, {
+            method: "PUT",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              id: roundId,
               completed: true
             }),
+            keepalive: true
+          }).catch(err => {
+            console.error("Error marking round as completed on unload:", err);
           });
-          
-          if (!response.ok) {
-            console.warn("Failed to mark previous round as completed, but continuing anyway");
-          }
         } catch (err) {
           console.error("Error updating previous round:", err);
           // Continue anyway
@@ -529,7 +593,7 @@ export default function Flashcards() {
       console.log("Creating new round with dataset:", selectedFolder);
       
       // Create a new round via server API route
-      const response = await fetch("/api/createRound", {
+      const response = await fetch("/api/game/rounds", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -656,7 +720,7 @@ export default function Flashcards() {
                 
                 console.log("Logging match with new round ID:", matchData);
                 
-                fetch("/api/logMatch", {
+                fetch("/api/game/matches", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -696,7 +760,7 @@ export default function Flashcards() {
           console.log("Sending match data to API:", matchData);
           
           // Use fetch API to call a server-side endpoint for logging
-          const response = await fetch("/api/logMatch", {
+          const response = await fetch("/api/game/matches", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -706,11 +770,23 @@ export default function Flashcards() {
           
           if (!response.ok) {
             // Get the error details from the response
-            const errorData = await response.json();
-            console.error("Error logging match via API:", errorData.error, errorData.details || "");
+            let errorData;
+            try {
+              errorData = await response.json();
+            } catch (parseError) {
+              console.error("Failed to parse error response:", parseError);
+              errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+            }
+            
+            console.error("Error logging match via API:", {
+              status: response.status,
+              statusText: response.statusText,
+              errorData: errorData,
+              matchData: matchData
+            });
             
             // If the round doesn't exist in the database, create a new one
-            if (response.status === 404 && errorData.error === "Round not found") {
+            if (response.status === 404 && (errorData.error === "Round not found" || errorData.message?.includes("Round not found"))) {
               console.warn("Round not found in database. Creating a new round...");
               
               try {
@@ -729,7 +805,7 @@ export default function Flashcards() {
                   console.log("Retrying match logging with new round ID:", updatedMatchData);
                   
                   // Try logging the match again
-                  const retryResponse = await fetch("/api/logMatch", {
+                  const retryResponse = await fetch("/api/game/matches", {
                     method: "POST",
                     headers: {
                       "Content-Type": "application/json",
@@ -749,6 +825,8 @@ export default function Flashcards() {
               } catch (createErr) {
                 console.error("Failed to create new round after round not found:", createErr);
               }
+            } else {
+              console.error("Match logging failed with status:", response.status, "Error:", errorData);
             }
           } else {
             const result = await response.json();
@@ -896,7 +974,7 @@ export default function Flashcards() {
       if (!flashcards || flashcards.length === 0) {
         try {
           const fileDataRes = await fetch(
-            `/api/getFileData?folder=${encodeURIComponent(datasetName)}`
+            `/api/files/data?folder=${encodeURIComponent(datasetName)}`
           );
           
           if (!fileDataRes.ok) {
@@ -905,8 +983,8 @@ export default function Flashcards() {
           }
           
           const fileData = await fileDataRes.json();
-          if (Array.isArray(fileData) && fileData.length > 0) {
-            setFlashcards(fileData);
+          if (Array.isArray(fileData.data) && fileData.data.length > 0) {
+            setFlashcards(fileData.data);
           } else {
             console.error("No flashcard data found for folder:", datasetName);
             setLoading(false);
@@ -938,7 +1016,7 @@ export default function Flashcards() {
     
     try {
       // Load the round data via API
-      const response = await fetch(`/api/getRound?id=${roundId}`);
+      const response = await fetch(`/api/game/rounds/${roundId}`);
       const result = await response.json();
       
       if (!response.ok) {
@@ -951,26 +1029,39 @@ export default function Flashcards() {
       console.log("Loaded round data:", result);
       
       // Check if we have valid data from the API
-      if (!result) {
+      if (!result.success || !result.data) {
         console.error("No data returned from API for round:", roundId);
         setError(`Failed to load round: No data returned`);
         setLoading(false);
         return;
       }
       
+      const roundData = result.data;
+      
+      // Fetch matches for this round
+      const matchesResponse = await fetch(`/api/game/matches?roundId=${roundId}`);
+      const matchesResult = await matchesResponse.json();
+      
+      let matches = [];
+      if (matchesResponse.ok && matchesResult.success && matchesResult.data) {
+        matches = matchesResult.data;
+      } else {
+        console.warn("No matches found for round:", roundId);
+      }
+      
       // Set round ID
       setRoundId(roundId);
       
       // Calculate match index (to resume where left off)
-      const uniqueStocks = [...new Set(result.matches.map(match => match.stock_symbol))];
-      const lastStock = result.matches.length > 0 
-        ? result.matches[result.matches.length - 1].stock_symbol 
+      const uniqueStocks = [...new Set(matches.map(match => match.stock_symbol))];
+      const lastStock = matches.length > 0 
+        ? matches[matches.length - 1].stock_symbol 
         : null;
       const stockIndex = uniqueStocks.indexOf(lastStock);
       
       // Get metrics from the loaded data
-      const totalMatches = result.matches.length;
-      const correctMatches = result.matches.filter(match => match.correct).length;
+      const totalMatches = matches.length;
+      const correctMatches = matches.filter(match => match.correct).length;
       
       // Calculate accuracy for display
       const roundAccuracy = totalMatches > 0 
@@ -1025,7 +1116,7 @@ export default function Flashcards() {
           setLoadingStep('Checking for saved rounds...');
           
           // Fetch all user rounds
-          const response = await fetch(`/api/getUserRounds?userId=${session.user.id}`);
+          const response = await fetch(`/api/game/rounds?userId=${session.user.id}`);
           if (!response.ok) {
             throw new Error("Failed to fetch user rounds");
           }
@@ -1034,8 +1125,8 @@ export default function Flashcards() {
           const data = await response.json();
           
           // Find the most recent in-progress round
-          const inProgressRounds = data.rounds && Array.isArray(data.rounds) 
-            ? data.rounds.filter(round => !round.completed)
+          const inProgressRounds = data.data && Array.isArray(data.data) 
+            ? data.data.filter(round => !round.completed)
             : [];
           
           if (inProgressRounds.length > 0) {
@@ -1057,7 +1148,7 @@ export default function Flashcards() {
                 setLoadingStep('Fetching dataset files...');
                 
                 const fileDataRes = await fetch(
-                  `/api/getFileData?folder=${encodeURIComponent(mostRecentRound.dataset_name)}`
+                  `/api/files/data?folder=${encodeURIComponent(mostRecentRound.dataset_name)}`
                 );
                 
                 if (!fileDataRes.ok) {
@@ -1066,8 +1157,8 @@ export default function Flashcards() {
                 }
                 
                 const fileData = await fileDataRes.json();
-                if (Array.isArray(fileData) && fileData.length > 0) {
-                  setFlashcards(fileData);
+                if (Array.isArray(fileData.data) && fileData.data.length > 0) {
+                  setFlashcards(fileData.data);
                   setLoadingProgress(80);
                   setLoadingStep('Restoring round state...');
                   
@@ -1157,13 +1248,18 @@ export default function Flashcards() {
           localStorage.removeItem(`roundId_${session.user.id}`);
           
           // Use the fetch API to update the round status
-          navigator.sendBeacon(
-            '/api/updateRound',
-            JSON.stringify({
-              id: roundId,
+          fetch(`/api/game/rounds/${roundId}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
               completed: true
-            })
-          );
+            }),
+            keepalive: true
+          }).catch(err => {
+            console.error("Error marking round as completed on unload:", err);
+          });
         } catch (err) {
           console.error("Error marking round as completed on unload:", err);
         }

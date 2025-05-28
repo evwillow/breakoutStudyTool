@@ -49,36 +49,25 @@ export default function StockDataDiagnostic() {
     const fetchFolders = async () => {
       try {
         setFoldersStatus({ loading: true });
-        const response = await fetch('/api/getFolders');
+        const response = await fetch('/api/files/folders');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
+        
+        if (!data.success || !Array.isArray(data.data)) {
+          throw new Error('Invalid response format');
+        }
         
         setFoldersStatus({
           loading: false,
-          success: Array.isArray(data) && data.length > 0,
-          message: Array.isArray(data) && data.length > 0 
-            ? `Successfully loaded ${data.length} folders` 
-            : 'No folders found'
+          success: true,
+          message: `Successfully loaded ${data.data.length} folders`
         });
         
-        if (Array.isArray(data) && data.length > 0) {
-          // Shuffle the folders array to randomize the order
-          const shuffleFolders = (array) => {
-            // Fisher-Yates shuffle algorithm
-            for (let i = array.length - 1; i > 0; i--) {
-              const j = Math.floor(Math.random() * (i + 1));
-              [array[i], array[j]] = [array[j], array[i]];
-            }
-            return array;
-          };
-          
-          // Apply the shuffle to randomize folder order
-          const shuffledFolders = shuffleFolders([...data]);
-          console.log('Folders have been randomly shuffled for display');
-          
-          setFolders(shuffledFolders);
-          if (!selectedFolder) {
-            setSelectedFolder(shuffledFolders[0].name);
-          }
+        setFolders(data.data);
+        if (!selectedFolder) {
+          setSelectedFolder(data.data[0].name);
         }
       } catch (error) {
         setFoldersStatus({
@@ -100,16 +89,19 @@ export default function StockDataDiagnostic() {
     const fetchFileData = async () => {
       try {
         setFilesStatus({ loading: true });
-        const response = await fetch(`/api/getFileData?folder=${encodeURIComponent(selectedFolder)}`);
+        const response = await fetch(`/api/files/data?folder=${encodeURIComponent(selectedFolder)}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
         
         setFilesStatus({
           loading: false,
-          success: Array.isArray(data) && data.length > 0,
-          message: Array.isArray(data) && data.length > 0 
-            ? `Successfully loaded ${data.length} data sets` 
+          success: data.success && Array.isArray(data.data) && data.data.length > 0,
+          message: data.success && Array.isArray(data.data) && data.data.length > 0
+            ? `Successfully loaded ${data.data.length} data sets` 
             : 'No data found in this folder',
-          data: data
+          data: data.data
         });
       } catch (error) {
         setFilesStatus({

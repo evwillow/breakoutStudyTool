@@ -1,0 +1,133 @@
+/**
+ * Standardized API Types
+ * 
+ * Defines consistent request/response types for all API endpoints
+ */
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: number;
+    message: string;
+    details?: string;
+    validationErrors?: Record<string, string>;
+  };
+  meta?: {
+    timestamp: string;
+    requestId?: string;
+    pagination?: PaginationMeta;
+  };
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+// Game-related types
+export interface Round {
+  id: string;
+  user_id: string;
+  dataset_name: string;
+  completed: boolean;
+  created_at: string;
+  accuracy?: string;
+  correctMatches?: number;
+  totalMatches?: number;
+}
+
+export interface Match {
+  id: string;
+  round_id: string;
+  stock_symbol: string;
+  user_selection: number;
+  correct: boolean;
+  created_at: string;
+}
+
+export interface CreateRoundRequest {
+  dataset_name: string;
+  user_id: string;
+  completed?: boolean;
+}
+
+export interface LogMatchRequest {
+  round_id: string;
+  stock_symbol: string;
+  user_selection: number;
+  correct: boolean;
+}
+
+// User-related types
+export interface User {
+  id: string;
+  email: string;
+  username?: string;
+  email_verified: boolean;
+  created_at: string;
+}
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  captchaToken?: string;
+}
+
+// File-related types
+export interface StockFile {
+  name: string;
+  data: StockDataPoint[];
+  metadata?: {
+    symbol: string;
+    timeframe: string;
+    lastUpdated: string;
+  };
+}
+
+export interface StockDataPoint {
+  Open: number;
+  High: number;
+  Low: number;
+  Close: number;
+  Volume: number;
+  "10sma"?: number;
+  "20sma"?: number;
+  "50sma"?: number;
+}
+
+export interface GoogleDriveFolder {
+  id: string;
+  name: string;
+  mimeType: string;
+}
+
+// Diagnostic types
+export interface HealthCheckResponse {
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  timestamp: string;
+  services: {
+    database: ServiceStatus;
+    googleDrive: ServiceStatus;
+    auth: ServiceStatus;
+  };
+  environment: string;
+}
+
+export interface ServiceStatus {
+  status: 'up' | 'down' | 'degraded';
+  responseTime?: number;
+  error?: string;
+  lastChecked: string;
+} 

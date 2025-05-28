@@ -41,12 +41,10 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
         return;
       }
 
-      // Determine if we're using mock database
-      const response = await fetch('/api/checkMockDb');
-      const { useMockDb } = await response.json();
-      console.log('RoundHistory: Using mock database:', useMockDb);
+      // Determine if we're using mock database - this endpoint no longer exists, so skip this check
+      console.log('RoundHistory: Using new API endpoints');
       
-      const fetchResponse = await fetch(`/api/getUserRounds?userId=${userId}`);
+      const fetchResponse = await fetch(`/api/game/rounds?userId=${userId}`);
       const data = await fetchResponse.json();
       
       if (!fetchResponse.ok) {
@@ -55,10 +53,10 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
       }
       
       console.log('RoundHistory: Received rounds data:', data);
-      console.log('RoundHistory: Number of rounds found:', data.rounds?.length || 0);
+      console.log('RoundHistory: Number of rounds found:', data.data?.length || 0);
       
-      if (data.rounds && Array.isArray(data.rounds)) {
-        setRounds(data.rounds);
+      if (data.data && Array.isArray(data.data)) {
+        setRounds(data.data);
       } else {
         console.warn('RoundHistory: No rounds array in response');
         setRounds([]);
@@ -82,7 +80,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
       setIsDeleting(true);
       setDeletingId(roundId);
       try {
-        const response = await fetch(`/api/deleteRound?id=${roundId}`, {
+        const response = await fetch(`/api/game/rounds/${roundId}`, {
           method: 'DELETE'
         });
         
@@ -107,7 +105,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
     setShowConfirmDialog(false);
     setIsDeletingAll(true);
     try {
-      const response = await fetch(`/api/deleteAllRounds?userId=${userId}`, {
+      const response = await fetch(`/api/game/rounds/bulk?userId=${userId}`, {
         method: 'DELETE'
       });
       
