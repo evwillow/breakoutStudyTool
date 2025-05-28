@@ -93,6 +93,8 @@ export default function Flashcards() {
   const actionButtonsRef = useRef(null);
   // Store the target end time for the timer
   const timerEndTimeRef = useRef(null);
+  // Track if auto-load has been attempted to prevent multiple attempts
+  const autoLoadAttempted = useRef(false);
 
   // Timer countdown effect: uses Page Visibility API to keep running in background
   useEffect(() => {
