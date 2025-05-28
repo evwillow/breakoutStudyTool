@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { signOut, useSession } from "next-auth/react"
 import Link from "next/link"
 import Logo from "./Logo"
-import SignInButton from "../../components/SignInButton"
+import { SignInButton, AuthModal } from "../Auth"
 
 /**
  * Header Component
@@ -14,11 +14,12 @@ import SignInButton from "../../components/SignInButton"
  * - Responsive design with logo and navigation links
  * - Enhanced mobile-friendly navigation with animated hamburger menu
  * - Sign out button for authenticated users
- * - Sign in button for non-authenticated users
+ * - Sign in button for non-authenticated users with auth modal
  * - Links to dummy pages for future development
  */
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const { data: session } = useSession()
   const [scrolled, setScrolled] = useState(false)
   const mobileMenuRef = useRef(null)
@@ -158,7 +159,12 @@ const Header = () => {
             )}
             
             {/* Sign In Button - Using the same breakpoint as navigation, perfect vertical alignment */}
-            {!session && <SignInButton className="hidden min-[800px]:inline-flex items-center" />}
+            {!session && (
+              <SignInButton 
+                className="hidden min-[800px]:inline-flex items-center" 
+                onClick={() => setShowAuthModal(true)}
+              />
+            )}
             
             {/* Mobile menu button - Shown only when navigation is hidden */}
             <button
@@ -249,13 +255,27 @@ const Header = () => {
                 </button>
               ) : (
                 <div className="flex items-center justify-center" onClick={() => setMobileMenuOpen(false)}>
-                  <SignInButton className="w-full" />
+                  <SignInButton 
+                    className="w-full" 
+                    onClick={() => {
+                      setShowAuthModal(true)
+                      setMobileMenuOpen(false)
+                    }}
+                  />
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <AuthModal 
+          open={showAuthModal} 
+          onClose={() => setShowAuthModal(false)} 
+        />
+      )}
     </header>
   )
 }

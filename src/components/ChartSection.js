@@ -1,17 +1,19 @@
 /**
- * ChartSection.js
+ * ChartSection Component
  * 
- * Component for displaying stock charts in a responsive layout.
+ * A comprehensive chart section that handles the display of stock charts with animations,
+ * authentication modal, and action buttons for trading practice.
+ * 
  * Features:
- * - Responsive design with different layouts for mobile and desktop
- * - Displays daily and hourly charts in an organized grid
- * - Shows timer and authentication controls
- * - Optimized with React.memo for performance
+ * - Responsive chart display with mobile optimization
+ * - Animated reveal of "after" data with precise timing
+ * - Authentication modal integration
+ * - Action buttons for user interaction
  * - Clean, borderless design with soft backgrounds for reduced eye strain
  */
 import React, { useState, useEffect, useRef } from "react";
 import StockChart from "./StockChart";
-import AuthModal from "./AuthModal";
+import { AuthModal } from "./Auth";
 import ActionButtonsRow from "./ActionButtonsRow";
 
 const ChartSection = React.memo(function ChartSection({

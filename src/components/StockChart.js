@@ -1,19 +1,20 @@
 /**
- * StockChart.js
+ * StockChart Component
  * 
- * Component for rendering interactive stock price charts.
+ * A comprehensive stock chart component that displays candlestick charts with volume,
+ * moving averages, and interactive features for trading analysis.
+ * 
  * Features:
- * - Responsive design that adapts to different screen sizes
- * - Renders price and volume data from JSON input
- * - Displays moving averages (SMA)
- * - Supports different color schemes for up/down movements
+ * - Candlestick chart with OHLC data
+ * - Volume bars with color coding
+ * - Multiple moving averages (SMA 10, 20, 50)
+ * - Responsive design for mobile and desktop
  * - Optimized rendering with canvas for performance
  */
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { scaleLinear, scalePoint } from "d3-scale";
 import { line } from "d3-shape";
-import AuthButtons from "./AuthButtons";
-import AuthModal from "./AuthModal";
+import { AuthButtons, AuthModal } from "./Auth";
 
 /**
  * Chart configuration with responsive settings

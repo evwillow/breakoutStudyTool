@@ -16,7 +16,7 @@ import { useSession, signIn } from "next-auth/react";
 import ChartSection from "./components/ChartSection";
 import ActionButtonsRow from "./components/ActionButtonsRow";
 import FolderSection from "./components/FolderSection";
-import AuthModal from "./components/AuthModal";
+import { AuthModal } from "./components/Auth";
 import RoundHistory from "./components/RoundHistory";
 import supabase from "./config/supabase";
 import DateFolderBrowser from "./components/DateFolderBrowser";
@@ -25,13 +25,6 @@ import LandingPage from "./components/LandingPage";
 // Application constants
 const INITIAL_TIMER = 60;
 const actionButtons = ["-5%", "0%", "20%", "50%"];
-
-// Create a global variable to store the setShowAuthModal function
-// This allows the Header component to trigger the auth modal
-// Safely check if window exists (for server-side rendering)
-if (typeof window !== 'undefined') {
-  window.openAuthModal = null;
-}
 
 export default function Flashcards() {
   const { data: session, status } = useSession();
@@ -1131,19 +1124,6 @@ export default function Flashcards() {
       autoLoadAttempted.current = false;
     }
   }, [status]);
-
-  // Store the setShowAuthModal function in the global variable
-  useEffect(() => {
-    // Safely check if window exists (for server-side rendering)
-    if (typeof window !== 'undefined') {
-      window.openAuthModal = () => setShowAuthModal(true);
-      
-      // Cleanup function to remove the global reference when component unmounts
-      return () => {
-        window.openAuthModal = null;
-      };
-    }
-  }, []);
 
   // Handle timer duration change
   const handleTimerDurationChange = useCallback((newDuration) => {
