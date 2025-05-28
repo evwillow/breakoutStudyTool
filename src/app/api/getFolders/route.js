@@ -20,6 +20,27 @@ export async function GET() {
 
     console.log("Fetching folders from Google Drive...");
     
+    // Check environment variables before proceeding
+    const requiredEnvVars = [
+      'GOOGLE_SERVICE_ACCOUNT_PROJECT_ID',
+      'GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',
+      'GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL',
+      'GOOGLE_DRIVE_PARENT_FOLDER_ID'
+    ];
+    
+    const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+    if (missingVars.length > 0) {
+      console.error("Missing environment variables:", missingVars);
+      return NextResponse.json(
+        { 
+          error: "Missing required environment variables", 
+          missingVariables: missingVars,
+          details: "Please check your environment configuration"
+        },
+        { status: 500 }
+      );
+    }
+    
     // Get the drive client and parent folder ID
     const drive = await initializeDriveClient();
     const parentFolderId = getParentFolderId();
@@ -59,9 +80,25 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error("Error fetching folders:", error.message);
+    console.error("Error fetching folders:", error);
+    
+    // Provide more specific error information
+    let errorDetails = error.message;
+    if (error.code === 'ENOTFOUND') {
+      errorDetails = "Network connection error - check internet connectivity";
+    } else if (error.message.includes('credentials')) {
+      errorDetails = "Google Drive authentication failed - check service account credentials";
+    } else if (error.message.includes('permission')) {
+      errorDetails = "Permission denied - check Google Drive folder permissions";
+    }
+    
     return NextResponse.json(
-      { error: "Failed to fetch folders", details: error.message },
+      { 
+        error: "Failed to fetch folders", 
+        details: errorDetails,
+        errorCode: error.code,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
