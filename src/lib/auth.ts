@@ -9,6 +9,7 @@
  * - JWT token management for session persistence
  * - Custom session handling and user data enrichment
  */
+import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import supabase from "./supabase";
@@ -22,7 +23,7 @@ if (!process.env.NEXTAUTH_SECRET) {
  * NextAuth.js configuration options
  * Follows the Next.js App Router approach for authentication
  */
-export const authConfig = {
+export const authConfig: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -83,9 +84,9 @@ export const authConfig = {
     async session({ session, token }) {
       if (token) {
         session.user = {
-          id: token.id,
-          name: token.name,
-          email: token.email
+          id: token.id as string,
+          name: token.name as string,
+          email: token.email as string
         };
       }
       return session;

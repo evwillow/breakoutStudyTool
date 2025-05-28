@@ -204,7 +204,13 @@ export default function Flashcards() {
       const savedRoundId = localStorage.getItem(`roundId_${session.user.id}`);
       if (savedRoundId) {
         console.log("Loaded roundId from localStorage:", savedRoundId);
-        setRoundId(savedRoundId);
+        // Validate that the saved roundId is a proper UUID
+        if (isValidUUID(savedRoundId)) {
+          setRoundId(savedRoundId);
+        } else {
+          console.warn("Saved roundId is not a valid UUID format:", savedRoundId, "- removing from localStorage");
+          localStorage.removeItem(`roundId_${session.user.id}`);
+        }
       }
     }
   }, [session]);
@@ -655,6 +661,13 @@ export default function Flashcards() {
     }
   }, [roundId, session, selectedFolder, status, timerDuration]);
 
+  // Helper function to validate UUID format
+  const isValidUUID = (uuid) => {
+    if (!uuid || typeof uuid !== 'string') return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+  };
+
   // Handle answer selection and log the match.
   const handleSelection = useCallback(
     async (selection) => {
@@ -693,9 +706,18 @@ export default function Flashcards() {
       // Check if on a mobile device
       const isMobile = isMobileDevice();
 
-      // Only log match if we have a valid roundId and session
-      if (!roundId || !session?.user?.id) {
-        console.warn("Missing round ID or user ID - creating a new round");
+      // Only log match if we have a valid roundId (proper UUID format) and session
+      if (!roundId || !session?.user?.id || !isValidUUID(roundId)) {
+        if (roundId && !isValidUUID(roundId)) {
+          console.warn("Round ID is not a valid UUID format:", roundId, "- creating a new round");
+          // Clear the invalid roundId from localStorage
+          if (typeof window !== 'undefined' && session?.user?.id) {
+            localStorage.removeItem(`roundId_${session.user.id}`);
+          }
+          setRoundId(null);
+        } else {
+          console.warn("Missing round ID or user ID - creating a new round");
+        }
         
         // Create a new round if the user is authenticated and folder is selected
         if (session?.user?.id && selectedFolder) {
@@ -715,7 +737,6 @@ export default function Flashcards() {
                   stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
                   user_selection: selection,
                   correct,
-                  user_id: session?.user?.id,
                 };
                 
                 console.log("Logging match with new round ID:", matchData);
@@ -754,10 +775,11 @@ export default function Flashcards() {
             stock_symbol: currentSubfolder ? currentSubfolder.name : "N/A",
             user_selection: selection,
             correct,
-            user_id: session?.user?.id,
           };
           
           console.log("Sending match data to API:", matchData);
+          console.log("Round ID type:", typeof roundId, "Value:", roundId);
+          console.log("Session user ID:", session?.user?.id);
           
           // Use fetch API to call a server-side endpoint for logging
           const response = await fetch("/api/game/matches", {
@@ -771,10 +793,20 @@ export default function Flashcards() {
           if (!response.ok) {
             // Get the error details from the response
             let errorData;
+            let responseText;
             try {
-              errorData = await response.json();
+              responseText = await response.text();
+              console.log("Raw error response:", responseText);
+              
+              // Try to parse as JSON
+              if (responseText) {
+                errorData = JSON.parse(responseText);
+              } else {
+                errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+              }
             } catch (parseError) {
               console.error("Failed to parse error response:", parseError);
+              console.error("Response text was:", responseText);
               errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
             }
             
@@ -785,8 +817,15 @@ export default function Flashcards() {
               matchData: matchData
             });
             
+            // Extract error message from different possible formats
+            const errorMessage = errorData?.error?.message || 
+                                errorData?.error?.details || 
+                                errorData?.message || 
+                                errorData?.error || 
+                                "Unknown error";
+            
             // If the round doesn't exist in the database, create a new one
-            if (response.status === 404 && (errorData.error === "Round not found" || errorData.message?.includes("Round not found"))) {
+            if (response.status === 404 && errorMessage.includes("Round not found")) {
               console.warn("Round not found in database. Creating a new round...");
               
               try {
@@ -826,7 +865,7 @@ export default function Flashcards() {
                 console.error("Failed to create new round after round not found:", createErr);
               }
             } else {
-              console.error("Match logging failed with status:", response.status, "Error:", errorData);
+              console.error("Match logging failed with status:", response.status, "Error:", errorMessage);
             }
           } else {
             const result = await response.json();
@@ -959,85 +998,19 @@ export default function Flashcards() {
       return;
     }
     
-    setShowRoundHistory(false);
-    
-    // Show loading state
-    setLoading(true);
-    setError(null); // Clear any previous errors
-    
-    // If we're switching datasets, make sure to set the selected folder
-    if (datasetName && datasetName !== selectedFolder) {
-      console.log(`Setting selected folder to ${datasetName} for loaded round`);
-      setSelectedFolder(datasetName);
-      
-      // We need to wait for the folder data to be loaded
-      if (!flashcards || flashcards.length === 0) {
-        try {
-          const fileDataRes = await fetch(
-            `/api/files/data?folder=${encodeURIComponent(datasetName)}`
-          );
-          
-          if (!fileDataRes.ok) {
-            const errorData = await fileDataRes.json();
-            throw new Error(errorData.message || "Error fetching file data");
-          }
-          
-          const fileData = await fileDataRes.json();
-          if (Array.isArray(fileData.data) && fileData.data.length > 0) {
-            setFlashcards(fileData.data);
-          } else {
-            console.error("No flashcard data found for folder:", datasetName);
-            setLoading(false);
-            return;
-          }
-        } catch (fileError) {
-          console.error("Error fetching flashcards for loaded round:", fileError);
-          setLoading(false);
-          return;
-        }
-      } else {
-        // We need to wait for the folder to be selected and flashcards to be loaded
-        await new Promise(resolve => {
-          const checkFlashcardsLoaded = setInterval(() => {
-            if (flashcards.length > 0) {
-              clearInterval(checkFlashcardsLoaded);
-              resolve();
-            }
-          }, 100);
-          
-          // Set a timeout to prevent infinite waiting
-          setTimeout(() => {
-            clearInterval(checkFlashcardsLoaded);
-            resolve();
-          }, 5000);
-        });
-      }
+    // Validate that the roundId is a proper UUID before proceeding
+    if (!isValidUUID(roundId)) {
+      console.error("Cannot load round: Invalid UUID format:", roundId);
+      setError("Invalid round ID format. Please create a new round.");
+      return;
     }
     
+    setShowRoundHistory(false);
+    setLoading(true);
+    setLoadingProgress(0);
+    setLoadingStep('Loading round data...');
+    
     try {
-      // Load the round data via API
-      const response = await fetch(`/api/game/rounds/${roundId}`);
-      const result = await response.json();
-      
-      if (!response.ok) {
-        console.error("Error loading round:", result.error);
-        setError(`Failed to load round: ${result.error}`);
-        setLoading(false);
-        return;
-      }
-      
-      console.log("Loaded round data:", result);
-      
-      // Check if we have valid data from the API
-      if (!result.success || !result.data) {
-        console.error("No data returned from API for round:", roundId);
-        setError(`Failed to load round: No data returned`);
-        setLoading(false);
-        return;
-      }
-      
-      const roundData = result.data;
-      
       // Fetch matches for this round
       const matchesResponse = await fetch(`/api/game/matches?roundId=${roundId}`);
       const matchesResult = await matchesResponse.json();
@@ -1049,7 +1022,7 @@ export default function Flashcards() {
         console.warn("No matches found for round:", roundId);
       }
       
-      // Set round ID
+      // Set round ID (we've already validated it's a proper UUID)
       setRoundId(roundId);
       
       // Calculate match index (to resume where left off)
