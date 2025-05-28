@@ -1017,7 +1017,10 @@ export default function Flashcards() {
   // Auto-load the most recent in-progress round when the user is authenticated
   useEffect(() => {
     // Only run this effect when the user is authenticated and we don't have an active round
-    if (status === "authenticated" && session?.user?.id) {
+    if (status === "authenticated" && session?.user?.id && !autoLoadAttempted.current) {
+      // Mark that we've attempted auto-load to prevent duplicates
+      autoLoadAttempted.current = true;
+      
       setIsCheckingExistingRounds(true);
       const autoLoadMostRecentRound = async () => {
         try {
@@ -1114,11 +1117,18 @@ export default function Flashcards() {
       };
       
       autoLoadMostRecentRound();
-    } else {
-      // If we're not authenticated, we're not checking for existing rounds
+    } else if (status !== "loading") {
+      // If we're not authenticated or already attempted, we're not checking for existing rounds
       setIsCheckingExistingRounds(false);
     }
-  }, [status, session]); // Remove roundId dependency to ensure this runs on every auth status change
+  }, [status, session?.user?.id]); // Simplified dependency array
+
+  // Reset auto-load flag when user signs out
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      autoLoadAttempted.current = false;
+    }
+  }, [status]);
 
   // Store the setShowAuthModal function in the global variable
   useEffect(() => {

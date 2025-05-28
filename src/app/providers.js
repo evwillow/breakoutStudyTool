@@ -15,6 +15,6 @@ import { SessionProvider } from "next-auth/react";
  */
 export default function Providers({ children }) {
   // Log initialization for debugging authentication issues
-  console.log("SessionProvider initialized");
+  // console.log("SessionProvider initialized"); // Removed debug log
   return <SessionProvider>{children}</SessionProvider>;
 }

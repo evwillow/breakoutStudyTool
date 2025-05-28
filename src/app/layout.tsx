@@ -44,7 +44,6 @@ export default function RootLayout({
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
               gtag('config', 'G-6B1T4S90L0');
-              console.log('Google Analytics loaded with ID: G-6B1T4S90L0');
             `,
           }}
         />
