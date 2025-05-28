@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
-    "dev:light": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
-    "build:light": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev",
+    "dev:light": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
+    "build:light": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
     "start": "next start",
     "lint": "next lint"
   },
