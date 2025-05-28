@@ -10,9 +10,10 @@
  */
 import type { Metadata } from "next"
 import Script from "next/script"
+import { Inter } from "next/font/google"
 import "./globals.css"
-import Header from "@/components/Header"
-import Providers from "./providers";
+import Providers from "./providers"
+import { Header } from "@/components"
 
 // Define metadata for SEO and browser tab
 export const metadata: Metadata = {

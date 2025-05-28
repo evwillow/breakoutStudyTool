@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import StockChart from '../components/StockChart';
+import { StockChart } from '../components';
 
 export default function TestHourly() {
   const [hourlyData, setHourlyData] = useState(null);

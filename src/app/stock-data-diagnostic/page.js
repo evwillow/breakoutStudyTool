@@ -1,4 +1,4 @@
-import StockDataDiagnostic from "@/components/StockDataDiagnostic";
+import { StockDataDiagnostic } from "@/components";
 
 export const metadata = {
   title: 'Stock Data Diagnostic',

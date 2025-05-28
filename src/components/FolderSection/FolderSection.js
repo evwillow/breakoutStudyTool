@@ -11,7 +11,7 @@
  * - Clean, borderless design with soft backgrounds for reduced eye strain
  */
 import React from "react";
-import TimerDurationSelector from "./TimerDurationSelector";
+import TimerDurationSelector from "../UI/TimerDurationSelector";
 
 /**
  * FolderSection displays folder selection and round management controls

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * AfterChartPopup.js
  * 
@@ -11,7 +13,7 @@
  */
 "use client";
 import React, { useEffect, useRef, useState } from 'react';
-import StockChart from './StockChart';
+import StockChart from '../StockChart';
 
 const AfterChartPopup = ({ isOpen, onClose, afterCsvData, stockName }) => {
   const chartContainerRef = useRef(null);

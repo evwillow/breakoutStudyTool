@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import BackButton from '../components/BackButton';
+import { BackButton } from '../components';
 
 /**
  * Custom 404 Not Found page

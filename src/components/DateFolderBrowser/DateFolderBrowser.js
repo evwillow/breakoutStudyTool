@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * DateFolderBrowser.js
  * 
@@ -13,7 +15,7 @@
  * - Parses and displays CSV data as interactive charts
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import StockChart from "./StockChart";
+import StockChart from "../StockChart";
 
 /**
  * DateFolderBrowser component displays historical stock data files

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Auth Modal State Management Hook
  * Replaces global window.openAuthModal with proper React state management

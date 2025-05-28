@@ -1,4 +1,4 @@
-import DatabaseStatus from "@/components/DatabaseStatus";
+import { DatabaseStatus } from "@/components";
 
 export const metadata = {
   title: 'Database Status',

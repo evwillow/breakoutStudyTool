@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Custom Authentication Hook
  * Centralizes auth logic and provides consistent interface

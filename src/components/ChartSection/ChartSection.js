@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * ChartSection Component
  * 
@@ -12,9 +14,9 @@
  * - Clean, borderless design with soft backgrounds for reduced eye strain
  */
 import React, { useState, useEffect, useRef } from "react";
-import StockChart from "./StockChart";
-import { AuthModal } from "./Auth";
-import ActionButtonsRow from "./ActionButtonsRow";
+import StockChart from "../StockChart";
+import { AuthModal } from "../Auth";
+import { ActionButtonsRow } from "../UI";
 
 const ChartSection = React.memo(function ChartSection({
   orderedFiles,

@@ -13,14 +13,16 @@
 "use client";
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSession, signIn } from "next-auth/react";
-import ChartSection from "./components/ChartSection";
-import ActionButtonsRow from "./components/ActionButtonsRow";
-import FolderSection from "./components/FolderSection";
+import { 
+  ChartSection, 
+  ActionButtonsRow, 
+  FolderSection, 
+  RoundHistory, 
+  DateFolderBrowser, 
+  LandingPage 
+} from "./components";
 import { AuthModal } from "./components/Auth";
-import RoundHistory from "./components/RoundHistory";
 import supabase from "./config/supabase";
-import DateFolderBrowser from "./components/DateFolderBrowser";
-import LandingPage from "./components/LandingPage";
 
 // Application constants
 const INITIAL_TIMER = 60;

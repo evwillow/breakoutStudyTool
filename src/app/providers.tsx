@@ -1,7 +1,8 @@
 "use client";
 
+import React from 'react';
 import { SessionProvider } from "next-auth/react";
-import ErrorBoundary from "@/components/ErrorBoundary";
+import { ErrorBoundary } from "@/components";
 import { ErrorFallback, NetworkErrorFallback } from "@/components/FallbackUI";
 import { useEffect, useState, useCallback } from "react";
 import { logger } from "@/utils/logger";

@@ -1,3 +1,5 @@
+"use client";
+
 // /src/components/RoundHistory.js
 import React, { useState, useEffect } from "react";
 

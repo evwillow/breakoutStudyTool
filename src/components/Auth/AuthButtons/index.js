@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Optimized AuthButtons Component
  * 

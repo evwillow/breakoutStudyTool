@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * StockChart Component
  * 
@@ -14,7 +16,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { scaleLinear, scalePoint } from "d3-scale";
 import { line } from "d3-shape";
-import { AuthButtons, AuthModal } from "./Auth";
+import { AuthButtons, AuthModal } from "../Auth";
 
 /**
  * Chart configuration with responsive settings
