@@ -5,7 +5,7 @@
  * Handles user validation, password verification, and security measures.
  */
 import bcrypt from "bcryptjs";
-import supabase from "../../supabase";
+import { getServerSupabaseClient } from "../../supabase";
 import { logger } from "@/utils/logger";
 import { AUTH_CONFIG, AUTH_ERRORS } from "../constants";
 import type { 
@@ -17,6 +17,13 @@ import type {
 } from "../types";
 
 class AuthService {
+  /**
+   * Get the Supabase client for authentication operations
+   */
+  private getSupabaseClient() {
+    return getServerSupabaseClient();
+  }
+
   /**
    * Validates credential format and structure
    */
@@ -112,6 +119,7 @@ class AuthService {
    */
   private async getUserByEmail(email: string): Promise<DatabaseUser | null> {
     try {
+      const supabase = this.getSupabaseClient();
       const { data: user, error } = await supabase
         .from("users")
         .select("id, email, password")

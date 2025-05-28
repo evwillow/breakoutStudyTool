@@ -22,7 +22,10 @@ import {
   LandingPage 
 } from "./components";
 import { AuthModal } from "./components/Auth";
-import supabase from "./config/supabase";
+import { getClientSupabaseClient } from "./lib/supabase";
+
+// Get the client-side Supabase client
+const supabase = getClientSupabaseClient();
 
 // Application constants
 const INITIAL_TIMER = 60;
@@ -371,7 +374,7 @@ export default function Flashcards() {
       console.log("Flashcard fetch effect cleanup");
       mounted = false;
     };
-  }, [selectedFolder, status, session, roundId, timerDuration, isCheckingExistingRounds]);
+  }, [selectedFolder, status, session, timerDuration, isCheckingExistingRounds]);
 
   const handleFolderChange = useCallback((e) => {
     const newFolder = e.target.value;
