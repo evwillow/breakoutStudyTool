@@ -60,18 +60,28 @@ UPSTASH_REDIS_REST_URL=your_redis_url
 UPSTASH_REDIS_REST_TOKEN=your_redis_token
 `;
 
-  fs.writeFileSync(envPath, envTemplate);
-  console.log('✅ Created .env.local file with template values');
-  console.log('🔑 Generated secure NEXTAUTH_SECRET');
-  console.log('\n📋 Next steps:');
-  console.log('1. Open .env.local in your editor');
-  console.log('2. Replace placeholder values with your actual credentials');
-  console.log('3. Run this script again to validate your configuration\n');
+  try {
+    fs.writeFileSync(envPath, envTemplate);
+    console.log('✅ Created .env.local file with template values');
+    console.log('🔑 Generated secure NEXTAUTH_SECRET');
+    console.log('\n📋 Next steps:');
+    console.log('1. Open .env.local in your editor');
+    console.log('2. Replace placeholder values with your actual credentials');
+    console.log('3. Run "npm run setup" again to validate your configuration\n');
+  } catch (error) {
+    console.error('❌ Failed to create .env.local file:', error.message);
+    process.exit(1);
+  }
 } else {
   console.log('📁 Found existing .env.local file\n');
   
   // Load and check environment variables
-  require('dotenv').config({ path: envPath });
+  try {
+    require('dotenv').config({ path: envPath });
+  } catch (error) {
+    console.error('❌ Failed to load .env.local file:', error.message);
+    process.exit(1);
+  }
   
   const requiredVars = {
     'Google Drive': [
@@ -90,16 +100,23 @@ UPSTASH_REDIS_REST_TOKEN=your_redis_token
   };
   
   let allConfigured = true;
+  let configuredCount = 0;
+  let totalCount = 0;
   
   Object.entries(requiredVars).forEach(([category, vars]) => {
     console.log(`🔍 Checking ${category} configuration:`);
     
     vars.forEach(varName => {
+      totalCount++;
       const value = process.env[varName];
-      const isConfigured = value && value !== 'your_' + varName.toLowerCase() + '_here' && !value.includes('your_');
+      const isConfigured = value && 
+        value !== 'your_' + varName.toLowerCase() + '_here' && 
+        !value.includes('your_') &&
+        value.trim() !== '';
       
       if (isConfigured) {
         console.log(`  ✅ ${varName}`);
+        configuredCount++;
       } else {
         console.log(`  ❌ ${varName} - Not configured`);
         allConfigured = false;
@@ -107,6 +124,10 @@ UPSTASH_REDIS_REST_TOKEN=your_redis_token
     });
     console.log('');
   });
+  
+  // Show progress
+  const progressPercentage = Math.round((configuredCount / totalCount) * 100);
+  console.log(`📊 Configuration Progress: ${configuredCount}/${totalCount} (${progressPercentage}%)\n`);
   
   if (allConfigured) {
     console.log('🎉 All required environment variables are configured!');
@@ -123,4 +144,5 @@ UPSTASH_REDIS_REST_TOKEN=your_redis_token
 console.log('\n💡 Tips:');
 console.log('• Keep your .env.local file secure and never commit it to version control');
 console.log('• For production deployment, set these variables in your hosting platform');
-console.log('• Run "node setup-env.js" anytime to check your configuration'); 
+console.log('• Run "npm run setup" anytime to check your configuration');
+console.log('• Use "npm run fix-auth" if you encounter authentication issues'); 

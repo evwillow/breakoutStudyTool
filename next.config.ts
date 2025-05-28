@@ -22,9 +22,9 @@ const nextConfig = {
     // Enable mock database by default in development mode
     NEXT_PUBLIC_USE_MOCK_DB: process.env.NODE_ENV === 'development' ? 'true' : 'false',
   },
-  // Reduce memory usage with webpack optimizations
+  // Performance optimizations
   webpack: (config: any, { dev, isServer }: { dev: boolean; isServer: boolean }) => {
-    // Optimize chunk size
+    // Optimize chunk splitting for better caching
     config.optimization.splitChunks = {
       chunks: 'all',
       maxInitialRequests: 25,
@@ -32,13 +32,21 @@ const nextConfig = {
       cacheGroups: {
         default: false,
         vendors: false,
+        // Framework chunk for React/Next.js core
         framework: {
           name: 'framework',
           test: /[\\/]node_modules[\\/](@react|react|react-dom|next|scheduler)[\\/]/,
           priority: 40,
-          // Only bundle used code
           enforce: true,
         },
+        // Chart libraries chunk
+        charts: {
+          name: 'charts',
+          test: /[\\/]node_modules[\\/](recharts|d3-|@d3-)[\\/]/,
+          priority: 35,
+          enforce: true,
+        },
+        // Common libraries chunk
         lib: {
           test: /[\\/]node_modules[\\/]/,
           priority: 30,
@@ -47,15 +55,27 @@ const nextConfig = {
       },
     };
 
-    // Return the modified config
+    // Tree shaking optimization
+    if (!dev) {
+      config.optimization.usedExports = true;
+      config.optimization.sideEffects = false;
+    }
+
     return config;
   },
-  // Control the build memory usage with supported experimental options
+  // Experimental optimizations
   experimental: {
-    // Optimize server components with better treeshaking
+    // Optimize server components
     optimizeServerReact: true,
-    // Use memory optimizations where available
+    // CSS optimization
     optimizeCss: true,
+    // Enable modern bundling
+    esmExternals: true,
+  },
+  // Compiler optimizations
+  compiler: {
+    // Remove console logs in production
+    removeConsole: process.env.NODE_ENV === 'production',
   },
 };
 
