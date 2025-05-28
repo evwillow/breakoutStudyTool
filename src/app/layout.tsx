@@ -9,10 +9,10 @@
  * - Includes the global header component
  */
 import type { Metadata } from "next"
+import Script from "next/script"
 import "./globals.css"
 import Header from "@/components/Header"
 import Providers from "./providers";
-import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 // Define metadata for SEO and browser tab
 export const metadata: Metadata = {
@@ -31,7 +31,23 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <GoogleAnalytics />
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-6B1T4S90L0"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-6B1T4S90L0');
+              console.log('Google Analytics loaded with ID: G-6B1T4S90L0');
+            `,
+          }}
+        />
         <Providers>
           <Header />
           <div className="w-full flex justify-center">
