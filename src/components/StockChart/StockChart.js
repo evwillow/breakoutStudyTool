@@ -543,13 +543,8 @@ const StockChart = React.memo(({
     return afterStockData.slice(0, visibleBars);
   }, [afterStockData, progressPercentage]);
 
-  // Determine if we should be zooming based on animation state
-  const shouldZoom = useMemo(() => 
-    afterStockData.length > 0 && zoomPercentage > 0
-  , [afterStockData, zoomPercentage]);
-
-  // Determine if we should show the background based on zoom progress
-  const shouldShowBackground = zoomPercentage > 5; // Only show after zoom has started
+  // Determine if we should show the background based on visible after data
+  const shouldShowBackground = visibleAfterData.length > 0;
 
   // Calculate scales with zoom out for combined data view
   const scales = useMemo(() => {
@@ -616,44 +611,26 @@ const StockChart = React.memo(({
       }
     }
 
-    // Create more natural zoom effect by applying easing to the zoom factor
-    const rawZoomFactor = (shouldZoom === true) ? zoomPercentage / 100 : 0;
-
-    // Apply additional easing to make zoom feel more natural
-    // This creates a smoother "camera movement" effect
-    const easeZoom = (t) => {
-      // Use a single smooth easing function instead of a piecewise one
-      // This avoids the weird "jump" that can happen at t=0.5
-      return 1 - Math.pow(1 - t, 3); // Cubic ease-out for smooth deceleration
-    };
-
-    const zoomFactor = easeZoom(rawZoomFactor);
-
-    // Ensure synchronized vertical and horizontal zoom
-    // Base vertical range expansion on the same zoom factor
-    const verticalZoomRatio = zoomFactor;
-    
     // Calculate combined range with extra padding that increases as zoom progresses
     const combinedMin = Math.min(mainMin, afterMin);
     const combinedMax = Math.max(mainMax, afterMax);
     
-    // Calculate middle point of price range to zoom outward from center
-    const mainMidpoint = (mainMax + mainMin) / 2;
+    // Calculate the price range based on what's actually visible
+    let currentMin, currentMax;
     
-    // Calculate full range for zoomed out view with smooth scaling
-    const fullRangeSize = (combinedMax - combinedMin) * (1.2 + (zoomFactor * 0.2)); // Gradually increase extra space
-    
-    // Apply zoom transformation with synchronized vertical/horizontal movement
-    // This creates a "camera pulling back" effect from the center point in both directions
-    const currentMin = mainMidpoint - ((fullRangeSize / 2) * verticalZoomRatio) - 
-                        ((mainMidpoint - mainMin) * (1 - verticalZoomRatio));
-    const currentMax = mainMidpoint + ((fullRangeSize / 2) * verticalZoomRatio) + 
-                        ((mainMax - mainMidpoint) * (1 - verticalZoomRatio));
+    if (visibleAfterData.length === 0) {
+      // No after data visible, use main data range
+      currentMin = mainMin;
+      currentMax = mainMax;
+    } else {
+      // After data is visible, use combined range to fit everything
+      currentMin = combinedMin;
+      currentMax = combinedMax;
+    }
 
-    // Add adaptive padding based on zoom progress
-    const paddingFactor = 0.05 + (zoomFactor * 0.05); // Gradually increase padding
+    // Add consistent padding
     const priceRange = currentMax - currentMin;
-    const pricePadding = priceRange * paddingFactor;
+    const pricePadding = priceRange * 0.05; // 5% padding
 
     // Calculate volume range
     const volumeMax = Math.max(...stockData.map(d => d.volume));
@@ -665,54 +642,18 @@ const StockChart = React.memo(({
     const priceHeight = totalHeight - volumeHeight;
 
     // Create an array of indices for both original and after data
-    // Gradually transition to full domain for smoother zoom
-    const useFullDomain = zoomPercentage >= 40; // Lower threshold for smoother transition
+    // Calculate minimum zoom needed based on actual visible after data
+    const totalDataPoints = stockData.length + visibleAfterData.length;
     
-    // Calculate the midpoint of the data for bidirectional zooming
-    const totalDataPoints = stockData.length + (afterStockData.length > 0 ? afterStockData.length : 0);
-    
-    // Create indices for the full domain
-    const fullIndices = [...Array(totalDataPoints).keys()];
-    
-    // For bidirectional zoom, we'll apply horizontal scaling around a transition point
+    // Create indices based on the actual data that needs to be shown
     let combinedIndices;
     
-    // FIXED: Always include all indices from the main stockData for proper rendering
-    // This ensures candlesticks are always visible for the main data
-    if (afterStockData.length === 0) {
-      // If there's no after data, just use all indices from main data
+    if (visibleAfterData.length === 0) {
+      // If there's no visible after data, just use all indices from main data
       combinedIndices = [...Array(stockData.length).keys()];
-    } else if (useFullDomain) {
-      // Show full domain when zoomed out enough
-      combinedIndices = fullIndices;
     } else {
-      // When zooming, focus around the boundary between main and after data
-      const transitionPoint = stockData.length - 1;
-      
-      // Smoother calculation for better zoom effect
-      const zoomRatio = Math.min(1, zoomFactor * 1.2); // Slightly accelerate the zoom
-      
-      // Use a consistent formula based on the original data length plus a portion of the after data
-      // This creates a steadier expansion from the edge
-      const visibleRange = stockData.length + (totalDataPoints - stockData.length) * zoomRatio;
-      
-      // Calculate which indices to include, with a gradually shifting center point
-      // This prevents sudden jumps in the visible range
-      const centerOffset = zoomRatio * 0.5; // Gradually shift center point as we zoom
-      const centerPoint = transitionPoint + centerOffset;
-      
-      const startIdx = Math.max(0, Math.floor(centerPoint - (visibleRange * 0.5)));
-      const endIdx = Math.min(totalDataPoints - 1, Math.ceil(centerPoint + (visibleRange * 0.5)));
-      
-      // Create array of visible indices
-      combinedIndices = [...Array(endIdx - startIdx + 1).keys()].map(i => i + startIdx);
-      
-      // FIXED: Ensure ALL indices from main data are included
-      // This is critical to make sure candlesticks are rendered for the main chart
-      if (startIdx > 0) {
-        const mainIndices = [...Array(startIdx).keys()];
-        combinedIndices = [...mainIndices, ...combinedIndices];
-      }
+      // Show exactly the data that's needed: all main data + visible after data
+      combinedIndices = [...Array(totalDataPoints).keys()];
     }
 
     // Get the last valid price for labels
@@ -732,11 +673,10 @@ const StockChart = React.memo(({
         .padding(0.5),
       priceHeight,
       volumeHeight,
-      useFullDomain,
-      zoomFactor,
+      useFullDomain: true,
       lastPrice
     };
-  }, [dimensions, stockData, afterStockData, zoomPercentage, shouldZoom, hasSMA10, hasSMA20, hasSMA50]);
+  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData]);
 
   // Create line generators for SMA
   const sma10Line = useMemo(() => {
@@ -1292,7 +1232,8 @@ const StockChart = React.memo(({
   
   // Calculate the correct position for the divider line - EXACTLY at the split point
   // Position it precisely at the boundary between the last point of main data and first point of after data
-  const dividerLineX = scales.xScale(stockData.length - 1) + scales.xScale.step();
+  // Add the left margin to align with the chart content area
+  const dividerLineX = scales.xScale(stockData.length - 1) + scales.xScale.step() + dimensions.margin.left;
   
   // Debug logs to verify exact positioning
   console.log("EXACT DIVIDER POSITIONING:", {

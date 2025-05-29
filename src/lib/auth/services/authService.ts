@@ -124,7 +124,7 @@ class AuthService {
         .from("users")
         .select("id, email, password")
         .eq("email", email.toLowerCase()) // Ensure case-insensitive lookup
-        .single();
+        .maybeSingle();
 
       if (error) {
         if (error.code === 'PGRST116') {

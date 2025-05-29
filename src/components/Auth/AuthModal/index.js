@@ -21,6 +21,24 @@ import SignUpForm from './SignUpForm';
 // Lazy load hCaptcha to improve initial bundle size
 const HCaptcha = React.lazy(() => import('@hcaptcha/react-hcaptcha'));
 
+// Add database test function
+const testDatabaseConnection = async () => {
+  try {
+    console.log('🔍 Testing database connection...');
+    const response = await fetch('/api/auth/test-db', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const result = await response.json();
+    console.log('📊 Database test result:', result);
+    return result;
+  } catch (error) {
+    console.error('❌ Database test failed:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 /**
  * AuthModal component for user authentication
  * @param {Object} props - Component props
@@ -144,10 +162,14 @@ const AuthModal = ({ open, onClose }) => {
   };
 
   const handleSignUpError = (errorData) => {
+    console.log('🐛 Debug errorData:', errorData);
+    console.log('🐛 Debug errorData.error:', errorData.error);
+    console.log('🐛 Debug typeof errorData.error:', typeof errorData.error);
+    
     if (errorData.error === 'Invalid CAPTCHA') {
       setError(ERROR_MESSAGES.CAPTCHA_FAILED);
       handleCaptchaReset();
-    } else if (errorData.error && (
+    } else if (errorData.error && typeof errorData.error === 'string' && (
       errorData.error.includes('Database') || 
       errorData.error.includes('database') ||
       errorData.isPaused ||
@@ -155,20 +177,41 @@ const AuthModal = ({ open, onClose }) => {
     )) {
       setDatabaseError(true);
       setError(errorData.error + (errorData.details ? `: ${errorData.details}` : ''));
+    } else if (errorData.details === 'Validation failed' || errorData.message === 'Please check your input and try again.') {
+      // Handle password validation errors with clear requirements
+      setError(`Password must meet these requirements:
+• At least 8 characters long
+• At least one uppercase letter (A-Z)
+• At least one lowercase letter (a-z)
+• At least one number (0-9)
+• At least one special character (!@#$%^&*)`);
     } else {
-      setError(errorData.error || ERROR_MESSAGES.SIGNUP_FAILED);
+      // Convert error to string if it's not already
+      const errorMessage = typeof errorData.error === 'string' 
+        ? errorData.error 
+        : errorData.message || JSON.stringify(errorData.error) || ERROR_MESSAGES.SIGNUP_FAILED;
+      setError(errorMessage);
     }
   };
 
   const handleSignIn = async () => {
+    console.log('🔍 Starting sign in process...');
+    console.log('📧 Email:', formData.email);
+    console.log('🔑 Password length:', formData.password?.length || 0);
+    
     const result = await signIn({
       email: formData.email,
       password: formData.password
     });
 
+    console.log('📊 Sign in result:', result);
+
     if (result.error) {
-      throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
+      console.log('❌ Sign in failed:', result.error);
+      setError(ERROR_MESSAGES.INVALID_CREDENTIALS);
+      return;
     } else {
+      console.log('✅ Sign in successful');
       await update();
       onClose();
     }

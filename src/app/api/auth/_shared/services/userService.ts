@@ -2,7 +2,7 @@
  * User Service
  * Handles user database operations with proper error handling
  */
-import supabase from '@/lib/supabase';
+import { getServerSupabaseClient } from '@/lib/supabase';
 import { AuthUser, SignupRequest } from '../types/auth';
 import { DatabaseError, ErrorCodes } from '@/utils/errorHandling';
 import { logger } from '@/utils/logger';
@@ -13,6 +13,7 @@ import { hashPassword } from './passwordService';
  */
 export async function userExists(email: string): Promise<boolean> {
   try {
+    const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
       .select('id')
@@ -61,6 +62,7 @@ export async function createUser(signupData: SignupRequest): Promise<AuthUser> {
     const username = email.split('@')[0];
     
     // Insert user into database
+    const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
       .insert([{
@@ -144,6 +146,7 @@ export async function createUser(signupData: SignupRequest): Promise<AuthUser> {
  */
 export async function getUserByEmail(email: string): Promise<AuthUser | null> {
   try {
+    const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
       .select('id, email, password, username, created_at, updated_at')

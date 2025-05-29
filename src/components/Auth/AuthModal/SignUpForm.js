@@ -55,6 +55,18 @@ const SignUpForm = ({
         autoComplete="new-password"
       />
 
+      {/* Password Requirements Hint */}
+      <div className="text-xs text-turquoise-600 mt-1 ml-1">
+        <p className="font-medium mb-1">Password must include:</p>
+        <ul className="space-y-0.5">
+          <li>• At least 8 characters</li>
+          <li>• One uppercase letter (A-Z)</li>
+          <li>• One lowercase letter (a-z)</li>
+          <li>• One number (0-9)</li>
+          <li>• One special character (!@#$%^&*)</li>
+        </ul>
+      </div>
+
       {/* Terms of Service */}
       <div className="flex flex-col items-center">
         <p className="text-sm text-turquoise-600 mb-2 text-center">
