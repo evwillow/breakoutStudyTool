@@ -20,6 +20,7 @@ export * from './Auth';
 
 // Error Handling
 export { default as ErrorBoundary } from './ErrorBoundary';
+export * from './ErrorBoundary';
 export * from './FallbackUI';
 
 // Analytics
