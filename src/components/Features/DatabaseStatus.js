@@ -128,18 +128,56 @@ export default function DatabaseStatus() {
           <li>Go to <a href="https://app.supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Supabase Dashboard</a></li>
           <li>Open your project</li>
           <li>Go to the SQL Editor</li>
-          <li>Run this SQL code:</li>
+          <li>Run this complete SQL schema:</li>
         </ol>
-        <pre className="mt-2 p-3 bg-gray-800 text-white rounded text-sm overflow-x-auto">
-{`CREATE TABLE users (
+        <pre className="mt-2 p-3 bg-gray-800 text-white rounded text-sm overflow-x-auto max-h-96">
+{`-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
   email_verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Rounds table (for game sessions)
+CREATE TABLE IF NOT EXISTS rounds (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  dataset_name TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Matches table (for individual game moves/answers)
+CREATE TABLE IF NOT EXISTS matches (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  round_id UUID NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
+  stock_symbol TEXT NOT NULL,
+  user_selection INTEGER NOT NULL,
+  correct BOOLEAN NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);`}
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_rounds_user_id ON rounds(user_id);
+CREATE INDEX IF NOT EXISTS idx_matches_round_id ON matches(round_id);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rounds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE matches ENABLE ROW LEVEL SECURITY;`}
         </pre>
-        <p className="mt-2">After creating the table, refresh this page.</p>
+        <p className="mt-2 text-sm">
+          <strong>Note:</strong> This creates all required tables (users, rounds, matches) with proper relationships and security policies.
+          After running this SQL, refresh this page to verify the setup.
+        </p>
       </div>
     );
   }

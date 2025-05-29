@@ -168,11 +168,18 @@ export function validateFlashcardData(flashcardData: FlashcardData | null): bool
     return false;
   }
   
+  // Check if we have at least some JSON files
+  if (!flashcardData.jsonFiles.length) {
+    return false;
+  }
+  
   const processed = processFlashcardData(flashcardData);
   
+  // More lenient validation - require at least one chart file instead of all three
+  // This matches the behavior before the refactoring
   return (
-    processed.orderedFiles.length === GAME_CONFIG.REQUIRED_FILES.length &&
-    processed.thingData.length > 0
+    processed.orderedFiles.length > 0  // At least one of D.json, H.json, or M.json
+    // Removed the strict requirement for thing.json data as it's optional
   );
 }
 

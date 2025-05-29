@@ -56,31 +56,126 @@ export const DataLoading: React.FC<DataLoadingProps> = ({
   </div>
 );
 
-// Error state
-export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => (
-  <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-black rounded-lg shadow-lg max-w-md mx-auto border border-white">
-    <div className="text-red-500 text-4xl mb-2">⚠️</div>
-    <h2 className="text-xl font-semibold text-white">Error Loading Data</h2>
-    <p className="text-gray-300 text-center">{error}</p>
-    <button 
-      onClick={onRetry}
-      className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-    >
-      Try Again
-    </button>
-  </div>
-);
+// Enhanced error state with specific troubleshooting
+export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
+  // Detect specific error types and provide targeted guidance
+  const getErrorGuidance = (error: string) => {
+    if (error.includes('No flashcard data found')) {
+      return {
+        title: 'No Flashcard Data Found',
+        message: 'The selected folder doesn\'t contain any valid flashcard data.',
+        troubleshooting: [
+          'Try selecting a different folder from the dropdown',
+          'Check if the Google Drive folder contains stock chart data',
+          'Ensure JSON files (D.json, H.json, M.json) exist in subfolders',
+          'Verify Google Drive permissions are correctly configured'
+        ]
+      };
+    } else if (error.includes('authentication') || error.includes('permission')) {
+      return {
+        title: 'Authentication Error',
+        message: 'Unable to access Google Drive data.',
+        troubleshooting: [
+          'Check Google Drive service account configuration',
+          'Verify environment variables are set correctly',
+          'Ensure the service account has access to the folder',
+          'Contact support if the issue persists'
+        ]
+      };
+    } else if (error.includes('network') || error.includes('connection')) {
+      return {
+        title: 'Connection Error',
+        message: 'Unable to connect to data source.',
+        troubleshooting: [
+          'Check your internet connection',
+          'Refresh the page and try again',
+          'Wait a moment and retry - the service may be temporarily unavailable'
+        ]
+      };
+    } else {
+      return {
+        title: 'Error Loading Data',
+        message: error,
+        troubleshooting: [
+          'Try refreshing the page',
+          'Select a different folder',
+          'Contact support if the problem continues'
+        ]
+      };
+    }
+  };
 
-// No data state
+  const guidance = getErrorGuidance(error);
+
+  return (
+    <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
+      <div className="text-red-500 text-4xl mb-2">⚠️</div>
+      <h2 className="text-xl font-semibold text-white">{guidance.title}</h2>
+      <p className="text-gray-300 text-center">{guidance.message}</p>
+      
+      {/* Troubleshooting section */}
+      <div className="bg-gray-900 rounded-lg p-4 w-full mt-4">
+        <h3 className="text-lg font-medium text-white mb-2">💡 Troubleshooting Steps:</h3>
+        <ul className="text-sm text-gray-300 space-y-2">
+          {guidance.troubleshooting.map((step, index) => (
+            <li key={index} className="flex items-start">
+              <span className="text-blue-400 mr-2 mt-0.5">•</span>
+              <span>{step}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      
+      <div className="flex gap-3 mt-6">
+        <button 
+          onClick={onRetry}
+          className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        >
+          Try Again
+        </button>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+        >
+          Refresh Page
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced no data state
 export const NoDataState: React.FC<NoDataStateProps> = ({ onSelectDataset }) => (
-  <div className="flex flex-col justify-center items-center h-96 space-y-4 p-8 bg-black rounded-lg shadow-lg max-w-md mx-auto border border-white">
-    <h2 className="text-xl font-semibold text-white">No Data Available</h2>
-    <p className="text-gray-300 text-center">Please select a dataset to begin practicing.</p>
+  <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
+    <div className="text-6xl mb-4">📊</div>
+    <h2 className="text-2xl font-semibold text-white">No Data Available</h2>
+    <p className="text-gray-300 text-center text-lg">
+      Ready to start practicing? Select a dataset to begin your trading education.
+    </p>
+    
+    <div className="bg-gray-900 rounded-lg p-6 w-full">
+      <h3 className="text-lg font-medium text-white mb-3">📚 What you'll practice:</h3>
+      <ul className="text-gray-300 space-y-2">
+        <li className="flex items-center">
+          <span className="text-green-400 mr-3">📈</span>
+          <span>Identify breakout patterns in real market data</span>
+        </li>
+        <li className="flex items-center">
+          <span className="text-blue-400 mr-3">⏱️</span>
+          <span>Make quick decisions under time pressure</span>
+        </li>
+        <li className="flex items-center">
+          <span className="text-yellow-400 mr-3">🎯</span>
+          <span>Improve your trading accuracy and speed</span>
+        </li>
+      </ul>
+    </div>
+    
     <button 
       onClick={onSelectDataset}
-      className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+      className="mt-6 px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-lg"
     >
-      Select Dataset
+      Select Dataset to Begin
     </button>
   </div>
 );

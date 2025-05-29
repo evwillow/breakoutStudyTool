@@ -188,8 +188,7 @@ export default function FlashcardsContainer() {
   if (
     !flashcards.length ||
     !currentFlashcard ||
-    processedData.orderedFiles.length === 0 ||
-    processedData.thingData.length === 0
+    processedData.orderedFiles.length === 0
   ) {
     return (
       <LoadingStates.NoDataState
