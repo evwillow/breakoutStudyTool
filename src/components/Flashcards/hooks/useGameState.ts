@@ -1,0 +1,173 @@
+/**
+ * Game State Hook
+ * Manages game state, metrics, and user interactions
+ */
+
+import { useState, useCallback, useRef } from 'react';
+import { GAME_CONFIG } from '../constants';
+
+export interface GameMetrics {
+  currentMatchIndex: number;
+  matchCount: number;
+  correctCount: number;
+  accuracy: number;
+}
+
+export interface GameState {
+  currentIndex: number;
+  feedback: 'correct' | 'incorrect' | null;
+  disableButtons: boolean;
+  showTimeUpOverlay: boolean;
+  afterChartData: any;
+  metrics: GameMetrics;
+}
+
+export interface UseGameStateReturn extends GameState {
+  // Actions
+  handleSelection: (buttonIndex: number) => void;
+  nextCard: () => void;
+  resetGame: () => void;
+  setAfterChartData: (data: any) => void;
+  setShowTimeUpOverlay: (show: boolean) => void;
+  setCurrentIndex: (index: number) => void;
+  
+  // Computed values
+  selectedButtonIndex: number | null;
+  isGameComplete: boolean;
+}
+
+export interface UseGameStateOptions {
+  flashcardsLength: number;
+  thingData: number[];
+  onCorrectAnswer?: () => void;
+  onIncorrectAnswer?: () => void;
+  onGameComplete?: () => void;
+}
+
+export function useGameState({
+  flashcardsLength,
+  thingData,
+  onCorrectAnswer,
+  onIncorrectAnswer,
+  onGameComplete,
+}: UseGameStateOptions): UseGameStateReturn {
+  // Core game state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  const [disableButtons, setDisableButtons] = useState(false);
+  const [showTimeUpOverlay, setShowTimeUpOverlay] = useState(false);
+  const [afterChartData, setAfterChartData] = useState<any>(null);
+  
+  // Game metrics
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [matchCount, setMatchCount] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  
+  // Refs for stable references
+  const actionButtonsRef = useRef<HTMLDivElement>(null);
+  
+  // Computed values
+  const accuracy = matchCount > 0 ? Math.round((correctCount / matchCount) * 100) : 0;
+  const selectedButtonIndex = feedback ? thingData[currentMatchIndex] - 1 : null;
+  const isGameComplete = currentIndex >= flashcardsLength - 1;
+  
+  // Handle user selection
+  const handleSelection = useCallback((buttonIndex: number) => {
+    if (disableButtons && !showTimeUpOverlay) return;
+    
+    // Clear time up overlay when user makes selection
+    if (showTimeUpOverlay) {
+      setShowTimeUpOverlay(false);
+    }
+    
+    // Disable buttons to prevent multiple selections
+    setDisableButtons(true);
+    
+    // Check if answer is correct
+    const correctAnswer = thingData[currentMatchIndex];
+    const isCorrect = buttonIndex === correctAnswer - 1;
+    
+    // Update metrics
+    setMatchCount(prev => prev + 1);
+    if (isCorrect) {
+      setCorrectCount(prev => prev + 1);
+      onCorrectAnswer?.();
+    } else {
+      onIncorrectAnswer?.();
+    }
+    
+    // Set feedback
+    setFeedback(isCorrect ? 'correct' : 'incorrect');
+    
+    // Scroll to action buttons for better UX
+    if (actionButtonsRef.current) {
+      actionButtonsRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+    
+  }, [
+    disableButtons,
+    showTimeUpOverlay,
+    thingData,
+    currentMatchIndex,
+    onCorrectAnswer,
+    onIncorrectAnswer,
+  ]);
+  
+  // Move to next card
+  const nextCard = useCallback(() => {
+    if (currentIndex < flashcardsLength - 1) {
+      setCurrentIndex(prev => prev + 1);
+      setCurrentMatchIndex(prev => prev + 1);
+    } else if (isGameComplete) {
+      onGameComplete?.();
+    }
+    
+    // Reset card-specific state
+    setFeedback(null);
+    setDisableButtons(false);
+    setShowTimeUpOverlay(false);
+    setAfterChartData(null);
+  }, [currentIndex, flashcardsLength, isGameComplete, onGameComplete]);
+  
+  // Reset entire game state
+  const resetGame = useCallback(() => {
+    setCurrentIndex(0);
+    setCurrentMatchIndex(0);
+    setMatchCount(0);
+    setCorrectCount(0);
+    setFeedback(null);
+    setDisableButtons(false);
+    setShowTimeUpOverlay(false);
+    setAfterChartData(null);
+  }, []);
+  
+  return {
+    // State
+    currentIndex,
+    feedback,
+    disableButtons,
+    showTimeUpOverlay,
+    afterChartData,
+    metrics: {
+      currentMatchIndex,
+      matchCount,
+      correctCount,
+      accuracy,
+    },
+    
+    // Actions
+    handleSelection,
+    nextCard,
+    resetGame,
+    setAfterChartData,
+    setShowTimeUpOverlay,
+    setCurrentIndex,
+    
+    // Computed
+    selectedButtonIndex,
+    isGameComplete,
+  };
+} 
