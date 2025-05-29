@@ -1,24 +1,6 @@
-"use client"
+"use client";
 
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
-
-/**
- * Custom hook for handling authentication redirects
- */
-const useAuthRedirect = () => {
-  const { data: session, status } = useSession()
-  const router = useRouter()
-  
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/")
-    }
-  }, [status, router])
-
-  return { session, status, isLoading: status === "loading" }
-}
+import { useAuthRedirect } from "@/hooks/useAuthRedirect";
 
 /**
  * Dashboard Page
@@ -30,7 +12,7 @@ const useAuthRedirect = () => {
  * - Progress tracking
  */
 export default function Dashboard() {
-  const { session, isLoading } = useAuthRedirect()
+  const { session, isLoading } = useAuthRedirect();
   
   if (isLoading) {
     return (
@@ -40,23 +22,23 @@ export default function Dashboard() {
           <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
-    )
+    );
   }
   
-  if (!session) return null
+  if (!session) return null;
 
   // Mock data - in a real app this would come from an API
   const stats = {
     totalSessions: 24,
     accuracy: 68.5,
     streak: 3
-  }
+  };
 
   const recentActivity = Array.from({ length: 5 }, (_, i) => ({
     id: i + 1,
     daysAgo: i + 1,
     accuracy: 70 + i
-  }))
+  }));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -111,5 +93,5 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 } 

@@ -7,12 +7,14 @@
  * - Configures metadata for SEO
  * - Wraps the application in necessary providers
  * - Includes the global header component
+ * - Conditionally loads analytics in production
  */
 import type { Metadata } from "next"
 import Script from "next/script"
 import "./globals.css"
 import Providers from "./providers"
 import { Header } from "@/components"
+import { getGoogleAnalyticsScript, getGoogleAnalyticsConfig } from "@/config/analytics"
 
 // Define metadata for SEO and browser tab
 export const metadata: Metadata = {
@@ -28,25 +30,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const analyticsScript = getGoogleAnalyticsScript()
+  const analyticsConfig = getGoogleAnalyticsConfig()
+
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <Script
-          strategy="afterInteractive"
-          src="https://www.googletagmanager.com/gtag/js?id=G-6B1T4S90L0"
-        />
-        <Script
-          id="google-analytics"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-6B1T4S90L0');
-            `,
-          }}
-        />
+        {/* Google Analytics - Only in production */}
+        {analyticsScript && (
+          <Script
+            strategy={analyticsScript.strategy}
+            src={analyticsScript.src}
+          />
+        )}
+        {analyticsConfig && (
+          <Script
+            id={analyticsConfig.id}
+            strategy={analyticsConfig.strategy}
+            dangerouslySetInnerHTML={analyticsConfig.dangerouslySetInnerHTML}
+          />
+        )}
         <Providers>
           <Header />
           <div className="w-full flex justify-center">

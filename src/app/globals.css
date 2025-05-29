@@ -3,35 +3,27 @@
 @tailwind utilities;
 
 :root {
-  --foreground: #1d3124; /* Rich forest green - great for text */
-  --background: #000000; /* Changed from #f2f7f5 (mint/sage) to pure black */
-  --primary: #4f7942; /* Forest green - strong and natural */
+  /* Core theme colors */
+  --foreground: #1d3124;
+  --background: #000000;
+  --primary: #4f7942;
   --primary-light: #5eead4;
   --primary-dark: #0f766e;
   --accent: #0d9488;
   --accent-light: #99f6e4;
   --accent-dark: #134e4a;
   
-  /* New soothing background colors */
-  --soft-white: #000000; /* Changed from light green to black */
+  /* Optimized background colors */
+  --soft-white: #000000;
   --soft-white-hover: #121212;
   --soft-gray-50: #181818;
   --soft-gray-100: #1e1e1e;
   --soft-gray-200: #252525;
-  --slate-200: #e2e8f0;
-
-  /* Font family variables */
-  --font-primary: var(--font-geist-sans);
-  --font-secondary: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
-  --font-data: var(--font-space-grotesk);
-  --font-minimal: var(--font-dm-sans);
-  --font-professional: var(--font-plus-jakarta);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #1e2d2f; /* Modern dark teal-gray */
+    --background: #1e2d2f;
     --foreground: #ccfbf1;
     --primary: #14b8a6;
     --primary-light: #5eead4;
@@ -40,58 +32,19 @@
     --accent-light: #99f6e4;
     --accent-dark: #115e59;
     
-    /* Dark mode soothing background colors */
+    /* Dark mode background colors */
     --soft-white: #0a3330;
     --soft-white-hover: #0c3c38;
     --soft-gray-50: #072a28;
     --soft-gray-100: #052422;
     --soft-gray-200: #031e1c;
-    --slate-200: #1e293b; /* slate-800 for dark mode */
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: var(--font-primary);
-}
-
-/* Font utility classes */
-.font-primary {
-  font-family: var(--font-primary);
-}
-
-.font-secondary {
-  font-family: var(--font-secondary);
-}
-
-.font-mono {
-  font-family: var(--font-mono);
-}
-
-.font-data {
-  font-family: var(--font-data);
-}
-
-.font-minimal {
-  font-family: var(--font-minimal);
-}
-
-.font-professional {
-  font-family: var(--font-professional);
-}
-
-/* Specific use cases */
-.font-financial-numbers {
-  font-family: var(--font-data);
-}
-
-.font-code {
-  font-family: var(--font-mono);
-}
-
-.font-ui {
-  font-family: var(--font-secondary);
+  font-family: Arial, sans-serif;
 }
 
 /* Turquoise theme utility classes */
@@ -119,7 +72,7 @@ body {
   @apply hover:from-turquoise-800 hover:to-turquoise-700;
 }
 
-/* New background utility classes */
+/* Background utility classes */
 .bg-soft-white {
   background-color: var(--soft-white);
 }
