@@ -14,7 +14,7 @@ export interface SignupResponse {
   user: {
     id: string;
     email: string;
-    username: string;
+    username?: string;
   };
 }
 

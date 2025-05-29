@@ -58,17 +58,13 @@ export async function createUser(signupData: SignupRequest): Promise<AuthUser> {
     // Hash the password
     const hashedPassword = await hashPassword(password);
     
-    // Generate username from email
-    const username = email.split('@')[0];
-    
-    // Insert user into database
+    // Insert user into database (removed username field since column doesn't exist)
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
       .insert([{
         email,
         password: hashedPassword,
-        username,
       }])
       .select()
       .single();
@@ -149,7 +145,7 @@ export async function getUserByEmail(email: string): Promise<AuthUser | null> {
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, password, username, created_at, updated_at')
+      .select('id, email, password, created_at, updated_at')
       .eq('email', email)
       .maybeSingle();
 

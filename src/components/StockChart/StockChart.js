@@ -611,21 +611,35 @@ const StockChart = React.memo(({
       }
     }
 
-    // Calculate combined range with extra padding that increases as zoom progresses
+    // Calculate combined range for zoom out functionality
     const combinedMin = Math.min(mainMin, afterMin);
     const combinedMax = Math.max(mainMax, afterMax);
     
-    // Calculate the price range based on what's actually visible
-    let currentMin, currentMax;
+    // NEW ZOOM OUT LOGIC: 
+    // - When zoomPercentage > 0, we zoom out to show the full combined range
+    // - When showAfterAnimation is true, we show the turquoise line and background
+    // - progressPercentage controls how many after candles are revealed
     
-    if (visibleAfterData.length === 0) {
-      // No after data visible, use main data range
-      currentMin = mainMin;
-      currentMax = mainMax;
-    } else {
-      // After data is visible, use combined range to fit everything
+    let currentMin, currentMax;
+    let totalDataPoints;
+    let combinedIndices;
+    
+    if (zoomPercentage > 0 && afterStockData.length > 0) {
+      // ZOOM OUT MODE: Show full combined range to fit both datasets
       currentMin = combinedMin;
       currentMax = combinedMax;
+      
+      // Calculate total data points for the zoomed out view
+      totalDataPoints = stockData.length + afterStockData.length;
+      
+      // Create indices for the full combined dataset
+      combinedIndices = [...Array(totalDataPoints).keys()];
+    } else {
+      // NORMAL MODE: Show only main data range
+      currentMin = mainMin;
+      currentMax = mainMax;
+      totalDataPoints = stockData.length;
+      combinedIndices = [...Array(stockData.length).keys()];
     }
 
     // Add consistent padding
@@ -640,21 +654,6 @@ const StockChart = React.memo(({
     const totalHeight = dimensions.innerHeight;
     const volumeHeight = totalHeight * 0.2; // 20% of total height for volume
     const priceHeight = totalHeight - volumeHeight;
-
-    // Create an array of indices for both original and after data
-    // Calculate minimum zoom needed based on actual visible after data
-    const totalDataPoints = stockData.length + visibleAfterData.length;
-    
-    // Create indices based on the actual data that needs to be shown
-    let combinedIndices;
-    
-    if (visibleAfterData.length === 0) {
-      // If there's no visible after data, just use all indices from main data
-      combinedIndices = [...Array(stockData.length).keys()];
-    } else {
-      // Show exactly the data that's needed: all main data + visible after data
-      combinedIndices = [...Array(totalDataPoints).keys()];
-    }
 
     // Get the last valid price for labels
     const lastValidDataPoint = stockData[stockData.length - 1];
@@ -673,10 +672,11 @@ const StockChart = React.memo(({
         .padding(0.5),
       priceHeight,
       volumeHeight,
-      useFullDomain: true,
-      lastPrice
+      useFullDomain: zoomPercentage > 0,
+      lastPrice,
+      isZoomedOut: zoomPercentage > 0
     };
-  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData]);
+  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage]);
 
   // Create line generators for SMA
   const sma10Line = useMemo(() => {
@@ -877,8 +877,7 @@ const StockChart = React.memo(({
       return [];
     }
     
-    // Simple approach: generate candlesticks for ALL data points
-    console.log(`Generating candlesticks for ${stockData.length} data points`);
+    console.log(`Generating candlesticks for ${stockData.length} data points (zoom: ${zoomPercentage}%)`);
     
     const result = stockData.map((d, i) => {
       // More flexible property access - check various property names
@@ -902,7 +901,8 @@ const StockChart = React.memo(({
       if (i === 0) {
         console.log('First candlestick data point:', {
           raw: d,
-          processed: { open, high, low, close }
+          processed: { open, high, low, close },
+          isZoomedOut: scales.isZoomedOut
         });
       }
       
@@ -926,14 +926,14 @@ const StockChart = React.memo(({
       }
       
       try {
-        // Calculate position using scale
-      const x = scales.xScale(i);
+        // Calculate position using scale - works for both normal and zoomed out modes
+        const x = scales.xScale(i);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? (i * (dimensions.innerWidth / stockData.length)) 
+          ? (i * (dimensions.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
           : x;
           
-      const width = scales.xScale.step() * 0.8;
+        const width = scales.xScale.step() * 0.8;
         const openY = scales.priceScale(open);
         const closeY = scales.priceScale(close);
         const highY = scales.priceScale(high);
@@ -945,7 +945,7 @@ const StockChart = React.memo(({
           return null;
         }
       
-      return {
+        return {
           x: finalX,
           openY,
           closeY,
@@ -962,7 +962,7 @@ const StockChart = React.memo(({
     
     console.log(`Generated ${result.length} valid candlesticks out of ${stockData.length} data points`);
     return result;
-  }, [scales, stockData, dimensions]);
+  }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length]);
   
   // Create volume bars generator - simplified approach
   const volumeBars = useMemo(() => {
@@ -970,7 +970,7 @@ const StockChart = React.memo(({
       return [];
     }
     
-    console.log(`Generating volume bars for ${stockData.length} data points`);
+    console.log(`Generating volume bars for ${stockData.length} data points (zoom: ${zoomPercentage}%)`);
     
     const result = stockData.map((d, i) => {
       // More flexible property access for volume
@@ -992,14 +992,14 @@ const StockChart = React.memo(({
       }
       
       try {
-        // Calculate position using scale
+        // Calculate position using scale - works for both normal and zoomed out modes
         const x = scales.xScale(i);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? (i * (dimensions.innerWidth / stockData.length)) 
+          ? (i * (dimensions.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
           : x;
           
-      const width = scales.xScale.step() * 0.8;
+        const width = scales.xScale.step() * 0.8;
         const height = scales.volumeScale(volume);
       
         // Skip if any positions are invalid
@@ -1007,9 +1007,9 @@ const StockChart = React.memo(({
           return null;
         }
       
-      return {
+        return {
           x: finalX - (width / 2),
-        y: scales.volumeHeight - height,
+          y: scales.volumeHeight - height,
           width: width || 6, // Fallback width if calculation fails
           height
         };
@@ -1021,18 +1021,19 @@ const StockChart = React.memo(({
     
     console.log(`Generated ${result.length} valid volume bars out of ${stockData.length} data points`);
     return result;
-  }, [scales, stockData, dimensions]);
+  }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length]);
 
   // Create candlestick elements for after data with progressive reveal
   const afterCandlesticks = useMemo(() => {
-    if (!scales || !visibleAfterData || visibleAfterData.length === 0) {
+    // Only show after candlesticks when zoomed out and animation is active
+    if (!scales || !scales.isZoomedOut || !showAfterAnimation || !visibleAfterData || visibleAfterData.length === 0) {
       return [];
     }
     
     // Calculate offset based on original data length
     const offset = stockData.length;
     
-    console.log(`Generating after candlesticks for ${visibleAfterData.length} data points`);
+    console.log(`Generating after candlesticks for ${visibleAfterData.length} data points (zoom: ${zoomPercentage}%, progress: ${progressPercentage}%)`);
     
     const result = visibleAfterData.map((d, i) => {
       // More flexible property access - check various property names
@@ -1069,12 +1070,12 @@ const StockChart = React.memo(({
       }
       
       try {
-        // Calculate position using scale
+        // Calculate position using scale - in zoom out mode, use the full combined scale
         const index = offset + i;
         const x = scales.xScale(index);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + visibleAfterData.length)))
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length)))
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1086,15 +1087,15 @@ const StockChart = React.memo(({
         
         // Skip if any positions are invalid
         if (isNaN(openY) || isNaN(closeY) || isNaN(highY) || isNaN(lowY)) {
-        return null;
-      }
+          return null;
+        }
       
-      return {
+        return {
           x: finalX,
-        openY,
-        closeY,
-        highY,
-        lowY,
+          openY,
+          closeY,
+          highY,
+          lowY,
           width: width || 6, // Fallback width if calculation fails
           isUp
         };
@@ -1106,18 +1107,19 @@ const StockChart = React.memo(({
     
     console.log(`Generated ${result.length} valid after candlesticks out of ${visibleAfterData.length} data points`);
     return result;
-  }, [scales, stockData.length, visibleAfterData, dimensions]);
+  }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, progressPercentage, afterStockData.length]);
 
   // Create volume bars for after data with the same simplified approach
   const afterVolumeBars = useMemo(() => {
-    if (!scales || !visibleAfterData || visibleAfterData.length === 0) {
+    // Only show after volume bars when zoomed out and animation is active
+    if (!scales || !scales.isZoomedOut || !showAfterAnimation || !visibleAfterData || visibleAfterData.length === 0) {
       return [];
     }
     
     // Calculate offset based on original data length
     const offset = stockData.length;
     
-    console.log(`Generating after volume bars for ${visibleAfterData.length} data points`);
+    console.log(`Generating after volume bars for ${visibleAfterData.length} data points (zoom: ${zoomPercentage}%, progress: ${progressPercentage}%)`);
     
     const result = visibleAfterData.map((d, i) => {
       // More flexible property access for volume
@@ -1139,23 +1141,23 @@ const StockChart = React.memo(({
       }
       
       try {
-        // Calculate position using scale
+        // Calculate position using scale - in zoom out mode, use the full combined scale
         const index = offset + i;
-      const x = scales.xScale(index);
+        const x = scales.xScale(index);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + visibleAfterData.length))) 
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length))) 
           : x;
           
-      const width = scales.xScale.step() * 0.8;
+        const width = scales.xScale.step() * 0.8;
         const height = scales.volumeScale(volume);
         
         // Skip if any positions are invalid
         if (isNaN(height)) {
-        return null;
-      }
+          return null;
+        }
       
-      return {
+        return {
           x: finalX - (width / 2),
           y: scales.volumeHeight - height,
           width: width || 6, // Fallback width if calculation fails
@@ -1165,11 +1167,11 @@ const StockChart = React.memo(({
         console.error(`Error generating after volume bar for index ${i}:`, err);
         return null;
       }
-    }).filter(Boolean); // Remove any null entries
+    }).filter(Boolean);
     
     console.log(`Generated ${result.length} valid after volume bars out of ${visibleAfterData.length} data points`);
     return result;
-  }, [scales, stockData.length, visibleAfterData, dimensions]);
+  }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, progressPercentage, afterStockData.length]);
 
   // Debugging before render
   useEffect(() => {
@@ -1218,33 +1220,43 @@ const StockChart = React.memo(({
   const progressIndicator = false; // Remove percentage display
   
   // Calculate the x position and width for the dark background
-  // Get the exact x-coordinate of the last candle of the main data
-  const mainDataEndX = scales.xScale(stockData.length - 1);
+  // NEW ZOOM OUT LOGIC: When zoomed out, always show the divider line and background
+  const shouldShowDividerAndBackground = (zoomPercentage > 0 && afterStockData.length > 0) || shouldShowBackground;
   
-  // For precise alignment, we need the actual width of candlesticks
-  // Used in the rendering to ensure consistent sizing
-  const candlestickWidth = scales.xScale.step();
-  const candleBarWidth = candlestickWidth * 0.8; // Width used in candlestick rendering
+  // Calculate divider line position based on zoom state
+  let dividerLineX, darkBackgroundWidth;
   
-  // EXTREME FIX: Calculate the exact position for the vertical divider line
-  // Get position of the last point in the main data
-  const lastMainDataX = scales.xScale(stockData.length - 1);
-  
-  // Calculate the correct position for the divider line - EXACTLY at the split point
-  // Position it precisely at the boundary between the last point of main data and first point of after data
-  // Add the left margin to align with the chart content area
-  const dividerLineX = scales.xScale(stockData.length - 1) + scales.xScale.step() + dimensions.margin.left;
-  
-  // Debug logs to verify exact positioning
-  console.log("EXACT DIVIDER POSITIONING:", {
-    lastMainDataX,
-    firstAfterDataX: scales.xScale(stockData.length),
-    step: scales.xScale.step(),
-    finalDividerX: dividerLineX
-  });
-  
-  // Set width to cover the entire area from the boundary to the end of the chart
-  const darkBackgroundWidth = dimensions.width - dividerLineX;
+  if (scales.isZoomedOut && afterStockData.length > 0) {
+    // ZOOM OUT MODE: Position divider at the exact boundary between main and after data
+    const lastMainDataIndex = stockData.length - 1;
+    const firstAfterDataIndex = stockData.length;
+    
+    // Get the x-coordinate between the last main data point and first after data point
+    const lastMainX = scales.xScale(lastMainDataIndex);
+    const firstAfterX = scales.xScale(firstAfterDataIndex);
+    const step = scales.xScale.step();
+    
+    // Position the divider exactly at the midpoint between datasets
+    dividerLineX = lastMainX + (step / 2) + dimensions.margin.left;
+    
+    // Background covers from divider to end of chart
+    darkBackgroundWidth = dimensions.width - dividerLineX;
+    
+    console.log("ZOOM OUT DIVIDER POSITIONING:", {
+      lastMainDataIndex,
+      firstAfterDataIndex,
+      lastMainX,
+      firstAfterX,
+      step,
+      finalDividerX: dividerLineX,
+      backgroundWidth: darkBackgroundWidth
+    });
+  } else {
+    // NORMAL MODE: Use the original logic
+    const lastMainDataX = scales.xScale(stockData.length - 1);
+    dividerLineX = lastMainDataX + scales.xScale.step() + dimensions.margin.left;
+    darkBackgroundWidth = dimensions.width - dividerLineX;
+  }
   
   // Calculate progressive reveal mask position for the background
   const getProgressiveMaskWidth = () => {
@@ -1322,7 +1334,7 @@ const StockChart = React.memo(({
         )}
         
         {/* Dark background for after data area only - only applies to the main chart (D) */}
-        {shouldShowBackground && !backgroundColor && chartType !== 'previous' && (
+        {shouldShowDividerAndBackground && !backgroundColor && chartType !== 'previous' && (
           <>
             {/* Vertical divider line EXACTLY at the split point boundary */}
             <line
@@ -1439,8 +1451,8 @@ const StockChart = React.memo(({
                   </text>
                 )}
                 
-                {/* SMA lines for after data - only show if after data is visible */}
-                {(showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
+                {/* SMA lines for after data - only show if after data is visible and zoomed out */}
+                {scales.isZoomedOut && (showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
                   <>
                     {afterSma10Line && (hasSMA10 || chartType === 'hourly') && (
                       <path
@@ -1530,8 +1542,8 @@ const StockChart = React.memo(({
               </text>
             )}
             
-            {/* Candlesticks for after data */}
-            {showAfterAnimation && afterCandlesticks && afterCandlesticks.map((candle, i) => (
+            {/* Candlesticks for after data - only show when zoomed out */}
+            {scales.isZoomedOut && showAfterAnimation && afterCandlesticks && afterCandlesticks.map((candle, i) => (
               <g key={`after-${i}`}>
                 {!isNaN(candle.x) && !isNaN(candle.highY) && !isNaN(candle.lowY) && (
                   <line
@@ -1582,8 +1594,8 @@ const StockChart = React.memo(({
               </text>
             )}
             
-            {/* Volume bars for after data */}
-            {showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar, i) => (
+            {/* Volume bars for after data - only show when zoomed out */}
+            {scales.isZoomedOut && showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar, i) => (
               <rect
                 key={`after-vol-${i}`}
                 x={bar.x}
