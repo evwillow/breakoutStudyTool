@@ -1,74 +1,117 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { GenericErrorFallback } from '@/components/FallbackUI';
 import { logger } from '@/utils/logger';
 import { errorConfig } from '@/config/errorConfig';
+import { AppError } from '@/utils/errorHandling';
 
 interface ErrorPageProps {
-  error: Error;
+  error: Error | AppError;
   reset: () => void;
 }
 
 /**
+ * Hook for safe navigation actions
+ */
+const useNavigation = () => {
+  const goHome = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  }, []);
+
+  const refreshPage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  }, []);
+
+  return { goHome, refreshPage };
+};
+
+/**
+ * Determines appropriate error messaging based on error type and environment
+ */
+const getErrorDisplayProps = (error: Error | AppError) => {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  // Handle custom AppError instances
+  if (error instanceof AppError) {
+    return {
+      title: 'Application Error',
+      message: error.userMessage,
+    };
+  }
+  
+  // Default title
+  const title = 'Something went wrong';
+  
+  // Environment-specific messaging
+  const message = isDevelopment 
+    ? error.message || errorConfig.friendlyMessages.generic
+    : errorConfig.friendlyMessages.generic;
+
+  return { title, message };
+};
+
+/**
  * Global error page for handling uncaught errors in routes
+ * Optimized for performance and maintainability
  */
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
-  // Log the error when it happens
+  const { goHome, refreshPage } = useNavigation();
+  const { title, message } = getErrorDisplayProps(error);
+
+  // Log error once on mount with comprehensive context
   useEffect(() => {
-    logger.error('Unhandled route error', error, {
+    const context = {
       url: typeof window !== 'undefined' ? window.location.href : '',
-    });
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      timestamp: new Date().toISOString(),
+    };
+
+    logger.error('Unhandled route error', error, context);
   }, [error]);
-
-  // Determine friendly error message based on error
-  let errorTitle = 'Something went wrong';
-  let errorMessage = errorConfig.friendlyMessages.generic;
-
-  // In development, show more detail
-  if (process.env.NODE_ENV !== 'production') {
-    errorMessage = error.message || errorConfig.friendlyMessages.generic;
-    
-    // For stack trace, only in development
-    const stackInfo = error.stack || '';
-    if (stackInfo && typeof document !== 'undefined') {
-      console.error('Error details:', error);
-    }
-  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
-      <main className="max-w-2xl w-full">
+      <main className="max-w-2xl w-full" role="main" aria-labelledby="error-title">
         <GenericErrorFallback
-          title={errorTitle}
-          message={errorMessage}
+          title={title}
+          message={message}
           error={error}
           resetError={reset}
           showRetry={true}
         />
         
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center space-y-4">
           <p className="text-sm text-gray-500">
             If this problem persists, please contact our support team at{' '}
             <a
               href={`mailto:${errorConfig.supportContact.email}`}
-              className="text-blue-600 hover:underline"
+              className="text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+              aria-label={`Email support at ${errorConfig.supportContact.email}`}
             >
               {errorConfig.supportContact.email}
             </a>
           </p>
           
-          <div className="mt-4 flex justify-center space-x-4">
+          <div className="flex justify-center gap-4 flex-wrap">
             <button
-              onClick={() => window.location.href = '/'}
-              className="px-4 py-2 text-gray-700 bg-white rounded border border-gray-300 hover:bg-gray-50"
+              onClick={goHome}
+              className="px-4 py-2 text-gray-700 bg-white rounded border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              type="button"
+              aria-label="Navigate to homepage"
             >
               Go Home
             </button>
             
             <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 text-gray-700 bg-white rounded border border-gray-300 hover:bg-gray-50"
+              onClick={refreshPage}
+              className="px-4 py-2 text-gray-700 bg-white rounded border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              type="button"
+              aria-label="Refresh current page"
             >
               Refresh Page
             </button>
