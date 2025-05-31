@@ -38,6 +38,11 @@ import { useTimer } from "./hooks/useTimer";
 import { processFlashcardData, extractStockName } from "./utils/dataProcessors";
 import { GAME_CONFIG, UI_CONFIG, TIMER_CONFIG } from "./constants";
 
+// Type the imported JS components
+const TypedChartSection = ChartSection as React.ComponentType<any>;
+const TypedActionButtonsRow = ActionButtonsRow as React.ComponentType<any>;
+const TypedFolderSection = FolderSection as React.ComponentType<any>;
+
 export default function FlashcardsContainer() {
   const { data: session, status } = useSession();
   
@@ -90,7 +95,7 @@ export default function FlashcardsContainer() {
   // UI state
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showRoundHistory, setShowRoundHistory] = React.useState(false);
-  const [timerDuration, setTimerDuration] = React.useState(TIMER_CONFIG.INITIAL_DURATION);
+  const [timerDuration, setTimerDuration] = React.useState<number>(TIMER_CONFIG.INITIAL_DURATION);
 
   // Handle folder change
   const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -207,7 +212,7 @@ export default function FlashcardsContainer() {
         <div className="w-full max-w-7xl bg-black rounded-3xl shadow-2xl overflow-hidden border border-white">
           
           {/* Chart Section */}
-          <ChartSection
+          <TypedChartSection
             orderedFiles={processedData.orderedFiles}
             afterData={gameState.afterChartData}
             timer={timer.displayValue}
@@ -222,7 +227,7 @@ export default function FlashcardsContainer() {
 
           {/* Action Buttons Row */}
           <div className="pb-2 sm:pb-8 relative">
-            <ActionButtonsRow
+            <TypedActionButtonsRow
               actionButtons={GAME_CONFIG.ACTION_BUTTONS}
               selectedButtonIndex={gameState.selectedButtonIndex}
               feedback={gameState.feedback}
@@ -233,7 +238,7 @@ export default function FlashcardsContainer() {
           </div>
 
           {/* Folder Section */}
-          <FolderSection
+          <TypedFolderSection
             selectedFolder={selectedFolder}
             folderOptions={folders}
             onFolderChange={handleFolderChange}
