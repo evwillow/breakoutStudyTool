@@ -1,4 +1,4 @@
-import { ApiResponse } from '@/app/api/middleware';
+import { ApiResponse } from '@/app/api/_shared/types/api';
 import { AppError, ErrorCodes, ApiError } from './errorHandling';
 import { isOnline } from './errorHandling';
 import { logger } from './logger';
