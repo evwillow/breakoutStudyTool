@@ -73,7 +73,7 @@ export const authConfig: AuthOptions = {
             password: credentials.password
           });
 
-          if (!validatedCredentials.isValid) {
+          if (!validatedCredentials.isValid || !validatedCredentials.data) {
             logger.warn('Auth attempt with invalid credential format', {
               email: credentials.email.split('@')[1], // Log domain only
               errors: validatedCredentials.errors
@@ -84,7 +84,7 @@ export const authConfig: AuthOptions = {
           // Authenticate user with enhanced security
           const authResult = await authService.authenticateUser(validatedCredentials.data);
           
-          if (!authResult.success) {
+          if (!authResult.success || !authResult.user) {
             logger.warn('Authentication failed', {
               email: credentials.email.split('@')[1],
               reason: authResult.reason,
@@ -124,7 +124,7 @@ export const authConfig: AuthOptions = {
     /**
      * Enhanced JWT callback with better type safety
      */
-    async jwt({ token, user }): Promise<AuthToken> {
+    async jwt({ token, user }) {
       if (user) {
         // Ensure type safety when adding user data to token
         const authUser = user as AuthUser;
@@ -137,7 +137,7 @@ export const authConfig: AuthOptions = {
           email: authUser.email.split('@')[1]
         });
       }
-      return token as AuthToken;
+      return token;
     },
 
     /**
