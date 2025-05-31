@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
-    "start": "next start",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=16384 next dev",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=16384 next build",
+    "start": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next start",
     "lint": "next lint",
     "setup": "node setup-env.js",
     "fix-auth": "node fix-auth.js"
