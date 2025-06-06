@@ -29,6 +29,7 @@ const ChartSection = React.memo(function ChartSection({
   onButtonClick,
   disabled,
   isTimeUp,
+  onAfterEffectComplete,
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -230,6 +231,12 @@ const ChartSection = React.memo(function ChartSection({
               }
             }
             
+            // Call the callback to advance to next card after the delay completes
+            if (onAfterEffectComplete) {
+              console.log("After effect completed, calling onAfterEffectComplete callback");
+              onAfterEffectComplete();
+            }
+            
             resolve();
           }, 5000); // GUARANTEED EXACTLY 5000ms (5 seconds) delay
         });
@@ -252,7 +259,7 @@ const ChartSection = React.memo(function ChartSection({
         debugIntervalRef.current = null;
       }
     };
-  }, [afterData, isMobile]);
+  }, [afterData, isMobile, onAfterEffectComplete]);
 
   // Timer color based on remaining time
   const getTimerColor = () => {

@@ -70,14 +70,26 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
  */
 export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
   if (!flashcardData?.jsonFiles) {
+    console.log("extractAfterJsonData: No flashcard data or json files");
     return null;
   }
+  
+  console.log("extractAfterJsonData: Looking for after.json in files:", 
+    flashcardData.jsonFiles.map(f => f.fileName)
+  );
   
   const afterFile = flashcardData.jsonFiles.find(file =>
     FILE_PATTERNS.AFTER.test(file.fileName.toLowerCase())
   );
   
-  return afterFile?.data || null;
+  if (afterFile) {
+    console.log("extractAfterJsonData: Found after.json file:", afterFile.fileName, 
+      "Data length:", Array.isArray(afterFile.data) ? afterFile.data.length : 'not array');
+    return afterFile.data;
+  } else {
+    console.log("extractAfterJsonData: No after.json file found");
+    return null;
+  }
 }
 
 /**

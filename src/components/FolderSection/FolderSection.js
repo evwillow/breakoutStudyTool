@@ -24,6 +24,7 @@ import TimerDurationSelector from "../UI/TimerDurationSelector";
  * @param {Function} onRoundHistory - Handler for viewing round history
  * @param {number} timerDuration - Current timer duration in seconds
  * @param {Function} onTimerDurationChange - Handler for timer duration changes
+ * @param {boolean} isCreatingRound - Whether a round is currently being created
  */
 const FolderSection = React.memo(function FolderSection({
   selectedFolder,
@@ -34,6 +35,7 @@ const FolderSection = React.memo(function FolderSection({
   onRoundHistory,
   timerDuration,
   onTimerDurationChange,
+  isCreatingRound = false,
 }) {
   return (
     <div className="px-1 sm:px-8 md:px-16 lg:px-24 xl:px-56 pb-2 sm:pb-6 md:pb-10 pt-2 sm:pt-0 bg-transparent">
@@ -106,12 +108,28 @@ const FolderSection = React.memo(function FolderSection({
       <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3 justify-start">
         <button 
           onClick={onNewRound}
-          className="px-4 py-2 bg-gradient-turquoise text-white text-sm sm:text-sm md:text-base rounded-lg shadow-md hover-gradient-turquoise transition flex-1 sm:flex-none font-medium flex items-center justify-center"
+          disabled={isCreatingRound}
+          className={`px-4 py-2 ${
+            isCreatingRound 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-gradient-turquoise hover-gradient-turquoise'
+          } text-white text-sm sm:text-sm md:text-base rounded-lg shadow-md transition flex-1 sm:flex-none font-medium flex items-center justify-center`}
         >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-          </svg>
-          New Round
+          {isCreatingRound ? (
+            <>
+              <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              Creating...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+              New Round
+            </>
+          )}
         </button>
         <button 
           onClick={onRoundHistory}

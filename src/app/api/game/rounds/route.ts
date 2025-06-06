@@ -52,6 +52,8 @@ async function createRound(req: NextRequest) {
 async function getUserRounds(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
+  const datasetName = searchParams.get('datasetName');
+  const limitParam = searchParams.get('limit');
 
   if (!userId) {
     throw new ValidationError(
@@ -63,14 +65,33 @@ async function getUserRounds(req: NextRequest) {
     );
   }
 
+  const limit = limitParam ? parseInt(limitParam, 10) : 50; // Default limit of 50
+  if (isNaN(limit) || limit < 1 || limit > 100) {
+    throw new ValidationError(
+      'Limit must be a number between 1 and 100',
+      ErrorCodes.VALIDATION_ERROR,
+      400,
+      {},
+      'Invalid limit parameter.'
+    );
+  }
+
   const supabase = getAdminSupabaseClient();
 
-  // Get all rounds for the user
-  const { data: rounds, error: roundsError } = await supabase
+  // Build query with optional dataset filter
+  let query = supabase
     .from('rounds')
     .select('*')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  // Add dataset filter if provided
+  if (datasetName) {
+    query = query.eq('dataset_name', datasetName);
+  }
+
+  const { data: rounds, error: roundsError } = await query;
 
   if (roundsError) {
     throw new AppError(
