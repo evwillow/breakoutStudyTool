@@ -63,20 +63,88 @@ export default function FlashcardsContainer() {
   });
 
   // Process current flashcard data
-  const processedData = useMemo(() => 
-    processFlashcardData(currentFlashcard),
-    [currentFlashcard]
-  );
+  const processedData = useMemo(() => {
+    console.log("=== PROCESSING FLASHCARD DATA ===");
+    console.log("Processing flashcard data for:", currentFlashcard?.folderName || currentFlashcard?.name);
+    console.log("Flashcard has files:", currentFlashcard?.jsonFiles?.map(f => f.fileName) || []);
+    
+    const result = processFlashcardData(currentFlashcard);
+    
+    console.log("After processing - result:", {
+      hasAfterData: !!result.afterJsonData,
+      afterDataLength: Array.isArray(result.afterJsonData) ? result.afterJsonData.length : 'not array',
+      hasThingData: result.thingData.length > 0,
+      orderedFilesCount: result.orderedFiles.length
+    });
+    
+    // Essential validation for afterJsonData
+    if (result.afterJsonData) {
+      console.log("✅ After JSON data detected!");
+      if (Array.isArray(result.afterJsonData) && result.afterJsonData.length > 0) {
+        const firstDataPoint = result.afterJsonData[0];
+        
+        // Check if this looks like valid stock data
+        const hasStockFields = ['open', 'high', 'low', 'close', 'volume'].some(field => 
+          firstDataPoint.hasOwnProperty(field) || firstDataPoint.hasOwnProperty(field.charAt(0).toUpperCase() + field.slice(1))
+        );
+        
+        if (!hasStockFields) {
+          console.warn("❌ After JSON data doesn't appear to contain stock chart data!", firstDataPoint);
+        } else {
+          console.log("✅ After JSON data contains valid stock fields");
+        }
+      } else {
+        console.warn("❌ After JSON data is not an array or is empty:", result.afterJsonData);
+      }
+    } else {
+      console.log("ℹ️ No after JSON data found for this flashcard");
+      // List all available files to help debug
+      if (currentFlashcard?.jsonFiles?.length) {
+        console.log("Available files in flashcard:");
+        currentFlashcard.jsonFiles.forEach(file => {
+          console.log(`  - ${file.fileName}`);
+        });
+      }
+    }
+    
+    console.log("=== END PROCESSING FLASHCARD DATA ===");
+    return result;
+  }, [currentFlashcard]);
 
   // UI state
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showRoundHistory, setShowRoundHistory] = React.useState(false);
+  const [roundHistoryRefresh, setRoundHistoryRefresh] = React.useState<(() => void) | null>(null);
   const [timerDuration, setTimerDuration] = React.useState<number>(TIMER_CONFIG.INITIAL_DURATION);
   const [currentRoundId, setCurrentRoundId] = React.useState<string | null>(null);
   const [isCreatingRound, setIsCreatingRound] = React.useState(false);
   const [isLoadingRounds, setIsLoadingRounds] = React.useState(false);
   const [availableRounds, setAvailableRounds] = React.useState<any[]>([]);
   const [showRoundSelector, setShowRoundSelector] = React.useState(false);
+  const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
+
+  // Create a more reliable refresh function
+  const triggerRoundHistoryRefresh = useCallback(() => {
+    console.log('=== TRIGGERING ROUND HISTORY REFRESH ===');
+    console.log('Current time:', Date.now());
+    console.log('Last match log time:', lastMatchLogTime);
+    console.log('Time since last match:', Date.now() - lastMatchLogTime);
+    
+    if (roundHistoryRefresh) {
+      console.log('Calling round history refresh function');
+      // Add a longer delay to ensure database has time to commit
+      // Also add a random delay to avoid race conditions
+      const delay = 1000 + Math.random() * 500; // 1-1.5 seconds
+      console.log('Scheduling refresh with delay:', delay, 'ms');
+      
+      setTimeout(() => {
+        console.log('Executing delayed refresh at time:', Date.now());
+        roundHistoryRefresh();
+      }, delay);
+    } else {
+      console.log('No refresh function available');
+    }
+  }, [roundHistoryRefresh, lastMatchLogTime]);
 
   // Game state management
   const gameState = useGameState({
@@ -106,6 +174,8 @@ export default function FlashcardsContainer() {
 
           if (response.ok) {
             console.log('Round marked as completed');
+            // Use the new refresh mechanism
+            triggerRoundHistoryRefresh();
           } else {
             console.error('Failed to mark round as completed');
           }
@@ -113,7 +183,7 @@ export default function FlashcardsContainer() {
           console.error('Error updating round completion:', error);
         }
       }
-    }, [currentRoundId]),
+    }, [currentRoundId, triggerRoundHistoryRefresh]),
   });
 
   // Timer management
@@ -125,63 +195,8 @@ export default function FlashcardsContainer() {
     autoStart: false,
   });
 
-  // Load recent rounds for the current dataset
-  const loadRecentRounds = useCallback(async (datasetName: string) => {
-    console.log('=== LOADING RECENT ROUNDS ===');
-    console.log('Dataset name:', datasetName);
-    console.log('User ID:', session?.user?.id);
-    
-    if (!session?.user?.id || !datasetName) {
-      console.log('Cannot load rounds: missing user ID or dataset name');
-      return;
-    }
-
-    setIsLoadingRounds(true);
-    try {
-      const url = `/api/game/rounds?userId=${session.user.id}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
-      console.log('Fetching rounds from:', url);
-      
-      const response = await fetch(url);
-      const result = await response.json();
-
-      console.log('Rounds API response status:', response.status);
-      console.log('Rounds API response:', result);
-
-      if (!response.ok) {
-        console.error('Failed to load rounds:', result.error);
-        setAvailableRounds([]);
-        return;
-      }
-
-      const rounds = result.data || [];
-      console.log('Loaded rounds:', rounds);
-      console.log('Number of rounds:', rounds.length);
-      
-      setAvailableRounds(rounds);
-      
-      // Auto-load the most recent incomplete round
-      const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
-      console.log('Most recent incomplete round:', mostRecentIncomplete);
-      
-      if (mostRecentIncomplete) {
-        console.log('Auto-loading most recent incomplete round:', mostRecentIncomplete.id);
-        setCurrentRoundId(mostRecentIncomplete.id);
-      } else if (rounds.length > 0) {
-        console.log('All recent rounds are completed. User can start a new round.');
-        setShowRoundSelector(true);
-      } else {
-        console.log('No previous rounds found. User can start a new round.');
-        setShowRoundSelector(true);
-      }
-    } catch (error) {
-      console.error('Error loading rounds:', error);
-      setAvailableRounds([]);
-      setShowRoundSelector(true);
-    } finally {
-      setIsLoadingRounds(false);
-      console.log('=== END LOADING ROUNDS ===');
-    }
-  }, [session?.user?.id]);
+  // Track last loaded folder/userId to prevent repeated calls
+  const lastLoadedRef = React.useRef<{folder: string|null, userId: string|null}>({folder: null, userId: null});
 
   // Create a new round in the database
   const createNewRound = useCallback(async () => {
@@ -228,9 +243,6 @@ export default function FlashcardsContainer() {
       console.log('Created new round successfully:', result.data);
       console.log('New round ID:', result.data.id);
       
-      // Reload rounds to update the available rounds list
-      await loadRecentRounds(selectedFolder);
-      
       return result.data.id;
     } catch (error) {
       console.error('Error creating round:', {
@@ -243,7 +255,82 @@ export default function FlashcardsContainer() {
     } finally {
       setIsCreatingRound(false);
     }
-  }, [session?.user?.id, selectedFolder, loadRecentRounds]);
+  }, [session?.user?.id, selectedFolder]);
+
+  // Load recent rounds for the current dataset
+  const loadRecentRounds = useCallback(async (datasetName: string) => {
+    console.log('=== LOADING RECENT ROUNDS ===');
+    console.log('Dataset name:', datasetName);
+    console.log('User ID:', session?.user?.id);
+    
+    if (!session?.user?.id || !datasetName) {
+      console.log('Cannot load rounds: missing user ID or dataset name');
+      return;
+    }
+
+    setIsLoadingRounds(true);
+    try {
+      const url = `/api/game/rounds?userId=${session.user.id}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
+      console.log('Fetching rounds from:', url);
+      
+      const response = await fetch(url);
+      const result = await response.json();
+
+      console.log('Rounds API response status:', response.status);
+      console.log('Rounds API response:', result);
+
+      if (!response.ok) {
+        console.error('Failed to load rounds:', result.error);
+        setAvailableRounds([]);
+        return;
+      }
+
+      const rounds = result.data || [];
+      console.log('Loaded rounds:', rounds);
+      console.log('Number of rounds:', rounds.length);
+      
+      setAvailableRounds(rounds);
+      
+      // Auto-load the most recent incomplete round
+      const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
+      console.log('Most recent incomplete round:', mostRecentIncomplete);
+      
+      if (mostRecentIncomplete) {
+        console.log('Auto-loading most recent incomplete round:', mostRecentIncomplete.id);
+        setCurrentRoundId(mostRecentIncomplete.id);
+      } else if (rounds.length > 0) {
+        console.log('All recent rounds are completed. User can start a new round.');
+        setShowRoundSelector(true);
+      } else {
+        console.log('No previous rounds found. Auto-creating new round.');
+        // Automatically create a new round when none exist
+        const newRoundId = await createNewRound();
+        if (newRoundId) {
+          console.log('Auto-created new round:', newRoundId);
+          setCurrentRoundId(newRoundId);
+        } else {
+          console.log('Failed to auto-create round, showing selector');
+          setShowRoundSelector(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading rounds:', error);
+      setAvailableRounds([]);
+      // Try to create a new round even if loading fails
+      console.log('Attempting to create new round after error');
+      const newRoundId = await createNewRound();
+      if (newRoundId) {
+        console.log('Auto-created new round after error:', newRoundId);
+        setCurrentRoundId(newRoundId);
+      } else {
+        console.log('Failed to auto-create round after error, showing selector');
+        setShowRoundSelector(true);
+      }
+    } finally {
+      setIsLoadingRounds(false);
+      console.log('=== END LOADING ROUNDS ===');
+    }
+  }, [session?.user?.id, createNewRound]);
 
   // Handle folder change
   const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -288,6 +375,10 @@ export default function FlashcardsContainer() {
       console.log('New round setup complete');
     } else {
       console.error('Failed to create round - no round ID returned');
+      // Still allow the game to start even if round creation fails
+      setShowRoundSelector(false);
+      gameState.resetGame();
+      timer.reset(timerDuration);
     }
     console.log('=== END NEW ROUND CREATION ===');
   }, [selectedFolder, createNewRound, gameState, timer, timerDuration]);
@@ -394,6 +485,13 @@ export default function FlashcardsContainer() {
         // Don't throw error - continue game even if logging fails
       } else {
         console.log('Match logged successfully:', result.data);
+        // Update the last match log time
+        const currentTime = Date.now();
+        setLastMatchLogTime(currentTime);
+        console.log('Updated last match log time to:', currentTime);
+        
+        // Trigger refresh with the new mechanism
+        triggerRoundHistoryRefresh();
       }
     } catch (error) {
       console.error('Error logging match (network/fetch error):', {
@@ -404,7 +502,7 @@ export default function FlashcardsContainer() {
       // Continue game even if logging fails
     }
     console.log("=== END MATCH LOGGING DEBUG ===");
-  }, [currentRoundId, currentFlashcard, session?.user?.id]);
+  }, [currentRoundId, currentFlashcard, session?.user?.id, triggerRoundHistoryRefresh]);
 
   // Handle selection with timer integration and match logging
   const handleSelection = useCallback((buttonIndex: number) => {
@@ -429,15 +527,11 @@ export default function FlashcardsContainer() {
     
     // Show after chart data if available
     if (processedData.afterJsonData) {
-      console.log("After effect starting - showing after chart data", {
-        hasAfterData: !!processedData.afterJsonData,
-        afterDataLength: Array.isArray(processedData.afterJsonData) ? processedData.afterJsonData.length : 'not array'
-      });
-      gameState.setAfterChartData(processedData.afterJsonData);
-    } else {
-      console.log("No after data available for this flashcard");
+      // Only set after data if it's different from current data
+      if (gameState.afterChartData !== processedData.afterJsonData) {
+        gameState.setAfterChartData(processedData.afterJsonData);
+      }
     }
-    console.log("=== END HANDLE SELECTION DEBUG ===");
   }, [gameState, timer, processedData.afterJsonData, processedData.thingData, logMatch, currentRoundId, currentFlashcard, session?.user?.id]);
 
   // Handle next card
@@ -468,11 +562,17 @@ export default function FlashcardsContainer() {
     [currentFlashcard]
   );
 
-  // Load rounds when folder is selected
+  // Load rounds when folder is selected, but only if folder/userId actually changed
   useEffect(() => {
-    if (selectedFolder && session?.user?.id && !isLoadingRounds) {
+    if (
+      selectedFolder &&
+      session?.user?.id &&
+      !isLoadingRounds &&
+      (lastLoadedRef.current.folder !== selectedFolder || lastLoadedRef.current.userId !== session.user.id)
+    ) {
       console.log('Loading rounds for folder:', selectedFolder);
       loadRecentRounds(selectedFolder);
+      lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
     }
   }, [selectedFolder, session?.user?.id, loadRecentRounds, isLoadingRounds]);
 
@@ -492,13 +592,10 @@ export default function FlashcardsContainer() {
     // Small delay to ensure UI has updated properly
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Clear the after chart data first
-    gameState.setAfterChartData(null);
-    
-    // Then advance to next card
+    // Advance to next card (nextCard() will clear the after chart data automatically)
     console.log("Advancing to next flashcard after after effect completion");
     handleNextCard();
-  }, [gameState, handleNextCard]);
+  }, [handleNextCard]);
 
   // Show landing page for unauthenticated users
   if (status !== "authenticated" || !session) {
@@ -712,13 +809,21 @@ export default function FlashcardsContainer() {
           {showRoundHistory && (
             <RoundHistory
               isOpen={showRoundHistory}
-              onClose={() => setShowRoundHistory(false)}
+              onClose={() => {
+                setShowRoundHistory(false);
+                // Refresh round history data when closing to ensure stats are up to date
+                if (roundHistoryRefresh) {
+                  console.log('Refreshing round history data when closing modal');
+                  roundHistoryRefresh();
+                }
+              }}
               onLoadRound={(roundId: string, datasetName: string) => {
                 console.log("Loading round:", roundId, datasetName);
                 handleSelectRound(roundId);
                 setShowRoundHistory(false);
               }}
               userId={session?.user?.id}
+              onRefresh={setRoundHistoryRefresh}
             />
           )}
         </div>

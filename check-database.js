@@ -1,126 +1,163 @@
 #!/usr/bin/env node
 
 /**
- * Database Schema Checker
+ * Check Database Structure and Data
  * 
- * This script checks if all required database tables exist
- * and provides guidance on setting them up.
+ * This script checks if the database tables exist and have the correct structure
  */
 
 require('dotenv').config({ path: '.env.local' });
 
-async function checkDatabase() {
-  console.log('🔍 Checking database schema...\n');
+const { createClient } = require('@supabase/supabase-js');
 
-  // Check if required environment variables exist
-  const requiredEnvVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY'
-  ];
+console.log('🔧 Checking Database Structure\n');
 
-  const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-  
-  if (missingEnvVars.length > 0) {
-    console.log('❌ Missing environment variables:');
-    missingEnvVars.forEach(varName => {
-      console.log(`   - ${varName}`);
-    });
-    console.log('\n💡 Run "node setup-env.js" to configure your environment variables.\n');
-    return;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  console.log('❌ Missing Supabase environment variables');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
   }
+});
 
+async function checkDatabase() {
   try {
-    // Import Supabase client
-    const { createClient } = require('@supabase/supabase-js');
+    console.log('1. Checking if tables exist...\n');
     
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-
-    console.log('✅ Supabase connection configured\n');
-
-    // Check each required table
-    const requiredTables = ['users', 'rounds', 'matches'];
-    const tableStatus = {};
-
-    for (const tableName of requiredTables) {
-      try {
-        const { data, error } = await supabase
-          .from(tableName)
-          .select('*')
-          .limit(1);
-
-        if (error) {
-          if (error.message.includes('does not exist')) {
-            tableStatus[tableName] = 'missing';
-            console.log(`❌ Table "${tableName}" does not exist`);
-          } else if (error.message.includes('permission denied')) {
-            tableStatus[tableName] = 'permission_error';
-            console.log(`⚠️  Table "${tableName}" exists but has permission issues`);
-          } else {
-            tableStatus[tableName] = 'error';
-            console.log(`❌ Table "${tableName}" error: ${error.message}`);
-          }
-        } else {
-          tableStatus[tableName] = 'ok';
-          console.log(`✅ Table "${tableName}" exists and accessible`);
-        }
-      } catch (err) {
-        tableStatus[tableName] = 'error';
-        console.log(`❌ Table "${tableName}" error: ${err.message}`);
+    // Check rounds table
+    console.log('Checking rounds table...');
+    const { data: rounds, error: roundsError } = await supabase
+      .from('rounds')
+      .select('*')
+      .limit(5);
+    
+    if (roundsError) {
+      console.log('❌ Rounds table error:', roundsError.message);
+    } else {
+      console.log('✅ Rounds table exists');
+      console.log('Number of rounds:', rounds?.length || 0);
+      if (rounds && rounds.length > 0) {
+        console.log('Sample round:', {
+          id: rounds[0].id,
+          dataset_name: rounds[0].dataset_name,
+          user_id: rounds[0].user_id,
+          created_at: rounds[0].created_at,
+          completed: rounds[0].completed
+        });
       }
     }
-
-    console.log('\n📊 Database Status Summary:');
-    const okTables = Object.values(tableStatus).filter(status => status === 'ok').length;
-    const totalTables = requiredTables.length;
-    console.log(`   ${okTables}/${totalTables} tables are properly configured\n`);
-
-    // Provide guidance based on results
-    const missingTables = Object.entries(tableStatus)
-      .filter(([_, status]) => status === 'missing')
-      .map(([table, _]) => table);
-
-    const permissionTables = Object.entries(tableStatus)
-      .filter(([_, status]) => status === 'permission_error')
-      .map(([table, _]) => table);
-
-    if (missingTables.length > 0) {
-      console.log('🔧 Setup Required:');
-      console.log('   Missing tables need to be created in your Supabase database.\n');
-      console.log('📋 Next Steps:');
-      console.log('   1. Go to https://app.supabase.com');
-      console.log('   2. Open your project');
-      console.log('   3. Go to SQL Editor');
-      console.log('   4. Run the SQL from database-schema.sql file');
-      console.log('   5. Run this script again to verify\n');
-    }
-
-    if (permissionTables.length > 0) {
-      console.log('🔐 Permission Issues:');
-      console.log('   Some tables exist but have Row Level Security (RLS) issues.');
-      console.log('   This is normal and will be resolved when you set up authentication.\n');
-    }
-
-    if (okTables === totalTables) {
-      console.log('🎉 All database tables are properly configured!');
-      console.log('   Your application should work correctly now.\n');
-    }
-
-  } catch (error) {
-    console.log('❌ Database connection failed:');
-    console.log(`   ${error.message}\n`);
     
-    if (error.message.includes('Invalid API key')) {
-      console.log('💡 This looks like an API key issue.');
-      console.log('   Check your SUPABASE_SERVICE_ROLE_KEY in .env.local\n');
-    } else if (error.message.includes('fetch')) {
-      console.log('💡 This looks like a network or URL issue.');
-      console.log('   Check your NEXT_PUBLIC_SUPABASE_URL in .env.local\n');
+    // Check matches table
+    console.log('\nChecking matches table...');
+    const { data: matches, error: matchesError } = await supabase
+      .from('matches')
+      .select('*')
+      .limit(5);
+    
+    if (matchesError) {
+      console.log('❌ Matches table error:', matchesError.message);
+    } else {
+      console.log('✅ Matches table exists');
+      console.log('Number of matches:', matches?.length || 0);
+      if (matches && matches.length > 0) {
+        console.log('Sample match:', {
+          id: matches[0].id,
+          round_id: matches[0].round_id,
+          stock_symbol: matches[0].stock_symbol,
+          user_selection: matches[0].user_selection,
+          correct: matches[0].correct,
+          created_at: matches[0].created_at
+        });
+      }
     }
+    
+    // Check users table
+    console.log('\nChecking users table...');
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .limit(5);
+    
+    if (usersError) {
+      console.log('❌ Users table error:', usersError.message);
+    } else {
+      console.log('✅ Users table exists');
+      console.log('Number of users:', users?.length || 0);
+    }
+    
+    // Test the API logic manually
+    console.log('\n2. Testing API logic manually...\n');
+    
+    if (rounds && rounds.length > 0) {
+      const testRound = rounds[0];
+      console.log('Testing with round:', testRound.id);
+      
+      // Get matches for this round
+      const { data: roundMatches, error: roundMatchesError } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('round_id', testRound.id);
+      
+      if (roundMatchesError) {
+        console.log('❌ Error fetching matches for round:', roundMatchesError.message);
+      } else {
+        console.log('✅ Matches for round:', roundMatches?.length || 0);
+        
+        const totalMatches = roundMatches ? roundMatches.length : 0;
+        const correctMatches = roundMatches
+          ? roundMatches.filter((match) => match.correct).length
+          : 0;
+        const accuracy = totalMatches > 0
+          ? ((correctMatches / totalMatches) * 100).toFixed(2)
+          : '0.00';
+        
+        console.log('Calculated stats:');
+        console.log('- Total matches:', totalMatches);
+        console.log('- Correct matches:', correctMatches);
+        console.log('- Accuracy:', accuracy + '%');
+        
+        // Compare with what the API should return
+        console.log('\n3. Testing API endpoint...\n');
+        
+        const response = await fetch(`http://localhost:3000/api/game/rounds?userId=${testRound.user_id}&limit=5`);
+        const apiResult = await response.text();
+        
+        if (response.ok) {
+          const apiData = JSON.parse(apiResult);
+          const apiRound = apiData.data?.find(r => r.id === testRound.id);
+          
+          if (apiRound) {
+            console.log('API returned for this round:');
+            console.log('- Accuracy:', apiRound.accuracy);
+            console.log('- Correct matches:', apiRound.correctMatches);
+            console.log('- Total matches:', apiRound.totalMatches);
+            
+            console.log('\nComparison:');
+            console.log('- Accuracy match:', accuracy === apiRound.accuracy);
+            console.log('- Correct matches match:', correctMatches === apiRound.correctMatches);
+            console.log('- Total matches match:', totalMatches === apiRound.totalMatches);
+          } else {
+            console.log('❌ Round not found in API response');
+          }
+        } else {
+          console.log('❌ API request failed:', response.status);
+          console.log('Response:', apiResult);
+        }
+      }
+    } else {
+      console.log('No rounds found to test with');
+    }
+    
+  } catch (error) {
+    console.error('❌ Database check error:', error.message);
   }
 }
 
-// Run the check
 checkDatabase().catch(console.error); 

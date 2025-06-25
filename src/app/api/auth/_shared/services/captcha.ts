@@ -16,6 +16,7 @@ export async function verifyCaptcha(token?: string): Promise<CaptchaVerification
   }
   
   if (!token) {
+    logger.warn('CAPTCHA verification failed: token missing');
     return { success: false, error: 'CAPTCHA token missing' };
   }
   
@@ -26,6 +27,12 @@ export async function verifyCaptcha(token?: string): Promise<CaptchaVerification
   }
   
   try {
+    logger.debug('Starting CAPTCHA verification', { 
+      hasToken: !!token, 
+      tokenLength: token.length,
+      hasSecret: !!secret 
+    });
+    
     const response = await fetch('https://hcaptcha.com/siteverify', {
       method: 'POST',
       headers: {
@@ -34,21 +41,42 @@ export async function verifyCaptcha(token?: string): Promise<CaptchaVerification
       body: `response=${encodeURIComponent(token)}&secret=${encodeURIComponent(secret)}`,
     });
     
+    logger.debug('CAPTCHA API response received', { 
+      status: response.status, 
+      statusText: response.statusText,
+      ok: response.ok 
+    });
+    
     if (!response.ok) {
-      logger.error('CAPTCHA verification API response not OK', { status: response.status });
+      const errorText = await response.text();
+      logger.error('CAPTCHA verification API response not OK', { 
+        status: response.status,
+        statusText: response.statusText,
+        errorText 
+      });
       return { success: false, error: 'CAPTCHA verification service unavailable' };
     }
     
     const data = await response.json();
+    logger.debug('CAPTCHA verification response data', { success: data.success });
     
     if (!data.success) {
-      logger.warn('CAPTCHA verification failed', { errorCodes: data['error-codes'] });
+      logger.warn('CAPTCHA verification failed', { 
+        errorCodes: data['error-codes'],
+        challengeTs: data['challenge_ts'],
+        hostname: data['hostname']
+      });
       return { success: false, error: 'CAPTCHA verification failed' };
     }
     
+    logger.debug('CAPTCHA verification successful');
     return { success: true };
   } catch (error: any) {
-    logger.error('CAPTCHA verification error', error);
+    logger.error('CAPTCHA verification error', error, {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorStack: error.stack
+    });
     return { success: false, error: 'CAPTCHA verification service error' };
   }
 } 

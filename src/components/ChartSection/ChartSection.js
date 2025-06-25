@@ -38,6 +38,7 @@ const ChartSection = React.memo(function ChartSection({
   const [completionDelay, setCompletionDelay] = useState(false);
   const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [animationInProgress, setAnimationInProgress] = useState(false);
   const delayTimerRef = useRef(null);
   const delayStartTimeRef = useRef(null);
   const debugIntervalRef = useRef(null);
@@ -60,6 +61,14 @@ const ChartSection = React.memo(function ChartSection({
 
   // Handle zoom animation and data reveal
   useEffect(() => {
+    console.log("=== CHART SECTION AFTER DATA DEBUG ===");
+    console.log("ChartSection useEffect triggered - afterData:", !!afterData, afterData ? (Array.isArray(afterData) ? `array length ${afterData.length}` : 'not array') : 'null');
+    console.log("afterData type:", typeof afterData);
+    console.log("afterData value:", afterData);
+    console.log("afterData is null:", afterData === null);
+    console.log("afterData is undefined:", afterData === undefined);
+    console.log("afterData is falsy:", !afterData);
+    
     // Clear any existing timers
     if (delayTimerRef.current) {
       clearTimeout(delayTimerRef.current);
@@ -72,15 +81,24 @@ const ChartSection = React.memo(function ChartSection({
 
     // Reset animation states when afterData is removed
     if (!afterData) {
+      console.log("No afterData - resetting animation states");
       setShowAfterAnimation(false);
       setProgressPercentage(0);
       setZoomPercentage(0);
       setCompletionDelay(false);
       setAfterAnimationComplete(false);
+      setAnimationInProgress(false);
+      return;
+    }
+
+    // Prevent multiple animations from starting simultaneously
+    if (animationInProgress) {
+      console.log("Animation already in progress, ignoring new trigger");
       return;
     }
 
     console.log("Animation sequence starting...");
+    setAnimationInProgress(true);
     
     // Animation sequence with proper timing
     const animate = async () => {
@@ -237,11 +255,15 @@ const ChartSection = React.memo(function ChartSection({
               onAfterEffectComplete();
             }
             
+            // Mark animation as complete
+            setAnimationInProgress(false);
+            
             resolve();
           }, 5000); // GUARANTEED EXACTLY 5000ms (5 seconds) delay
         });
       } catch (error) {
         console.error("Animation sequence error:", error);
+        setAnimationInProgress(false); // Reset on error
       }
     };
     
@@ -258,6 +280,7 @@ const ChartSection = React.memo(function ChartSection({
         clearInterval(debugIntervalRef.current);
         debugIntervalRef.current = null;
       }
+      setAnimationInProgress(false);
     };
   }, [afterData, isMobile, onAfterEffectComplete]);
 

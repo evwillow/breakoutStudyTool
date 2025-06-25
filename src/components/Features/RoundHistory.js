@@ -20,7 +20,7 @@ import React, { useState, useEffect } from "react";
  * - Visual indicators for round status and performance
  * - Turquoise theme consistent with the rest of the application
  */
-const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
+const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
   const [rounds, setRounds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,7 +34,9 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('RoundHistory: Fetching rounds for user ID:', userId);
+      console.log('=== ROUND HISTORY: FETCHING ROUNDS ===');
+      console.log('User ID:', userId);
+      console.log('Fetch time:', new Date().toISOString());
       
       if (!userId) {
         console.error('RoundHistory: Missing user ID, cannot fetch rounds');
@@ -43,26 +45,49 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
         return;
       }
 
-      // Determine if we're using mock database - this endpoint no longer exists, so skip this check
-      console.log('RoundHistory: Using new API endpoints');
+      // Add cache-busting timestamp and random parameter to ensure fresh data
+      const timestamp = Date.now();
+      const randomParam = Math.random().toString(36).substring(7);
+      const url = `/api/game/rounds?userId=${userId}&t=${timestamp}&r=${randomParam}`;
       
-      const fetchResponse = await fetch(`/api/game/rounds?userId=${userId}`);
+      console.log('Fetching from URL:', url);
+      
+      const fetchResponse = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
       const data = await fetchResponse.json();
+      
+      console.log('Response status:', fetchResponse.status);
+      console.log('Response headers:', Object.fromEntries(fetchResponse.headers.entries()));
+      console.log('Received data:', data);
       
       if (!fetchResponse.ok) {
         console.error('RoundHistory: Error fetching rounds:', data.error);
         throw new Error(data.error || "Failed to fetch rounds");
       }
       
-      console.log('RoundHistory: Received rounds data:', data);
       console.log('RoundHistory: Number of rounds found:', data.data?.length || 0);
       
       if (data.data && Array.isArray(data.data)) {
+        console.log('RoundHistory: First round details:', data.data[0]);
+        if (data.data[0]) {
+          console.log('RoundHistory: Accuracy:', data.data[0].accuracy, 'Type:', typeof data.data[0].accuracy);
+          console.log('RoundHistory: Correct Matches:', data.data[0].correctMatches, 'Type:', typeof data.data[0].correctMatches);
+          console.log('RoundHistory: Total Matches:', data.data[0].totalMatches, 'Type:', typeof data.data[0].totalMatches);
+        }
         setRounds(data.data);
       } else {
         console.warn('RoundHistory: No rounds array in response');
         setRounds([]);
       }
+      
+      console.log('=== END ROUND HISTORY FETCH ===');
     } catch (error) {
       console.error("Error fetching rounds:", error);
       setError(error.message || "Failed to load rounds. Please try again.");
@@ -71,11 +96,19 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
     }
   };
 
+  // Expose refresh function to parent
+  useEffect(() => {
+    if (onRefresh) {
+      onRefresh(fetchRounds);
+    }
+  }, [onRefresh]);
+
   useEffect(() => {
     if (isOpen) {
+      console.log('RoundHistory: Modal opened, fetching fresh data...');
       fetchRounds();
     }
-  }, [isOpen, userId, retryCount]);
+  }, [isOpen, userId]); // Removed retryCount dependency to always fetch fresh data when opened
 
   const handleDeleteRound = async (roundId) => {
     if (confirm("Are you sure you want to delete this round?")) {
@@ -144,65 +177,82 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
     return "text-red-600";
   };
 
+  // Helper to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+  };
+
   // Mobile card view for each round
-  const RoundCard = ({ round }) => (
-    <div className="border rounded-lg p-4 mb-3 bg-transparent shadow-md hover:shadow-lg transition-shadow duration-300">
-      <div className="flex justify-between mb-2">
-        <span className="font-medium text-white flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-          </svg>
-          {round.dataset_name}
-        </span>
-        <span className="text-sm text-teal-600 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-          </svg>
-          {round.created_at}
-        </span>
-      </div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="bg-transparent p-2 rounded border border-gray-700">
-          <span className="text-xs text-teal-600">Accuracy</span>
-          <p className={`font-medium text-lg ${getAccuracyColor(round.accuracy)}`}>{round.accuracy}%</p>
-        </div>
-        <div className="bg-transparent p-2 rounded border border-gray-700">
-          <span className="text-xs text-teal-600">Matches</span>
-          <p className="text-teal-700 font-medium text-lg">{round.correctMatches || 0} / {round.totalMatches}</p>
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => onLoadRound(round.id, round.dataset_name)}
-          className="flex-1 px-3 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-sm rounded-md shadow hover:from-teal-600 hover:to-teal-700 transition flex items-center justify-center"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-          </svg>
-          Load
-        </button>
-        <button
-          onClick={() => handleDeleteRound(round.id)}
-          disabled={isDeleting && deletingId === round.id}
-          className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm rounded-md shadow hover:from-red-600 hover:to-red-700 transition flex items-center justify-center disabled:opacity-50"
-        >
-          {isDeleting && deletingId === round.id ? (
-            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  const RoundCard = ({ round }) => {
+    console.log('RoundCard rendering for round:', round.id);
+    console.log('RoundCard - Accuracy:', round.accuracy, 'Type:', typeof round.accuracy);
+    console.log('RoundCard - Correct Matches:', round.correctMatches, 'Type:', typeof round.correctMatches);
+    console.log('RoundCard - Total Matches:', round.totalMatches, 'Type:', typeof round.totalMatches);
+    
+    return (
+      <div className="border rounded-lg p-4 mb-3 bg-transparent shadow-md hover:shadow-lg transition-shadow duration-300">
+        <div className="flex justify-between mb-2">
+          <span className="font-medium text-white flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
             </svg>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+            {round.dataset_name}
+          </span>
+          <span className="text-sm text-teal-600 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+            </svg>
+            {formatDate(round.created_at)}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="bg-transparent p-2 rounded border border-gray-700">
+            <span className="text-xs text-teal-600">Accuracy</span>
+            <p className={`font-medium text-lg ${getAccuracyColor(round.accuracy)}`}>{round.accuracy ?? '0.00'}%</p>
+          </div>
+          <div className="bg-transparent p-2 rounded border border-gray-700">
+            <span className="text-xs text-teal-600">Matches</span>
+            <p className="text-teal-700 font-medium text-lg">{(typeof round.correctMatches === 'number' ? round.correctMatches : 0)} / {(typeof round.totalMatches === 'number' ? round.totalMatches : 0)}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onLoadRound(round.id, round.dataset_name)}
+            className="flex-1 px-3 py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-sm rounded-md shadow hover:from-teal-600 hover:to-teal-700 transition flex items-center justify-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+            Load
+          </button>
+          <button
+            onClick={() => handleDeleteRound(round.id)}
+            disabled={isDeleting && deletingId === round.id}
+            className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm rounded-md shadow hover:from-red-600 hover:to-red-700 transition flex items-center justify-center disabled:opacity-50"
+          >
+            {isDeleting && deletingId === round.id ? (
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Delete
-            </>
-          )}
-        </button>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                Delete
+              </>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Confirmation dialog component for delete all
   const ConfirmDialog = () => (
@@ -265,14 +315,14 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId }) => {
           {rounds.map((round) => (
             <tr key={round.id} className="hover:bg-gray-900 transition-colors">
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{round.dataset_name}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{round.created_at}</td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{formatDate(round.created_at)}</td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 py-1 text-sm font-medium ${getAccuracyColor(round.accuracy)}`}>
-                  {round.accuracy}%
+                  {round.accuracy ?? '0.00'}%
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                {round.correctMatches || 0} / {round.totalMatches}
+                {(typeof round.correctMatches === 'number' ? round.correctMatches : 0)} / {(typeof round.totalMatches === 'number' ? round.totalMatches : 0)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${round.completed ? 'bg-green-800 text-green-200' : 'bg-yellow-800 text-yellow-200'}`}>

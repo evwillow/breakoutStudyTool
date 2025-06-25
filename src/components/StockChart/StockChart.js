@@ -522,9 +522,14 @@ const StockChart = React.memo(({
 
   // Parse JSON data into an array of stock objects - memoized for performance
   const stockData = useMemo(() => processChartData(chartData, chartType), [chartData, chartType]);
-  const afterStockData = useMemo(() => 
-    afterData ? processChartData(afterData, chartType) : []
-  , [afterData, chartType]);
+  const afterStockData = useMemo(() => {
+    if (!afterData) return [];
+    
+    const processedAfterData = processChartData(afterData, chartType);
+    
+
+    return processedAfterData;
+  }, [afterData, chartType, stockData]);
 
   // Check if SMAs are available
   const hasSMA10 = stockData.some(item => item.sma10 !== null && item.sma10 !== undefined && !isNaN(item.sma10));
@@ -873,7 +878,12 @@ const StockChart = React.memo(({
   // Create candlestick elements for main data
   const candlesticks = useMemo(() => {
     if (!scales || !stockData || stockData.length === 0) {
-      console.log("Cannot generate candlesticks: missing scales or stock data");
+      return [];
+    }
+    
+    // Check if scales are properly initialized
+    if (!scales.xScale || !scales.priceScale) {
+      console.warn("Scales not properly initialized, skipping candlestick generation");
       return [];
     }
     
@@ -1172,39 +1182,6 @@ const StockChart = React.memo(({
     console.log(`Generated ${result.length} valid after volume bars out of ${visibleAfterData.length} data points`);
     return result;
   }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, progressPercentage, afterStockData.length]);
-
-  // Debugging before render
-  useEffect(() => {
-    // Only run in development and not too frequently
-    if (process.env.NODE_ENV !== 'production' && stockData && stockData.length > 0) {
-      console.group('StockChart Debug Info');
-      console.log('Data summary:', {
-        stockDataLength: stockData?.length || 0,
-        candlesticksLength: candlesticks?.length || 0,
-        volumeBarsLength: volumeBars?.length || 0,
-        hasSMA10, hasSMA20, hasSMA50
-      });
-      
-      if (stockData.length > 0 && (!candlesticks || candlesticks.length === 0)) {
-        console.warn('Missing candlesticks despite having stock data!');
-        console.log('First data point:', stockData[0]);
-        
-        // Check if scales are working properly
-        if (scales) {
-          const i = 0; // First point
-          console.log('Scale test for first data point:', {
-            domainIncludes: scales.xScale.domain().includes(i),
-            xPos: scales.xScale(i),
-            yPosOpen: scales.priceScale(stockData[i].open),
-            yPosClose: scales.priceScale(stockData[i].close),
-            yPosHigh: scales.priceScale(stockData[i].high),
-            yPosLow: scales.priceScale(stockData[i].low)
-          });
-        }
-      }
-      console.groupEnd();
-    }
-  }, [stockData, candlesticks, volumeBars, scales, hasSMA10, hasSMA20, hasSMA50]);
 
   if (!dimensions || !scales || !stockData.length) {
     return (

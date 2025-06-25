@@ -86,10 +86,13 @@ async function getFileData(req: NextRequest) {
         console.log(`Processing folder: ${folder.name}`);
         
         const fileResponse = await drive.files.list({
-          q: `'${folder.id}' in parents and mimeType = 'application/json'`,
-          fields: "files(id, name)",
+          q: `'${folder.id}' in parents and (mimeType = 'application/json' or name contains '.json')`,
+          fields: "files(id, name, mimeType)",
           pageSize: 1000,
         });
+        
+        console.log(`Found ${fileResponse.data.files?.length || 0} JSON files in ${folder.name}:`, 
+          fileResponse.data.files?.map((f: any) => `${f.name} (${f.mimeType})`) || []);
         
         const jsonFiles = await Promise.all(
           (fileResponse.data.files || []).map(async (file: DriveFile) => {
