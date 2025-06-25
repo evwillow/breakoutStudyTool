@@ -24,7 +24,7 @@ export interface GameState {
 
 export interface UseGameStateReturn extends GameState {
   // Actions
-  handleSelection: (buttonIndex: number) => void;
+  handleSelection: (buttonIndex: number, onResult?: (isCorrect: boolean) => void) => void;
   nextCard: () => void;
   resetGame: () => void;
   setAfterChartData: (data: any) => void;
@@ -33,6 +33,7 @@ export interface UseGameStateReturn extends GameState {
   
   // Computed values
   selectedButtonIndex: number | null;
+  correctAnswerButton: number | null;
   isGameComplete: boolean;
 }
 
@@ -57,6 +58,8 @@ export function useGameState({
   const [disableButtons, setDisableButtons] = useState(false);
   const [showTimeUpOverlay, setShowTimeUpOverlay] = useState(false);
   const [afterChartData, setAfterChartData] = useState<any>(null);
+  const [userSelectedButton, setUserSelectedButton] = useState<number | null>(null);
+  const [correctAnswerButton, setCorrectAnswerButton] = useState<number | null>(null);
   
   // Game metrics
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -68,11 +71,11 @@ export function useGameState({
   
   // Computed values
   const accuracy = matchCount > 0 ? Math.round((correctCount / matchCount) * 100) : 0;
-  const selectedButtonIndex = feedback ? thingData[currentMatchIndex] - 1 : null;
+  const selectedButtonIndex = userSelectedButton;
   const isGameComplete = currentIndex >= flashcardsLength - 1;
   
   // Handle user selection
-  const handleSelection = useCallback((buttonIndex: number) => {
+  const handleSelection = useCallback((buttonIndex: number, onResult?: (isCorrect: boolean) => void) => {
     if (disableButtons && !showTimeUpOverlay) return;
     
     // Clear time up overlay when user makes selection
@@ -83,9 +86,21 @@ export function useGameState({
     // Disable buttons to prevent multiple selections
     setDisableButtons(true);
     
+    // Set the user's selection
+    setUserSelectedButton(buttonIndex);
+    
     // Check if answer is correct
     const correctAnswer = thingData[currentMatchIndex];
-    const isCorrect = buttonIndex === correctAnswer - 1;
+    const correctButtonIndex = correctAnswer - 1;
+    const isCorrect = buttonIndex === correctButtonIndex;
+    
+    // Set the correct answer for display
+    setCorrectAnswerButton(correctButtonIndex);
+    
+    // Call the result callback immediately
+    if (onResult) {
+      onResult(isCorrect);
+    }
     
     // Update metrics
     setMatchCount(prev => prev + 1);
@@ -130,6 +145,8 @@ export function useGameState({
     setDisableButtons(false);
     setShowTimeUpOverlay(false);
     setAfterChartData(null);
+    setUserSelectedButton(null);
+    setCorrectAnswerButton(null);
   }, [currentIndex, flashcardsLength, isGameComplete, onGameComplete]);
   
   // Reset entire game state
@@ -142,6 +159,8 @@ export function useGameState({
     setDisableButtons(false);
     setShowTimeUpOverlay(false);
     setAfterChartData(null);
+    setUserSelectedButton(null);
+    setCorrectAnswerButton(null);
   }, []);
   
   return {
@@ -168,6 +187,7 @@ export function useGameState({
     
     // Computed
     selectedButtonIndex,
+    correctAnswerButton,
     isGameComplete,
   };
 } 

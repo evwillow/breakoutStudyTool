@@ -122,13 +122,20 @@ export default function FlashcardsContainer() {
   const [availableRounds, setAvailableRounds] = React.useState<any[]>([]);
   const [showRoundSelector, setShowRoundSelector] = React.useState(false);
   const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
+  const [matchLogCount, setMatchLogCount] = React.useState<number>(0);
+  const [refreshCount, setRefreshCount] = React.useState<number>(0);
 
   // Create a more reliable refresh function
   const triggerRoundHistoryRefresh = useCallback(() => {
+    const currentRefreshCount = refreshCount + 1;
+    setRefreshCount(currentRefreshCount);
+    
     console.log('=== TRIGGERING ROUND HISTORY REFRESH ===');
+    console.log('Refresh count:', currentRefreshCount);
     console.log('Current time:', Date.now());
     console.log('Last match log time:', lastMatchLogTime);
     console.log('Time since last match:', Date.now() - lastMatchLogTime);
+    console.log('Total match logs:', matchLogCount);
     
     if (roundHistoryRefresh) {
       console.log('Calling round history refresh function');
@@ -139,12 +146,13 @@ export default function FlashcardsContainer() {
       
       setTimeout(() => {
         console.log('Executing delayed refresh at time:', Date.now());
+        console.log('Executing refresh #', currentRefreshCount);
         roundHistoryRefresh();
       }, delay);
     } else {
       console.log('No refresh function available');
     }
-  }, [roundHistoryRefresh, lastMatchLogTime]);
+  }, [roundHistoryRefresh, lastMatchLogTime, matchLogCount, refreshCount]);
 
   // Game state management
   const gameState = useGameState({
@@ -399,6 +407,13 @@ export default function FlashcardsContainer() {
     console.log('=== END ROUND SELECTION ===');
   }, [gameState, timer, timerDuration]);
 
+  // Handle next card
+  const handleNextCard = useCallback(() => {
+    gameState.nextCard();
+    timer.reset(timerDuration);
+    timer.start();
+  }, [gameState, timer, timerDuration]);
+
   // Log match to database
   const logMatch = useCallback(async (buttonIndex: number, isCorrect: boolean) => {
     if (!currentRoundId || !currentFlashcard || !session?.user?.id) {
@@ -485,10 +500,13 @@ export default function FlashcardsContainer() {
         // Don't throw error - continue game even if logging fails
       } else {
         console.log('Match logged successfully:', result.data);
-        // Update the last match log time
+        // Update the last match log time and count
         const currentTime = Date.now();
+        const currentMatchCount = matchLogCount + 1;
         setLastMatchLogTime(currentTime);
+        setMatchLogCount(currentMatchCount);
         console.log('Updated last match log time to:', currentTime);
+        console.log('Updated match log count to:', currentMatchCount);
         
         // Trigger refresh with the new mechanism
         triggerRoundHistoryRefresh();
@@ -502,7 +520,7 @@ export default function FlashcardsContainer() {
       // Continue game even if logging fails
     }
     console.log("=== END MATCH LOGGING DEBUG ===");
-  }, [currentRoundId, currentFlashcard, session?.user?.id, triggerRoundHistoryRefresh]);
+  }, [currentRoundId, currentFlashcard, session?.user?.id, triggerRoundHistoryRefresh, matchLogCount]);
 
   // Handle selection with timer integration and match logging
   const handleSelection = useCallback((buttonIndex: number) => {
@@ -512,34 +530,19 @@ export default function FlashcardsContainer() {
     console.log("Session user ID:", session?.user?.id);
     console.log("Button index:", buttonIndex);
     
-    // Check if answer is correct before calling gameState.handleSelection
-    const correctAnswer = processedData.thingData[gameState.metrics.currentMatchIndex];
-    const isCorrect = buttonIndex === correctAnswer - 1;
+    // Let the game state handle the answer checking and feedback, and get the result immediately
+    gameState.handleSelection(buttonIndex, (isCorrect: boolean) => {
+      console.log("Feedback callback - Is correct:", isCorrect);
+      
+      // Log the match asynchronously
+      logMatch(buttonIndex, isCorrect);
+    });
 
-    console.log("Correct answer:", correctAnswer);
-    console.log("Is correct:", isCorrect);
-
-    // Log the match asynchronously
-    logMatch(buttonIndex, isCorrect);
-
-    gameState.handleSelection(buttonIndex);
     timer.pause();
     
-    // Show after chart data if available
-    if (processedData.afterJsonData) {
-      // Only set after data if it's different from current data
-      if (gameState.afterChartData !== processedData.afterJsonData) {
-        gameState.setAfterChartData(processedData.afterJsonData);
-      }
-    }
-  }, [gameState, timer, processedData.afterJsonData, processedData.thingData, logMatch, currentRoundId, currentFlashcard, session?.user?.id]);
-
-  // Handle next card
-  const handleNextCard = useCallback(() => {
-    gameState.nextCard();
-    timer.reset(timerDuration);
-    timer.start();
-  }, [gameState, timer, timerDuration]);
+    // The ChartSection will handle the animation automatically when after data is available
+    console.log("Selection handled - ChartSection will manage animation");
+  }, [gameState, timer, logMatch, currentRoundId, currentFlashcard, session?.user?.id]);
 
   // Start timer when flashcard changes
   useEffect(() => {
@@ -548,13 +551,6 @@ export default function FlashcardsContainer() {
       timer.start();
     }
   }, [currentFlashcard, gameState.feedback, loading, timer, timerDuration]);
-
-  // Pause timer when showing after chart data
-  useEffect(() => {
-    if (gameState.afterChartData) {
-      timer.pause();
-    }
-  }, [gameState.afterChartData, timer]);
 
   // Extract stock name for DateFolderBrowser
   const currentStock = useMemo(() => 
@@ -743,7 +739,7 @@ export default function FlashcardsContainer() {
           {/* Chart Section */}
           <TypedChartSection
             orderedFiles={processedData.orderedFiles}
-            afterData={gameState.afterChartData}
+            afterData={processedData.afterJsonData}
             timer={timer.displayValue}
             pointsTextArray={processedData.pointsTextArray}
             actionButtons={GAME_CONFIG.ACTION_BUTTONS}
@@ -760,6 +756,7 @@ export default function FlashcardsContainer() {
             <TypedActionButtonsRow
               actionButtons={GAME_CONFIG.ACTION_BUTTONS}
               selectedButtonIndex={gameState.selectedButtonIndex}
+              correctAnswerButton={gameState.correctAnswerButton}
               feedback={gameState.feedback}
               onButtonClick={handleSelection}
               disabled={gameState.showTimeUpOverlay ? false : gameState.disableButtons}
@@ -810,11 +807,16 @@ export default function FlashcardsContainer() {
             <RoundHistory
               isOpen={showRoundHistory}
               onClose={() => {
+                console.log('=== CLOSING ROUND HISTORY MODAL ===');
                 setShowRoundHistory(false);
                 // Refresh round history data when closing to ensure stats are up to date
                 if (roundHistoryRefresh) {
                   console.log('Refreshing round history data when closing modal');
-                  roundHistoryRefresh();
+                  // Add a small delay before refreshing to ensure any pending updates are complete
+                  setTimeout(() => {
+                    console.log('Executing refresh after modal close');
+                    roundHistoryRefresh();
+                  }, 500);
                 }
               }}
               onLoadRound={(roundId: string, datasetName: string) => {

@@ -15,6 +15,7 @@ import React from "react";
 const ActionButtonsRow = React.memo(function ActionButtonsRow({
   actionButtons,
   selectedButtonIndex = null,
+  correctAnswerButton = null,
   feedback = null,
   onButtonClick,
   disabled = false,
@@ -54,18 +55,25 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
   const getButtonClasses = (index) => {
     let classes = defaultClasses[index];
     
-    // Add disabled state styling
-    if (disabled) {
+    // Add disabled state styling - but don't show "no" cursor when showing feedback
+    if (disabled && !feedback) {
       classes += " opacity-70 cursor-not-allowed";
+    } else if (disabled && feedback) {
+      classes += " opacity-70"; // Disabled but showing feedback, so normal cursor
     }
     
-    // Add selection feedback
+    // Add selection feedback for user's choice
     if (selectedButtonIndex !== null && index === selectedButtonIndex) {
       classes += feedback === "correct"
         ? " ring-4 ring-green-500 ring-opacity-75 transform scale-105"
         : feedback === "incorrect"
         ? " ring-4 ring-red-500 ring-opacity-75 transform scale-105"
         : "";
+    }
+    
+    // Add correct answer indicator (different style)
+    if (correctAnswerButton !== null && index === correctAnswerButton && index !== selectedButtonIndex) {
+      classes += " ring-4 ring-blue-500 ring-opacity-75 transform scale-105";
     }
     
     // Add time's up highlighting - enhanced for mobile visibility
@@ -94,9 +102,9 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
 
   // Handler for button clicks
   const handleClick = (index) => {
-    console.log(`Button clicked with index: ${index}, value: ${index + 1}`);
+    console.log(`Button clicked with index: ${index}`);
     if (onButtonClick && !disabled) {
-      onButtonClick(index + 1);
+      onButtonClick(index);
     }
   };
 

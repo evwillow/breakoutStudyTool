@@ -70,111 +70,37 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
  */
 export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
   if (!flashcardData?.jsonFiles) {
-    console.error("❌ PROBLEM: No flashcard data or json files");
+    console.log("❌ No flashcard data or json files");
     return null;
   }
 
-  console.error("🔍 DEBUGGING AFTER.JSON SEARCH:");
-  console.error("📁 Folder:", flashcardData.name || flashcardData.folderName || 'unnamed');
-  console.error("📄 All files in folder:", flashcardData.jsonFiles.map(f => f.fileName));
+  console.log("🔍 Looking for after.json files:");
+  console.log("📁 Folder:", flashcardData.name || flashcardData.folderName || 'unnamed');
+  console.log("📄 All files:", flashcardData.jsonFiles.map(f => f.fileName));
 
-  // Find the after.json file in this specific folder
-  const afterFiles = flashcardData.jsonFiles.filter(file => {
-    const matches = FILE_PATTERNS.AFTER.test(file.fileName.toLowerCase());
-    console.error(`   - "${file.fileName}" matches /after\.json$/i: ${matches}`);
-    return matches;
+  // Find the after.json file
+  const afterFile = flashcardData.jsonFiles.find(file => {
+    const fileName = file.fileName.toLowerCase();
+    const isAfterFile = fileName === 'after.json' || fileName.includes('after') && fileName.endsWith('.json');
+    console.log(`   - "${file.fileName}" is after file: ${isAfterFile}`);
+    return isAfterFile;
   });
   
-  // Also check for common variations
-  if (afterFiles.length === 0) {
-    console.error("🔍 No exact matches, checking variations...");
-    const possibleAfterFiles = flashcardData.jsonFiles.filter(file => {
-      const fileName = file.fileName.toLowerCase();
-      const isAfterFile = fileName.includes('after') && fileName.endsWith('.json');
-      console.error(`   - "${file.fileName}" contains 'after' and ends with '.json': ${isAfterFile}`);
-      return isAfterFile;
-    });
-    
-    if (possibleAfterFiles.length > 0) {
-      console.error("✅ Found variations:", possibleAfterFiles.map(f => f.fileName));
-      afterFiles.push(...possibleAfterFiles);
-    }
-  }
-  
-  if (afterFiles.length === 0) {
-    console.error("❌ PROBLEM: No after.json files found at all");
+  if (!afterFile) {
+    console.log("❌ No after.json file found");
     return null;
   }
   
-  const afterFile = afterFiles[0];
-  console.error("✅ Found after.json file:", afterFile.fileName);
+  console.log("✅ Found after.json file:", afterFile.fileName);
   
-  // Get D.json file for comparison
-  const dFile = flashcardData.jsonFiles.find(file =>
-    FILE_PATTERNS.DAILY.test(file.fileName.toLowerCase())
-  );
-  console.error("📄 D.json file:", dFile ? dFile.fileName : "NOT FOUND");
-  
-  // Validate that the data is actually stock/chart data
+  // Basic validation - just check if it's an array with data
   if (!Array.isArray(afterFile.data) || afterFile.data.length === 0) {
-    console.error("❌ PROBLEM: after.json data is not array or empty:", typeof afterFile.data, afterFile.data?.length);
+    console.log("❌ after.json data is not array or empty:", typeof afterFile.data, afterFile.data?.length);
     return null;
   }
 
-  console.error("📊 after.json data length:", afterFile.data.length);
-
-  const firstPoint = afterFile.data[0];
-  const hasRequiredFields = ['open', 'high', 'low', 'close', 'volume'].some(field => 
-    firstPoint.hasOwnProperty(field) || firstPoint.hasOwnProperty(field.charAt(0).toUpperCase() + field.slice(1))
-  );
-  
-  if (!hasRequiredFields) {
-    console.error("❌ PROBLEM: after.json missing required OHLCV fields:", firstPoint);
-    return null;
-  }
-  
-  console.error("✅ after.json has valid OHLCV fields");
-  
-  // CRITICAL: Compare after data with D.json to ensure they're different
-  if (dFile && Array.isArray(dFile.data) && dFile.data.length > 0) {
-    console.error("🔍 Comparing after.json with D.json...");
-    const originalData = dFile.data;
-    console.error("📊 D.json data length:", originalData.length, "vs after.json:", afterFile.data.length);
-    
-    const comparePoints = Math.min(3, originalData.length, afterFile.data.length);
-    let identicalCount = 0;
-    
-    for (let i = 0; i < comparePoints; i++) {
-      const orig = originalData[i];
-      const after = afterFile.data[i];
-      
-      // Compare key fields
-      const closeMatch = Math.abs((orig.close || orig.Close || 0) - (after.close || after.Close || 0)) < 0.01;
-      const dateMatch = (orig.date || orig.Date) === (after.date || after.Date);
-      
-      console.error(`   Point ${i}: close match=${closeMatch}, date match=${dateMatch}`);
-      console.error(`   D.json: close=${orig.close || orig.Close}, date=${orig.date || orig.Date}`);
-      console.error(`   after.json: close=${after.close || after.Close}, date=${after.date || after.Date}`);
-      
-      if (closeMatch && dateMatch) {
-        identicalCount++;
-      }
-    }
-    
-    console.error(`🎯 Comparison result: ${identicalCount} of ${comparePoints} points identical`);
-    
-    // If all compared points are identical, don't return the data
-    if (identicalCount === comparePoints) {
-      console.error("❌ PROBLEM: after.json data is IDENTICAL to D.json - rejecting");
-      return null; // Don't return identical data
-    } else {
-      console.error("✅ after.json data is DIFFERENT from D.json - accepting");
-    }
-  } else {
-    console.error("⚠️ WARNING: No D.json file to compare with");
-  }
-  
-  console.error("✅ Returning after.json data");
+  console.log("✅ after.json data is valid array with", afterFile.data.length, "points");
+  console.log("✅ Returning after.json data");
   return afterFile.data;
 }
 

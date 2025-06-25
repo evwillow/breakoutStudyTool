@@ -106,9 +106,10 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
   useEffect(() => {
     if (isOpen) {
       console.log('RoundHistory: Modal opened, fetching fresh data...');
+      console.log('Modal open time:', new Date().toISOString());
       fetchRounds();
     }
-  }, [isOpen, userId]); // Removed retryCount dependency to always fetch fresh data when opened
+  }, [isOpen, userId]); // Always fetch when modal opens or userId changes
 
   const handleDeleteRound = async (roundId) => {
     if (confirm("Are you sure you want to delete this round?")) {

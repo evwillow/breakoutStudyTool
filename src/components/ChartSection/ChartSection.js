@@ -42,6 +42,7 @@ const ChartSection = React.memo(function ChartSection({
   const delayTimerRef = useRef(null);
   const delayStartTimeRef = useRef(null);
   const debugIntervalRef = useRef(null);
+  const lastFeedbackRef = useRef(null);
 
   // Check if device is mobile
   useEffect(() => {
@@ -68,6 +69,25 @@ const ChartSection = React.memo(function ChartSection({
     console.log("afterData is null:", afterData === null);
     console.log("afterData is undefined:", afterData === undefined);
     console.log("afterData is falsy:", !afterData);
+    console.log("feedback state:", feedback);
+    console.log("last feedback processed:", lastFeedbackRef.current);
+    
+    // Only start animation if user has made a selection (feedback is set)
+    if (!feedback) {
+      console.log("No feedback yet - waiting for user selection");
+      lastFeedbackRef.current = null; // Reset when feedback is cleared
+      return;
+    }
+    
+    // Prevent duplicate animations for the same feedback state
+    if (lastFeedbackRef.current === feedback) {
+      console.log("Already processed this feedback state, skipping animation");
+      return;
+    }
+    
+    // Mark this feedback as processed
+    lastFeedbackRef.current = feedback;
+    console.log("Processing new feedback state:", feedback);
     
     // Clear any existing timers
     if (delayTimerRef.current) {
@@ -81,13 +101,60 @@ const ChartSection = React.memo(function ChartSection({
 
     // Reset animation states when afterData is removed
     if (!afterData) {
-      console.log("No afterData - resetting animation states");
+      console.log("No afterData - starting animation sequence without after data");
       setShowAfterAnimation(false);
       setProgressPercentage(0);
       setZoomPercentage(0);
       setCompletionDelay(false);
       setAfterAnimationComplete(false);
-      setAnimationInProgress(false);
+      
+      // Start animation sequence even without after data to maintain timing and button disabling
+      if (!animationInProgress) {
+        setAnimationInProgress(true);
+        
+        // Run a simplified animation sequence for no after data
+        const runNoAfterDataSequence = async () => {
+          try {
+            // Initial 1.5-second delay before any animation starts
+            // This gives the user time to see the correct answer feedback
+            await new Promise(resolve => {
+              console.log("Initial 1.5-second delay started (no after data)");
+              setTimeout(() => {
+                console.log("Initial delay completed (no after data)");
+                resolve();
+              }, 1500); // 1.5-second initial delay
+            });
+            
+            // Set completion state
+            setAfterAnimationComplete(true);
+            
+            // 5-second observation delay (same as with after data)
+            console.log("Starting 5-second observation delay (no after data)");
+            setCompletionDelay(true);
+            
+            await new Promise(resolve => {
+              setTimeout(() => {
+                console.log("Observation delay completed (no after data)");
+                setCompletionDelay(false);
+                resolve();
+              }, 5000); // 5-second delay
+            });
+            
+            // Call the completion callback
+            if (onAfterEffectComplete) {
+              console.log("Calling onAfterEffectComplete (no after data)");
+              onAfterEffectComplete();
+            }
+            
+            setAnimationInProgress(false);
+          } catch (error) {
+            console.error("No after data animation sequence error:", error);
+            setAnimationInProgress(false);
+          }
+        };
+        
+        runNoAfterDataSequence();
+      }
       return;
     }
 
@@ -282,7 +349,18 @@ const ChartSection = React.memo(function ChartSection({
       }
       setAnimationInProgress(false);
     };
-  }, [afterData, isMobile, onAfterEffectComplete]);
+  }, [afterData, feedback, isMobile, onAfterEffectComplete]);
+
+  // Reset feedback tracking when moving to a new card
+  useEffect(() => {
+    lastFeedbackRef.current = null;
+    setAnimationInProgress(false);
+    setShowAfterAnimation(false);
+    setProgressPercentage(0);
+    setZoomPercentage(0);
+    setCompletionDelay(false);
+    setAfterAnimationComplete(false);
+  }, [orderedFiles]);
 
   // Timer color based on remaining time
   const getTimerColor = () => {
