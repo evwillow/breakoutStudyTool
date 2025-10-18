@@ -48,3 +48,12 @@ next-env.d.ts
 github_access_token.txt
 *_token.txt
 *_key.txt
+service-account.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tailwind.config.ts
+!next.config.ts
+!postcss.config.mjs
+!eslint.config.mjs

@@ -161,7 +161,7 @@ src/
 2. **Set up environment variables**
 
    ```bash
-   cp env.template .env.local
+   cp .env.example .env.local
    # Fill in Supabase and Google Drive credentials
    ```
 
@@ -177,6 +177,10 @@ src/
 
 ## Environment Variables
 
+**⚠️ SECURITY WARNING: Never commit sensitive credentials to version control!**
+
+All sensitive configuration is handled through environment variables. Copy `.env.example` to `.env.local` and fill in your actual values.
+
 ```env
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=
@@ -186,8 +190,10 @@ SUPABASE_SERVICE_ROLE_KEY=
 # Google Drive API
 NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=
 GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID=
 GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
 GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=
+GOOGLE_SERVICE_ACCOUNT_CLIENT_ID=
 GOOGLE_DRIVE_PARENT_FOLDER_ID=
 
 # Authentication
@@ -196,9 +202,29 @@ NEXTAUTH_SECRET=
 # Optional
 NEXT_PUBLIC_GA_MEASUREMENT_ID=
 NEXT_PUBLIC_HCAPTCHA_SITE_KEY=
+HCAPTCHA_SECRET_KEY=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 ```
+
+---
+
+## Security
+
+This application follows security best practices:
+
+- **No hardcoded credentials**: All sensitive data is stored in environment variables
+- **Environment-based configuration**: Use `.env.local` for development, server environment variables for production
+- **Secure authentication**: Supabase handles user authentication with proper session management
+- **Rate limiting**: Built-in protection against abuse
+- **Input validation**: All user inputs are validated and sanitized
+
+### For Production Deployment:
+
+1. **Never commit `.env.local` or any files containing real credentials**
+2. **Set environment variables on your server/hosting platform**
+3. **Use different credentials for development and production**
+4. **Regularly rotate API keys and secrets**
 
 ---
 

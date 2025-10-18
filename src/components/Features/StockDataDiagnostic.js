@@ -306,7 +306,7 @@ export default function StockDataDiagnostic() {
                   <ol className="list-decimal ml-5 mt-2 space-y-1">
                     <li>Verify the folder contents in Google Drive directly</li>
                     <li>Try another folder from the dropdown above</li>
-                    <li>Share the folder with the service account email: <code className="bg-gray-200 p-1 rounded">nextjs-drive-service@stocks-450303.iam.gserviceaccount.com</code></li>
+                    <li>Share the folder with the service account email: <code className="bg-gray-200 p-1 rounded">{process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL || 'your-service-account@your-project.iam.gserviceaccount.com'}</code></li>
                   </ol>
                 </div>
               )}
@@ -321,7 +321,7 @@ export default function StockDataDiagnostic() {
         
         <ol className="list-decimal ml-5 space-y-2 text-blue-800">
           <li>Make sure the Google Drive service account has access to the folders</li>
-          <li>Share the parent folder (and its content) with: <code className="bg-blue-100 p-1 rounded">nextjs-drive-service@stocks-450303.iam.gserviceaccount.com</code></li>
+          <li>Share the parent folder (and its content) with: <code className="bg-blue-100 p-1 rounded">{process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL || 'your-service-account@your-project.iam.gserviceaccount.com'}</code></li>
           <li>Verify that the folders contain the expected data structure (JSON files)</li>
           <li>Try selecting a different dataset from the dropdown in the main app</li>
           <li>Restart the application after making any changes to permissions</li>
