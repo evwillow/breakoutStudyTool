@@ -14,34 +14,32 @@ import { createClient } from "@supabase/supabase-js";
 const isServer = typeof window === 'undefined';
 const isBrowser = typeof window !== 'undefined';
 
-// Environment validation with detailed error messages
-const validateEnvironment = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Lazy environment resolution to avoid throwing on module import
+const resolveEnv = () => ({
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+});
 
-  if (!url) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable");
+let supabaseUrl;
+let serviceKey;
+let anonKey;
+const ensureEnv = () => {
+  if (!supabaseUrl) {
+    const env = resolveEnv();
+    supabaseUrl = env.url;
+    serviceKey = env.serviceKey;
+    anonKey = env.anonKey;
   }
-
-  // Different validation for server vs browser
-  if (isServer) {
-    // Server-side: require at least one key
-    if (!serviceKey && !anonKey) {
-      throw new Error("Missing Supabase keys: SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY required");
+  if (!supabaseUrl) {
+    if (process.env.NODE_ENV !== 'production') {
+      // In dev, allow a mock client by returning early
+      return false;
     }
-  } else {
-    // Browser-side: only anon key is available
-    if (!anonKey) {
-      throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY for client-side operations");
-    }
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
   }
-
-  return { url, serviceKey, anonKey };
+  return true;
 };
-
-// Validate environment on module load
-const { url: supabaseUrl, serviceKey, anonKey } = validateEnvironment();
 
 // Singleton instances for performance
 let serverClient = null;
@@ -60,7 +58,18 @@ export const getServerSupabaseClient = () => {
   }
 
   if (!serverClient) {
+    if (!ensureEnv()) {
+      // Development fallback mock client that throws on use
+      return new Proxy({}, {
+        get() { throw new Error('Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'); }
+      });
+    }
     if (!serviceKey) {
+      if (process.env.NODE_ENV !== 'production') {
+        return new Proxy({}, {
+          get() { throw new Error('SUPABASE_SERVICE_ROLE_KEY missing. Provide it to use server client.'); }
+        });
+      }
       throw new Error("SUPABASE_SERVICE_ROLE_KEY required for server operations");
     }
 
@@ -96,12 +105,23 @@ export const getServerSupabaseClient = () => {
  */
 export const getClientSupabaseClient = () => {
   if (!clientClient) {
+    if (!ensureEnv()) {
+      // Development fallback mock client that throws on use
+      return new Proxy({}, {
+        get() { throw new Error('Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'); }
+      });
+    }
     // In browser, only use anon key
     // On server, prefer anon key but fallback to service key
     const key = isBrowser ? anonKey : (anonKey || serviceKey);
     
     if (!key) {
       const envName = isBrowser ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : 'SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY';
+      if (process.env.NODE_ENV !== 'production') {
+        return new Proxy({}, {
+          get() { throw new Error(`No Supabase key available for client operations. Missing: ${envName}`); }
+        });
+      }
       throw new Error(`No Supabase key available for client operations. Missing: ${envName}`);
     }
 

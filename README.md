@@ -4,170 +4,345 @@
 [![React](https://img.shields.io/badge/React-19.0.0-blue?logo=react)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20Storage-3ECF8E?logo=supabase)](https://supabase.io/)
 
-> Interactive flashcard application for mastering stock chart pattern recognition and trading decision-making skills.
+A full-stack web application for studying breakout patterns in stock charts.  
+The tool enables traders and researchers to practice recognizing breakouts, analyze real setups, and track accuracy across timeframes.
 
-## 🚀 Quick Start
+---
+
+## Overview
+
+The Breakout Study Tool merges data engineering, visualization, and authentication into one cohesive learning platform.  
+It uses Supabase for authentication and storage, and Google Drive APIs for scalable chart access.  
+The app provides interactive flashcard-style learning for breakout pattern mastery.
+
+**Live Demo:** [trade.evwillow.com](https://trade.evwillow.com) *(private instance)*
+
+---
+
+## Features
+
+- Multi-timeframe chart visualization (minute to daily)
+- Interactive flashcard practice with accuracy feedback
+- Supabase authentication and user tracking
+- Google Drive integration for large chart datasets
+- Performance analytics and data diagnostics
+- Responsive Tailwind CSS design
+- Error boundaries, rate limiting, and safe fallbacks
+- CI/CD via GitHub Actions and DigitalOcean
+
+---
+
+## Tech Stack
+
+**Frontend:** Next.js, React, TypeScript, Tailwind CSS  
+**Backend & Auth:** Supabase (PostgreSQL, Auth, Storage)  
+**Data:** Google Drive API  
+**Visualization:** Recharts, custom StockChart components  
+**Deployment:** DigitalOcean with GitHub Actions  
+**Analytics:** Google Analytics (gtag)  
+
+---
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── _shared/
+│   │   │   ├── clients/
+│   │   │   ├── middleware/
+│   │   │   ├── types/
+│   │   │   └── utils/
+│   │   ├── admin/
+│   │   ├── auth/
+│   │   ├── debug/
+│   │   ├── files/
+│   │   └── game/
+│   ├── dashboard/
+│   ├── analytics/
+│   ├── community/
+│   ├── database-status/
+│   ├── stock-data-diagnostic/
+│   ├── support/
+│   ├── layout.tsx
+│   ├── page.tsx
+│   ├── providers.tsx
+│   ├── error.tsx
+│   └── not-found.tsx
+│
+├── components/
+│   ├── Auth/
+│   │   ├── AuthButtons/
+│   │   ├── AuthModal/
+│   │   ├── hooks/
+│   │   └── utils/
+│   ├── ChartSection/
+│   ├── DateFolderBrowser/
+│   ├── Flashcards/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── utils/
+│   ├── Features/
+│   ├── FolderSection/
+│   ├── Header/
+│   ├── LandingPage/
+│   ├── StockChart/
+│   ├── UI/
+│   ├── ErrorBoundary/
+│   ├── FallbackUI/
+│   └── GoogleAnalytics.tsx
+│
+├── lib/
+│   ├── auth/
+│   │   ├── services/
+│   │   ├── constants.ts
+│   │   ├── types.ts
+│   │   └── index.ts
+│   ├── auth.ts
+│   ├── supabase.js
+│   ├── github.js
+│   ├── googleDrive.js
+│   ├── rateLimit.ts
+│   └── gtag.ts
+│
+├── utils/
+│   ├── errorHandling.ts
+│   ├── logger.ts
+│   ├── fetcher.ts
+│   ├── calculateSMA.js
+│   ├── csvLoader.js
+│   ├── jwt.js
+│   ├── useAsync.ts
+│   └── useFormValidation.ts
+│
+├── config/
+│   ├── analytics.ts
+│   ├── errorConfig.ts
+│   ├── supabase.js
+│   └── service-account.json
+│
+├── hooks/
+│   └── useAuthRedirect.ts
+│
+├── types/
+│   └── next-auth.d.ts
+│
+├── styles/
+│   └── globals.css
+│
+├── pages/
+│   └── test-hourly.js
+│
+└── Flashcards.js
+```
+
+---
+
+## Installation
 
 ### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- Supabase account (for authentication & data)
-- Google Drive API access (for chart data)
+- Node.js 18 or higher  
+- npm or yarn  
+- Supabase project  
+- Google Drive API credentials  
 
-### Installation
+### Steps
 
-1. **Clone and install**
+1. **Clone and install dependencies**
    ```bash
-   git clone <your-repo-url>
-   cd breakout-study-tool
+   git clone https://github.com/evwillow/breakoutStudyTool.git
+   cd breakoutStudyTool
    npm install
    ```
 
-2. **Environment setup**
+2. **Set up environment variables**
+
    ```bash
    cp env.template .env.local
-   # Edit .env.local with your actual values
+   # Fill in Supabase and Google Drive credentials
    ```
 
 3. **Run development server**
+
    ```bash
    npm run dev
    ```
 
-4. **Open** [http://localhost:3000](http://localhost:3000)
-
-## 🎯 Features
-
-- **📊 Interactive Charts**: Daily, hourly, and minute timeframe analysis
-- **⏱️ Timed Practice**: Realistic trading pressure simulation  
-- **📈 Performance Tracking**: Monitor accuracy and improvement
-- **🔐 Secure Authentication**: NextAuth.js with Supabase
-- **📱 Responsive Design**: Works on desktop and mobile
-- **📚 Historical Data**: Browse and analyze past setups
-
-## 🏗️ Project Structure
-
-```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── dashboard/         # Dashboard pages
-│   └── page.tsx          # Home page
-├── components/            # React components
-│   ├── Auth/             # Authentication components
-│   ├── Header/           # Navigation components
-│   ├── FallbackUI/       # Error handling UI
-│   ├── ChartSection.js   # Chart display
-│   ├── StockChart.js     # Chart rendering
-│   ├── DateFolderBrowser.js # Historical data browser
-│   └── LandingPage.js    # Marketing landing page
-├── lib/                  # Utility libraries
-├── utils/                # Helper functions
-└── Flashcards.js         # Main app component
-```
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Required variables (see `env.template`):
-
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-# Google Drive API
-NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=your_api_key
-GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=your_project_id
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=your_private_key
-GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=your_client_email
-GOOGLE_DRIVE_PARENT_FOLDER_ID=your_folder_id
-
-# NextAuth
-NEXTAUTH_SECRET=your_nextauth_secret
-
-# Optional: Analytics & Security
-NEXT_PUBLIC_GA_MEASUREMENT_ID=your_ga_id
-NEXT_PUBLIC_HCAPTCHA_SITE_KEY=your_hcaptcha_key
-UPSTASH_REDIS_REST_URL=your_redis_url
-UPSTASH_REDIS_REST_TOKEN=your_redis_token
-```
-
-### Available Scripts
-
-```bash
-npm run dev        # Development server
-npm run build      # Production build
-npm run start      # Start production server
-npm run lint       # Run ESLint
-```
-
-## 🎮 Usage
-
-### Practice Mode
-1. **Sign in** to track progress
-2. **Select stock folder** from dropdown
-3. **Analyze charts** (Daily/Hourly/Minute views)
-4. **Make prediction** (-5%, 0%, 20%, 50%)
-5. **Get feedback** and continue practicing
-
-### Historical Analysis
-1. Navigate to **"Previous Setups"**
-2. **Browse by date** to view historical data
-3. **Click dates** to expand chart details
-4. **Study patterns** to improve recognition
-
-## 🔧 Development
-
-### Key Dependencies
-- **Next.js 15.1.6**: React framework with App Router
-- **React 19**: UI library
-- **Tailwind CSS**: Utility-first styling
-- **Supabase**: Authentication and database
-- **NextAuth.js**: Authentication framework
-- **Recharts**: Chart visualization
-- **Google APIs**: Drive integration for data
-
-### Memory Configuration
-The project uses increased memory allocation for large datasets:
-```bash
-NODE_OPTIONS=--max-old-space-size=8192
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Build fails with memory errors:**
-```bash
-npm run build:light  # Uses memory optimization
-```
-
-**Authentication not working:**
-- Verify Supabase credentials in `.env.local`
-- Check NEXTAUTH_SECRET is set
-
-**Charts not loading:**
-- Confirm Google Drive API credentials
-- Verify folder permissions and IDs
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
+4. Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
-<div align="center">
-  <p>Built with ❤️ using Next.js, React, and Tailwind CSS</p>
-</div>
+## Environment Variables
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Google Drive API
+NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=
+GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
+GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=
+GOOGLE_DRIVE_PARENT_FOLDER_ID=
+
+# Authentication
+NEXTAUTH_SECRET=
+
+# Optional
+NEXT_PUBLIC_GA_MEASUREMENT_ID=
+NEXT_PUBLIC_HCAPTCHA_SITE_KEY=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+```
+
+---
+
+## Scripts
+
+```bash
+npm run dev       # Start development server
+npm run build     # Build production bundle
+npm run start     # Run production build
+npm run lint      # Lint for code quality
+```
+
+---
+
+## Usage
+
+### Practice Mode
+
+1. Log in via Supabase authentication
+2. Select a dataset or ticker folder
+3. View chart sequences and predict breakout direction
+4. Submit predictions (up, down, or neutral)
+5. Receive accuracy feedback and progression tracking
+
+### Historical Analysis
+
+1. Navigate to **Previous Setups**
+2. Browse charts by date or ticker
+3. Compare predictions with real outcomes
+
+---
+
+## Development Notes
+
+* Built with **Next.js App Router** for routing and server components
+* **Supabase** manages authentication, roles, and data sync
+* **Google Drive API** powers scalable chart retrieval
+* Includes **rate limiting**, **error handling**, and **fallback UI**
+* Recommended Node memory config:
+
+  ```bash
+  NODE_OPTIONS=--max-old-space-size=8192
+  ```
+
+---
+
+## Troubleshooting
+
+**Charts not loading**
+
+* Check Google Drive credentials and folder permissions
+* Verify `GOOGLE_DRIVE_PARENT_FOLDER_ID`
+
+**Authentication not working**
+
+* Confirm Supabase URL and keys in `.env.local`
+* Ensure database RLS allows authenticated reads/writes
+
+**Memory errors during build**
+
+```bash
+npm run build:light
+```
+
+---
+
+## Environment Template Example
+
+```env
+# Breakout Study Tool Environment Template
+# Copy to .env.local and edit values
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=public-anon-key
+SUPABASE_SERVICE_ROLE_KEY=service-role-key
+
+# Google Drive API
+NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=your-api-key
+GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=your-project-id
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
+GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
+GOOGLE_DRIVE_PARENT_FOLDER_ID=your-folder-id
+
+# Authentication
+NEXTAUTH_SECRET=your-secret
+```
+
+---
+
+## Recommended Workflow
+
+1. Configure Supabase project with user auth and database tables
+2. Create Google Cloud service account and enable Drive API
+3. Add credentials to `.env.local`
+4. Test locally with `npm run dev`
+5. Deploy via DigitalOcean or Vercel with GitHub Actions
+
+---
+
+## Contributing
+
+1. Fork this repository
+2. Create a feature branch
+
+   ```bash
+   git checkout -b feature/new-feature
+   ```
+3. Commit and push changes
+
+   ```bash
+   git commit -m "Add new feature"
+   git push origin feature/new-feature
+   ```
+4. Open a pull request
+
+---
+
+## License
+
+MIT License — see `LICENSE` file for details.
+
+---
+
+## Goals
+
+* Create a repeatable breakout study system for traders
+* Improve pattern recognition and decision-making speed
+* Provide scalable architecture for future ML-based labeling
+
+---
+
+## Roadmap
+
+* Multi-user analytics leaderboard
+* Live labeling and data upload pipeline
+* Edge Function processing for faster chart delivery
+* AI-assisted pattern classification
+
+---
+
+## Author
+
+**Evan Maus**
+University of California, Berkeley — Economics & Data Science
+[evwillow.com](https://evwillow.com)
+[LinkedIn](https://linkedin.com/in/evwillow)

@@ -18,6 +18,22 @@ function getServiceAccountCredentials() {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY ||
       !process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL ||
       !process.env.GOOGLE_SERVICE_ACCOUNT_PROJECT_ID) {
+    if (process.env.NODE_ENV !== 'production') {
+      // Return a dummy object; subsequent calls should be guarded by env middleware
+      return {
+        type: "service_account",
+        project_id: "missing",
+        private_key_id: "missing",
+        private_key: "missing",
+        client_email: "missing",
+        client_id: "missing",
+        auth_uri: "https://accounts.google.com/o/oauth2/auth",
+        token_uri: "https://oauth2.googleapis.com/token",
+        auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+        client_x509_cert_url: "https://www.googleapis.com/robot/v1/metadata/x509/missing",
+        universe_domain: "googleapis.com"
+      };
+    }
     throw new Error("Missing Google Service Account credentials in environment variables");
   }
 
@@ -56,6 +72,12 @@ export async function initializeDriveClient() {
       drive = google.drive({ version: "v3", auth: authClient });
     } catch (error) {
       console.error("Error initializing Google Drive client:", error.message);
+      if (process.env.NODE_ENV !== 'production') {
+        // Provide a proxy that throws on usage for clearer DX without crashing importers
+        return new Proxy({}, {
+          get() { throw new Error("Google Drive not configured. Set GOOGLE_SERVICE_ACCOUNT_* env vars."); }
+        });
+      }
       throw new Error("Failed to initialize Google Drive client. Check your environment variables.");
     }
   }
@@ -68,6 +90,9 @@ export async function initializeDriveClient() {
  */
 export function getParentFolderId() {
   if (!process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID) {
+    if (process.env.NODE_ENV !== 'production') {
+      return 'missing';
+    }
     throw new Error("Missing GOOGLE_DRIVE_PARENT_FOLDER_ID environment variable");
   }
   

@@ -68,6 +68,14 @@ export function withEnvironmentValidation(requiredVars: string[]) {
       const missingVars = requiredVars.filter(varName => !process.env[varName]);
       
       if (missingVars.length > 0) {
+        // In development, return a helpful JSON response instead of hard failing
+        if (process.env.NODE_ENV !== 'production') {
+          return NextResponse.json({
+            success: false,
+            message: 'Missing required environment variables',
+            missing: missingVars,
+          }, { status: 500 });
+        }
         const error = new AppError(
           `Missing required environment variables: ${missingVars.join(', ')}`,
           ErrorCodes.SERVER_ERROR,

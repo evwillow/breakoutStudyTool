@@ -9,18 +9,29 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@/utils/logger";
 
-// Validate environment variables at module load
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Lazy env resolution to avoid crashing at import time
+let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+let serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl) {
-  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable");
-}
-
-if (!serviceRoleKey && !anonKey) {
-  throw new Error("Missing Supabase keys: SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY required");
-}
+const ensureEnv = () => {
+  if (!supabaseUrl) {
+    supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  }
+  if (!serviceRoleKey) {
+    serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  }
+  if (!anonKey) {
+    anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  }
+  if (!supabaseUrl) {
+    if (process.env.NODE_ENV !== 'production') {
+      return false;
+    }
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL environment variable");
+  }
+  return true;
+};
 
 // Singleton instances
 let adminClient: SupabaseClient | null = null;
@@ -32,7 +43,18 @@ let standardClient: SupabaseClient | null = null;
  */
 export function getAdminSupabaseClient(): SupabaseClient {
   if (!adminClient) {
+    if (!ensureEnv()) {
+      // Dev-friendly proxy that throws when used
+      return new Proxy({} as any, {
+        get() { throw new Error('Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'); }
+      });
+    }
     if (!serviceRoleKey) {
+      if (process.env.NODE_ENV !== 'production') {
+        return new Proxy({} as any, {
+          get() { throw new Error('Service role key required for admin client'); }
+        });
+      }
       throw new Error("Service role key required for admin client");
     }
     
@@ -55,8 +77,18 @@ export function getAdminSupabaseClient(): SupabaseClient {
  */
 export function getSupabaseClient(): SupabaseClient {
   if (!standardClient) {
+    if (!ensureEnv()) {
+      return new Proxy({} as any, {
+        get() { throw new Error('Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'); }
+      });
+    }
     const key = serviceRoleKey || anonKey;
     if (!key) {
+      if (process.env.NODE_ENV !== 'production') {
+        return new Proxy({} as any, {
+          get() { throw new Error('No Supabase key available'); }
+        });
+      }
       throw new Error("No Supabase key available");
     }
     

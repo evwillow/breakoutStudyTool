@@ -17,18 +17,20 @@ import { authService } from "./auth/services/authService";
 import { AUTH_CONFIG } from "./auth/constants";
 import type { AuthUser, AuthCredentials, AuthSession, AuthToken } from "./auth/types";
 
-// Environment validation with detailed error messages
-const validateEnvironment = (): void => {
-  const requiredVars = ['NEXTAUTH_SECRET', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
-  const missing = requiredVars.filter(varName => !process.env[varName]);
-  
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+// Environment validation with graceful fallbacks in development
+const ensureAuthEnv = (): void => {
+  // Provide a deterministic but safe dev fallback to avoid hard crashes during local dev
+  if (!process.env.NEXTAUTH_SECRET) {
+    if (process.env.NODE_ENV !== 'production') {
+      process.env.NEXTAUTH_SECRET = 'dev-only-secret-change-me';
+    } else {
+      throw new Error('Missing NEXTAUTH_SECRET environment variable');
+    }
   }
 };
 
-// Validate environment on module load
-validateEnvironment();
+// Ensure minimal auth env on module load without forcing unrelated services
+ensureAuthEnv();
 
 /**
  * NextAuth.js configuration with enhanced security and performance

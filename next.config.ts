@@ -1,5 +1,6 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
   images: {
     domains: ["lh3.googleusercontent.com", "drive.google.com"],
     remotePatterns: [
@@ -23,7 +24,7 @@ const nextConfig = {
     NEXT_PUBLIC_USE_MOCK_DB: process.env.NODE_ENV === 'development' ? 'true' : 'false',
   },
   // Performance optimizations
-  webpack: (config: any, { dev, isServer }: { dev: boolean; isServer: boolean }) => {
+  webpack: (config, { dev }) => {
     // Optimize chunk splitting for better caching
     config.optimization.splitChunks = {
       chunks: 'all',
@@ -63,15 +64,6 @@ const nextConfig = {
 
     return config;
   },
-  // Experimental optimizations
-  experimental: {
-    // Optimize server components
-    optimizeServerReact: true,
-    // CSS optimization
-    optimizeCss: true,
-    // Enable modern bundling
-    esmExternals: true,
-  },
   // Compiler optimizations
   compiler: {
     // Remove console logs in production
@@ -79,4 +71,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
