@@ -9,7 +9,7 @@ import { createSuccessResponse, createErrorResponse } from '../../_shared/utils/
 import { withErrorHandling, withEnvironmentValidation, composeMiddleware } from '../../_shared/middleware/errorHandler';
 import { testDatabaseConnection, validateDatabaseSchema } from '../../_shared/clients/supabase';
 import { HealthCheckResponse, ServiceStatus } from '../../_shared/types/api';
-import { initializeDriveClient, getParentFolderId } from '@/lib/googleDrive';
+// Google Drive removed - using local data instead
 import { AppError, ErrorCodes } from '@/utils/errorHandling';
 
 /**
@@ -58,20 +58,25 @@ async function checkDatabaseHealth(): Promise<ServiceStatus> {
 }
 
 /**
- * Check Google Drive service health
+ * Check local data service health
  */
-async function checkGoogleDriveHealth(): Promise<ServiceStatus> {
+async function checkLocalDataHealth(): Promise<ServiceStatus> {
   const startTime = Date.now();
   
   try {
-    const drive = await initializeDriveClient();
-    const parentFolderId = getParentFolderId();
+    // Check if local data directory exists
+    const fs = require('fs');
+    const path = require('path');
+    const dataPath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
     
-    // Test folder access
-    await drive.files.get({
-      fileId: parentFolderId,
-      fields: 'id,name'
-    });
+    if (!fs.existsSync(dataPath)) {
+      return {
+        status: 'down',
+        responseTime: Date.now() - startTime,
+        error: 'Local data directory not found',
+        lastChecked: new Date().toISOString()
+      };
+    }
     
     const responseTime = Date.now() - startTime;
     
@@ -146,14 +151,14 @@ async function healthCheck(req: NextRequest) {
     );
   }
 
-  const [databaseStatus, googleDriveStatus, authStatus] = await Promise.all([
+  const [databaseStatus, localDataStatus, authStatus] = await Promise.all([
     checkDatabaseHealth(),
-    checkGoogleDriveHealth(),
+    checkLocalDataHealth(),
     checkAuthHealth()
   ]);
 
   // Determine overall system status
-  const services = { database: databaseStatus, googleDrive: googleDriveStatus, auth: authStatus };
+  const services = { database: databaseStatus, localData: localDataStatus, auth: authStatus };
   const allServicesUp = Object.values(services).every(service => service.status === 'up');
   const anyServiceDown = Object.values(services).some(service => service.status === 'down');
   
@@ -179,9 +184,7 @@ async function healthCheck(req: NextRequest) {
 // Export with middleware
 export const GET = composeMiddleware(
   withEnvironmentValidation([
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL',
-    'GOOGLE_DRIVE_PARENT_FOLDER_ID'
+    'NEXT_PUBLIC_SUPABASE_URL'
   ]),
   withErrorHandling
 )(healthCheck); 

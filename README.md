@@ -9,7 +9,7 @@
 
 A comprehensive, SEO-optimized platform for learning breakout trading patterns with real-time AI insights and educational content. Built as a scalable monorepo with modern technologies.
 
-**Live Demo:** [trade.evwillow.com](https://trade.evwillow.com) *(private instance)*
+**Live Demo:** [breakouts.trade](https://breakouts.trade)
 
 ---
 
@@ -357,6 +357,41 @@ pip install -r requirements.txt
 - [ ] Security hardening
 - [ ] Monitoring setup
 - [ ] Production deployment
+
+---
+
+## 🚀 Deployment
+
+### Production Setup (DigitalOcean)
+
+The application is deployed on DigitalOcean using PM2 for process management and Nginx as a reverse proxy.
+
+**Domain:** [breakouts.trade](https://breakouts.trade)
+
+### Quick Deployment Commands
+
+```bash
+# Deploy updates
+cd /var/www/html/breakoutStudyTool
+git pull origin main
+cd src/web && npm run build
+pm2 restart breakout-web breakout-api
+```
+
+### Environment Setup
+
+1. **Clone repository** to `/var/www/html/breakoutStudyTool`
+2. **Install dependencies**: `npm install` (web) and `pip install -r requirements.txt` (api)
+3. **Configure Nginx** for domain routing
+4. **Set up SSL** with Let's Encrypt
+5. **Start services** with PM2
+
+### Services
+
+- **Frontend**: Next.js app on port 3000
+- **Backend**: Python FastAPI on port 8000
+- **Reverse Proxy**: Nginx handling HTTPS and routing
+- **Process Manager**: PM2 for service management
 
 ---
 
