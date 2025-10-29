@@ -54,123 +54,27 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
         setLoading(true);
         setAllFiles([]);
         
-        // Special stocks with dedicated data sources
-        const specialStocks = [
-          "poo_jan_4_2019", 
-          "ski_mar_9_2011",
-          "slot_apr_14_2001",
-          "shit_dec_11_2007",
-          "edge_oct_22_1999"
-        ];
-        if (currentStock && specialStocks.includes(currentStock.toLowerCase())) {
-          console.log(`Using getStockFiles API directly for special stock: ${currentStock}`);
-          
-          try {
-            const stockFilesRes = await fetch(`/api/getStockFiles?stock=${encodeURIComponent(currentStock)}`);
-            
-            if (stockFilesRes.ok) {
-              const stockFilesData = await stockFilesRes.json();
-              
-              if (stockFilesData && stockFilesData.length > 0) {
-                console.log(`Found files via getStockFiles for ${currentStock}:`, stockFilesData);
-                
-                let stockTotalFiles = 0;
-                const stockFiles = [];
-                
-                // Process each folder in the results
-                stockFilesData.forEach(folderData => {
-                  if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
-                    stockTotalFiles += folderData.jsonFiles.length;
-                    
-                    // Add each file to our results
-                    folderData.jsonFiles.forEach(file => {
-                      // Create a unique ID that includes the parent folder if available
-                      const parentFolder = folderData.parentFolder ? `${folderData.parentFolder}/` : '';
-                      const id = `${parentFolder}${folderData.folderName}/${file.fileName}`;
-                      
-                      stockFiles.push({
-                        id: id,
-                        subfolder: folderData.folderName,
-                        parentFolder: folderData.parentFolder,
-                        fileName: file.fileName,
-                        data: file.data || null
-                      });
-                    });
-                  }
-                });
-                
-                setAllFiles(stockFiles);
-                setDebugInfo(`Used getStockFiles API directly for ${currentStock}, found ${stockFiles.length} files`);
-                setLoading(false);
-                return; // Exit early
-              }
-            }
-          } catch (error) {
-            console.error(`Error using getStockFiles API directly:`, error);
-            // Continue with normal flow if getStockFiles fails
-          }
-        }
+        // Note: getStockFiles API not available in local setup
+        // Special handling disabled for local data loading
         
-        // Try searchFiles API as a fallback for special stocks
-        if (currentStock && specialStocks.includes(currentStock.toLowerCase())) {
-          console.log(`Trying searchFiles API for special stock: ${currentStock}`);
-          
-          try {
-            const searchRes = await fetch(`/api/searchFiles?query=${encodeURIComponent(currentStock)}`);
-            
-            if (searchRes.ok) {
-              const searchData = await searchRes.json();
-              
-              if (searchData && searchData.length > 0) {
-                console.log(`Found files via search for ${currentStock}:`, searchData);
-                
-                let searchTotalFiles = 0;
-                const searchFiles = [];
-                
-                // Process each folder in the search results
-                searchData.forEach(folderData => {
-                  if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
-                    searchTotalFiles += folderData.jsonFiles.length;
-                    
-                    // Add each file to our results
-                    folderData.jsonFiles.forEach(file => {
-                      searchFiles.push({
-                        id: `${folderData.folderName}/${file.fileName}`,
-                        subfolder: folderData.folderName,
-                        fileName: file.fileName,
-                        data: file.data || null
-                      });
-                    });
-                  }
-                });
-                
-                setAllFiles(searchFiles);
-                setDebugInfo(`Used searchFiles API for ${currentStock}, found ${searchFiles.length} files`);
-                setLoading(false);
-                return; // Exit early
-              }
-            }
-          } catch (error) {
-            console.error(`Error using searchFiles API:`, error);
-            // Continue with normal flow if searchFiles fails
-          }
-        }
+        // Note: searchFiles API not available in local setup
+        // This fallback is disabled for local data loading
         
         // Normal flow for non-special stocks or if special handling failed
         // Fetch all folders
-        const foldersRes = await fetch("/api/files/folders");
+        const foldersRes = await fetch("/api/files/local-folders");
         if (!foldersRes.ok) {
           console.error(`Error fetching folders: ${foldersRes.status}`);
           return;
         }
         
         const foldersData = await foldersRes.json();
-        if (!foldersData.success || !Array.isArray(foldersData.data)) {
+        if (!foldersData.success || !Array.isArray(foldersData.folders)) {
           console.error("Invalid folders data format");
           return;
         }
         
-        const folders = foldersData.data;
+        const folders = foldersData.folders;
         
         // Shuffle the folders array to randomize the order
         const shuffleFolders = (array) => {
@@ -196,20 +100,27 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
         
         for (const folder of dateFolders) {
           try {
-            // Use getFileData endpoint which returns more complete data
-            const filesRes = await fetch(`/api/files/data?folder=${encodeURIComponent(folder.name)}`);
+            // Use local-folders endpoint to get files for this folder
+            const filesRes = await fetch(`/api/files/local-folders`);
             if (!filesRes.ok) {
               console.error(`Error fetching files for folder ${folder.name}: ${filesRes.status}`);
               continue;
             }
             
             const filesData = await filesRes.json();
-            if (!filesData.success || !Array.isArray(filesData.data)) {
+            if (!filesData.success || !Array.isArray(filesData.folders)) {
               console.error(`Invalid file data format for folder ${folder.name}`);
               continue;
             }
             
-            const files = filesData.data;
+            // Find the specific folder and get its files
+            const folderData = filesData.folders.find(f => f.name === folder.name);
+            if (!folderData || !folderData.files) {
+              console.log(`No files found for folder ${folder.name}`);
+              continue;
+            }
+            
+            const files = folderData.files;
             processedFolders++;
             
             // Log raw data for debugging
@@ -242,108 +153,31 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp }) => {
           
           // First fallback: Try to fetch files directly from a folder with the same name as the stock
           try {
-            const stockFolderRes = await fetch(`/api/files/data?folder=${encodeURIComponent(currentStock)}`);
+            const stockFolderRes = await fetch(`/api/files/local-folders`);
             if (stockFolderRes.ok) {
               const stockFolderData = await stockFolderRes.json();
               
-              if (stockFolderData.success && stockFolderData.data && stockFolderData.data.length > 0) {
-                console.log(`Found files in folder ${currentStock}:`, stockFolderData.data);
-                
-                const { relevantFiles: stockFiles, totalFilesBeforeFiltering: stockTotalFiles } = processAndFilterFiles(stockFolderData.data, currentStock, null); // Pass null to include all files
-                totalFilesFound += stockTotalFiles;
-                relevantFiles = [...relevantFiles, ...stockFiles];
+              if (stockFolderData.success && stockFolderData.folders) {
+                // Find the folder with the stock name
+                const stockFolder = stockFolderData.folders.find(f => f.name === currentStock);
+                if (stockFolder && stockFolder.files && stockFolder.files.length > 0) {
+                  console.log(`Found files in folder ${currentStock}:`, stockFolder.files);
+                  
+                  const { relevantFiles: stockFiles, totalFilesBeforeFiltering: stockTotalFiles } = processAndFilterFiles(stockFolder.files, currentStock, null); // Pass null to include all files
+                  totalFilesFound += stockTotalFiles;
+                  relevantFiles = [...relevantFiles, ...stockFiles];
+                }
               }
             }
           } catch (error) {
             console.error(`Error in first fallback approach:`, error);
           }
           
-          // Second fallback: Use the searchFiles API to search across all folders
-          if (relevantFiles.length === 0) {
-            try {
-              console.log(`Trying searchFiles API for ${currentStock}...`);
-              const searchRes = await fetch(`/api/files/search?query=${encodeURIComponent(currentStock)}`);
-              
-              if (searchRes.ok) {
-                const searchData = await searchRes.json();
-                
-                if (searchData.success && searchData.data && searchData.data.length > 0) {
-                  console.log(`Found files via search for ${currentStock}:`, searchData.data);
-                  
-                  let searchTotalFiles = 0;
-                  const searchFiles = [];
-                  
-                  // Process each folder in the search results
-                  searchData.data.forEach(folderData => {
-                    if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
-                      searchTotalFiles += folderData.jsonFiles.length;
-                      
-                      // Add each file to our results
-                      folderData.jsonFiles.forEach(file => {
-                        searchFiles.push({
-                          id: `${folderData.folderName}/${file.fileName}`,
-                          subfolder: folderData.folderName,
-                          fileName: file.fileName,
-                          data: file.data || null
-                        });
-                      });
-                    }
-                  });
-                  
-                  totalFilesFound += searchTotalFiles;
-                  relevantFiles = [...relevantFiles, ...searchFiles];
-                }
-              }
-            } catch (error) {
-              console.error(`Error in second fallback approach:`, error);
-            }
-          }
+          // Note: searchFiles API not available in local setup
+          // This fallback is disabled for local data loading
           
-          // Third fallback: Try the getStockFiles API
-          if (relevantFiles.length === 0) {
-            try {
-              console.log(`Trying getStockFiles API for ${currentStock}...`);
-              const stockFilesRes = await fetch(`/api/files/stocks?stock=${encodeURIComponent(currentStock)}`);
-              
-              if (stockFilesRes.ok) {
-                const stockFilesData = await stockFilesRes.json();
-                
-                if (stockFilesData.success && stockFilesData.data && stockFilesData.data.length > 0) {
-                  console.log(`Found files via getStockFiles for ${currentStock}:`, stockFilesData.data);
-                  
-                  let stockTotalFiles = 0;
-                  const stockFiles = [];
-                  
-                  // Process each folder in the results
-                  stockFilesData.data.forEach(folderData => {
-                    if (folderData.jsonFiles && folderData.jsonFiles.length > 0) {
-                      stockTotalFiles += folderData.jsonFiles.length;
-                      
-                      // Add each file to our results
-                      folderData.jsonFiles.forEach(file => {
-                        // Create a unique ID that includes the parent folder if available
-                        const parentFolder = folderData.parentFolder ? `${folderData.parentFolder}/` : '';
-                        const id = `${parentFolder}${folderData.folderName}/${file.fileName}`;
-                        
-                        stockFiles.push({
-                          id: id,
-                          subfolder: folderData.folderName,
-                          parentFolder: folderData.parentFolder,
-                          fileName: file.fileName,
-                          data: file.data || null
-                        });
-                      });
-                    }
-                  });
-                  
-                  totalFilesFound += stockTotalFiles;
-                  relevantFiles = [...relevantFiles, ...stockFiles];
-                }
-              }
-            } catch (error) {
-              console.error(`Error in third fallback approach:`, error);
-            }
-          }
+          // Note: getStockFiles API not available in local setup
+          // This fallback is disabled for local data loading
           
           // Special case for specific stock symbols
           if (relevantFiles.length === 0) {

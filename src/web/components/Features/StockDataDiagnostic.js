@@ -4,45 +4,48 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 
 export default function StockDataDiagnostic() {
-  const [driveStatus, setDriveStatus] = useState({ loading: true });
+  const [dataStatus, setDataStatus] = useState({ loading: true });
   const [foldersStatus, setFoldersStatus] = useState({ loading: true });
   const [filesStatus, setFilesStatus] = useState({ loading: true });
   const [selectedFolder, setSelectedFolder] = useState('');
-  const [driveTestDetails, setDriveTestDetails] = useState(null);
+  const [dataTestDetails, setDataTestDetails] = useState(null);
   const [folders, setFolders] = useState([]);
   
-  // Test Drive access on component mount
+  // Test local data access on component mount
   useEffect(() => {
-    const testDriveAccess = async () => {
+    const testDataAccess = async () => {
       try {
-        setDriveStatus({ loading: true });
-        const response = await fetch('/api/test-drive-access');
+        setDataStatus({ loading: true });
+        const response = await fetch('/api/files/local-folders');
         const data = await response.json();
         
-        setDriveStatus({
+        setDataStatus({
           loading: false,
-          success: data.status === 'success',
-          message: data.message,
+          success: data.success,
+          message: data.message || 'Local data access test',
           error: data.error
         });
         
-        if (data.status === 'success') {
-          setDriveTestDetails(data.diagnostics);
-          if (data.diagnostics.folders && data.diagnostics.folders.length > 0) {
-            setFolders(data.diagnostics.folders);
+        if (data.success) {
+          setDataTestDetails({
+            totalFolders: data.folders?.length || 0,
+            totalFiles: data.totalFiles || 0
+          });
+          if (data.folders && data.folders.length > 0) {
+            setFolders(data.folders);
           }
         }
       } catch (error) {
-        setDriveStatus({
+        setDataStatus({
           loading: false,
           success: false,
-          message: 'Failed to test Google Drive access',
+          message: 'Failed to test local data access',
           error: error.message
         });
       }
     };
     
-    testDriveAccess();
+    testDataAccess();
   }, []);
   
   // Fetch folders
@@ -50,25 +53,25 @@ export default function StockDataDiagnostic() {
     const fetchFolders = async () => {
       try {
         setFoldersStatus({ loading: true });
-        const response = await fetch('/api/files/folders');
+        const response = await fetch('/api/files/local-folders');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
         
-        if (!data.success || !Array.isArray(data.data)) {
+        if (!data.success || !Array.isArray(data.folders)) {
           throw new Error('Invalid response format');
         }
         
         setFoldersStatus({
           loading: false,
           success: true,
-          message: `Successfully loaded ${data.data.length} folders`
+          message: `Successfully loaded ${data.folders.length} folders`
         });
         
-        setFolders(data.data);
-        if (!selectedFolder) {
-          setSelectedFolder(data.data[0].name);
+        setFolders(data.folders);
+        if (!selectedFolder && data.folders.length > 0) {
+          setSelectedFolder(data.folders[0].name);
         }
       } catch (error) {
         setFoldersStatus({
@@ -90,20 +93,25 @@ export default function StockDataDiagnostic() {
     const fetchFileData = async () => {
       try {
         setFilesStatus({ loading: true });
-        const response = await fetch(`/api/files/data?folder=${encodeURIComponent(selectedFolder)}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Find the selected folder and get its files
+        const selectedFolderData = folders.find(f => f.name === selectedFolder);
+        if (selectedFolderData && selectedFolderData.files) {
+          setFilesStatus({
+            loading: false,
+            success: selectedFolderData.files.length > 0,
+            message: selectedFolderData.files.length > 0
+              ? `Found ${selectedFolderData.files.length} files in this folder` 
+              : 'No files found in this folder',
+            data: selectedFolderData.files
+          });
+        } else {
+          setFilesStatus({
+            loading: false,
+            success: false,
+            message: 'No data found for this folder',
+            data: []
+          });
         }
-        const data = await response.json();
-        
-        setFilesStatus({
-          loading: false,
-          success: data.success && Array.isArray(data.data) && data.data.length > 0,
-          message: data.success && Array.isArray(data.data) && data.data.length > 0
-            ? `Successfully loaded ${data.data.length} data sets` 
-            : 'No data found in this folder',
-          data: data.data
-        });
       } catch (error) {
         setFilesStatus({
           loading: false,
@@ -115,7 +123,7 @@ export default function StockDataDiagnostic() {
     };
     
     fetchFileData();
-  }, [selectedFolder]);
+  }, [selectedFolder, folders]);
   
   const handleFolderChange = (e) => {
     setSelectedFolder(e.target.value);
@@ -125,28 +133,28 @@ export default function StockDataDiagnostic() {
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <h1 className="text-2xl font-bold mb-6 text-gray-800">Stock Data Diagnostic Tool</h1>
       
-      {/* Google Drive Access Status */}
+      {/* Local Data Access Status */}
       <div className={`p-4 border rounded-md mb-6 ${
-        driveStatus.loading 
+        dataStatus.loading 
           ? 'bg-gray-100 border-gray-300' 
-          : driveStatus.success 
+          : dataStatus.success 
             ? 'bg-green-50 border-green-500' 
             : 'bg-red-50 border-red-500'
       }`}>
-        <h2 className="text-lg font-semibold mb-2">Google Drive Access</h2>
+        <h2 className="text-lg font-semibold mb-2">Local Data Access</h2>
         
-        {driveStatus.loading ? (
+        {dataStatus.loading ? (
           <div className="flex items-center">
             <svg className="animate-spin h-5 w-5 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span>Testing Google Drive access...</span>
+            <span>Testing local data access...</span>
           </div>
         ) : (
           <>
             <div className="flex items-center">
-              {driveStatus.success ? (
+              {dataStatus.success ? (
                 <svg className="h-5 w-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                 </svg>
@@ -155,35 +163,22 @@ export default function StockDataDiagnostic() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
               )}
-              <span className={driveStatus.success ? 'text-green-700' : 'text-red-700'}>
-                {driveStatus.message}
+              <span className={dataStatus.success ? 'text-green-700' : 'text-red-700'}>
+                {dataStatus.message}
               </span>
             </div>
             
-            {!driveStatus.success && driveStatus.error && (
+            {!dataStatus.success && dataStatus.error && (
               <div className="mt-2 p-3 bg-red-100 rounded-md text-sm text-red-800">
-                <p><strong>Error:</strong> {driveStatus.error.message || driveStatus.error}</p>
-                {driveStatus.error.solution && (
-                  <p className="mt-1"><strong>Solution:</strong> {driveStatus.error.solution}</p>
-                )}
+                <p><strong>Error:</strong> {dataStatus.error.message || dataStatus.error}</p>
               </div>
             )}
             
-            {driveStatus.success && driveTestDetails && (
+            {dataStatus.success && dataTestDetails && (
               <div className="mt-3">
-                <p><strong>Parent Folder:</strong> {driveTestDetails.parentFolder.name}</p>
-                <p><strong>Total Folders:</strong> {driveTestDetails.folderCount}</p>
-                {driveTestDetails.folders.length > 0 && (
-                  <div className="mt-2">
-                    <p><strong>Available Folders:</strong></p>
-                    <ul className="ml-5 list-disc">
-                      {driveTestDetails.folders.map(folder => (
-                        <li key={folder.id}>{folder.name}</li>
-                      ))}
-                      {driveTestDetails.folderCount > 5 && <li>...and {driveTestDetails.folderCount - 5} more</li>}
-                    </ul>
-                  </div>
-                )}
+                <p><strong>Data Directory:</strong> src/data-processing/ds/quality_breakouts</p>
+                <p><strong>Total Folders:</strong> {dataTestDetails.totalFolders}</p>
+                <p><strong>Total Files:</strong> {dataTestDetails.totalFiles}</p>
               </div>
             )}
           </>
@@ -298,15 +293,15 @@ export default function StockDataDiagnostic() {
                   <p className="font-medium">Why am I seeing "No Data Available"?</p>
                   <ul className="list-disc ml-5 mt-2 space-y-1">
                     <li>The folder might be empty or not contain the expected data format</li>
-                    <li>The Google Drive service account might not have permission to access this specific folder</li>
+                    <li>The data directory might not exist or be accessible</li>
                     <li>The data might be in a different format than expected</li>
                   </ul>
                   
                   <p className="font-medium mt-3">Recommended actions:</p>
                   <ol className="list-decimal ml-5 mt-2 space-y-1">
-                    <li>Verify the folder contents in Google Drive directly</li>
+                    <li>Verify the folder contents in the data directory: <code className="bg-gray-200 p-1 rounded">src/data-processing/ds/quality_breakouts</code></li>
                     <li>Try another folder from the dropdown above</li>
-                    <li>Share the folder with the service account email: <code className="bg-gray-200 p-1 rounded">{process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL || 'your-service-account@your-project.iam.gserviceaccount.com'}</code></li>
+                    <li>Check that the directory structure follows the expected pattern</li>
                   </ol>
                 </div>
               )}
@@ -320,11 +315,11 @@ export default function StockDataDiagnostic() {
         <h2 className="text-lg font-semibold mb-2 text-blue-800">How to Fix "No Data Available"</h2>
         
         <ol className="list-decimal ml-5 space-y-2 text-blue-800">
-          <li>Make sure the Google Drive service account has access to the folders</li>
-          <li>Share the parent folder (and its content) with: <code className="bg-blue-100 p-1 rounded">{process.env.GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL || 'your-service-account@your-project.iam.gserviceaccount.com'}</code></li>
+          <li>Make sure the data directory exists at: <code className="bg-blue-100 p-1 rounded">src/data-processing/ds/quality_breakouts</code></li>
           <li>Verify that the folders contain the expected data structure (JSON files)</li>
+          <li>Check that the directory structure follows the pattern: <code className="bg-blue-100 p-1 rounded">SYMBOL_Month_Day_Year/breakout_data.json</code></li>
           <li>Try selecting a different dataset from the dropdown in the main app</li>
-          <li>Restart the application after making any changes to permissions</li>
+          <li>Restart the application after making any changes to the data directory</li>
         </ol>
       </div>
     </div>
