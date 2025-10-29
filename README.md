@@ -5,151 +5,182 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20Storage-3ECF8E?logo=supabase)](https://supabase.io/)
+[![Turborepo](https://img.shields.io/badge/Turborepo-1.10.12-EF4444?logo=turborepo)](https://turbo.build/)
 
-A full-stack web application for studying breakout patterns in stock charts.  
-The tool enables traders and researchers to practice recognizing breakouts, analyze real setups, and track accuracy across timeframes.
-
----
-
-## Overview
-
-The Breakout Study Tool merges data engineering, visualization, and authentication into one cohesive learning platform.  
-It uses Supabase for authentication and storage, and Google Drive APIs for scalable chart access.  
-The app provides interactive flashcard-style learning for breakout pattern mastery.
+A comprehensive, SEO-optimized platform for learning breakout trading patterns with real-time AI insights and educational content. Built as a scalable monorepo with modern technologies.
 
 **Live Demo:** [trade.evwillow.com](https://trade.evwillow.com) *(private instance)*
 
 ---
 
+## Architecture Overview
+
+This project is structured as a consolidated monorepo, designed for scalability and maintainability:
+
+```
+breakout-study-tool/
+├── src/
+│   ├── web/                    # Next.js 15 + App Router (Frontend)
+│   ├── api/                    # Express + tRPC (Backend API)
+│   └── data-processing/        # Python + yfinance data system
+├── lib/
+│   ├── shared/                 # Shared types & utilities
+│   ├── ui/                     # Design system (Radix UI)
+│   └── database/               # Prisma schema & client
+├── config/                     # Configuration files
+├── scripts/                    # Utility scripts
+└── docs/                       # Documentation
+```
+
+---
+
 ## Features
 
-- Multi-timeframe chart visualization (minute to daily)
-- Interactive flashcard practice with accuracy feedback
-- Supabase authentication and user tracking
-- Google Drive integration for large chart datasets
-- Performance analytics and data diagnostics
-- Responsive Tailwind CSS design
-- Error boundaries, rate limiting, and safe fallbacks
-- CI/CD via GitHub Actions and DigitalOcean
+### Core Learning Platform
+- **Interactive Flashcards**: Practice breakout pattern recognition
+- **Multi-timeframe Analysis**: Minute to daily chart visualization
+- **Performance Tracking**: Accuracy analytics and progress monitoring
+- **Real-time Feedback**: Instant validation of predictions
+
+### Educational Content (SEO-Optimized)
+- **Blog System**: Educational articles on trading patterns
+- **Tutorial Guides**: Step-by-step trading education
+- **Market Analysis**: Daily/weekly market insights
+- **Pattern Library**: Comprehensive breakout pattern database
+
+### AI-Powered Insights (Future)
+- **Real-time Alerts**: Live breakout notifications
+- **Pattern Recognition**: AI-assisted pattern detection
+- **Market Sentiment**: Automated market analysis
+- **Predictive Analytics**: ML-powered predictions
+
+### Monetization
+- **Free Trial**: 7-day trial with limited features
+- **Premium Subscription**: Unlimited access and advanced features
+- **Educational Content**: Free and premium content tiers
 
 ---
 
 ## Tech Stack
 
-**Frontend:** Next.js, React, TypeScript, Tailwind CSS  
-**Backend & Auth:** Supabase (PostgreSQL, Auth, Storage)  
-**Data:** Google Drive API  
-**Visualization:** Recharts, custom StockChart components  
-**Deployment:** DigitalOcean with GitHub Actions  
-**Analytics:** Google Analytics (gtag)  
+### Frontend
+- **Next.js 15** - App Router with Server Components
+- **React 19** - Latest with concurrent features
+- **TypeScript** - End-to-end type safety
+- **Tailwind CSS** - Utility-first styling
+- **Radix UI** - Accessible component primitives
+- **Framer Motion** - Smooth animations
+- **React Query** - Data fetching & caching
+- **Zustand** - State management
+
+### Backend
+- **Express** - Web framework
+- **tRPC** - Type-safe API layer
+- **Prisma** - Database ORM
+- **PostgreSQL** - Primary database (via Supabase)
+- **Redis** - Caching & sessions
+- **NextAuth.js** - Authentication
+
+### Data Processing
+- **Python FastAPI** - Data processing service
+- **yfinance** - Stock data source
+- **Celery** - Background task processing
+- **Pandas/NumPy** - Data manipulation
+
+### SEO & Performance
+- **next-seo** - SEO optimization
+- **next-sitemap** - Sitemap generation
+- **MDX** - Content management
+- **Vercel Edge** - Global CDN
 
 ---
 
 ## Project Structure
 
+### Source Code
+
+#### `src/web` - Frontend Application
 ```
-src/
-├── app/
-│   ├── api/
-│   │   ├── _shared/
-│   │   │   ├── clients/
-│   │   │   ├── middleware/
-│   │   │   ├── types/
-│   │   │   └── utils/
-│   │   ├── admin/
-│   │   ├── auth/
-│   │   ├── debug/
-│   │   ├── files/
-│   │   └── game/
-│   ├── dashboard/
-│   ├── analytics/
-│   ├── community/
-│   ├── database-status/
-│   ├── stock-data-diagnostic/
-│   ├── support/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── providers.tsx
-│   ├── error.tsx
-│   └── not-found.tsx
-│
-├── components/
-│   ├── Auth/
-│   │   ├── AuthButtons/
-│   │   ├── AuthModal/
-│   │   ├── hooks/
-│   │   └── utils/
-│   ├── ChartSection/
-│   ├── DateFolderBrowser/
-│   ├── Flashcards/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── utils/
-│   ├── Features/
-│   ├── FolderSection/
-│   ├── Header/
-│   ├── LandingPage/
-│   ├── StockChart/
-│   ├── UI/
-│   ├── ErrorBoundary/
-│   ├── FallbackUI/
-│   └── GoogleAnalytics.tsx
-│
-├── lib/
-│   ├── auth/
-│   │   ├── services/
-│   │   ├── constants.ts
-│   │   ├── types.ts
-│   │   └── index.ts
-│   ├── auth.ts
-│   ├── supabase.js
-│   ├── github.js
-│   ├── googleDrive.js
-│   ├── rateLimit.ts
-│   └── gtag.ts
-│
-├── utils/
-│   ├── errorHandling.ts
-│   ├── logger.ts
-│   ├── fetcher.ts
-│   ├── calculateSMA.js
-│   ├── csvLoader.js
-│   ├── jwt.js
-│   ├── useAsync.ts
-│   └── useFormValidation.ts
-│
-├── config/
-│   ├── analytics.ts
-│   ├── errorConfig.ts
-│   ├── supabase.js
-│   └── service-account.json
-│
-├── hooks/
-│   └── useAuthRedirect.ts
-│
-├── types/
-│   └── next-auth.d.ts
-│
-├── styles/
-│   └── globals.css
-│
-├── pages/
-│   └── test-hourly.js
-│
-└── Flashcards.js
+src/web/
+├── app/                       # Next.js App Router
+│   ├── (marketing)/          # Public pages (SEO-optimized)
+│   │   ├── page.tsx          # Landing page
+│   │   ├── pricing/          # Pricing page
+│   │   └── about/            # About page
+│   ├── (dashboard)/          # Protected app pages
+│   │   ├── dashboard/        # Main dashboard
+│   │   ├── practice/         # Flashcard system
+│   │   ├── analytics/        # User analytics
+│   │   └── settings/         # User settings
+│   ├── blog/                 # Educational content
+│   │   ├── page.tsx          # Blog index
+│   │   ├── [slug]/           # Individual posts
+│   │   └── category/         # Category pages
+│   └── api/                  # API routes
+├── components/               # Reusable components
+│   ├── ui/                   # Radix UI components
+│   ├── forms/                # Form components
+│   ├── charts/               # Chart components
+│   ├── flashcards/           # Flashcard system
+│   └── layout/               # Layout components
+├── lib/                      # Utilities & config
+├── stores/                   # Zustand stores
+└── hooks/                    # Custom hooks
 ```
+
+#### `src/api` - Backend API
+```
+src/api/
+├── routers/                  # tRPC routers
+│   ├── auth.ts              # Authentication
+│   ├── subscription.ts      # Subscription management
+│   ├── game.ts              # Game logic
+│   └── stock.ts             # Stock data
+├── services/                # Business logic
+├── db/                      # Database layer
+└── middleware/              # Auth, rate limiting
+```
+
+#### `src/data-processing` - Python Data System
+```
+src/data-processing/
+├── api/                     # FastAPI endpoints
+├── services/                # Data processing
+├── models/                  # Data models
+└── utils/                   # Utilities
+```
+
+### Libraries
+
+#### `lib/shared` - Shared Types & Utilities
+- TypeScript types for all entities
+- Common utility functions
+- Validation schemas (Zod)
+- Date/time formatting
+
+#### `lib/ui` - Design System
+- Radix UI component library
+- Consistent styling with Tailwind
+- Accessible components
+- Theme system
+
+#### `lib/database` - Database Layer
+- Prisma schema
+- Database client
+- Migrations
+- Seed data
 
 ---
 
-## Installation
+## Development Setup
 
 ### Prerequisites
-- Node.js 18 or higher  
-- npm or yarn  
-- Supabase project  
-- Google Drive API credentials  
+- Node.js 18+
+- Python 3.8+
+- PostgreSQL (via Supabase)
+- Redis (Upstash)
 
-### Steps
+### Installation
 
 1. **Clone and install dependencies**
    ```bash
@@ -159,216 +190,204 @@ src/
    ```
 
 2. **Set up environment variables**
-
    ```bash
    cp .env.example .env.local
-   # Fill in Supabase and Google Drive credentials
+   # Edit .env.local with your actual credentials
    ```
 
-3. **Run development server**
+3. **Set up database**
+   ```bash
+   cd lib/database
+   npm run db:generate
+   npm run db:push
+   ```
 
+4. **Start development servers**
    ```bash
    npm run dev
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000)
+### Environment Variables
+
+```env
+# Database
+DATABASE_URL="postgresql://..."
+REDIS_URL="redis://..."
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
+
+# Authentication
+NEXTAUTH_SECRET="your-secret"
+NEXTAUTH_URL="http://localhost:3000"
+
+# Google Drive (for chart data)
+GOOGLE_DRIVE_API_KEY="your-api-key"
+GOOGLE_SERVICE_ACCOUNT_EMAIL="service@project.iam.gserviceaccount.com"
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
+
+# Analytics
+NEXT_PUBLIC_GA_MEASUREMENT_ID="G-XXXXXXXXXX"
+```
 
 ---
 
-## Environment Variables
+## SEO Strategy
 
-**⚠️ SECURITY WARNING: Never commit sensitive credentials to version control!**
+### Content Structure
+- **Landing Page**: Optimized for "breakout trading patterns"
+- **Blog**: Educational content for "trading education"
+- **Pattern Library**: "stock chart analysis" keywords
+- **Tutorials**: Long-tail keywords for specific patterns
 
-All sensitive configuration is handled through environment variables. Copy `.env.example` to `.env.local` and fill in your actual values.
+### Technical SEO
+- **App Router**: Optimal performance and SEO
+- **Static Generation**: Blog content pre-rendered
+- **Dynamic Meta Tags**: User-specific content
+- **Structured Data**: Financial content markup
+- **Core Web Vitals**: Performance optimization
 
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+### Content Calendar
+- **Weekly**: 2-3 educational articles
+- **Daily**: Market analysis posts (automated)
+- **On-demand**: Tool updates and features
 
-# Google Drive API
-NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=
-GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID=
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=
-GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=
-GOOGLE_SERVICE_ACCOUNT_CLIENT_ID=
-GOOGLE_DRIVE_PARENT_FOLDER_ID=
+---
 
-# Authentication
-NEXTAUTH_SECRET=
+## Deployment
 
-# Optional
-NEXT_PUBLIC_GA_MEASUREMENT_ID=
-NEXT_PUBLIC_HCAPTCHA_SITE_KEY=
-HCAPTCHA_SECRET_KEY=
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
+### Frontend (Vercel)
+```bash
+npm run build
+# Deploy to Vercel
 ```
+
+### Backend (Railway/Render)
+```bash
+cd src/api
+npm run build
+# Deploy with Docker
+```
+
+### Data Processing (Python)
+```bash
+cd src/data-processing
+pip install -r requirements.txt
+# Deploy with Docker
+```
+
+---
+
+## Performance & Scalability
+
+### Frontend Optimization
+- **Code Splitting**: Dynamic imports for heavy components
+- **Image Optimization**: Next.js Image + Cloudinary
+- **Caching**: Multi-layer caching strategy
+- **CDN**: Vercel Edge Network
+
+### Backend Scaling
+- **Database Indexing**: Optimized queries
+- **Redis Caching**: Session and data caching
+- **Rate Limiting**: Per-user and per-endpoint
+- **Microservices**: Independent scaling
+
+### Monitoring
+- **Sentry**: Error tracking
+- **Vercel Analytics**: Performance monitoring
+- **PostHog**: Product analytics
+- **Uptime Monitoring**: Health checks
 
 ---
 
 ## Security
 
-This application follows security best practices:
-
-- **No hardcoded credentials**: All sensitive data is stored in environment variables
-- **Environment-based configuration**: Use `.env.local` for development, server environment variables for production
-- **Secure authentication**: Supabase handles user authentication with proper session management
-- **Rate limiting**: Built-in protection against abuse
-- **Input validation**: All user inputs are validated and sanitized
-
-### For Production Deployment:
-
-1. **Never commit `.env.local` or any files containing real credentials**
-2. **Set environment variables on your server/hosting platform**
-3. **Use different credentials for development and production**
-4. **Regularly rotate API keys and secrets**
+- **Authentication**: Supabase Auth with MFA
+- **Authorization**: Role-based access control
+- **Input Validation**: Zod schemas throughout
+- **Rate Limiting**: Protection against abuse
+- **CORS**: Properly configured
+- **Environment Variables**: No hardcoded secrets
 
 ---
 
-## Scripts
+## Development Workflow
 
-```bash
-npm run dev       # Start development server
-npm run build     # Build production bundle
-npm run start     # Run production build
-npm run lint      # Lint for code quality
-```
+### Code Quality
+- **ESLint**: Strict TypeScript rules
+- **Prettier**: Code formatting
+- **Husky**: Git hooks
+- **Jest**: Unit testing
+- **Playwright**: E2E testing
 
----
-
-## Usage
-
-### Practice Mode
-
-1. Log in via Supabase authentication
-2. Select a dataset or ticker folder
-3. View chart sequences and predict breakout direction
-4. Submit predictions (up, down, or neutral)
-5. Receive accuracy feedback and progression tracking
-
-### Historical Analysis
-
-1. Navigate to **Previous Setups**
-2. Browse charts by date or ticker
-3. Compare predictions with real outcomes
-
----
-
-## Development Notes
-
-* Built with **Next.js App Router** for routing and server components
-* **Supabase** manages authentication, roles, and data sync
-* **Google Drive API** powers scalable chart retrieval
-* Includes **rate limiting**, **error handling**, and **fallback UI**
-* Recommended Node memory config:
-
-  ```bash
-  NODE_OPTIONS=--max-old-space-size=8192
-  ```
-
----
-
-## Troubleshooting
-
-**Charts not loading**
-
-* Check Google Drive credentials and folder permissions
-* Verify `GOOGLE_DRIVE_PARENT_FOLDER_ID`
-
-**Authentication not working**
-
-* Confirm Supabase URL and keys in `.env.local`
-* Ensure database RLS allows authenticated reads/writes
-
-**Memory errors during build**
-
-```bash
-npm run build:light
-```
-
----
-
-## Environment Template Example
-
-```env
-# Breakout Study Tool Environment Template
-# Copy to .env.local and edit values
-
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=public-anon-key
-SUPABASE_SERVICE_ROLE_KEY=service-role-key
-
-# Google Drive API
-NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=your-api-key
-GOOGLE_SERVICE_ACCOUNT_PROJECT_ID=your-project-id
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
-GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL=service-account@project.iam.gserviceaccount.com
-GOOGLE_DRIVE_PARENT_FOLDER_ID=your-folder-id
-
-# Authentication
-NEXTAUTH_SECRET=your-secret
-```
-
----
-
-## Recommended Workflow
-
-1. Configure Supabase project with user auth and database tables
-2. Create Google Cloud service account and enable Drive API
-3. Add credentials to `.env.local`
-4. Test locally with `npm run dev`
-5. Deploy via DigitalOcean or Vercel with GitHub Actions
-
----
-
-## Contributing
-
-1. Fork this repository
-2. Create a feature branch
-
-   ```bash
-   git checkout -b feature/new-feature
-   ```
-3. Commit and push changes
-
-   ```bash
-   git commit -m "Add new feature"
-   git push origin feature/new-feature
-   ```
-4. Open a pull request
-
----
-
-## License
-
-MIT License — see `LICENSE` file for details.
-
----
-
-## Goals
-
-* Create a repeatable breakout study system for traders
-* Improve pattern recognition and decision-making speed
-* Provide scalable architecture for future ML-based labeling
+### CI/CD
+- **GitHub Actions**: Automated testing
+- **Turborepo**: Build orchestration
+- **Vercel**: Frontend deployment
+- **Railway**: Backend deployment
 
 ---
 
 ## Roadmap
 
-* Multi-user analytics leaderboard
-* Live labeling and data upload pipeline
-* Edge Function processing for faster chart delivery
-* AI-assisted pattern classification
+### Phase 1: Foundation (4-6 weeks)
+- [x] Monorepo setup with Turborepo
+- [x] Next.js 15 with App Router
+- [x] TypeScript configuration
+- [x] Database schema with Prisma
+- [ ] Authentication system
+- [ ] Basic flashcard system
+
+### Phase 2: Content & SEO (3-4 weeks)
+- [ ] Blog system with MDX
+- [ ] SEO optimization
+- [ ] Content management
+- [ ] User analytics dashboard
+
+### Phase 3: AI Integration (4-6 weeks)
+- [ ] Python data processing service
+- [ ] Real-time WebSocket connections
+- [ ] AI insights dashboard
+- [ ] Pattern recognition system
+
+### Phase 4: Production (2-3 weeks)
+- [ ] Performance optimization
+- [ ] Security hardening
+- [ ] Monitoring setup
+- [ ] Production deployment
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
 ## Author
 
 **Evan Maus**
-University of California, Berkeley — Economics & Data Science
-[evwillow.com](https://evwillow.com)
-[LinkedIn](https://linkedin.com/in/evwillow)
+- University of California, Berkeley — Economics & Data Science
+- [evwillow.com](https://evwillow.com)
+- [LinkedIn](https://linkedin.com/in/evwillow)
+
+---
+
+## Acknowledgments
+
+- [Next.js](https://nextjs.org/) for the amazing framework
+- [Supabase](https://supabase.io/) for backend services
+- [Radix UI](https://radix-ui.com/) for accessible components
+- [Turborepo](https://turbo.build/) for monorepo management

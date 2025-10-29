@@ -13,6 +13,12 @@ import { hashPassword } from './passwordService';
  */
 export async function userExists(email: string): Promise<boolean> {
   try {
+    // Check if we're in mock mode (no Supabase configured)
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      logger.info('Running in mock mode - user does not exist', { email: email.split('@')[1] });
+      return false; // In mock mode, assume user doesn't exist
+    }
+
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
@@ -37,6 +43,12 @@ export async function userExists(email: string): Promise<boolean> {
       throw error;
     }
     
+    // If it's a Supabase configuration error, fall back to mock mode
+    if (error.message.includes('Supabase not configured') || error.message.includes('missing')) {
+      logger.info('Supabase not configured, running in mock mode', { email: email.split('@')[1] });
+      return false; // In mock mode, assume user doesn't exist
+    }
+    
     logger.error('Unexpected error checking user existence', error);
     throw new DatabaseError(
       'Database connection error',
@@ -55,6 +67,19 @@ export async function createUser(signupData: SignupRequest): Promise<AuthUser> {
   const { email, password } = signupData;
   
   try {
+    // Check if we're in mock mode (no Supabase configured)
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      logger.info('Running in mock mode - creating mock user', { email: email.split('@')[1] });
+      // Return a mock user for development
+      return {
+        id: `mock-${Date.now()}`,
+        email,
+        username: email.split('@')[0],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+
     // Hash the password
     const hashedPassword = await hashPassword(password);
     
@@ -142,6 +167,12 @@ export async function createUser(signupData: SignupRequest): Promise<AuthUser> {
  */
 export async function getUserByEmail(email: string): Promise<AuthUser | null> {
   try {
+    // Check if we're in mock mode (no Supabase configured)
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      logger.info('Running in mock mode - no user found', { email: email.split('@')[1] });
+      return null; // In mock mode, no users exist
+    }
+
     const supabase = getServerSupabaseClient();
     const { data, error } = await supabase
       .from('users')
@@ -164,6 +195,12 @@ export async function getUserByEmail(email: string): Promise<AuthUser | null> {
   } catch (error: any) {
     if (error instanceof DatabaseError) {
       throw error;
+    }
+    
+    // If it's a Supabase configuration error, fall back to mock mode
+    if (error.message.includes('Supabase not configured') || error.message.includes('missing')) {
+      logger.info('Supabase not configured, running in mock mode', { email: email.split('@')[1] });
+      return null; // In mock mode, no users exist
     }
     
     logger.error('Unexpected error fetching user', error);

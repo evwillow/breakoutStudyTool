@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback } from 'react';
-import { GenericErrorFallback } from '@/components/FallbackUI';
+import { GenericErrorFallback } from '../components/FallbackUI';
 import { logger } from '@/utils/logger';
 import { errorConfig } from '@/config/errorConfig';
 import { AppError } from '@/utils/errorHandling';
