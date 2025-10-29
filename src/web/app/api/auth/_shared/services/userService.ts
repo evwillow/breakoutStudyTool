@@ -73,8 +73,10 @@ export async function createUser(signupData: SignupRequest): Promise<AuthUser> {
       // Return a mock user for development
       return {
         id: `mock-${Date.now()}`,
-        name: email.split('@')[0],
-        email
+        email,
+        username: email.split('@')[0],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
     }
 
