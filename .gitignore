@@ -247,14 +247,5 @@ dmypy.json
 # Prisma
 prisma/migrations/
 
-# Data Processing Specific
-# Only exclude the data subdirectory, allow everything else
+# Data Processing
 src/data-processing/data/
-
-# Keep only essential files in data-processing by adding them back specifically:
-!src/data-processing/download.py
-!src/data-processing/quality_breakouts.py
-!src/data-processing/requirements.txt
-!src/data-processing/README.md
-!src/data-processing/tickers.csv
-!src/data-processing/.gitkeep
