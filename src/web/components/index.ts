@@ -15,6 +15,10 @@ export { default as FolderSection } from './FolderSection';
 // Feature Components
 export * from './Features';
 
+// UI Components (specific exports)
+export { default as ActionButtonsRow } from './UI/ActionButtonsRow';
+export { default as RoundHistory } from './Features/RoundHistory';
+
 // Auth Components
 export * from './Auth';
 

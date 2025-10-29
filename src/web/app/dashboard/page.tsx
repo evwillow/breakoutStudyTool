@@ -42,7 +42,15 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <a 
+          href="/study"
+          className="px-6 py-3 bg-turquoise-500 text-white rounded-lg font-semibold hover:bg-turquoise-600 transition-colors"
+        >
+          Start Studying →
+        </a>
+      </div>
       
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

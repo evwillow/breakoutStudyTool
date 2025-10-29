@@ -244,18 +244,13 @@ dmypy.json
 prisma/migrations/
 
 # Data Processing Specific
-# Exclude data directories
-src/data-processing/ds/
+# Exclude large data directories
 src/data-processing/data/
-src/data-processing/backup/
+src/data-processing/ds/
 
-# Large notebook files
-src/data-processing/parse.ipynb
-src/data-processing/download_data.ipynb
-
-# Keep only essential files in data-processing:
-# - download.py
-# - quality_breakouts.py
-# - requirements.txt
-# - README.md
-# - tickers.csv
+# Keep only essential files in data-processing by adding them back specifically:
+!src/data-processing/download.py
+!src/data-processing/quality_breakouts.py
+!src/data-processing/requirements.txt
+!src/data-processing/README.md
+!src/data-processing/tickers.csv

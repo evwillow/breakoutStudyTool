@@ -84,7 +84,7 @@ export function useFlashcardData({
     try {
       console.log("Fetching folders...");
       
-      const response = await fetch("/api/files/folders", {
+      const response = await fetch("/api/files/local-folders", {
         signal: abortControllerRef.current.signal,
       });
       
@@ -137,8 +137,10 @@ export function useFlashcardData({
         abortControllerRef.current?.abort();
       }, API_CONFIG.TIMEOUT_DURATION);
       
+      // For now, let's get all stock breakouts for the selected date
+      // We'll need to modify this to work with the new structure
       const response = await fetch(
-        `/api/files/data?folder=${encodeURIComponent(selectedFolder)}&limit=${API_CONFIG.INITIAL_LOAD_LIMIT}&offset=0`,
+        `/api/files/local-folders`,
         {
           signal: abortControllerRef.current.signal,
         }
@@ -160,18 +162,32 @@ export function useFlashcardData({
       
       if (!mountedRef.current) return;
       
-      if (Array.isArray(data.data) && data.data.length > 0) {
-        // Validate data before setting
-        const validFlashcards = data.data.filter(validateFlashcardData);
+      if (data.success && data.folders && Array.isArray(data.folders)) {
+        // Find the selected folder
+        const selectedFolderData = data.folders.find((folder: any) => folder.name === selectedFolder);
         
-        if (validFlashcards.length === 0) {
+        if (!selectedFolderData || !selectedFolderData.files || selectedFolderData.files.length === 0) {
           throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
         }
         
         setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.PROCESSING_DATA);
         setLoadingStep('Processing chart data...');
         
-        setFlashcards(validFlashcards);
+        // Convert the files to flashcard format
+        const flashcardData = selectedFolderData.files.map((file: any) => ({
+          id: file.id,
+          name: file.name,
+          folderName: selectedFolder,
+          jsonFiles: [{
+            fileName: file.fileName,
+            mimeType: file.mimeType,
+            size: file.size,
+            createdTime: file.createdTime,
+            modifiedTime: file.modifiedTime
+          }]
+        }));
+        
+        setFlashcards(flashcardData);
         
         setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.FINALIZING);
         setLoadingStep('Finalizing...');
