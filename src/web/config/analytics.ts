@@ -7,7 +7,7 @@
 
 export const analyticsConfig = {
   googleAnalytics: {
-    measurementId: "G-6B1T4S90L0",
+    measurementId: "G-CSGDH5PT27",
     enabled: process.env.NODE_ENV === "production",
   },
 };
