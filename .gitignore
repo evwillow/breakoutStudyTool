@@ -247,6 +247,7 @@ prisma/migrations/
 # Exclude large data directories
 src/data-processing/data/
 src/data-processing/ds/
+src/data-processing/
 
 # Keep only essential files in data-processing by adding them back specifically:
 !src/data-processing/download.py
@@ -254,3 +255,4 @@ src/data-processing/ds/
 !src/data-processing/requirements.txt
 !src/data-processing/README.md
 !src/data-processing/tickers.csv
+!src/data-processing/.gitkeep
