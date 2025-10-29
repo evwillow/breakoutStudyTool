@@ -97,12 +97,12 @@ export function useFlashcardData({
       
       if (!mountedRef.current) return;
       
-      if (Array.isArray(data.data)) {
-        setFolders(data.data);
+      if (data.success && Array.isArray(data.folders)) {
+        setFolders(data.folders);
         
         // Auto-select first folder if none selected
-        if (autoSelectFirstFolder && data.data.length > 0 && !selectedFolder) {
-          setSelectedFolder(data.data[0].name);
+        if (autoSelectFirstFolder && data.folders.length > 0 && !selectedFolder) {
+          setSelectedFolder(data.folders[0].name);
         }
       }
     } catch (error: any) {
