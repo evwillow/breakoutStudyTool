@@ -47,13 +47,14 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
         continue;
       }
       
-      const fileName = file.fileName.toLowerCase();
+      const fileName = file.fileName;
+      const baseFileName = fileName.split('/').pop() || fileName; // Get just the filename part
       
-      if (FILE_PATTERNS.DAILY.test(fileName)) {
+      if (FILE_PATTERNS.DAILY.test(baseFileName)) {
         files.set("D", file);
-      } else if (FILE_PATTERNS.HOURLY.test(fileName)) {
+      } else if (FILE_PATTERNS.HOURLY.test(baseFileName)) {
         files.set("H", file);
-      } else if (FILE_PATTERNS.MINUTE.test(fileName)) {
+      } else if (FILE_PATTERNS.MINUTE.test(baseFileName)) {
         files.set("M", file);
       }
     }
@@ -80,8 +81,8 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
 
   // Find the after.json file
   const afterFile = flashcardData.jsonFiles.find(file => {
-    const fileName = file.fileName.toLowerCase();
-    const isAfterFile = fileName === 'after.json' || fileName.includes('after') && fileName.endsWith('.json');
+    const fileName = file.fileName;
+    const isAfterFile = fileName.endsWith('/after.json') || fileName.includes('after') && fileName.endsWith('.json');
     console.log(`   - "${file.fileName}" is after file: ${isAfterFile}`);
     return isAfterFile;
   });
@@ -112,9 +113,10 @@ export function extractThingData(flashcardData: FlashcardData | null): number[] 
     return [];
   }
   
-  const thingFile = flashcardData.jsonFiles.find(file =>
-    FILE_PATTERNS.THING.test(file.fileName.toLowerCase())
-  );
+  const thingFile = flashcardData.jsonFiles.find(file => {
+    const baseFileName = file.fileName.split('/').pop() || file.fileName;
+    return FILE_PATTERNS.THING.test(baseFileName);
+  });
   
   if (!thingFile?.data) {
     return [];
@@ -148,9 +150,10 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
     return [];
   }
   
-  const pointsFile = flashcardData.jsonFiles.find(file =>
-    FILE_PATTERNS.POINTS.test(file.fileName.toLowerCase())
-  );
+  const pointsFile = flashcardData.jsonFiles.find(file => {
+    const baseFileName = file.fileName.split('/').pop() || file.fileName;
+    return FILE_PATTERNS.POINTS.test(baseFileName);
+  });
   
   if (!pointsFile?.data) {
     return [];
@@ -176,11 +179,26 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
  * Processes all flashcard data and returns structured result
  */
 export function processFlashcardData(flashcardData: FlashcardData | null): ProcessedFlashcardData {
+  console.log("=== PROCESSING FLASHCARD DATA ===");
+  console.log("Input flashcard data:", flashcardData);
+  
+  const orderedFiles = extractOrderedFiles(flashcardData);
+  const afterJsonData = extractAfterJsonData(flashcardData);
+  const thingData = extractThingData(flashcardData);
+  const pointsTextArray = extractPointsTextArray(flashcardData);
+  
+  console.log("Processed results:");
+  console.log("- orderedFiles:", orderedFiles.length);
+  console.log("- afterJsonData:", afterJsonData ? "exists" : "null");
+  console.log("- thingData:", thingData);
+  console.log("- pointsTextArray:", pointsTextArray);
+  console.log("=== END PROCESSING ===");
+  
   return {
-    orderedFiles: extractOrderedFiles(flashcardData),
-    afterJsonData: extractAfterJsonData(flashcardData),
-    thingData: extractThingData(flashcardData),
-    pointsTextArray: extractPointsTextArray(flashcardData),
+    orderedFiles,
+    afterJsonData,
+    thingData,
+    pointsTextArray,
   };
 }
 

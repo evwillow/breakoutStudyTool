@@ -25,17 +25,27 @@ interface LocalFolder {
 
 export async function GET(req: NextRequest) {
   try {
+    // Use relative path from project root
     const dataPath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
+    
+    console.log('Current working directory:', process.cwd());
+    console.log('Looking for data at:', dataPath);
     
     // Check if directory exists
     try {
       await fs.access(dataPath);
+      console.log('Data directory found successfully');
     } catch (error) {
       console.error('Data directory not found:', dataPath);
+      console.error('Error details:', error);
       return NextResponse.json({
         success: false,
         message: 'Data directory not found',
-        error: 'Data directory does not exist'
+        error: 'Data directory does not exist',
+        debug: {
+          cwd: process.cwd(),
+          dataPath: dataPath
+        }
       }, { status: 404 });
     }
 

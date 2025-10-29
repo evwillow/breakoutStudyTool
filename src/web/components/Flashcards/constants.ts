@@ -47,9 +47,9 @@ export const UI_CONFIG = {
 
 // File Processing
 export const FILE_PATTERNS = {
-  DAILY: /d\.json$/i,
-  HOURLY: /h\.json$/i,
-  MINUTE: /m\.json$/i,
+  DAILY: /D\.json$/i,
+  HOURLY: /H\.json$/i,
+  MINUTE: /M\.json$/i,
   AFTER: /after\.json$/i,
   THING: /thing\.json$/i,
   POINTS: /points\.json$/i,

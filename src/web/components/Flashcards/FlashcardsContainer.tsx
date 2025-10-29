@@ -638,10 +638,31 @@ export default function FlashcardsContainer() {
     !currentFlashcard ||
     processedData.orderedFiles.length === 0
   ) {
+    // Show error if there's an error, otherwise show no data state
+    if (error) {
+      return (
+        <LoadingStates.ErrorState
+          error={error}
+          onRetry={() => {
+            clearError();
+            setSelectedFolder(null);
+          }}
+        />
+      );
+    }
+    
     return (
       <LoadingStates.NoDataState
         onSelectDataset={() => {
           setSelectedFolder(null);
+        }}
+        debugInfo={{
+          flashcardsLength: flashcards.length,
+          hasCurrentFlashcard: !!currentFlashcard,
+          orderedFilesLength: processedData.orderedFiles.length,
+          selectedFolder,
+          loading,
+          error
         }}
       />
     );

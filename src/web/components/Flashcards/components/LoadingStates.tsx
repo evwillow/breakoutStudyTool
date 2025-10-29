@@ -18,6 +18,14 @@ interface ErrorStateProps {
 
 interface NoDataStateProps {
   onSelectDataset: () => void;
+  debugInfo?: {
+    flashcardsLength: number;
+    hasCurrentFlashcard: boolean;
+    orderedFilesLength: number;
+    selectedFolder: string | null;
+    loading: boolean;
+    error: string | null;
+  };
 }
 
 // Authentication loading state
@@ -145,40 +153,63 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
 };
 
 // Enhanced no data state
-export const NoDataState: React.FC<NoDataStateProps> = ({ onSelectDataset }) => (
-  <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
-    <div className="text-6xl mb-4">📊</div>
-    <h2 className="text-2xl font-semibold text-white">No Data Available</h2>
-    <p className="text-gray-300 text-center text-lg">
-      Ready to start practicing? Select a dataset to begin your trading education.
-    </p>
-    
-    <div className="bg-gray-900 rounded-lg p-6 w-full">
-      <h3 className="text-lg font-medium text-white mb-3">📚 What you'll practice:</h3>
-      <ul className="text-gray-300 space-y-2">
-        <li className="flex items-center">
-          <span className="text-green-400 mr-3">📈</span>
-          <span>Identify breakout patterns in real market data</span>
-        </li>
-        <li className="flex items-center">
-          <span className="text-blue-400 mr-3">⏱️</span>
-          <span>Make quick decisions under time pressure</span>
-        </li>
-        <li className="flex items-center">
-          <span className="text-yellow-400 mr-3">🎯</span>
-          <span>Improve your trading accuracy and speed</span>
-        </li>
-      </ul>
+export const NoDataState: React.FC<NoDataStateProps> = ({ onSelectDataset, debugInfo }) => {
+  // If we have debug info, show only the error details
+  if (debugInfo) {
+    return (
+      <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
+        <h2 className="text-2xl font-semibold text-white">Error Details</h2>
+        
+        <div className="bg-red-900 rounded-lg p-6 w-full">
+          <div className="text-sm text-red-200 space-y-2">
+            <p><strong>Error:</strong> {debugInfo.error || 'No error message available'}</p>
+            <p><strong>Flashcards:</strong> {debugInfo.flashcardsLength}</p>
+            <p><strong>Current Flashcard:</strong> {debugInfo.hasCurrentFlashcard ? 'Yes' : 'No'}</p>
+            <p><strong>Ordered Files:</strong> {debugInfo.orderedFilesLength}</p>
+            <p><strong>Selected Folder:</strong> {debugInfo.selectedFolder || 'None'}</p>
+            <p><strong>Loading:</strong> {debugInfo.loading ? 'Yes' : 'No'}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal no data state when no debug info
+  return (
+    <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
+      <div className="text-6xl mb-4">📊</div>
+      <h2 className="text-2xl font-semibold text-white">No Data Available</h2>
+      <p className="text-gray-300 text-center text-lg">
+        Ready to start practicing? Select a dataset to begin your trading education.
+      </p>
+      
+      <div className="bg-gray-900 rounded-lg p-6 w-full">
+        <h3 className="text-lg font-medium text-white mb-3">📚 What you'll practice:</h3>
+        <ul className="text-gray-300 space-y-2">
+          <li className="flex items-center">
+            <span className="text-green-400 mr-3">📈</span>
+            <span>Identify breakout patterns in real market data</span>
+          </li>
+          <li className="flex items-center">
+            <span className="text-blue-400 mr-3">⏱️</span>
+            <span>Make quick decisions under time pressure</span>
+          </li>
+          <li className="flex items-center">
+            <span className="text-yellow-400 mr-3">🎯</span>
+            <span>Improve your trading accuracy and speed</span>
+          </li>
+        </ul>
+      </div>
+      
+      <button 
+        onClick={onSelectDataset}
+        className="mt-6 px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-lg"
+      >
+        Select Dataset to Begin
+      </button>
     </div>
-    
-    <button 
-      onClick={onSelectDataset}
-      className="mt-6 px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-lg"
-    >
-      Select Dataset to Begin
-    </button>
-  </div>
-);
+  );
+};
 
 // Export as namespace for easier usage
 export const LoadingStates = {

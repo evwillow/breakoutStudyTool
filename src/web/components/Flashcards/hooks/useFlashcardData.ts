@@ -76,53 +76,73 @@ export function useFlashcardData({
   
   // Fetch folders
   const fetchFolders = useCallback(async () => {
-    if (!mountedRef.current) return;
-    
-    cleanup();
-    abortControllerRef.current = new AbortController();
+    console.log("=== FETCH FOLDERS CALLED ===");
     
     try {
-      console.log("Fetching folders...");
+      console.log("Fetching folders from API...");
       
-      const response = await fetch("/api/files/local-folders", {
-        signal: abortControllerRef.current.signal,
-      });
+      const response = await fetch("/api/files/local-folders");
+      
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("API error:", errorData);
         throw new Error(errorData.message || "Error fetching folders");
       }
       
       const data = await response.json();
-      
-      if (!mountedRef.current) return;
+      console.log("API response data:", data);
+      console.log("Data success:", data.success);
+      console.log("Data folders:", data.folders);
+      console.log("Is folders array:", Array.isArray(data.folders));
       
       if (data.success && Array.isArray(data.folders)) {
+        console.log("=== FOLDER DATA RECEIVED ===");
+        console.log("Number of folders:", data.folders.length);
+        console.log("First folder:", data.folders[0]);
+        console.log("Current selectedFolder:", selectedFolder);
+        console.log("autoSelectFirstFolder:", autoSelectFirstFolder);
+        
+        console.log("Setting folders state...");
         setFolders(data.folders);
+        console.log("Folders state set");
         
         // Auto-select first folder if none selected
         if (autoSelectFirstFolder && data.folders.length > 0 && !selectedFolder) {
+          console.log("Auto-selecting first folder:", data.folders[0].name);
+          console.log("Setting selectedFolder to:", data.folders[0].name);
           setSelectedFolder(data.folders[0].name);
+          console.log("Selected folder set");
+        } else {
+          console.log("Not auto-selecting folder. Reasons:");
+          console.log("- autoSelectFirstFolder:", autoSelectFirstFolder);
+          console.log("- folders.length > 0:", data.folders.length > 0);
+          console.log("- !selectedFolder:", !selectedFolder);
         }
+        console.log("=== END FOLDER DATA ===");
+      } else {
+        console.log("Invalid folder data received:", data);
+        setError("Invalid folder data received from API");
       }
     } catch (error: any) {
-      if (error.name === 'AbortError') return;
-      
       console.error("Error fetching folders:", error);
-      if (mountedRef.current) {
-        setError(error.message);
-      }
+      setError(error.message);
     }
-  }, [selectedFolder, autoSelectFirstFolder, cleanup]);
+  }, [autoSelectFirstFolder]);
   
   // Fetch flashcards
   const fetchFlashcards = useCallback(async () => {
-    if (!selectedFolder || status !== "authenticated" || !session || !mountedRef.current) {
+    console.log("=== FETCH FLASHCARDS CALLED ===");
+    console.log("selectedFolder:", selectedFolder);
+    console.log("status:", status);
+    console.log("session:", !!session);
+    
+    if (!selectedFolder || status !== "authenticated" || !session) {
+      console.log("Early return from fetchFlashcards");
       return;
     }
-    
-    cleanup();
-    abortControllerRef.current = new AbortController();
     
     try {
       setLoading(true);
@@ -132,35 +152,18 @@ export function useFlashcardData({
       
       console.log("Starting flashcard fetch for folder:", selectedFolder);
       
-      // Fetch with timeout
-      const timeoutId = setTimeout(() => {
-        abortControllerRef.current?.abort();
-      }, API_CONFIG.TIMEOUT_DURATION);
-      
-      // For now, let's get all stock breakouts for the selected date
-      // We'll need to modify this to work with the new structure
-      const response = await fetch(
-        `/api/files/local-folders`,
-        {
-          signal: abortControllerRef.current.signal,
-        }
-      );
-      
-      clearTimeout(timeoutId);
+      // Get all stock breakouts for the selected date
+      const response = await fetch(`/api/files/local-folders`);
       
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || ERROR_MESSAGES.DATA_FETCH_ERROR);
       }
       
-      if (!mountedRef.current) return;
-      
       setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.LOADING_FLASHCARDS);
       setLoadingStep('Loading flashcards...');
       
       const data = await response.json();
-      
-      if (!mountedRef.current) return;
       
       if (data.success && data.folders && Array.isArray(data.folders)) {
         // Find the selected folder
@@ -173,19 +176,73 @@ export function useFlashcardData({
         setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.PROCESSING_DATA);
         setLoadingStep('Processing chart data...');
         
-        // Convert the files to flashcard format
-        const flashcardData = selectedFolderData.files.map((file: any) => ({
-          id: file.id,
-          name: file.name,
+        // Load actual JSON data for each file
+        const flashcardPromises = selectedFolderData.files.map(async (file: any) => {
+          try {
+            const fileResponse = await fetch(
+              `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`
+            );
+            
+            if (!fileResponse.ok) {
+              console.error(`Failed to load file ${file.fileName}`);
+              return null;
+            }
+            
+            const fileData = await fileResponse.json();
+            
+            if (!fileData.success) {
+              console.error(`Error loading file ${file.fileName}:`, fileData.message);
+              return null;
+            }
+            
+            return {
+              fileName: file.fileName,
+              data: fileData.data,
+              mimeType: file.mimeType,
+              size: file.size,
+              createdTime: file.createdTime,
+              modifiedTime: file.modifiedTime
+            };
+          } catch (error) {
+            console.error(`Error loading file ${file.fileName}:`, error);
+            return null;
+          }
+        });
+        
+        const loadedFiles = await Promise.all(flashcardPromises);
+        const validFiles = loadedFiles.filter(Boolean);
+        
+        if (validFiles.length === 0) {
+          throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
+        }
+        
+        // Group files by stock (each stock gets its own flashcard)
+        const stockGroups = new Map<string, any[]>();
+        
+        validFiles.forEach(file => {
+          if (file) {
+            // Extract stock symbol from fileName (e.g., "AAL_Dec_11_2006/after.json" -> "AAL_Dec_11_2006")
+            const stockDir = file.fileName.split('/')[0];
+            if (!stockGroups.has(stockDir)) {
+              stockGroups.set(stockDir, []);
+            }
+            stockGroups.get(stockDir)!.push(file);
+          }
+        });
+        
+        // Convert to flashcard format
+        const flashcardData = Array.from(stockGroups.entries()).map(([stockDir, files]) => ({
+          id: stockDir,
+          name: stockDir,
           folderName: selectedFolder,
-          jsonFiles: [{
-            fileName: file.fileName,
-            mimeType: file.mimeType,
-            size: file.size,
-            createdTime: file.createdTime,
-            modifiedTime: file.modifiedTime
-          }]
+          jsonFiles: files
         }));
+        
+        console.log("=== FLASHCARD DATA CREATED ===");
+        console.log("Number of flashcards:", flashcardData.length);
+        console.log("First flashcard:", flashcardData[0]);
+        console.log("First flashcard files:", flashcardData[0]?.jsonFiles);
+        console.log("=== END FLASHCARD DATA ===");
         
         setFlashcards(flashcardData);
         
@@ -200,18 +257,12 @@ export function useFlashcardData({
         throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
       }
     } catch (error: any) {
-      if (error.name === 'AbortError') return;
-      
       console.error("Error fetching flashcards:", error);
-      if (mountedRef.current) {
-        setError(error.message);
-      }
+      setError(error.message);
     } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-        setLoadingProgress(0);
-        setLoadingStep('');
-      }
+      setLoading(false);
+      setLoadingProgress(0);
+      setLoadingStep('');
     }
   }, [selectedFolder, status, session, cleanup]);
   
@@ -226,6 +277,8 @@ export function useFlashcardData({
   
   // Handle folder selection
   const handleSetSelectedFolder = useCallback((folder: string | null) => {
+    console.log("=== HANDLE SET SELECTED FOLDER ===");
+    console.log("Setting folder to:", folder);
     setSelectedFolder(folder);
     setFlashcards([]);
     setError(null);
@@ -233,22 +286,49 @@ export function useFlashcardData({
     if (folder) {
       // Small delay to allow UI to update
       setTimeout(() => {
+        console.log("Calling fetchFlashcards for folder:", folder);
         fetchFlashcards();
       }, 100);
     }
+    console.log("=== END HANDLE SET SELECTED FOLDER ===");
   }, [fetchFlashcards]);
   
   // Fetch folders on mount
   useEffect(() => {
+    console.log("=== MOUNT EFFECT - CALLING FETCH FOLDERS ===");
     fetchFolders();
   }, [fetchFolders]);
+  
+  // Track selectedFolder changes
+  useEffect(() => {
+    console.log("=== SELECTED FOLDER CHANGED ===");
+    console.log("New selectedFolder:", selectedFolder);
+    console.log("Type:", typeof selectedFolder);
+    console.log("=== END SELECTED FOLDER CHANGED ===");
+  }, [selectedFolder]);
+
+  // Track folders changes
+  useEffect(() => {
+    console.log("=== FOLDERS CHANGED ===");
+    console.log("New folders:", folders);
+    console.log("Folders length:", folders.length);
+    console.log("=== END FOLDERS CHANGED ===");
+  }, [folders]);
+
+  // Track error changes
+  useEffect(() => {
+    console.log("=== ERROR CHANGED ===");
+    console.log("New error:", error);
+    console.log("=== END ERROR CHANGED ===");
+  }, [error]);
   
   // Fetch flashcards when folder changes
   useEffect(() => {
     if (selectedFolder) {
+      console.log("Selected folder changed, calling fetchFlashcards");
       fetchFlashcards();
     }
-  }, [selectedFolder, fetchFlashcards]);
+  }, [selectedFolder]);
   
   // Cleanup on unmount
   useEffect(() => {

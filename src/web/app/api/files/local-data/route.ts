@@ -22,16 +22,7 @@ export async function GET(req: NextRequest) {
     }
 
     // fileName format: "STOCK_DIR/JSON_FILE" (e.g., "AAL_Dec_11_2006/after.json")
-    const filePath = path.join(
-      process.cwd(), 
-      '..', 
-      '..', 
-      'src', 
-      'data-processing', 
-      'ds', 
-      'quality_breakouts', 
-      fileName
-    );
+    const filePath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts', fileName);
 
     // Security check - ensure the file is within the expected directory
     const expectedDir = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
