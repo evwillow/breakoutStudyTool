@@ -111,6 +111,10 @@ build/Release
 # TypeScript cache
 *.tsbuildinfo
 
+# Exclude lib directories but allow src/web/lib for Next.js app
+/lib/
+!src/web/lib/
+
 # dotenv environment variable files
 .env
 .env.development.local
