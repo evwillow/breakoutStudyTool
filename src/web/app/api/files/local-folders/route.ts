@@ -25,26 +25,44 @@ interface LocalFolder {
 
 export async function GET(req: NextRequest) {
   try {
-    // Use relative path from project root
-    const dataPath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
+    // Try multiple possible paths
+    const possiblePaths = [
+      path.join(process.cwd(), 'src', 'data-processing', 'ds', 'quality_breakouts'),
+      path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts'),
+      path.join(__dirname, '..', '..', '..', '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts'),
+      '/var/www/html/breakoutStudyTool/src/data-processing/ds/quality_breakouts'
+    ];
+    
+    let dataPath = null;
+    let foundPath = null;
     
     console.log('Current working directory:', process.cwd());
-    console.log('Looking for data at:', dataPath);
+    console.log('__dirname:', __dirname);
     
-    // Check if directory exists
-    try {
-      await fs.access(dataPath);
-      console.log('Data directory found successfully');
-    } catch (error) {
-      console.error('Data directory not found:', dataPath);
-      console.error('Error details:', error);
+    // Try each possible path
+    for (const testPath of possiblePaths) {
+      try {
+        await fs.access(testPath);
+        dataPath = testPath;
+        foundPath = testPath;
+        console.log('Data directory found at:', testPath);
+        break;
+      } catch (error) {
+        console.log('Path not found:', testPath);
+        continue;
+      }
+    }
+    
+    if (!dataPath) {
+      console.error('Data directory not found in any of the expected locations');
       return NextResponse.json({
         success: false,
         message: 'Data directory not found',
-        error: 'Data directory does not exist',
+        error: 'Data directory does not exist in any expected location',
         debug: {
           cwd: process.cwd(),
-          dataPath: dataPath
+          __dirname: __dirname,
+          triedPaths: possiblePaths
         }
       }, { status: 404 });
     }
