@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // fileName format: "STOCK_DIR/JSON_FILE" (e.g., "AAL_Dec_11_2006/after.json")
     const filePath = path.join(
       process.cwd(), 
       '..', 

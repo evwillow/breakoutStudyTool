@@ -39,21 +39,36 @@ export async function GET(req: NextRequest) {
       }, { status: 404 });
     }
 
-    // Read all JSON files in the directory
-    const files = await fs.readdir(dataPath);
-    const jsonFiles = files.filter(file => file.endsWith('.json'));
+    // Read all directories (each represents a stock breakout)
+    const entries = await fs.readdir(dataPath, { withFileTypes: true });
+    const stockDirectories = entries
+      .filter(entry => entry.isDirectory())
+      .map(entry => entry.name);
 
-    // Group files by date (assuming filename format like YYYY-MM-DD_*.json)
+    // Group by date (extract date from directory names like AAL_Dec_11_2006)
     const foldersMap = new Map<string, LocalFolder>();
 
-    for (const fileName of jsonFiles) {
+    for (const stockDir of stockDirectories) {
       try {
-        // Extract date from filename (assuming format: YYYY-MM-DD_*.json)
-        const dateMatch = fileName.match(/^(\d{4}-\d{2}-\d{2})/);
-        const folderName = dateMatch ? dateMatch[1] : 'Unknown';
+        // Extract date from directory name (format: SYMBOL_Month_Day_Year)
+        const dateMatch = stockDir.match(/_(\w+)_(\d+)_(\d+)$/);
+        if (!dateMatch) continue;
         
-        const filePath = path.join(dataPath, fileName);
-        const stats = await fs.stat(filePath);
+        const [, month, day, year] = dateMatch;
+        const monthMap: { [key: string]: string } = {
+          'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+          'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+          'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+        };
+        
+        const monthNum = monthMap[month];
+        if (!monthNum) continue;
+        
+        const folderName = `${year}-${monthNum}-${day.padStart(2, '0')}`;
+        
+        const stockDirPath = path.join(dataPath, stockDir);
+        const files = await fs.readdir(stockDirPath);
+        const jsonFiles = files.filter(file => file.endsWith('.json'));
         
         if (!foldersMap.has(folderName)) {
           foldersMap.set(folderName, {
@@ -64,18 +79,25 @@ export async function GET(req: NextRequest) {
         }
 
         const folder = foldersMap.get(folderName)!;
-        folder.files.push({
-          id: fileName,
-          name: fileName.replace('.json', ''),
-          fileName: fileName,
-          mimeType: 'application/json',
-          size: stats.size,
-          createdTime: stats.birthtime.toISOString(),
-          modifiedTime: stats.mtime.toISOString()
-        });
+        
+        // Add each stock breakout as a "file" in the folder
+        for (const jsonFile of jsonFiles) {
+          const filePath = path.join(stockDirPath, jsonFile);
+          const stats = await fs.stat(filePath);
+          
+          folder.files.push({
+            id: `${stockDir}_${jsonFile}`,
+            name: `${stockDir}_${jsonFile.replace('.json', '')}`,
+            fileName: `${stockDir}/${jsonFile}`,
+            mimeType: 'application/json',
+            size: stats.size,
+            createdTime: stats.birthtime.toISOString(),
+            modifiedTime: stats.mtime.toISOString()
+          });
+        }
       } catch (error) {
-        console.error(`Error processing file ${fileName}:`, error);
-        // Continue with other files
+        console.error(`Error processing directory ${stockDir}:`, error);
+        // Continue with other directories
       }
     }
 
@@ -84,12 +106,12 @@ export async function GET(req: NextRequest) {
       new Date(b.name).getTime() - new Date(a.name).getTime()
     );
 
-    console.log(`Found ${folders.length} folders with ${jsonFiles.length} total files`);
+    console.log(`Found ${folders.length} date folders with ${stockDirectories.length} stock breakouts`);
 
     return NextResponse.json({
       success: true,
       folders: folders,
-      totalFiles: jsonFiles.length
+      totalFiles: stockDirectories.length
     });
 
   } catch (error: any) {
