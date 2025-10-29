@@ -107,10 +107,18 @@ export interface StockDataPoint {
   "50sma"?: number;
 }
 
-export interface GoogleDriveFolder {
+export interface LocalFolder {
   id: string;
   name: string;
-  mimeType: string;
+  files: Array<{
+    id: string;
+    name: string;
+    fileName: string;
+    mimeType: string;
+    size: number;
+    createdTime: string;
+    modifiedTime: string;
+  }>;
 }
 
 // Diagnostic types
@@ -119,7 +127,7 @@ export interface HealthCheckResponse {
   timestamp: string;
   services: {
     database: ServiceStatus;
-    googleDrive: ServiceStatus;
+    localData: ServiceStatus;
     auth: ServiceStatus;
   };
   environment: string;
