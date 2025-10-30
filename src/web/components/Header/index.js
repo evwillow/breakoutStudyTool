@@ -29,19 +29,11 @@ const Header = () => {
   // Handle scroll effect for header
   useEffect(() => {
     const handleScroll = () => {
-      if (typeof window !== 'undefined') {
-        if (window.scrollY > 10) {
-          setScrolled(true)
-        } else {
-          setScrolled(false)
-        }
-      }
+      if (typeof window === 'undefined') return
+      setScrolled(window.scrollY > 10)
     }
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', handleScroll)
-      return () => window.removeEventListener('scroll', handleScroll)
-    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   // Close menus when clicking outside
@@ -87,7 +79,6 @@ const Header = () => {
 
   // Navigation links for non-authenticated users
   const publicNavLinks = [
-    { name: "Features", href: "/#features", isScroll: true },
     { name: "Support", href: "/support" }
   ]
 
@@ -114,14 +105,14 @@ const Header = () => {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-colors duration-300 ease-out ${
+      className={`fixed top-0 z-50 w-full transition-colors duration-300 ease-out ${
         scrolled ? "bg-white shadow-md backdrop-blur-sm" : "bg-transparent"
       }`}
     >
       <div className="w-full px-2 sm:px-4 lg:px-8">
-        <div className="grid grid-cols-3 items-center h-14">
+        <div className="relative grid grid-cols-3 h-14 items-center max-[800px]:items-start">
           {/* Logo - left aligned */}
-          <div className="justify-self-start flex-shrink-0 mr-1 sm:mr-2 z-20">
+          <div className="justify-self-start flex-shrink-0 mr-1 sm:mr-2 z-20 max-[800px]:pl-2 max-[800px]:pt-1">
             <Logo scrolled={scrolled} />
           </div>
 
@@ -150,7 +141,7 @@ const Header = () => {
           </nav>
 
           {/* Authentication / User menu - right aligned */}
-          <div className="justify-self-end flex items-center ml-1 sm:ml-2 z-20 relative">
+          <div className="justify-self-end flex items-center ml-1 sm:ml-2 z-20 relative pr-2 pt-1 max-[800px]:absolute max-[800px]:top-1 max-[800px]:right-2 max-[800px]:ml-0 max-[800px]:pr-0">
             {session ? (
               <div className="relative" ref={userMenuRef}>
                 <button

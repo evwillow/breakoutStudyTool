@@ -35,7 +35,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased overflow-x-hidden">
         {/* Global subtle wave background - fixed behind all content */}
         <div className="app-bg-waves" aria-hidden="true" />
         {/* Google Analytics - Only in production */}
@@ -55,7 +55,7 @@ export default function RootLayout({
         <Providers>
           <Header />
           <div className="w-full flex justify-center">
-            <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] transition-all duration-300 ease-in-out max-w-[1400px] pt-2 pb-0">
+            <div className="w-full sm:w-[95%] md:w-[92%] lg:w-[90%] transition-all duration-300 ease-in-out max-w-[1600px] pt-16 pb-0">
               {children}
             </div>
           </div>

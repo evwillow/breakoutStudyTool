@@ -46,8 +46,8 @@ const testDatabaseConnection = async () => {
  * @param {Function} props.onClose - Callback to close the modal
  * @returns {JSX.Element|null} Auth modal or null if closed
  */
-const AuthModal = ({ open, onClose }) => {
-  const [mode, setMode] = useState(AUTH_MODES.SIGNIN);
+const AuthModal = ({ open, onClose, initialMode }) => {
+  const [mode, setMode] = useState(initialMode || AUTH_MODES.SIGNIN);
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);

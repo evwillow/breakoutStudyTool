@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * LandingPage Component
  * 
@@ -9,70 +11,53 @@
  * - Premium design elements and visual hierarchy
  * - Conversion-optimized copy and color scheme
  */
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import AuthModal from "../Auth/AuthModal";
+const FEATURE_NAMES = [
+  "Interactive Breakout Practice",
+  "Instant After Chart Reveal",
+  "Performance and Accuracy Analytics",
+  "Personal Progress Dashboard",
+]
 
 const LandingPage = ({ onSignIn }) => {
+  const [showAuth, setShowAuth] = useState(false)
   return (
-    <div className="bg-white font-sans overflow-visible">
+    <div className="font-sans overflow-visible min-h-screen flex flex-col">
       {/* Hero Section with premium design and stronger value proposition */}
-      <section className="relative overflow-visible bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 py-20 sm:py-28">
-        {/* Animated background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <svg className="h-full w-full" viewBox="0 0 800 800">
-            <path d="M0,0 L800,0 L800,800 L0,800 Z" fill="none" stroke="white" strokeWidth="2"></path>
-            <path d="M200,150 L600,650" stroke="white" strokeWidth="2"></path>
-            <path d="M600,150 L200,650" stroke="white" strokeWidth="2"></path>
-            <circle cx="400" cy="400" r="150" fill="none" stroke="white" strokeWidth="2"></circle>
-            <path d="M300,200 L500,200 L500,400 L300,400 Z" fill="none" stroke="white" strokeWidth="2"></path>
-            <path d="M350,600 L450,600" stroke="white" strokeWidth="2"></path>
-          </svg>
-        </div>
+      <section className="relative overflow-visible bg-transparent pt-14 sm:pt-20 lg:pt-24 pb-24 sm:pb-28 lg:pb-32 min-h-[70vh] lg:min-h-[80vh]">
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center">
-          <div className="lg:w-1/2 lg:pr-12 mb-10 lg:mb-0">
-            <div className="mb-6">
-              <span className="inline-block px-3 py-1 bg-turquoise-500 bg-opacity-20 text-turquoise-400 rounded-full text-sm font-semibold tracking-wide uppercase mb-2">Professional Trading Tool</span>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
-                <span className="text-turquoise-400">Breakout</span> Study Tool
+        <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center">
+          <div className="lg:w-7/12 lg:pr-12 mb-10 lg:mb-0">
+            <div className="mb-8">
+              <span className="inline-block px-3 py-1 bg-turquoise-500 bg-opacity-20 text-turquoise-400 rounded-full text-sm font-semibold tracking-wide uppercase mb-2">In Development</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight bg-gradient-to-r from-turquoise-200 via-white to-turquoise-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,178,172,0.25)]">
+                <span className="text-white/0">Breakout</span> Study Tool
               </h1>
-              <p className="mt-2 text-lg text-turquoise-300 font-medium">Master the pattern that made Qullamaggie millions</p>
+              <p className="mt-3 text-xl sm:text-2xl text-turquoise-200/90 font-semibold max-w-2xl">Coming soon. A focused way to train breakout pattern recognition</p>
+              {/* Feature-by-feature typing that wraps on mobile */}
+              <TypedFeatures />
             </div>
-            <p className="text-xl text-gray-200 mb-8 leading-relaxed">
-              Develop elite breakout pattern recognition skills with real market data. Elite traders know that <span className="text-turquoise-400 font-semibold">pattern recognition is everything</span> - our interactive study tool helps you train like the professionals.
+            <p className="text-lg sm:text-xl text-gray-200/90 mb-10 leading-relaxed max-w-3xl">
+              Practice on historical market data, get instant feedback, and build repeatable decision making. Designed to be minimal and fast.
             </p>
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               <button 
-                onClick={onSignIn}
-                className="px-8 py-4 bg-turquoise-500 text-white rounded-lg shadow-xl font-bold text-lg hover:bg-turquoise-600 transition transform hover:-translate-y-1 hover:shadow-2xl"
+                onClick={() => setShowAuth(true)}
+                className="px-10 py-4 bg-turquoise-500 text-white rounded-xl font-bold text-lg shadow-[0_10px_30px_rgba(56,178,172,0.35)] hover:shadow-[0_14px_40px_rgba(56,178,172,0.45)] ring-1 ring-turquoise-300/50 hover:bg-turquoise-600 transition transform hover:-translate-y-0.5"
               >
-                Start Trading Like a Pro
+                Sign Up
               </button>
-              <a 
-                href="#features"
-                className="px-8 py-4 bg-transparent border-2 border-turquoise-500 text-turquoise-400 rounded-lg font-bold text-lg hover:bg-turquoise-500 hover:bg-opacity-10 transition text-center"
-              >
-                See How It Works
-              </a>
             </div>
-            <div className="mt-8 flex items-center text-gray-300 text-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-turquoise-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>No credit card required</span>
-              <span className="mx-2">•</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-turquoise-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Secure & private</span>
-            </div>
+            {/* Benefits moved into feature blocks */}
           </div>
           
-          <div className="lg:w-1/2 lg:pl-6">
+          <div className="lg:w-5/12 lg:pl-6">
             <div className="relative">
               {/* Chart visualization */}
-              <div className="bg-white rounded-xl shadow-2xl p-4 transform -rotate-1 z-10 relative">
-                <div className="rounded-lg overflow-hidden bg-gray-900">
+              <div className="bg-transparent rounded-xl p-4 transform -rotate-1 z-10 relative">
+                <div className="rounded-lg overflow-hidden bg-transparent">
                   <div className="aspect-w-16 aspect-h-9 w-full relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
                       {/* SVG Chart Pattern */}
@@ -110,356 +95,61 @@ const LandingPage = ({ onSignIn }) => {
                       </svg>
                     </div>
                   </div>
-                  <div className="bg-gray-800 px-4 py-3 text-turquoise-400 text-sm font-semibold">
-                    Perfect Breakout Pattern • +47% Return
-                  </div>
+                  {/* Removed label under chart */}
                 </div>
               </div>
-              
-              {/* Interactive elements */}
-              <div className="absolute -bottom-6 -right-6 bg-turquoise-500 text-white px-4 py-2 rounded-lg shadow-lg transform rotate-3 text-sm font-bold z-20">
-                Interactive Practice Sessions
-              </div>
-              <div className="absolute -top-4 -left-4 bg-gray-800 text-turquoise-400 px-4 py-2 rounded-lg shadow-lg transform -rotate-2 text-sm font-bold z-20">
-                Real Market Data
+
+            </div>
+          </div>
+          {/* Features overlay removed */}
+        </div>
+      </section>
+
+      {/* Features section in normal flow to avoid overlap */}
+      <section className="bg-transparent pt-6 sm:pt-8 pb-12 sm:pb-16">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="space-y-8 xl:space-y-12">
+            <div className="flex justify-end">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+                <div className="text-3xl font-semibold tracking-wide">Performance and Accuracy Analytics</div>
+                <div className="text-lg text-white/90 mt-3">Track accuracy and improvement</div>
               </div>
             </div>
+            <div className="flex justify-start">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+                <div className="text-3xl font-semibold tracking-wide">Personal Progress Dashboard</div>
+                <div className="text-lg text-white/90 mt-3">Sessions, streaks, milestones</div>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+                <div className="text-3xl font-semibold tracking-wide">Interactive Breakout Practice</div>
+                <div className="text-lg text-white/90 mt-3">Rapid drills on real historical charts</div>
+              </div>
+            </div>
+            <div className="flex justify-start">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+                <div className="text-3xl font-semibold tracking-wide">Instant After Chart Reveal</div>
+                <div className="text-lg text-white/90 mt-3">See the outcome and ideal entry</div>
+              </div>
+            </div>
+            {/* Spacer to push footer down ~30% of viewport height */}
+            <div className="h-[30vh]" />
           </div>
         </div>
       </section>
       
-      {/* Features Section with stronger value proposition */}
-      <section id="features" className="py-20 sm:py-28 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <span className="inline-block px-3 py-1 bg-turquoise-100 text-turquoise-700 rounded-full text-sm font-semibold tracking-wide uppercase mb-2">Powerful Features</span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Develop Elite Trading Skills</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our platform is designed by professional traders to help you master the most profitable chart pattern
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="bg-white rounded-xl shadow-lg p-8 transition transform hover:scale-102 hover:shadow-xl border-t-4 border-turquoise-500">
-              <div className="w-14 h-14 bg-turquoise-100 rounded-xl flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-turquoise-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Professional Market Data</h3>
-              <p className="text-gray-600 mb-4">
-                Train with the same high-quality historical stock data professional traders use to develop their pattern recognition skills.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Multiple timeframes (D/H/M)</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Verified breakout patterns</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Real outcome results</span>
-                </li>
-              </ul>
-            </div>
-            
-            {/* Feature 2 */}
-            <div className="bg-white rounded-xl shadow-lg p-8 transition transform hover:scale-102 hover:shadow-xl border-t-4 border-turquoise-500">
-              <div className="w-14 h-14 bg-turquoise-100 rounded-xl flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-turquoise-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Advanced Analytics</h3>
-              <p className="text-gray-600 mb-4">
-                Track your progress with comprehensive analytics that identify your strengths and pinpoint areas for improvement.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Performance metrics</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Accuracy improvement tracking</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Pattern type analysis</span>
-                </li>
-              </ul>
-            </div>
-            
-            {/* Feature 3 */}
-            <div className="bg-white rounded-xl shadow-lg p-8 transition transform hover:scale-102 hover:shadow-xl border-t-4 border-turquoise-500">
-              <div className="w-14 h-14 bg-turquoise-100 rounded-xl flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-turquoise-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Realistic Trading Simulation</h3>
-              <p className="text-gray-600 mb-4">
-                Develop rapid decision-making with realistic time pressure, just like real market conditions where opportunities vanish quickly.
-              </p>
-              <ul className="space-y-2">
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Adjustable time constraints</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Immediate feedback loop</span>
-                </li>
-                <li className="flex items-start">
-                  <svg className="h-5 w-5 text-turquoise-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Real-world outcome comparison</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      {/* Testimonials Section - Social proof that drives conversions */}
-      <section className="py-20 sm:py-28 bg-gradient-to-b from-white to-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <span className="inline-block px-3 py-1 bg-turquoise-100 text-turquoise-700 rounded-full text-sm font-semibold tracking-wide uppercase mb-2">Success Stories</span>
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Results That Speak For Themselves</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Join traders who have transformed their performance with the Breakout Study Tool
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Testimonial 1 */}
-            <div className="bg-white rounded-xl shadow-lg p-8 relative">
-              <div className="absolute -top-5 -left-5">
-                <div className="bg-turquoise-500 text-white w-10 h-10 rounded-full flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mb-6 text-turquoise-500 flex">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-gray-700 italic mb-6">
-                "I was skeptical at first, but the Breakout Study Tool completely changed my trading. After just 3 weeks, my success rate jumped from 32% to 68%. The pattern recognition training is worth every minute invested."
-              </p>
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden mr-4">
-                  <div className="w-full h-full bg-gradient-to-br from-turquoise-400 to-blue-500"></div>
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900">Sarah Johnson</h4>
-                  <div className="flex items-center">
-                    <p className="text-gray-600 text-sm">Professional Trader</p>
-                    <span className="mx-2 text-gray-300">•</span>
-                    <p className="text-turquoise-600 text-sm font-medium">+147% Returns</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Testimonial 2 */}
-            <div className="bg-white rounded-xl shadow-lg p-8 relative md:mt-8">
-              <div className="absolute -top-5 -left-5">
-                <div className="bg-turquoise-500 text-white w-10 h-10 rounded-full flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mb-6 text-turquoise-500 flex">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-gray-700 italic mb-6">
-                "The analytics provided invaluable feedback on my weaknesses in identifying certain consolidation patterns. This precise feedback helped me develop a much more consistent approach to trading breakouts."
-              </p>
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden mr-4">
-                  <div className="w-full h-full bg-gradient-to-br from-blue-400 to-indigo-500"></div>
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900">Michael Chen</h4>
-                  <div className="flex items-center">
-                    <p className="text-gray-600 text-sm">Swing Trader</p>
-                    <span className="mx-2 text-gray-300">•</span>
-                    <p className="text-turquoise-600 text-sm font-medium">92% Accuracy</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Testimonial 3 */}
-            <div className="bg-white rounded-xl shadow-lg p-8 relative md:mt-16">
-              <div className="absolute -top-5 -left-5">
-                <div className="bg-turquoise-500 text-white w-10 h-10 rounded-full flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-                  </svg>
-                </div>
-              </div>
-              <div className="mb-6 text-turquoise-500 flex">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-gray-700 italic mb-6">
-                "As someone new to trading, I was intimidated by technical analysis. This tool made learning enjoyable and practical. The time-pressure element helped me develop quick decision-making skills critical for live trading."
-              </p>
-              <div className="flex items-center">
-                <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden mr-4">
-                  <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-500"></div>
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-900">Alex Rodriguez</h4>
-                  <div className="flex items-center">
-                    <p className="text-gray-600 text-sm">Retail Investor</p>
-                    <span className="mx-2 text-gray-300">•</span>
-                    <p className="text-turquoise-600 text-sm font-medium">+83% Year 1</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Stats for additional credibility */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-16 text-center">
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <p className="text-4xl font-bold text-turquoise-600">27,500+</p>
-              <p className="text-gray-600 font-medium">Active Traders</p>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <p className="text-4xl font-bold text-turquoise-600">2.7M+</p>
-              <p className="text-gray-600 font-medium">Patterns Analyzed</p>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <p className="text-4xl font-bold text-turquoise-600">74%</p>
-              <p className="text-gray-600 font-medium">Avg. Accuracy Improvement</p>
-            </div>
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-              <p className="text-4xl font-bold text-turquoise-600">192%</p>
-              <p className="text-gray-600 font-medium">Average Return Increase</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Testimonials and stats removed per request */}
       
       {/* CTA Section with stronger visual impact and clearer value */}
-      <section className="py-20 sm:py-28 bg-gray-900 relative overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <svg className="h-full w-full" viewBox="0 0 800 800">
-            <path d="M200,150 L600,650" stroke="white" strokeWidth="2"></path>
-            <path d="M600,150 L200,650" stroke="white" strokeWidth="2"></path>
-            <circle cx="400" cy="400" r="150" fill="none" stroke="white" strokeWidth="2"></circle>
-          </svg>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="bg-gradient-to-r from-turquoise-600 to-turquoise-400 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="flex flex-col md:flex-row items-center">
-              <div className="md:w-2/3 p-8 md:p-12">
-                <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to Master Breakout Trading?</h2>
-                <p className="text-xl text-white opacity-90 mb-8 max-w-3xl">
-                  Join thousands of traders who've transformed their results using our proven pattern recognition training system.
-                </p>
-                <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                  <button 
-                    onClick={onSignIn}
-                    className="px-8 py-4 bg-white text-turquoise-600 rounded-lg shadow-xl font-bold text-lg hover:bg-gray-100 transition transform hover:-translate-y-1 hover:shadow-2xl"
-                  >
-                    Start Free Training
-                  </button>
-                  <a href="#features" className="px-8 py-4 bg-transparent border-2 border-white text-white rounded-lg font-bold text-lg hover:bg-white hover:bg-opacity-10 transition text-center">
-                    Learn More
-                  </a>
-                </div>
-                
-                <div className="mt-8 flex items-center text-white text-sm">
-                  <div className="flex -space-x-2 mr-3">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className={`w-8 h-8 rounded-full border-2 border-white overflow-hidden bg-gradient-to-br ${
-                        i === 0 ? 'from-turquoise-400 to-blue-500' :
-                        i === 1 ? 'from-blue-400 to-indigo-500' :
-                        'from-purple-400 to-pink-500'
-                      }`}></div>
-                    ))}
-                  </div>
-                  <span>Joined by 27,500+ traders worldwide</span>
-                </div>
-              </div>
-              
-              <div className="md:w-1/3 p-8 md:p-0">
-                <div className="relative h-full flex items-center justify-center">
-                  <svg className="h-64 w-64 text-white opacity-10" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg rounded-xl p-4 shadow-lg">
-                      <div className="flex flex-col space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                          <span className="text-white text-sm font-medium">Recognition Rate: +89%</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
-                          <span className="text-white text-sm font-medium">Decision Speed: +112%</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
-                          <span className="text-white text-sm font-medium">Profit Potential: +178%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* CTA section removed per request */}
       
       {/* Footer */}
-      <footer className="bg-gray-800 py-8">
+      <footer className="bg-transparent py-8 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-gray-400 text-sm mb-4 md:mb-0">
-              © 2024 Breakout Study Tool. All rights reserved.
+              © 2025 Breakout Study Tool. All rights reserved.
             </div>
             <div className="flex space-x-6">
               <a href="/terms" className="text-gray-400 hover:text-white text-sm transition">
@@ -472,8 +162,66 @@ const LandingPage = ({ onSignIn }) => {
           </div>
         </div>
       </footer>
+      {showAuth && (
+        <AuthModal open={showAuth} onClose={() => setShowAuth(false)} initialMode={"SIGNUP"} />
+      )}
     </div>
   );
 };
 
 export default LandingPage; 
+
+// Typing effect for feature names in the hero (mobile-friendly)
+const TypedFeatures = () => {
+  const [text, setText] = useState("")
+  const [featureIndex, setFeatureIndex] = useState(0)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [charIndex, setCharIndex] = useState(0)
+
+  useEffect(() => {
+    const current = FEATURE_NAMES[featureIndex % FEATURE_NAMES.length]
+    const typeDelay = 32
+    const deleteDelay = 22
+    const endPause = 900
+    const startPause = 220
+
+    let timeoutId
+
+    if (!isDeleting && charIndex === 0) {
+      timeoutId = setTimeout(() => setCharIndex(1), startPause)
+    } else if (!isDeleting && charIndex <= current.length) {
+      timeoutId = setTimeout(() => {
+        setText(current.slice(0, charIndex))
+        setCharIndex(charIndex + 1)
+      }, typeDelay)
+    } else if (!isDeleting && charIndex > current.length) {
+      timeoutId = setTimeout(() => {
+        setIsDeleting(true)
+        setCharIndex(current.length - 1)
+      }, endPause)
+    } else if (isDeleting && charIndex >= 0) {
+      timeoutId = setTimeout(() => {
+        setText(current.slice(0, charIndex))
+        setCharIndex(charIndex - 1)
+      }, deleteDelay)
+    } else if (isDeleting && charIndex < 0) {
+      setIsDeleting(false)
+      setFeatureIndex((i) => (i + 1) % FEATURE_NAMES.length)
+      setCharIndex(0)
+    }
+
+    return () => timeoutId && clearTimeout(timeoutId)
+  }, [featureIndex, isDeleting, charIndex])
+
+  return (
+    <div className="mt-5 w-full text-xl sm:text-2xl lg:text-3xl text-turquoise-300 font-mono tracking-wide font-semibold whitespace-normal md:whitespace-nowrap break-words max-w-full leading-snug min-h-[3.5rem] sm:min-h-[2.6rem] mb-3 sm:mb-4">
+      <span className="text-turquoise-400">Featuring</span>
+      <span className="mx-2 text-turquoise-500">//</span>
+      <span className="text-white">{text}</span>
+      <span className="ml-1 border-r-2 border-turquoise-400 align-middle inline-block" style={{ animation: 'caretBlink 1s steps(1) infinite' }} />
+      <style jsx>{`
+        @keyframes caretBlink { 50% { border-color: transparent; } }
+      `}</style>
+    </div>
+  )
+}
