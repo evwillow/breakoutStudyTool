@@ -31,7 +31,7 @@ export default function Study() {
 
   return (
     <div className="w-full flex justify-center">
-      <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] xl:w-[70%] 2xl:w-[65%]">
+      <div className="w-full max-w-[1800px] px-2 sm:px-4">
         <FlashcardsContainer />
       </div>
     </div>

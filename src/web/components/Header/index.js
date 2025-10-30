@@ -19,10 +19,12 @@ import { SignInButton, AuthModal } from "../Auth"
  */
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const { data: session } = useSession()
   const [scrolled, setScrolled] = useState(false)
   const mobileMenuRef = useRef(null)
+  const userMenuRef = useRef(null)
 
   // Handle scroll effect for header
   useEffect(() => {
@@ -42,17 +44,20 @@ const Header = () => {
     }
   }, [])
 
-  // Close mobile menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target) && mobileMenuOpen) {
         setMobileMenuOpen(false)
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target) && userMenuOpen) {
+        setUserMenuOpen(false)
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [mobileMenuOpen])
+  }, [mobileMenuOpen, userMenuOpen])
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -108,25 +113,27 @@ const Header = () => {
   }
 
   return (
-    <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-      scrolled ? "bg-white shadow-md" : "bg-white/95"
-    }`}>
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-        <div className="flex justify-between items-center py-3 md:py-4">
-          {/* Logo with minimum width to prevent compression */}
-          <div className="flex-shrink-0 mr-1 sm:mr-2 z-20">
-            <Logo />
+    <header
+      className={`sticky top-0 z-50 w-full transition-colors duration-300 ease-out ${
+        scrolled ? "bg-white shadow-md backdrop-blur-sm" : "bg-transparent"
+      }`}
+    >
+      <div className="w-full px-2 sm:px-4 lg:px-8">
+        <div className="grid grid-cols-3 items-center h-14">
+          {/* Logo - left aligned */}
+          <div className="justify-self-start flex-shrink-0 mr-1 sm:mr-2 z-20">
+            <Logo scrolled={scrolled} />
           </div>
 
-          {/* Dynamic breakpoint for navigation links - using custom 800px breakpoint */}
-          <nav className="hidden max-[800px]:hidden min-[800px]:flex space-x-4 z-10">
+          {/* Centered navigation at >=800px */}
+          <nav className="hidden max-[800px]:hidden min-[800px]:flex justify-center space-x-4 z-10">
             {displayedLinks.map((link) => (
               link.isScroll ? (
                 <a
                   key={link.name}
                   href={link.href}
                   onClick={(e) => handleScrollTo(e, link.href.split('#')[1])}
-                  className="text-gray-600 hover:text-turquoise-600 font-medium transition-colors whitespace-nowrap px-1"
+                  className={`${scrolled ? "text-gray-800 hover:text-turquoise-600" : "text-white hover:text-turquoise-300"} font-medium transition-colors whitespace-nowrap px-1`}
                 >
                   {link.name}
                 </a>
@@ -134,7 +141,7 @@ const Header = () => {
                 <Link 
                   key={link.name} 
                   href={link.href}
-                  className="text-gray-600 hover:text-turquoise-600 font-medium transition-colors whitespace-nowrap px-1"
+                  className={`${scrolled ? "text-gray-800 hover:text-turquoise-600" : "text-white hover:text-turquoise-300"} font-medium transition-colors whitespace-nowrap px-1`}
                 >
                   {link.name}
                 </Link>
@@ -142,24 +149,38 @@ const Header = () => {
             ))}
           </nav>
 
-          {/* Authentication Buttons - perfectly aligned vertically */}
-          <div className="flex items-center ml-1 sm:ml-2 z-20">
-            {/* Sign Out Button - Using the same breakpoint as navigation */}
-            {session && (
-              <button
-                onClick={() => signOut({ redirect: false })}
-                className="hidden min-[800px]:inline-flex items-center justify-center px-4 py-2 bg-gray-800 text-white text-sm rounded-md shadow hover:bg-gray-700 transition whitespace-nowrap"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V7.414l-5-5H3zM2 4a2 2 0 012-2h5.586a1 1 0 01.707.293l6 6a1 1 0 01.293.707V16a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                </svg>
-                Sign Out
-              </button>
-            )}
-            
-            {/* Sign In Button - Using the same breakpoint as navigation, perfect vertical alignment */}
-            {!session && (
+          {/* Authentication / User menu - right aligned */}
+          <div className="justify-self-end flex items-center ml-1 sm:ml-2 z-20 relative">
+            {session ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setUserMenuOpen(v => !v)}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm transition whitespace-nowrap ${
+                    scrolled ? "text-gray-800 hover:bg-gray-100" : "text-white hover:bg-white/10"
+                  }`}
+                >
+                  {`Hi, ${session.user?.name || 'User'}`}
+                  <svg className="h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden">
+                    <div className="px-4 py-3">
+                      <p className="text-sm text-gray-500">Signed in as</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{session.user?.email || 'user@example.com'}</p>
+                    </div>
+                    <div className="border-t" />
+                    <button
+                      onClick={() => { setUserMenuOpen(false); signOut({ redirect: false }) }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-gray-50"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
               <SignInButton 
                 className="hidden min-[800px]:inline-flex items-center" 
                 onClick={() => setShowAuthModal(true)}

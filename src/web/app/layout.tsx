@@ -36,6 +36,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
+        {/* Global subtle wave background - fixed behind all content */}
+        <div className="app-bg-waves" aria-hidden="true" />
         {/* Google Analytics - Only in production */}
         {analyticsScript && (
           <Script
