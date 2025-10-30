@@ -53,11 +53,29 @@ export default function RootLayout({
           />
         )}
         <Providers>
-          <Header />
-          <div className="w-full flex justify-center">
-            <div className="w-full sm:w-[95%] md:w-[92%] lg:w-[90%] transition-all duration-300 ease-in-out max-w-[1600px] pt-16 pb-0">
-              {children}
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <div className="w-full flex justify-center">
+              <div className="w-full sm:w-[95%] md:w-[92%] lg:w-[90%] transition-all duration-300 ease-in-out max-w-[1600px] pt-16 pb-0">
+                {children}
+              </div>
             </div>
+            {/* Global Footer */}
+            <footer className="bg-transparent py-8 mt-auto">
+              <div className="w-full flex justify-center">
+                <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] max-w-[1400px] px-4">
+                  <div className="flex flex-col md:flex-row justify-between items-center">
+                    <div className="text-gray-400 text-sm mb-4 md:mb-0">
+                      © 2025 Breakout Study Tool. All rights reserved.
+                    </div>
+                    <div className="flex space-x-6">
+                      <a href="/terms" className="text-gray-400 hover:text-white text-sm transition">Terms of Service</a>
+                      <a href="/support" className="text-gray-400 hover:text-white text-sm transition">Support</a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </footer>
           </div>
         </Providers>
       </body>

@@ -31,7 +31,7 @@ export const errorConfig = {
   
   // Support contact information for user errors
   supportContact: {
-    email: 'support@breakoutstudy.com',
+    email: 'evan_maus@berkeley.edu',
     phone: '+1-888-123-4567',
     hours: '9am - 5pm ET, Monday - Friday'
   },

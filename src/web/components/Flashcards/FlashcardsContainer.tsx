@@ -753,9 +753,8 @@ export default function FlashcardsContainer() {
   // Main game interface
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
-      <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-6"
-           style={{ background: 'var(--background)' }}>
-        <div className="w-full max-w-[1600px] bg-black rounded-3xl shadow-2xl overflow-hidden border border-white">
+      <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-6">
+        <div className="w-full max-w-[1000px] bg-black rounded-3xl overflow-hidden border border-white shadow-2xl">
           
           {/* Chart Section */}
           <TypedChartSection
