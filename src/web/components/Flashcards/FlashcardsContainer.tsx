@@ -552,6 +552,13 @@ export default function FlashcardsContainer() {
     }
   }, [currentFlashcard, gameState.feedback, loading, timer, timerDuration]);
 
+  // Always decide overlay visibility in a hook before any conditional returns
+  useEffect(() => {
+    if (!currentRoundId && selectedFolder && !isLoadingRounds) {
+      setShowRoundSelector(true);
+    }
+  }, [currentRoundId, selectedFolder, isLoadingRounds]);
+
   // Extract stock name for DateFolderBrowser
   const currentStock = useMemo(() => 
     extractStockName(currentFlashcard),
@@ -669,86 +676,6 @@ export default function FlashcardsContainer() {
   }
 
   // Show round selection prompt when no round is selected
-  if (!currentRoundId && selectedFolder && !isLoadingRounds) {
-    return (
-      <>
-        <div className="min-h-screen w-full flex justify-center items-center p-4" 
-             style={{ background: 'var(--background)' }}>
-          <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6 text-center">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Ready to Practice</h2>
-            <p className="text-gray-600 mb-6">
-              Please select a round to continue or start a new practice session.
-            </p>
-            <button
-              onClick={() => setShowRoundSelector(true)}
-              className="w-full bg-turquoise-600 text-white px-6 py-3 rounded-lg hover:bg-turquoise-700 font-semibold"
-            >
-              Choose Round
-            </button>
-          </div>
-        </div>
-
-        {/* Round Selector Modal */}
-        {showRoundSelector && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Choose Round</h3>
-              
-              {isLoadingRounds ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-turquoise-600 mx-auto"></div>
-                  <p className="text-gray-600 mt-2">Loading rounds...</p>
-                </div>
-              ) : (
-                <>
-                  {availableRounds.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-gray-700 mb-2">Recent Rounds:</h4>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {availableRounds.map((round: any) => (
-                          <div
-                            key={round.id}
-                            className="flex items-center justify-between p-2 border rounded hover:bg-gray-50 cursor-pointer"
-                            onClick={() => handleSelectRound(round.id)}
-                          >
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">
-                                {round.completed ? '✓' : '◯'} Round from {new Date(round.created_at).toLocaleDateString()}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {round.completed ? 'Completed' : 'In Progress'} • {round.dataset_name}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handleNewRound}
-                      disabled={isCreatingRound}
-                      className="flex-1 bg-turquoise-600 text-white px-4 py-2 rounded hover:bg-turquoise-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isCreatingRound ? 'Creating...' : 'Start New Round'}
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowRoundSelector(false)}
-                      className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
 
   // Main game interface
   return (
@@ -885,6 +812,61 @@ export default function FlashcardsContainer() {
           animation: glow 2s infinite;
         }
       `}</style>
+      {/* Round Selector Modal (rendered over the main interface) */}
+      {showRoundSelector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent pointer-events-none">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 pointer-events-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Choose Round</h3>
+            {isLoadingRounds ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-turquoise-600 mx-auto"></div>
+                <p className="text-gray-600 mt-2">Loading rounds...</p>
+              </div>
+            ) : (
+              <>
+                {availableRounds.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-semibold text-gray-700 mb-2">Recent Rounds:</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {availableRounds.map((round: any) => (
+                        <div
+                          key={round.id}
+                          className="flex items-center justify-between p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleSelectRound(round.id)}
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900">
+                              {round.completed ? '✓' : '◯'} Round from {new Date(round.created_at).toLocaleDateString()}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {round.completed ? 'Completed' : 'In Progress'} • {round.dataset_name}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex space-x-3">
+                  <button
+                    onClick={handleNewRound}
+                    disabled={isCreatingRound}
+                    className="flex-1 bg-turquoise-600 text-white px-4 py-2 rounded hover:bg-turquoise-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCreatingRound ? 'Creating...' : 'Start New Round'}
+                  </button>
+                  <button
+                    onClick={() => setShowRoundSelector(false)}
+                    className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

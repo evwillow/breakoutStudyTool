@@ -143,7 +143,7 @@ const Header = () => {
           {/* Authentication / User menu - right aligned */}
           <div className="justify-self-end flex items-center ml-1 sm:ml-2 z-20 relative pr-2 pt-1 max-[800px]:absolute max-[800px]:top-1 max-[800px]:right-2 max-[800px]:ml-0 max-[800px]:pr-0">
             {session ? (
-              <div className="relative" ref={userMenuRef}>
+              <div className="relative hidden min-[800px]:block" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(v => !v)}
                   className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm transition whitespace-nowrap ${
@@ -220,6 +220,16 @@ const Header = () => {
             
             <nav className="flex-1 overflow-y-auto p-4">
               <div className="flex flex-col space-y-3">
+                <Link 
+                  href="/"
+                  className="px-3 py-2 text-gray-600 hover:text-turquoise-600 hover:bg-gray-50 rounded-md font-medium transition-colors flex items-center"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                  Home
+                </Link>
                 {displayedLinks.map((link) => (
                   link.isScroll ? (
                     <a 

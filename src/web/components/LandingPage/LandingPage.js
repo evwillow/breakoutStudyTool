@@ -144,24 +144,7 @@ const LandingPage = ({ onSignIn }) => {
       {/* CTA Section with stronger visual impact and clearer value */}
       {/* CTA section removed per request */}
       
-      {/* Footer */}
-      <footer className="bg-transparent py-8 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="text-gray-400 text-sm mb-4 md:mb-0">
-              © 2025 Breakout Study Tool. All rights reserved.
-            </div>
-            <div className="flex space-x-6">
-              <a href="/terms" className="text-gray-400 hover:text-white text-sm transition">
-                Terms of Service
-              </a>
-              <a href="/support" className="text-gray-400 hover:text-white text-sm transition">
-                Support
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Footer removed - global footer is rendered in layout */}
       {showAuth && (
         <AuthModal open={showAuth} onClose={() => setShowAuth(false)} initialMode={"SIGNUP"} />
       )}
