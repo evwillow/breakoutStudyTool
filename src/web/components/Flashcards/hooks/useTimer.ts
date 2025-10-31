@@ -113,37 +113,68 @@ export function useTimer({
 
   // Start timer
   const start = useCallback(() => {
-    if (timer <= 0) return;
+    // Use current timer state, but if it's 0, use initial duration
+    const durationToUse = timer > 0 ? timer : initialDuration;
+    
+    if (durationToUse <= 0) {
+      console.warn('Timer start called with invalid duration:', durationToUse);
+      return;
+    }
     
     cleanup();
     setIsRunning(true);
     setIsPaused(false);
     setIsReady(false);
     
-    timerEndTimeRef.current = Date.now() + timer * 1000;
+    // Update timer state if we're using initial duration
+    if (timer <= 0) {
+      setTimer(initialDuration);
+      displayValueRef.current = initialDuration;
+    }
+    
+    timerEndTimeRef.current = Date.now() + durationToUse * 1000;
     lastUpdateTimeRef.current = Date.now();
     tick();
-  }, [timer, cleanup, tick]);
+  }, [timer, initialDuration, cleanup, tick]);
 
   // Pause timer
   const pause = useCallback(() => {
+    // Save remaining time before pausing
+    if (timerEndTimeRef.current && isRunning && !isPaused) {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((timerEndTimeRef.current - now) / 1000));
+      setTimer(remaining);
+      displayValueRef.current = remaining;
+    }
     setIsPaused(true);
     setIsRunning(false);
     cleanup();
-  }, [cleanup]);
+  }, [isRunning, isPaused, cleanup]);
 
   // Resume timer
   const resume = useCallback(() => {
-    if (timer <= 0) return;
+    // Use current timer value, fallback to initial duration if 0
+    const durationToUse = timer > 0 ? timer : initialDuration;
+    
+    if (durationToUse <= 0) {
+      console.warn('Timer resume called with invalid duration:', durationToUse);
+      return;
+    }
+    
+    // Update timer state if needed
+    if (timer <= 0) {
+      setTimer(initialDuration);
+      displayValueRef.current = initialDuration;
+    }
     
     setIsPaused(false);
     setIsRunning(true);
     setIsReady(false);
     
-    timerEndTimeRef.current = Date.now() + timer * 1000;
+    timerEndTimeRef.current = Date.now() + durationToUse * 1000;
     lastUpdateTimeRef.current = Date.now();
     tick();
-  }, [timer, tick]);
+  }, [timer, initialDuration, tick]);
 
   // Reset timer
   const reset = useCallback((duration?: number) => {
@@ -194,12 +225,19 @@ export function useTimer({
     return cleanup;
   }, [cleanup]);
 
+  // Sync displayValue with timer state to ensure UI updates
+  useEffect(() => {
+    if (!isRunning && !isPaused) {
+      displayValueRef.current = timer;
+    }
+  }, [timer, isRunning, isPaused]);
+
   return {
     timer,
     isRunning,
     isPaused,
     isReady,
-    displayValue: displayValueRef.current,
+    displayValue: timer, // Use timer state directly for reliable updates
     start,
     pause,
     resume,

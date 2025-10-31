@@ -74,19 +74,19 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
         message: 'The selected folder doesn\'t contain any valid flashcard data.',
         troubleshooting: [
           'Try selecting a different folder from the dropdown',
-          'Check if the Google Drive folder contains stock chart data',
+          'Check if the selected folder contains stock chart data',
           'Ensure JSON files (D.json, H.json, M.json) exist in subfolders',
-          'Verify Google Drive permissions are correctly configured'
+          'Verify the data files are correctly structured'
         ]
       };
     } else if (error.includes('authentication') || error.includes('permission')) {
       return {
         title: 'Authentication Error',
-        message: 'Unable to access Google Drive data.',
+        message: 'Unable to access data.',
         troubleshooting: [
-          'Check Google Drive service account configuration',
+          'Check your authentication status',
           'Verify environment variables are set correctly',
-          'Ensure the service account has access to the folder',
+          'Ensure you have proper access permissions',
           'Contact support if the issue persists'
         ]
       };

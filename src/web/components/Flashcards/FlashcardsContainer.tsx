@@ -353,7 +353,8 @@ export default function FlashcardsContainer() {
     const newFolder = e.target.value;
     setSelectedFolder(newFolder);
     gameState.resetGame();
-    timer.reset();
+    // Reset timer to current duration setting
+    timer.reset(timerDuration);
     setCurrentRoundId(null);
     setShowRoundSelector(false);
     
@@ -361,7 +362,7 @@ export default function FlashcardsContainer() {
     if (newFolder && session?.user?.id) {
       loadRecentRounds(newFolder);
     }
-  }, [setSelectedFolder, gameState, timer, session?.user?.id, loadRecentRounds]);
+  }, [setSelectedFolder, gameState, timer, timerDuration, session?.user?.id, loadRecentRounds]);
 
   // Handle timer duration change
   const handleTimerDurationChange = useCallback((duration: number) => {
@@ -382,19 +383,19 @@ export default function FlashcardsContainer() {
     console.log('Create round returned:', roundId);
     console.log('Round ID type:', typeof roundId);
     
+    // Reset game and timer regardless of round creation result
+    gameState.resetGame();
+    timer.reset(timerDuration);
+    
     if (roundId) {
       console.log('Setting current round ID to:', roundId);
       setCurrentRoundId(roundId);
       setShowRoundSelector(false);
-      gameState.resetGame();
-      timer.reset(timerDuration);
       console.log('New round setup complete');
     } else {
       console.error('Failed to create round - no round ID returned');
       // Still allow the game to start even if round creation fails
       setShowRoundSelector(false);
-      gameState.resetGame();
-      timer.reset(timerDuration);
     }
     console.log('=== END NEW ROUND CREATION ===');
   }, [selectedFolder, createNewRound, gameState, timer, timerDuration]);
@@ -408,6 +409,7 @@ export default function FlashcardsContainer() {
     
     setCurrentRoundId(roundId);
     setShowRoundSelector(false);
+    // Reset game and timer for the selected round
     gameState.resetGame();
     timer.reset(timerDuration);
     
@@ -417,9 +419,14 @@ export default function FlashcardsContainer() {
 
   // Handle next card
   const handleNextCard = useCallback(() => {
+    // Reset game state first
     gameState.nextCard();
+    // Reset and start timer for the new card
     timer.reset(timerDuration);
-    timer.start();
+    // Small delay to ensure reset completes before starting
+    setTimeout(() => {
+      timer.start();
+    }, 50);
   }, [gameState, timer, timerDuration]);
 
   // Log match to database
@@ -493,17 +500,21 @@ export default function FlashcardsContainer() {
       }
 
       if (!response.ok) {
+        // Extract error information with better fallbacks
+        const errorInfo = result?.error || {};
+        const errorMessage = errorInfo?.message || errorInfo?.details || JSON.stringify(errorInfo) || 'Unknown error';
+        const errorCode = errorInfo?.code || `HTTP_${response.status}`;
+        
         console.error('Failed to log match:', {
           status: response.status,
           statusText: response.statusText,
-          rawResponse: responseText,
-          parsedResult: result,
-          error: result.error || 'No error details provided',
+          errorMessage: errorMessage,
+          errorCode: errorCode,
+          error: errorInfo,
+          validationErrors: errorInfo?.validationErrors,
           fullResponse: result,
           matchData: matchData,
-          requestHeaders: {
-            'Content-Type': 'application/json',
-          }
+          rawResponseLength: responseText?.length || 0,
         });
         // Don't throw error - continue game even if logging fails
       } else {
@@ -552,13 +563,17 @@ export default function FlashcardsContainer() {
     console.log("Selection handled - ChartSection will manage animation");
   }, [gameState, timer, logMatch, currentRoundId, currentFlashcard, session?.user?.id]);
 
-  // Start timer when flashcard changes
+  // Start timer when flashcard changes or when moving to a new card
   useEffect(() => {
-    if (currentFlashcard && !gameState.feedback && !loading) {
+    if (currentFlashcard && !gameState.feedback && !loading && !gameState.showTimeUpOverlay) {
+      // Reset timer to the current duration and start it
       timer.reset(timerDuration);
-      timer.start();
+      // Small delay to ensure reset completes before starting
+      setTimeout(() => {
+        timer.start();
+      }, 50);
     }
-  }, [currentFlashcard, gameState.feedback, loading, timer, timerDuration]);
+  }, [currentFlashcard, gameState.feedback, gameState.showTimeUpOverlay, loading, timer, timerDuration]);
 
   // Always decide overlay visibility in a hook before any conditional returns
   useEffect(() => {

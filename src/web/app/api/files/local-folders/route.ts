@@ -68,55 +68,43 @@ export async function GET(req: NextRequest) {
     }
 
     // Read all directories (each represents a stock breakout)
+    // All stock breakouts belong to the single "quality_breakouts" dataset
     const entries = await fs.readdir(dataPath, { withFileTypes: true });
     const stockDirectories = entries
       .filter(entry => entry.isDirectory())
       .map(entry => entry.name);
 
-    // Group by date (extract date from directory names like AAL_Dec_11_2006)
-    const foldersMap = new Map<string, LocalFolder>();
+    // Create a single folder for "quality_breakouts" dataset
+    // Each stock directory will be represented as a "file" in this folder
+    const qualityBreakoutsFolder: LocalFolder = {
+      id: 'quality_breakouts',
+      name: 'quality_breakouts',
+      files: []
+    };
 
     for (const stockDir of stockDirectories) {
       try {
-        // Extract date from directory name (format: SYMBOL_Month_Day_Year)
-        const dateMatch = stockDir.match(/_(\w+)_(\d+)_(\d+)$/);
-        if (!dateMatch) continue;
-        
-        const [, month, day, year] = dateMatch;
-        const monthMap: { [key: string]: string } = {
-          'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-          'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
-          'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
-        };
-        
-        const monthNum = monthMap[month];
-        if (!monthNum) continue;
-        
-        const folderName = `${year}-${monthNum}-${day.padStart(2, '0')}`;
-        
         const stockDirPath = path.join(dataPath, stockDir);
         const files = await fs.readdir(stockDirPath);
         const jsonFiles = files.filter(file => file.endsWith('.json'));
         
-        if (!foldersMap.has(folderName)) {
-          foldersMap.set(folderName, {
-            id: folderName,
-            name: folderName,
-            files: []
-          });
+        // Skip directories with no JSON files
+        if (jsonFiles.length === 0) {
+          console.log(`Skipping directory ${stockDir} - no JSON files found`);
+          continue;
         }
-
-        const folder = foldersMap.get(folderName)!;
         
-        // Add each stock breakout as a "file" in the folder
+        // Add each stock directory as a "file" entry
+        // The fileName will be the directory name, which can be used to load all files in that directory
         for (const jsonFile of jsonFiles) {
           const filePath = path.join(stockDirPath, jsonFile);
           const stats = await fs.stat(filePath);
           
-          folder.files.push({
+          // Use stockDir as the "name" and include jsonFile in the fileName
+          qualityBreakoutsFolder.files.push({
             id: `${stockDir}_${jsonFile}`,
-            name: `${stockDir}_${jsonFile.replace('.json', '')}`,
-            fileName: `${stockDir}/${jsonFile}`,
+            name: stockDir, // Stock directory name (e.g., "AAL_Dec_11_2006")
+            fileName: `${stockDir}/${jsonFile}`, // Full path relative to quality_breakouts
             mimeType: 'application/json',
             size: stats.size,
             createdTime: stats.birthtime.toISOString(),
@@ -129,12 +117,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Convert map to array and sort by date (newest first)
-    const folders = Array.from(foldersMap.values()).sort((a, b) => 
-      new Date(b.name).getTime() - new Date(a.name).getTime()
-    );
+    // Return single folder
+    const folders = [qualityBreakoutsFolder];
 
-    console.log(`Found ${folders.length} date folders with ${stockDirectories.length} stock breakouts`);
+    console.log(`Found quality_breakouts dataset with ${stockDirectories.length} stock breakouts and ${qualityBreakoutsFolder.files.length} total files`);
 
     return NextResponse.json({
       success: true,

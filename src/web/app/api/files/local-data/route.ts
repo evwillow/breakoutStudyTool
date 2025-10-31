@@ -21,13 +21,41 @@ export async function GET(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // Try multiple possible paths (same as local-folders route)
+    const possibleBasePaths = [
+      path.join(process.cwd(), 'src', 'data-processing', 'ds', 'quality_breakouts'),
+      path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts'),
+      path.join(__dirname, '..', '..', '..', '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts'),
+      '/var/www/html/breakoutStudyTool/src/data-processing/ds/quality_breakouts'
+    ];
+    
     // fileName format: "STOCK_DIR/JSON_FILE" (e.g., "AAL_Dec_11_2006/after.json")
-    const filePath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts', fileName);
+    let dataPath = null;
+    let filePath = null;
+    
+    for (const basePath of possibleBasePaths) {
+      try {
+        const testPath = path.join(basePath, fileName);
+        await fs.access(testPath);
+        dataPath = basePath;
+        filePath = testPath;
+        break;
+      } catch (error) {
+        continue;
+      }
+    }
+    
+    if (!filePath || !dataPath) {
+      return NextResponse.json({
+        success: false,
+        message: 'File not found',
+        error: `Could not locate file: ${fileName}`
+      }, { status: 404 });
+    }
 
     // Security check - ensure the file is within the expected directory
-    const expectedDir = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
     const resolvedPath = path.resolve(filePath);
-    const resolvedDir = path.resolve(expectedDir);
+    const resolvedDir = path.resolve(dataPath);
     
     if (!resolvedPath.startsWith(resolvedDir)) {
       return NextResponse.json({

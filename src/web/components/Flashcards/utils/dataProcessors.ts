@@ -107,6 +107,7 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
 
 /**
  * Extracts and processes thing.json data
+ * Supports both old format (array with 'thing' property) and new format (object with 'Log Sale Price')
  */
 export function extractThingData(flashcardData: FlashcardData | null): number[] {
   if (!flashcardData?.jsonFiles) {
@@ -125,17 +126,69 @@ export function extractThingData(flashcardData: FlashcardData | null): number[] 
   try {
     const jsonData = thingFile.data;
     
-    if (!Array.isArray(jsonData) || jsonData.length === 0) {
-      return [];
+    // Handle object format with 'value' array (e.g., { "value": [{ "thing": 2 }] })
+    if (typeof jsonData === 'object' && jsonData !== null && !Array.isArray(jsonData)) {
+      // Check if there's a 'value' property with an array
+      if ('value' in jsonData && Array.isArray((jsonData as any).value) && (jsonData as any).value.length > 0) {
+        const firstItem = (jsonData as any).value[0];
+        
+        // Look for 'Log Sale Price' field first (primary field)
+        const logSalePrice = firstItem?.['Log Sale Price'] || 
+                            firstItem?.['log sale price'] ||
+                            firstItem?.['LogSalePrice'] ||
+                            firstItem?.['logSalePrice'];
+        
+        if (typeof logSalePrice === 'number') {
+          console.log('✅ Found Log Sale Price in thing.json:', logSalePrice);
+          return [logSalePrice];
+        }
+        
+        // Fallback to 'thing' field
+        if (typeof firstItem?.thing === 'number') {
+          return [firstItem.thing];
+        }
+      }
+      
+      // Check for 'Log Sale Price' directly on the object
+      const logSalePrice = (jsonData as any)['Log Sale Price'] || 
+                           (jsonData as any)['log sale price'] ||
+                           (jsonData as any)['LogSalePrice'] ||
+                           (jsonData as any)['logSalePrice'];
+      
+      if (typeof logSalePrice === 'number') {
+        console.log('✅ Found Log Sale Price directly in thing.json:', logSalePrice);
+        return [logSalePrice];
+      }
+      
+      // Fallback to 'thing' field if it exists
+      const thingValue = (jsonData as any).thing;
+      if (typeof thingValue === 'number') {
+        return [thingValue];
+      }
     }
     
-    const thingValue = jsonData[0].thing;
-    
-    if (typeof thingValue !== 'number') {
-      return [];
+    // Handle array format (old format)
+    if (Array.isArray(jsonData) && jsonData.length > 0) {
+      const firstItem = jsonData[0];
+      
+      // Look for 'Log Sale Price' first
+      const logSalePrice = firstItem?.['Log Sale Price'] || 
+                          firstItem?.['log sale price'] ||
+                          firstItem?.['LogSalePrice'] ||
+                          firstItem?.['logSalePrice'];
+      
+      if (typeof logSalePrice === 'number') {
+        console.log('✅ Found Log Sale Price in array format:', logSalePrice);
+        return [logSalePrice];
+      }
+      
+      // Fallback to 'thing' field
+      if (typeof firstItem?.thing === 'number') {
+        return [firstItem.thing];
+      }
     }
     
-    return [thingValue];
+    return [];
   } catch (error) {
     console.error("Error processing thing.json:", error);
     return [];

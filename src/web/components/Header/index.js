@@ -150,7 +150,19 @@ const Header = () => {
                     scrolled ? "text-gray-800 hover:bg-gray-100" : "text-white hover:bg-white/10"
                   }`}
                 >
-                  {`Hi, ${session.user?.name || 'User'}`}
+                  {(() => {
+                    // Get username from name or email
+                    let username = 'User';
+                    if (session.user?.name) {
+                      // Check if name contains @ (it's an email), if so extract username part
+                      username = session.user.name.includes('@') 
+                        ? session.user.name.split('@')[0] 
+                        : session.user.name;
+                    } else if (session.user?.email) {
+                      username = session.user.email.split('@')[0];
+                    }
+                    return `Hi, ${username}`;
+                  })()}
                   <svg className="h-4 w-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                   </svg>
@@ -159,7 +171,9 @@ const Header = () => {
                   <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden">
                     <div className="px-4 py-3">
                       <p className="text-sm text-gray-500">Signed in as</p>
-                      <p className="text-sm font-medium text-gray-900 truncate">{session.user?.email || 'user@example.com'}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {session.user?.email ? session.user.email.split('@')[0] : 'user'}
+                      </p>
                     </div>
                     <div className="border-t" />
                     <button

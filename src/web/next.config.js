@@ -6,15 +6,11 @@ const nextConfig = {
     // This helps prevent Next.js from scanning for pages directory
   },
   images: {
-    domains: ["lh3.googleusercontent.com", "drive.google.com"],
+    domains: ["lh3.googleusercontent.com"],
     remotePatterns: [
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
-      },
-      {
-        protocol: "https",
-        hostname: "drive.google.com",
       },
     ],
     // Disable image optimizer in development to reduce memory usage
@@ -47,7 +43,7 @@ const nextConfig = {
         // Chart libraries chunk
         charts: {
           name: 'charts',
-          test: /[\\/]node_modules[\\/](recharts|d3-|@d3-)[\\/]/,
+          test: /[\\/]node_modules[\\/](d3-|@d3-)[\\/]/,
           priority: 35,
           enforce: true,
         },

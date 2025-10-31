@@ -30,14 +30,6 @@ const ErrorDisplay = ({ error, databaseError, solutions = [] }) => {
             {solutions.map((solution, index) => (
               <li key={index}>{solution}</li>
             ))}
-            <li>
-              <Link 
-                href="/database-status" 
-                className="underline hover:text-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-              >
-                Check Database Status
-              </Link>
-            </li>
           </ul>
         </div>
       )}
