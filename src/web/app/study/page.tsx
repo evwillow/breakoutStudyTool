@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuthRedirect } from "@/hooks/useAuthRedirect";
+import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";
 import FlashcardsContainer from "@/components/Flashcards/FlashcardsContainer";
 
 /**

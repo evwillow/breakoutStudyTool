@@ -2,9 +2,9 @@
 
 import { useEffect, useCallback } from 'react';
 import { GenericErrorFallback } from '../components/FallbackUI';
-import { logger } from '@/utils/logger';
-import { errorConfig } from '@/config/errorConfig';
-import { AppError } from '@/utils/errorHandling';
+import { logger } from '@/lib/utils/logger';
+import { errorConfig } from '@/lib/config/errorConfig';
+import { AppError } from '@/lib/utils/errorHandling';
 
 interface ErrorPageProps {
   error: Error | AppError;

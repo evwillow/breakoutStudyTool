@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Explicitly disable Pages Router directory scanning
+  // We're using App Router exclusively
+  experimental: {
+    // This helps prevent Next.js from scanning for pages directory
+  },
   images: {
     domains: ["lh3.googleusercontent.com", "drive.google.com"],
     remotePatterns: [

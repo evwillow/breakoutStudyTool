@@ -5,8 +5,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '../utils/response';
-import { AppError, ErrorCodes } from '@/utils/errorHandling';
-import { logger } from '@/utils/logger';
+import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
+import { logger } from '@/lib/utils/logger';
 
 type ApiHandler = (req: NextRequest, context?: any) => Promise<NextResponse>;
 

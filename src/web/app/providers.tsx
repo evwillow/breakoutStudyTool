@@ -5,8 +5,8 @@ import { SessionProvider } from "next-auth/react";
 import { ErrorBoundary } from "../components";
 import { ErrorFallback, NetworkErrorFallback } from "../components/FallbackUI";
 import { useEffect, useState, useCallback } from "react";
-import { logger } from "@/utils/logger";
-import { AppError, ErrorCodes } from "@/utils/errorHandling";
+import { logger } from "@/lib/utils/logger";
+import { AppError, ErrorCodes } from "@/lib/utils/errorHandling";
 
 /**
  * Memory-optimized global error handler for unhandled errors and Promise rejections
@@ -42,6 +42,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     // Initialize with current network status
     setIsOnline(navigator.onLine);
     
+    // Log initialization for debugging (only once)
+    logger.debug("Providers initialized", { isOnline: navigator.onLine });
+    
     // Add all event listeners
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', rejectionHandler);
@@ -56,9 +59,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       window.removeEventListener('offline', handleOffline);
     };
   }, [errorHandler, rejectionHandler, handleOnline, handleOffline]);
-
-  // Log initialization for debugging
-  logger.debug("Providers initialized", { isOnline });
 
   // Show network error UI if offline
   if (!isOnline) {

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabaseClient } from '../../_shared/clients/supabase';
 import { authService } from '@/lib/auth/services/authService';
-import { logger } from '@/utils/logger';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(req: NextRequest) {
   try {

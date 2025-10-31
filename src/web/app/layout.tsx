@@ -14,7 +14,7 @@ import Script from "next/script"
 import "./globals.css"
 import Providers from "./providers"
 import { Header } from "@/components"
-import { getGoogleAnalyticsScript, getGoogleAnalyticsConfig } from "@/config/analytics"
+import { getGoogleAnalyticsScript, getGoogleAnalyticsConfig } from "@/lib/config/analytics"
 
 // Define metadata for SEO and browser tab
 export const metadata: Metadata = {
@@ -30,8 +30,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const analyticsScript = getGoogleAnalyticsScript()
-  const analyticsConfig = getGoogleAnalyticsConfig()
+  // Safely get analytics configuration (may be null in development)
+  let analyticsScript = null;
+  let analyticsConfig = null;
+  
+  try {
+    analyticsScript = getGoogleAnalyticsScript();
+    analyticsConfig = getGoogleAnalyticsConfig();
+  } catch (error) {
+    // Silently fail analytics setup if there's an error
+    // This prevents analytics errors from breaking the app
+    console.error('Analytics configuration error:', error);
+  }
 
   return (
     <html lang="en">

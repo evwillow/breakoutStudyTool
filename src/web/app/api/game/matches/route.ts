@@ -9,7 +9,7 @@ import { createSuccessResponse } from '../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../_shared/middleware/errorHandler';
 import { validateOrThrow, commonSchemas } from '../../_shared/utils/validation';
 import { LogMatchRequest, Match } from '../../_shared/types/api';
-import { AppError, ErrorCodes } from '@/utils/errorHandling';
+import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 
 /**
  * Log a new match result

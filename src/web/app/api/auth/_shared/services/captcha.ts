@@ -3,7 +3,7 @@
  * Handles hCaptcha token verification with proper error handling
  */
 import { CaptchaVerificationResult } from '../types/auth';
-import { logger } from '@/utils/logger';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * Verify hCaptcha token

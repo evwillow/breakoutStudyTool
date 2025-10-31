@@ -10,7 +10,7 @@ import { withErrorHandling, withEnvironmentValidation, composeMiddleware } from 
 import { testDatabaseConnection, validateDatabaseSchema } from '../../_shared/clients/supabase';
 import { HealthCheckResponse, ServiceStatus } from '../../_shared/types/api';
 // Google Drive removed - using local data instead
-import { AppError, ErrorCodes } from '@/utils/errorHandling';
+import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 
 /**
  * Check database service health

@@ -4,8 +4,8 @@
  */
 import { getServerSupabaseClient } from '@/lib/supabase';
 import { AuthUser, SignupRequest } from '../types/auth';
-import { DatabaseError, ErrorCodes } from '@/utils/errorHandling';
-import { logger } from '@/utils/logger';
+import { DatabaseError, ErrorCodes } from '@/lib/utils/errorHandling';
+import { logger } from '@/lib/utils/logger';
 import { hashPassword } from './passwordService';
 
 /**

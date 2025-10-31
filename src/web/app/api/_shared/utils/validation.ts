@@ -3,7 +3,7 @@
  * 
  * Provides type-safe validation without external dependencies
  */
-import { ValidationError, ErrorCodes } from '@/utils/errorHandling';
+import { ValidationError, ErrorCodes } from '@/lib/utils/errorHandling';
 
 export interface ValidationRule<T = any> {
   required?: boolean;

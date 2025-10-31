@@ -137,7 +137,10 @@ export default function FlashcardsContainer() {
     console.log('Time since last match:', Date.now() - lastMatchLogTime);
     console.log('Total match logs:', matchLogCount);
     
-    if (roundHistoryRefresh) {
+    // Capture the refresh function to ensure it's available when setTimeout callback runs
+    const refreshFn = roundHistoryRefresh;
+    
+    if (refreshFn && typeof refreshFn === 'function') {
       console.log('Calling round history refresh function');
       // Add a longer delay to ensure database has time to commit
       // Also add a random delay to avoid race conditions
@@ -147,7 +150,12 @@ export default function FlashcardsContainer() {
       setTimeout(() => {
         console.log('Executing delayed refresh at time:', Date.now());
         console.log('Executing refresh #', currentRefreshCount);
-        roundHistoryRefresh();
+        // Double-check the function is still valid before calling
+        if (refreshFn && typeof refreshFn === 'function') {
+          refreshFn();
+        } else {
+          console.warn('Refresh function is no longer valid in setTimeout callback');
+        }
       }, delay);
     } else {
       console.log('No refresh function available');
@@ -755,15 +763,24 @@ export default function FlashcardsContainer() {
               isOpen={showRoundHistory}
               onClose={() => {
                 console.log('=== CLOSING ROUND HISTORY MODAL ===');
+                // Capture the refresh function in a variable before state update
+                const refreshFn = roundHistoryRefresh;
                 setShowRoundHistory(false);
                 // Refresh round history data when closing to ensure stats are up to date
-                if (roundHistoryRefresh) {
+                if (refreshFn && typeof refreshFn === 'function') {
                   console.log('Refreshing round history data when closing modal');
                   // Add a small delay before refreshing to ensure any pending updates are complete
                   setTimeout(() => {
                     console.log('Executing refresh after modal close');
-                    roundHistoryRefresh();
+                    // Double-check the function is still valid before calling
+                    if (refreshFn && typeof refreshFn === 'function') {
+                      refreshFn();
+                    } else {
+                      console.warn('Refresh function is no longer valid');
+                    }
                   }, 500);
+                } else {
+                  console.log('No refresh function available to call');
                 }
               }}
               onLoadRound={(roundId: string, datasetName: string) => {

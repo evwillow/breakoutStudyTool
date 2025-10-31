@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server';
 import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';
 import { createSuccessResponse } from '../../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../../_shared/middleware/errorHandler';
-import { AppError, ErrorCodes, ValidationError } from '@/utils/errorHandling';
+import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling';
 
 /**
  * Delete all rounds for a user

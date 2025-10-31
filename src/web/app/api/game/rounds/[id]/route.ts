@@ -8,7 +8,7 @@ import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';
 import { createSuccessResponse } from '../../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../../_shared/middleware/errorHandler';
 import { Round } from '../../../_shared/types/api';
-import { AppError, ErrorCodes, ValidationError } from '@/utils/errorHandling';
+import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling';
 
 /**
  * Get a specific round by ID

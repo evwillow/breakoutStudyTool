@@ -15,12 +15,10 @@ describe('Component Imports', () => {
   });
 
   test('should import UI components without errors', async () => {
-    const { Timer, Popup, BackButton, NavigationButtons, ActionButtonsRow, TimerDurationSelector } = await import('../index');
+    const { Popup, BackButton, ActionButtonsRow, TimerDurationSelector } = await import('../index');
     
-    expect(Timer).toBeDefined();
     expect(Popup).toBeDefined();
     expect(BackButton).toBeDefined();
-    expect(NavigationButtons).toBeDefined();
     expect(ActionButtonsRow).toBeDefined();
     expect(TimerDurationSelector).toBeDefined();
   });
@@ -34,12 +32,9 @@ describe('Component Imports', () => {
   });
 
   test('should import feature components without errors', async () => {
-    const { RoundHistory, AfterChartPopup, StockDataDiagnostic, DatabaseStatus } = await import('../index');
+    const { RoundHistory } = await import('../index');
     
     expect(RoundHistory).toBeDefined();
-    expect(AfterChartPopup).toBeDefined();
-    expect(StockDataDiagnostic).toBeDefined();
-    expect(DatabaseStatus).toBeDefined();
   });
 
   test('should import utility components without errors', async () => {

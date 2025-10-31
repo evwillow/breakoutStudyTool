@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { AppError, ErrorCodes } from '@/utils/errorHandling';
+import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 
 // NetworkErrorFallback Component
 interface NetworkErrorFallbackProps {

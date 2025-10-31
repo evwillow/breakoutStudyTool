@@ -8,8 +8,8 @@ import { createSuccessResponse } from '../../_shared/utils/response';
 import { withErrorHandling, withEnvironmentValidation, composeMiddleware } from '../../_shared/middleware/errorHandler';
 import { validateOrThrow, commonSchemas } from '../../_shared/utils/validation';
 import { rateLimit, signupLimiter } from '@/lib/rateLimit';
-import { ValidationError, ErrorCodes } from '@/utils/errorHandling';
-import { logger } from '@/utils/logger';
+import { ValidationError, ErrorCodes } from '@/lib/utils/errorHandling';
+import { logger } from '@/lib/utils/logger';
 
 // Import auth services
 import { verifyCaptcha } from '../_shared/services/captcha';

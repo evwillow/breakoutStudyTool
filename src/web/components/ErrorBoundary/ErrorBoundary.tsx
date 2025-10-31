@@ -1,9 +1,9 @@
 "use client";
 
 import { ReactNode, useCallback, useMemo, ErrorInfo } from 'react';
-import { ErrorBoundary as ReactErrorBoundary } from 'react-error-boundary';
-import { logger } from '@/utils/logger';
-import { AppError, ErrorCodes } from '@/utils/errorHandling';
+import { ErrorBoundary as ReactErrorBoundary, FallbackProps } from 'react-error-boundary';
+import { logger } from '@/lib/utils/logger';
+import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 import { ErrorFallback } from '@/components/FallbackUI';
 
 export interface ErrorBoundaryProps {
@@ -68,10 +68,7 @@ export default function ErrorBoundary({
   }, [onError, boundaryId, enableAutoRecovery]);
 
   // Memoized fallback renderer to prevent unnecessary re-renders
-  const fallbackRenderer = useCallback(({ error, resetErrorBoundary }: { 
-    error: Error; 
-    resetErrorBoundary: () => void; 
-  }) => {
+  const fallbackRenderer = useCallback(({ error, resetErrorBoundary }: FallbackProps) => {
     // If custom fallback is provided
     if (fallback) {
       if (typeof fallback === 'function') {
@@ -100,7 +97,7 @@ export default function ErrorBoundary({
 
   return (
     <ReactErrorBoundary
-      FallbackComponent={fallbackRenderer}
+      FallbackComponent={fallbackRenderer as React.ComponentType<FallbackProps>}
       onError={handleError}
       resetKeys={resetKeysFactory}
     >

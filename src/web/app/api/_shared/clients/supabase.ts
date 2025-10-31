@@ -7,7 +7,7 @@
  * - Cached instances to improve performance
  */
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { logger } from "@/utils/logger";
+import { logger } from "@/lib/utils/logger";
 
 // Lazy env resolution to avoid crashing at import time
 let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

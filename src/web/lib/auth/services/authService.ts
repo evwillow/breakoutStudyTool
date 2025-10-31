@@ -6,7 +6,7 @@
  */
 import bcrypt from "bcryptjs";
 import { getServerSupabaseClient } from "../../supabase.js";
-import { logger } from "@/utils/logger";
+import { logger } from "@/lib/utils/logger";
 import { AUTH_CONFIG, AUTH_ERRORS } from "../constants";
 import type { 
   AuthCredentials, 

@@ -12,7 +12,7 @@ import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth";
 
 // Create and export the NextAuth handler
+// NextAuth handles both GET and POST internally
 const handler = NextAuth(authConfig);
 
-// Export for both GET and POST methods
 export { handler as GET, handler as POST }; 

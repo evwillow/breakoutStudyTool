@@ -5,8 +5,8 @@
  */
 import { NextResponse } from 'next/server';
 import { ApiResponse, PaginationMeta } from '../types/api';
-import { AppError, ErrorCodes } from '@/utils/errorHandling';
-import { logger } from '@/utils/logger';
+import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * Create a successful API response
