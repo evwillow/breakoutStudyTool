@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { GAME_CONFIG } from '../constants';
+import { calculateDistance, calculateDistanceScore } from '../utils/coordinateUtils';
 
 export interface GameMetrics {
   currentMatchIndex: number;
@@ -22,9 +23,17 @@ export interface GameState {
   metrics: GameMetrics;
 }
 
+export interface ChartCoordinate {
+  x: number;
+  y: number;
+  chartX?: number;
+  chartY?: number;
+}
+
 export interface UseGameStateReturn extends GameState {
   // Actions
   handleSelection: (buttonIndex: number, onResult?: (isCorrect: boolean) => void) => void;
+  handleCoordinateSelection: (coordinates: ChartCoordinate, onResult?: (distance: number, score: number) => void) => void;
   nextCard: () => void;
   resetGame: () => void;
   setAfterChartData: (data: any) => void;
@@ -34,6 +43,10 @@ export interface UseGameStateReturn extends GameState {
   // Computed values
   selectedButtonIndex: number | null;
   correctAnswerButton: number | null;
+  userSelection: ChartCoordinate | null;
+  targetPoint: ChartCoordinate | null;
+  distance: number | null;
+  score: number | null;
   isGameComplete: boolean;
 }
 
@@ -60,6 +73,12 @@ export function useGameState({
   const [afterChartData, setAfterChartData] = useState<any>(null);
   const [userSelectedButton, setUserSelectedButton] = useState<number | null>(null);
   const [correctAnswerButton, setCorrectAnswerButton] = useState<number | null>(null);
+  
+  // Coordinate-based selection state
+  const [userSelection, setUserSelection] = useState<ChartCoordinate | null>(null);
+  const [targetPoint, setTargetPoint] = useState<ChartCoordinate | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [score, setScore] = useState<number | null>(null);
   
   // Game metrics
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -130,6 +149,60 @@ export function useGameState({
     onCorrectAnswer,
     onIncorrectAnswer,
   ]);
+
+  // Handle coordinate-based selection
+  const handleCoordinateSelection = useCallback((
+    coordinates: ChartCoordinate,
+    onResult?: (distance: number, score: number) => void,
+    target?: ChartCoordinate,
+    maxDistance?: number
+  ) => {
+    if (disableButtons && !showTimeUpOverlay) return;
+    
+    // Clear time up overlay when user makes selection
+    if (showTimeUpOverlay) {
+      setShowTimeUpOverlay(false);
+    }
+    
+    // Disable buttons to prevent multiple selections
+    setDisableButtons(true);
+    
+    // Set the user's selection
+    setUserSelection(coordinates);
+    
+    // Calculate distance and score if target is provided
+    if (target && maxDistance) {
+      const calculatedDistance = calculateDistance(coordinates, target);
+      const calculatedScore = calculateDistanceScore(calculatedDistance, maxDistance);
+      
+      setDistance(calculatedDistance);
+      setScore(calculatedScore);
+      setTargetPoint(target);
+      
+      // Update metrics based on score (threshold at 70% for "correct")
+      const isCorrect = calculatedScore >= 70;
+      setMatchCount(prev => prev + 1);
+      if (isCorrect) {
+        setCorrectCount(prev => prev + 1);
+        onCorrectAnswer?.();
+      } else {
+        onIncorrectAnswer?.();
+      }
+      
+      // Set feedback based on score
+      setFeedback(isCorrect ? 'correct' : 'incorrect');
+      
+      // Call result callback
+      if (onResult) {
+        onResult(calculatedDistance, calculatedScore);
+      }
+    }
+  }, [
+    disableButtons,
+    showTimeUpOverlay,
+    onCorrectAnswer,
+    onIncorrectAnswer,
+  ]);
   
   // Move to next card
   const nextCard = useCallback(() => {
@@ -147,6 +220,10 @@ export function useGameState({
     setAfterChartData(null);
     setUserSelectedButton(null);
     setCorrectAnswerButton(null);
+    setUserSelection(null);
+    setTargetPoint(null);
+    setDistance(null);
+    setScore(null);
   }, [currentIndex, flashcardsLength, isGameComplete, onGameComplete]);
   
   // Reset entire game state
@@ -161,6 +238,10 @@ export function useGameState({
     setAfterChartData(null);
     setUserSelectedButton(null);
     setCorrectAnswerButton(null);
+    setUserSelection(null);
+    setTargetPoint(null);
+    setDistance(null);
+    setScore(null);
   }, []);
   
   return {
@@ -179,6 +260,7 @@ export function useGameState({
     
     // Actions
     handleSelection,
+    handleCoordinateSelection,
     nextCard,
     resetGame,
     setAfterChartData,
@@ -188,6 +270,10 @@ export function useGameState({
     // Computed
     selectedButtonIndex,
     correctAnswerButton,
+    userSelection,
+    targetPoint,
+    distance,
+    score,
     isGameComplete,
   };
 } 

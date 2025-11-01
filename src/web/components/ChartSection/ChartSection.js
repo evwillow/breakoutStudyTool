@@ -13,10 +13,12 @@
  * - Action buttons for user interaction
  * - Clean, borderless design with soft backgrounds for reduced eye strain
  */
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import StockChart from "../StockChart";
 import { AuthModal } from "../Auth";
 import { ActionButtonsRow } from "../UI";
+import DistanceFeedback from "../UI/DistanceFeedback";
+import { calculateTargetPoint, calculateDistance, calculateDistanceScore, getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
 
 const ChartSection = React.memo(function ChartSection({
   orderedFiles,
@@ -24,12 +26,17 @@ const ChartSection = React.memo(function ChartSection({
   timer,
   pointsTextArray,
   actionButtons,
-  selectedButtonIndex,
+  selectedButtonIndex, // Keep for backward compatibility but may not be used
   feedback,
-  onButtonClick,
+  onButtonClick, // Keep for backward compatibility
   disabled,
   isTimeUp,
   onAfterEffectComplete,
+  // New coordinate-based props
+  onChartClick = null,
+  userSelection = null, // { x, y, chartX, chartY }
+  distance = null,
+  score = null,
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -413,8 +420,22 @@ const ChartSection = React.memo(function ChartSection({
                 isInDelayPhase={completionDelay}
                 afterAnimationComplete={afterAnimationComplete}
                 showSMA={true}
+                onChartClick={onChartClick}
+                userSelection={userSelection}
+                targetPoint={null} // Will be calculated in parent
+                disabled={disabled}
               />
             </div>
+            {/* Distance feedback display */}
+            {score !== null && distance !== null && (
+              <div className="mt-4 w-full">
+                <DistanceFeedback 
+                  distance={distance}
+                  score={score}
+                  accuracyTier={getAccuracyTier(score)}
+                />
+              </div>
+            )}
           </div>
         </div>
 

@@ -192,8 +192,16 @@ export const commonSchemas = {
   logMatch: {
     round_id: { required: true, type: 'uuid' as const },
     stock_symbol: { required: true, type: 'string' as const, minLength: 1, maxLength: 10 },
-    user_selection: { required: true, type: 'number' as const, min: 0, max: 10 },
-    correct: { required: true, type: 'boolean' as const }
+    // Legacy button-based fields (optional for backward compatibility)
+    user_selection: { type: 'number' as const, min: 0, max: 10 },
+    correct: { type: 'boolean' as const },
+    // New coordinate-based fields
+    user_selection_x: { type: 'number' as const },
+    user_selection_y: { type: 'number' as const },
+    target_x: { type: 'number' as const },
+    target_y: { type: 'number' as const },
+    distance: { type: 'number' as const, min: 0 },
+    score: { type: 'number' as const, min: 0, max: 100 }
   },
   
   signup: {

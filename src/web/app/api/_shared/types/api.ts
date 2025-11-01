@@ -52,9 +52,16 @@ export interface Match {
   id: string;
   round_id: string;
   stock_symbol: string;
-  user_selection: number;
+  user_selection: number; // Keep for backward compatibility
   correct: boolean;
   created_at: string;
+  // New coordinate-based fields
+  user_selection_x?: number;
+  user_selection_y?: number;
+  target_x?: number;
+  target_y?: number;
+  distance?: number;
+  score?: number;
 }
 
 export interface CreateRoundRequest {
@@ -66,8 +73,15 @@ export interface CreateRoundRequest {
 export interface LogMatchRequest {
   round_id: string;
   stock_symbol: string;
-  user_selection: number;
-  correct: boolean;
+  user_selection?: number; // Optional for backward compatibility
+  correct?: boolean; // Optional - can be calculated from score
+  // New coordinate-based fields
+  user_selection_x?: number;
+  user_selection_y?: number;
+  target_x?: number;
+  target_y?: number;
+  distance?: number;
+  score?: number;
 }
 
 // User-related types

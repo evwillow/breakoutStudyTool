@@ -177,48 +177,112 @@ export function useFlashcardData({
         setLoadingStep('Processing chart data...');
         
         // Load actual JSON data for each file
-        // Batch requests to avoid overwhelming the server with too many simultaneous requests
+        // Strategy: Show UI as soon as we have ONE ready flashcard, then load rest in background
         const files = selectedFolderData.files;
         console.log(`Loading ${files.length} files for folder ${selectedFolder}`);
         
-        const BATCH_SIZE = 10; // Load 10 files at a time
+        const QUICK_BATCH_SIZE = 5; // Load first 5 files quickly to check if we have a ready flashcard
+        const BATCH_SIZE = 10; // Subsequent batches of 10 files
         const loadedFiles: any[] = [];
+        let uiReady = false;
         
-        // Process files in batches
-        for (let i = 0; i < files.length; i += BATCH_SIZE) {
-          const batch = files.slice(i, i + BATCH_SIZE);
-          const batchPromises = batch.map(async (file: any, batchIndex: number) => {
-            try {
-              const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
-              console.log(`Loading file ${i + batchIndex + 1}/${files.length}: ${file.fileName}`);
-              
-              const fileResponse = await fetch(url, {
-                signal: abortControllerRef.current?.signal
+        // Helper function to check if we have ready flashcards and show UI
+        const checkAndShowUI = (currentFiles: any[]) => {
+          if (uiReady) return; // Already shown UI
+          
+          // Group files by stock directory
+          const tempStockGroups = new Map<string, any[]>();
+          currentFiles.forEach(file => {
+            if (file) {
+              const stockDir = file.fileName.split('/')[0];
+              if (!tempStockGroups.has(stockDir)) {
+                tempStockGroups.set(stockDir, []);
+              }
+              tempStockGroups.get(stockDir)!.push(file);
+            }
+          });
+          
+          // Check if any flashcard has essential files
+          const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+          const hasReadyFlashcard = Array.from(tempStockGroups.values()).some(files => {
+            return files.some(f => {
+              const fileName = f.fileName.split('/').pop() || f.fileName;
+              return essentialFiles.has(fileName);
+            });
+          });
+          
+          if (hasReadyFlashcard && currentFiles.length >= 3) {
+            // Create initial flashcard data
+            const flashcardData = Array.from(tempStockGroups.entries()).map(([stockDir, files]) => {
+              const hasEssentialFile = files.some(f => {
+                const fileName = f.fileName.split('/').pop() || f.fileName;
+                return essentialFiles.has(fileName);
               });
               
-              if (!fileResponse.ok) {
-                const errorText = await fileResponse.text();
-                let errorData;
-                try {
-                  errorData = JSON.parse(errorText);
-                } catch {
-                  errorData = { message: errorText };
-                }
-                console.error(`Failed to load file ${file.fileName}:`, {
-                  status: fileResponse.status,
-                  statusText: fileResponse.statusText,
-                  error: errorData
-                });
-                return null;
-              }
-              
+              return {
+                id: stockDir,
+                name: stockDir,
+                folderName: selectedFolder,
+                jsonFiles: files,
+                isReady: hasEssentialFile
+              };
+            });
+            
+            setFlashcards(flashcardData);
+            setLoading(false);
+            setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
+            setLoadingStep('');
+            uiReady = true;
+            console.log(`UI ready after loading ${currentFiles.length} files!`);
+          }
+        };
+        
+        // Load first quick batch to get UI ready ASAP
+        const quickBatch = files.slice(0, QUICK_BATCH_SIZE);
+        const quickPromises = quickBatch.map(async (file: any) => {
+          try {
+            const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
+            
+            const fileResponse = await fetch(url, {
+              signal: abortControllerRef.current?.signal
+            });
+            
+            if (!fileResponse.ok) return null;
+            
+            const fileData = await fileResponse.json();
+            if (!fileData.success) return null;
+            
+            return {
+              fileName: file.fileName,
+              data: fileData.data,
+              mimeType: file.mimeType,
+              size: file.size,
+              createdTime: file.createdTime,
+              modifiedTime: file.modifiedTime
+            };
+          } catch {
+            return null;
+          }
+        });
+        
+        // Wait for quick batch - but check UI readiness as files come in
+        const quickResults = await Promise.all(quickPromises);
+        const quickLoaded = quickResults.filter(Boolean);
+        loadedFiles.push(...quickLoaded);
+        
+        // Check if we can show UI now
+        checkAndShowUI(loadedFiles);
+        
+        // If still not ready, load a few more files before showing UI
+        if (!uiReady && files.length > QUICK_BATCH_SIZE) {
+          const nextQuickBatch = files.slice(QUICK_BATCH_SIZE, QUICK_BATCH_SIZE * 2);
+          const nextQuickPromises = nextQuickBatch.map(async (file: any) => {
+            try {
+              const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
+              const fileResponse = await fetch(url, { signal: abortControllerRef.current?.signal });
+              if (!fileResponse.ok) return null;
               const fileData = await fileResponse.json();
-              
-              if (!fileData.success) {
-                console.error(`Error loading file ${file.fileName}:`, fileData.message || fileData.error);
-                return null;
-              }
-              
+              if (!fileData.success) return null;
               return {
                 fileName: file.fileName,
                 data: fileData.data,
@@ -227,33 +291,92 @@ export function useFlashcardData({
                 createdTime: file.createdTime,
                 modifiedTime: file.modifiedTime
               };
-            } catch (error: any) {
-              if (error.name === 'AbortError') {
-                console.log(`File fetch aborted: ${file.fileName}`);
-                return null;
-              }
-              console.error(`Error loading file ${file.fileName}:`, {
-                error: error.message || String(error),
-                stack: error.stack,
-                name: error.name
-              });
+            } catch {
               return null;
             }
           });
           
-          // Wait for current batch to complete
-          const batchResults = await Promise.all(batchPromises);
-          loadedFiles.push(...batchResults.filter(Boolean));
-          
-          // Update progress
-          const progress = Math.min(95, Math.round((loadedFiles.length / files.length) * 90));
-          setLoadingProgress(progress);
-          setLoadingStep(`Loading files... ${loadedFiles.length}/${files.length}`);
-          
-          // Small delay between batches to avoid overwhelming the server
-          if (i + BATCH_SIZE < files.length) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
+          const nextQuickResults = await Promise.all(nextQuickPromises);
+          const nextQuickLoaded = nextQuickResults.filter(Boolean);
+          loadedFiles.push(...nextQuickLoaded);
+          checkAndShowUI(loadedFiles);
+        }
+        
+        console.log(`Loaded ${loadedFiles.length} initial files, UI ready: ${uiReady}`);
+        
+        // Continue loading remaining files in background (non-blocking)
+        const remainingFiles = files.slice(loadedFiles.length);
+        
+        // Start background loading immediately without blocking
+        if (remainingFiles.length > 0) {
+          // Use setTimeout with 0 delay to let UI render first
+          setTimeout(() => {
+            // Process remaining files in batches
+            (async () => {
+              for (let i = 0; i < remainingFiles.length; i += BATCH_SIZE) {
+                const batch = remainingFiles.slice(i, i + BATCH_SIZE);
+                const batchPromises = batch.map(async (file: any) => {
+                  try {
+                    const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
+                    const fileResponse = await fetch(url, { signal: abortControllerRef.current?.signal });
+                    if (!fileResponse.ok) return null;
+                    const fileData = await fileResponse.json();
+                    if (!fileData.success) return null;
+                    return {
+                      fileName: file.fileName,
+                      data: fileData.data,
+                      mimeType: file.mimeType,
+                      size: file.size,
+                      createdTime: file.createdTime,
+                      modifiedTime: file.modifiedTime
+                    };
+                  } catch {
+                    return null;
+                  }
+                });
+                
+                const batchResults = await Promise.all(batchPromises);
+                const batchLoaded = batchResults.filter(Boolean);
+                loadedFiles.push(...batchLoaded);
+                
+                // Update flashcards with new files
+                if (batchLoaded.length > 0) {
+                  const stockGroups = new Map<string, any[]>();
+                  loadedFiles.forEach(file => {
+                    if (file) {
+                      const stockDir = file.fileName.split('/')[0];
+                      if (!stockGroups.has(stockDir)) {
+                        stockGroups.set(stockDir, []);
+                      }
+                      stockGroups.get(stockDir)!.push(file);
+                    }
+                  });
+                  
+                  const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+                  const flashcardData = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
+                    const hasEssentialFile = files.some(f => {
+                      const fileName = f.fileName.split('/').pop() || f.fileName;
+                      return essentialFiles.has(fileName);
+                    });
+                    return {
+                      id: stockDir,
+                      name: stockDir,
+                      folderName: selectedFolder,
+                      jsonFiles: files,
+                      isReady: hasEssentialFile
+                    };
+                  });
+                  
+                  setFlashcards(flashcardData);
+                }
+                
+                // Small delay between batches
+                if (i + BATCH_SIZE < remainingFiles.length) {
+                  await new Promise(resolve => setTimeout(resolve, 50));
+                }
+              }
+            })();
+          }, 0);
         }
         const validFiles = loadedFiles.filter(Boolean);
         
@@ -296,9 +419,12 @@ export function useFlashcardData({
           };
         });
         
+        // Check if we have at least one ready flashcard
+        const readyFlashcards = flashcardData.filter(f => f.isReady);
+        
         console.log("=== FLASHCARD DATA CREATED ===");
         console.log("Number of flashcards:", flashcardData.length);
-        console.log("Ready flashcards:", flashcardData.filter(f => f.isReady).length);
+        console.log("Ready flashcards:", readyFlashcards.length);
         console.log("First flashcard:", flashcardData[0]);
         console.log("First flashcard files:", flashcardData[0]?.jsonFiles);
         console.log("=== END FLASHCARD DATA ===");
@@ -306,6 +432,15 @@ export function useFlashcardData({
         // Set flashcards immediately with whatever files we have loaded
         // This allows the game to start while files are still loading in background
         setFlashcards(flashcardData);
+        
+        // If we have at least one ready flashcard, we can stop blocking the UI
+        if (readyFlashcards.length > 0) {
+          console.log(`Found ${readyFlashcards.length} ready flashcards - allowing UI to render`);
+          // Stop blocking the UI - data is ready to use
+          setLoading(false);
+          setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
+          setLoadingStep('');
+        }
         
         // Continue loading remaining files in background if needed
         // Get all files that should be loaded according to the folder data
@@ -317,40 +452,60 @@ export function useFlashcardData({
           return !loadedFileNames.has(file.fileName);
         });
         
-        if (missingFiles.length > 0) {
+        // Load remaining files in background without blocking UI
+        if (missingFiles.length > 0 || loadedFiles.length < files.length) {
           console.log(`Loading ${missingFiles.length} additional files in background...`);
           // Load remaining files in background without blocking
           // This allows the game to start immediately while files continue loading
-          setTimeout(() => {
-            loadMissingFilesInBackground(
-              missingFiles, 
-              selectedFolder, 
-              stockGroups,
-              (cards: FlashcardData[]) => setFlashcards(cards)
-            );
-          }, 100);
+          // Use requestIdleCallback if available for better performance, otherwise setTimeout
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+              loadMissingFilesInBackground(
+                missingFiles, 
+                selectedFolder, 
+                stockGroups,
+                (updateFn: any) => {
+                  setFlashcards((prevCards: FlashcardData[]) => {
+                    const updated = updateFn(prevCards);
+                    return updated || prevCards;
+                  });
+                }
+              );
+            }, { timeout: 1000 });
+          } else {
+            setTimeout(() => {
+              loadMissingFilesInBackground(
+                missingFiles, 
+                selectedFolder, 
+                stockGroups,
+                (updateFn: any) => {
+                  setFlashcards((prevCards: FlashcardData[]) => {
+                    const updated = updateFn(prevCards);
+                    return updated || prevCards;
+                  });
+                }
+              );
+            }, 100);
+          }
         }
         
-        setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.FINALIZING);
-        setLoadingStep('Finalizing...');
-        
-        // Small delay to show completion
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
+        // If we didn't have ready flashcards, keep loading state active
+        if (readyFlashcards.length === 0) {
+          setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.FINALIZING);
+          setLoadingStep('Waiting for essential files...');
+        }
       } else {
         throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
       }
     } catch (error: any) {
       console.error("Error fetching flashcards:", error);
       setError(error.message);
-    } finally {
-      // Don't set loading to false immediately if we're still loading files in background
-      // Only set to false if we're not loading background files
       setLoading(false);
       setLoadingProgress(0);
       setLoadingStep('');
     }
+    // Note: We don't use finally here because we want to control when loading state changes
+    // Loading state is set to false as soon as we have usable data (ready flashcards)
   }, [selectedFolder, status, session, cleanup]);
 
   // Background file loading function - loads files without blocking UI
@@ -358,7 +513,7 @@ export function useFlashcardData({
     missingFiles: any[],
     folder: string,
     stockGroups: Map<string, any[]>,
-    updateFlashcards: (cards: FlashcardData[]) => void
+    updateFlashcards: (updateFn: (prevCards: FlashcardData[]) => FlashcardData[]) => void
   ) => {
     console.log(`Background loading: Starting to load ${missingFiles.length} files...`);
     
@@ -402,7 +557,7 @@ export function useFlashcardData({
       
       if (loadedFiles.length > 0) {
         // Update flashcards with newly loaded files
-        updateFlashcards(prevCards => {
+        updateFlashcards((prevCards: FlashcardData[]) => {
           const updatedCards = prevCards.map(card => {
             const stockDir = card.name || card.id;
             const newFiles = loadedFiles.filter(f => f.fileName.startsWith(`${stockDir}/`));
@@ -412,9 +567,17 @@ export function useFlashcardData({
               const existingFileNames = new Set(card.jsonFiles.map(f => f.fileName));
               const uniqueNewFiles = newFiles.filter(f => !existingFileNames.has(f.fileName));
               
+              // Check if this card now has essential files
+              const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+              const hasEssentialFile = [...card.jsonFiles, ...uniqueNewFiles].some(f => {
+                const fileName = f.fileName.split('/').pop() || f.fileName;
+                return essentialFiles.has(fileName);
+              });
+              
               return {
                 ...card,
-                jsonFiles: [...card.jsonFiles, ...uniqueNewFiles]
+                jsonFiles: [...card.jsonFiles, ...uniqueNewFiles],
+                isReady: hasEssentialFile
               };
             }
             

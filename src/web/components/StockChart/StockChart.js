@@ -444,12 +444,17 @@ const StockChart = React.memo(({
   zoomPercentage = 100,
   isInDelayPhase = false,
   afterAnimationComplete = false,
-  forceShowSMA = false
+  forceShowSMA = false,
+  onChartClick = null,
+  userSelection = null,
+  targetPoint = null,
+  disabled = false
 }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [dimensions, setDimensions] = useState(null);
   const containerRef = useRef(null);
+  const svgRef = useRef(null);
   
   // Use either data or csvData prop
   const chartData = data || csvData;
@@ -1183,6 +1188,47 @@ const StockChart = React.memo(({
     return result;
   }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, progressPercentage, afterStockData.length]);
 
+  // Handle chart click - MUST be before any early returns to avoid hook order issues
+  const handleChartClick = useCallback((event) => {
+    if (!onChartClick || disabled || !scales || !dimensions || !svgRef.current) return;
+    
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const point = svgRef.current.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+    
+    // Get chart coordinates (accounting for margins)
+    const chartX = svgPoint.x - dimensions.margin.left;
+    const chartY = svgPoint.y - dimensions.margin.top;
+    
+    // Convert to data coordinates
+    // For xScale (scalePoint), find closest index
+    const domain = scales.xScale.domain();
+    let closestIndex = 0;
+    let minDist = Infinity;
+    domain.forEach((index, i) => {
+      const xPos = scales.xScale(index);
+      const dist = Math.abs(chartX - xPos);
+      if (dist < minDist) {
+        minDist = dist;
+        closestIndex = index;
+      }
+    });
+    
+    // Invert yScale to get price
+    const price = scales.priceScale.invert(chartY);
+    
+    // Call parent handler with coordinates
+    onChartClick({
+      x: closestIndex,
+      y: price,
+      chartX: chartX,
+      chartY: chartY
+    });
+  }, [onChartClick, disabled, scales, dimensions]);
+
+  // Early return check AFTER all hooks
   if (!dimensions || !scales || !stockData.length) {
     return (
       <div ref={containerRef} className="w-full h-full min-h-[400px]">
@@ -1203,7 +1249,7 @@ const StockChart = React.memo(({
   // Calculate divider line position based on zoom state
   let dividerLineX, darkBackgroundWidth;
   
-  if (scales.isZoomedOut && afterStockData.length > 0) {
+  if (scales?.isZoomedOut && afterStockData.length > 0) {
     // ZOOM OUT MODE: Position divider at the exact boundary between main and after data
     const lastMainDataIndex = stockData.length - 1;
     const firstAfterDataIndex = stockData.length;
@@ -1214,10 +1260,10 @@ const StockChart = React.memo(({
     const step = scales.xScale.step();
     
     // Position the divider exactly at the midpoint between datasets
-    dividerLineX = lastMainX + (step / 2) + dimensions.margin.left;
+    dividerLineX = lastMainX + (step / 2) + (dimensions?.margin?.left || 0);
     
     // Background covers from divider to end of chart
-    darkBackgroundWidth = dimensions.width - dividerLineX;
+    darkBackgroundWidth = (dimensions?.width || 0) - dividerLineX;
     
     console.log("ZOOM OUT DIVIDER POSITIONING:", {
       lastMainDataIndex,
@@ -1228,11 +1274,14 @@ const StockChart = React.memo(({
       finalDividerX: dividerLineX,
       backgroundWidth: darkBackgroundWidth
     });
-  } else {
+  } else if (scales && dimensions) {
     // NORMAL MODE: Use the original logic
     const lastMainDataX = scales.xScale(stockData.length - 1);
     dividerLineX = lastMainDataX + scales.xScale.step() + dimensions.margin.left;
     darkBackgroundWidth = dimensions.width - dividerLineX;
+  } else {
+    dividerLineX = 0;
+    darkBackgroundWidth = 0;
   }
   
   // Calculate progressive reveal mask position for the background
@@ -1250,11 +1299,13 @@ const StockChart = React.memo(({
   return (
     <div ref={containerRef} className="w-full h-full stock-chart-container">
       <svg
+        ref={svgRef}
         width="100%"
         height="100%"
         viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-        className="w-full h-full"
+        className={`w-full h-full ${onChartClick && !disabled ? 'cursor-crosshair' : ''}`}
         preserveAspectRatio="xMidYMid meet"
+        onClick={handleChartClick}
       >
         {/* Add CSS to ensure proper sizing */}
         <defs>
@@ -1545,6 +1596,61 @@ const StockChart = React.memo(({
                 )}
               </g>
             ))}
+
+            {/* User selection marker */}
+            {userSelection && scales && (
+              <g>
+                <circle
+                  cx={scales.xScale(userSelection.x) + dimensions.margin.left}
+                  cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                  r="6"
+                  fill="#FFD700"
+                  stroke="#FFFFFF"
+                  strokeWidth="2"
+                  opacity="0.9"
+                />
+                <circle
+                  cx={scales.xScale(userSelection.x) + dimensions.margin.left}
+                  cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                  r="3"
+                  fill="#FFFFFF"
+                />
+              </g>
+            )}
+
+            {/* Target point marker (correct answer) */}
+            {targetPoint && scales && (
+              <g>
+                <circle
+                  cx={targetPoint.x + dimensions.margin.left}
+                  cy={targetPoint.y + dimensions.margin.top}
+                  r="6"
+                  fill="#00FF00"
+                  stroke="#FFFFFF"
+                  strokeWidth="2"
+                  opacity="0.9"
+                />
+                <circle
+                  cx={targetPoint.x + dimensions.margin.left}
+                  cy={targetPoint.y + dimensions.margin.top}
+                  r="3"
+                  fill="#FFFFFF"
+                />
+                {/* Line connecting user selection to target */}
+                {userSelection && (
+                  <line
+                    x1={scales.xScale(userSelection.x) + dimensions.margin.left}
+                    y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                    x2={targetPoint.x + dimensions.margin.left}
+                    y2={targetPoint.y + dimensions.margin.top}
+                    stroke="#FFD700"
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                    opacity="0.7"
+                  />
+                )}
+              </g>
+            )}
           </g>
 
           {/* Volume section */}

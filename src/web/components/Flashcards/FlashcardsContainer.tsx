@@ -592,6 +592,113 @@ export default function FlashcardsContainer() {
     timer.pause();
   }, [gameState, timer, logMatch]);
 
+  // Calculate target point from afterData (peak close price)
+  const targetPoint = useMemo(() => {
+    if (!processedData.afterJsonData || !Array.isArray(processedData.afterJsonData) || processedData.afterJsonData.length === 0) {
+      return null;
+    }
+    
+    // Find peak close price
+    let maxClose = -Infinity;
+    let maxIndex = -1;
+    let maxPrice = 0;
+    
+    processedData.afterJsonData.forEach((point: any, index: number) => {
+      const close = point.close || point.Close || point.CLOSE;
+      if (close && typeof close === 'number' && close > maxClose) {
+        maxClose = close;
+        maxIndex = index;
+        maxPrice = close;
+      }
+    });
+    
+    if (maxIndex === -1) return null;
+    
+    // Calculate approximate time index (main data length + index in after data)
+    const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
+    const timeIndex = mainDataLength + maxIndex;
+    
+    return {
+      x: timeIndex,
+      y: maxPrice,
+      chartX: 0, // Will be calculated in chart component
+      chartY: 0, // Will be calculated in chart component
+    };
+  }, [processedData.afterJsonData, processedData.orderedFiles]);
+
+  // Calculate max distance for scoring (diagonal of chart)
+  const maxDistance = useMemo(() => {
+    // Approximate max distance as diagonal
+    // This will be refined based on actual chart dimensions
+    return Math.sqrt(Math.pow(100, 2) + Math.pow(100, 2)); // Rough estimate
+  }, []);
+
+  // Handle chart coordinate selection
+  const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
+    if (!targetPoint || !maxDistance) return;
+    
+    gameState.handleCoordinateSelection(
+      coordinates,
+      (distance: number, score: number) => {
+        // Log match with coordinates
+        const stockSymbol = extractStockName(currentFlashcard) || 'UNKNOWN';
+        const isCorrect = score >= 70;
+        
+        logMatchWithCoordinates({
+          coordinates,
+          targetPoint,
+          distance,
+          score,
+          stockSymbol,
+          isCorrect,
+        });
+      },
+      targetPoint,
+      maxDistance
+    );
+    timer.pause();
+  }, [gameState, timer, targetPoint, maxDistance, currentFlashcard]);
+
+  // Log match with coordinates
+  const logMatchWithCoordinates = useCallback(async (data: {
+    coordinates: { x: number; y: number };
+    targetPoint: { x: number; y: number };
+    distance: number;
+    score: number;
+    stockSymbol: string;
+    isCorrect: boolean;
+  }) => {
+    if (!currentRoundId || !session?.user?.id) return;
+
+    const matchData = {
+      round_id: currentRoundId,
+      stock_symbol: data.stockSymbol,
+      user_selection_x: data.coordinates.x,
+      user_selection_y: data.coordinates.y,
+      target_x: data.targetPoint.x,
+      target_y: data.targetPoint.y,
+      distance: data.distance,
+      score: data.score,
+      correct: data.isCorrect,
+    };
+
+    try {
+      const response = await fetch('/api/game/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(matchData),
+      });
+
+      if (response.ok) {
+        setLastMatchLogTime(Date.now());
+        setMatchLogCount(prev => prev + 1);
+        triggerRoundHistoryRefresh();
+      }
+    } catch (error) {
+      console.error('Error logging match:', error);
+    }
+  }, [currentRoundId, session?.user?.id, triggerRoundHistoryRefresh]);
+
   // Start timer when flashcard changes or when moving to a new card
   useEffect(() => {
     if (currentFlashcard && !gameState.feedback && !loading && !gameState.showTimeUpOverlay) {
@@ -748,6 +855,11 @@ export default function FlashcardsContainer() {
             disabled={gameState.disableButtons}
             isTimeUp={gameState.showTimeUpOverlay}
             onAfterEffectComplete={handleAfterEffectComplete}
+            // New coordinate-based props
+            onChartClick={handleChartClick}
+            userSelection={gameState.userSelection}
+            distance={gameState.distance}
+            score={gameState.score}
           />
 
           {/* Action Buttons Row */}

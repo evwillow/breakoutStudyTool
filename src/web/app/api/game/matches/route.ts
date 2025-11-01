@@ -54,15 +54,47 @@ async function logMatch(req: NextRequest) {
     correct: validatedData.correct
   });
 
-  // Insert new match
+  // Insert new match (support both old and new formats)
+  const insertData: any = {
+    round_id: validatedData.round_id,
+    stock_symbol: validatedData.stock_symbol,
+  };
+  
+  // Add legacy button-based fields if provided
+  if (validatedData.user_selection !== undefined) {
+    insertData.user_selection = validatedData.user_selection;
+  }
+  if (validatedData.correct !== undefined) {
+    insertData.correct = validatedData.correct;
+  }
+  
+  // Add new coordinate-based fields if provided
+  if (validatedData.user_selection_x !== undefined) {
+    insertData.user_selection_x = validatedData.user_selection_x;
+  }
+  if (validatedData.user_selection_y !== undefined) {
+    insertData.user_selection_y = validatedData.user_selection_y;
+  }
+  if (validatedData.target_x !== undefined) {
+    insertData.target_x = validatedData.target_x;
+  }
+  if (validatedData.target_y !== undefined) {
+    insertData.target_y = validatedData.target_y;
+  }
+  if (validatedData.distance !== undefined) {
+    insertData.distance = validatedData.distance;
+  }
+  if (validatedData.score !== undefined) {
+    insertData.score = validatedData.score;
+    // Auto-calculate correct from score if not provided
+    if (validatedData.correct === undefined) {
+      insertData.correct = validatedData.score >= 70;
+    }
+  }
+
   const { data, error } = await supabase
     .from('matches')
-    .insert([{
-      round_id: validatedData.round_id,
-      stock_symbol: validatedData.stock_symbol,
-      user_selection: validatedData.user_selection,
-      correct: validatedData.correct
-    }])
+    .insert([insertData])
     .select()
     .single();
 
