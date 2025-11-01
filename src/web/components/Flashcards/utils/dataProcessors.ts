@@ -94,15 +94,27 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
   
   console.log("✅ Found after.json file:", afterFile.fileName);
   
-  // Basic validation - just check if it's an array with data
-  if (!Array.isArray(afterFile.data) || afterFile.data.length === 0) {
-    console.log("❌ after.json data is not array or empty:", typeof afterFile.data, afterFile.data?.length);
+  // Handle different after.json structures
+  let afterData = afterFile.data;
+  
+  // Check if data has a 'value' property (wrapped format: { "value": [...], "Count": N })
+  if (afterData && typeof afterData === 'object' && !Array.isArray(afterData)) {
+    if ('value' in afterData && Array.isArray(afterData.value)) {
+      console.log("📦 After.json has 'value' wrapper, extracting array");
+      afterData = afterData.value;
+    }
+  }
+  
+  // Basic validation - check if it's an array with data
+  if (!Array.isArray(afterData) || afterData.length === 0) {
+    console.log("❌ after.json data is not array or empty:", typeof afterData, afterData?.length);
+    console.log("📊 After.json structure:", afterData);
     return null;
   }
 
-  console.log("✅ after.json data is valid array with", afterFile.data.length, "points");
+  console.log("✅ after.json data is valid array with", afterData.length, "points");
   console.log("✅ Returning after.json data");
-  return afterFile.data;
+  return afterData;
 }
 
 /**

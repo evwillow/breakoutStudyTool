@@ -26,7 +26,7 @@ const LandingPage = ({ onSignIn }) => {
   return (
     <div className="font-sans overflow-visible min-h-screen flex flex-col">
       {/* Hero Section with premium design and stronger value proposition */}
-      <section className="relative overflow-visible bg-transparent pt-14 sm:pt-20 lg:pt-24 pb-24 sm:pb-28 lg:pb-32 min-h-[70vh] lg:min-h-[80vh]">
+      <section className="relative overflow-visible bg-transparent pt-14 sm:pt-20 lg:pt-24 pb-8 sm:pb-12 lg:pb-16 min-h-[70vh] lg:min-h-[80vh]">
         
         <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center">
           <div className="lg:w-7/12 lg:pr-12 mb-10 lg:mb-0">
@@ -106,11 +106,11 @@ const LandingPage = ({ onSignIn }) => {
       </section>
 
       {/* Features section in normal flow to avoid overlap */}
-      <section className="bg-transparent pt-6 sm:pt-8 pb-12 sm:pb-16">
+      <section className="bg-transparent pt-0 pb-12 sm:pb-16">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-8 xl:space-y-12">
             <div className="flex justify-end">
-              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 mr-8 xl:mr-16">
                 <div className="text-3xl font-semibold tracking-wide">Performance and Accuracy Analytics</div>
                 <div className="text-lg text-white/90 mt-3">Track accuracy and improvement</div>
               </div>
@@ -122,7 +122,7 @@ const LandingPage = ({ onSignIn }) => {
               </div>
             </div>
             <div className="flex justify-end">
-              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 mr-20 xl:mr-40">
                 <div className="text-3xl font-semibold tracking-wide">Interactive Breakout Practice</div>
                 <div className="text-lg text-white/90 mt-3">Rapid drills on real historical charts</div>
               </div>
@@ -133,8 +133,106 @@ const LandingPage = ({ onSignIn }) => {
                 <div className="text-lg text-white/90 mt-3">See the outcome and ideal entry</div>
               </div>
             </div>
-            {/* Spacer to push footer down ~30% of viewport height */}
-            <div className="h-[30vh]" />
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Video Section */}
+      <section className="bg-transparent py-12 sm:py-16">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white/10 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 overflow-hidden aspect-video flex items-center justify-center">
+              <div className="text-center text-white/60">
+                <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-lg">Demo video coming soon</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="bg-transparent py-12 sm:py-16 pb-32 sm:pb-40">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-bold text-center text-white mb-12">Simple, transparent pricing</h2>
+            <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
+              {/* Free Tier */}
+              <div className="bg-white/10 text-white px-8 py-10 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.20)] ring-1 ring-turquoise-300/20">
+                <div className="text-2xl font-semibold mb-2">Free</div>
+                <div className="text-4xl font-bold mb-6">$0<span className="text-lg font-normal text-white/70">/month</span></div>
+                <ul className="space-y-3 mb-8 text-white/90">
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>One dataset</span>
+                  </li>
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Basic features</span>
+                  </li>
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Practice breakout patterns</span>
+                  </li>
+                </ul>
+                <button 
+                  onClick={() => setShowAuth(true)}
+                  className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold transition border border-white/20"
+                >
+                  Get Started
+                </button>
+              </div>
+
+              {/* Paid Tier */}
+              <div className="bg-white/10 text-white px-8 py-10 rounded-2xl backdrop-blur-md border-2 border-turquoise-400/50 shadow-[0_18px_56px_rgba(56,178,172,0.40)] ring-1 ring-turquoise-300/40 relative">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-turquoise-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Full Access</span>
+                </div>
+                <div className="text-2xl font-semibold mb-2">Premium</div>
+                <div className="text-4xl font-bold mb-6">$35<span className="text-lg font-normal text-white/70">/month</span></div>
+                <ul className="space-y-3 mb-8 text-white/90">
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>All datasets</span>
+                  </li>
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Full feature access</span>
+                  </li>
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Advanced analytics</span>
+                  </li>
+                  <li className="flex items-start">
+                    <svg className="w-5 h-5 text-turquoise-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Unlimited practice</span>
+                  </li>
+                </ul>
+                <button 
+                  onClick={() => setShowAuth(true)}
+                  className="w-full px-6 py-3 bg-turquoise-500 hover:bg-turquoise-600 text-white rounded-xl font-semibold transition shadow-[0_10px_30px_rgba(56,178,172,0.35)]"
+                >
+                  Sign Up
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>

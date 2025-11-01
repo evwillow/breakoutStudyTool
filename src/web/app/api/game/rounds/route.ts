@@ -15,12 +15,43 @@ import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling
  * Create a new game round
  */
 async function createRound(req: NextRequest) {
-  const body = await req.json();
+  console.log('=== ROUND API ENDPOINT CALLED ===');
+  
+  let body;
+  try {
+    body = await req.json();
+    console.log('Request body received:', body);
+  } catch (parseError) {
+    console.error('Failed to parse request body:', parseError);
+    throw new AppError(
+      'Invalid JSON in request body',
+      ErrorCodes.VALIDATION_ERROR,
+      400,
+      { parseError: parseError instanceof Error ? parseError.message : String(parseError) },
+      'Invalid request format. Please check your data and try again.'
+    );
+  }
+
+  console.log('Attempting to validate request data...');
   
   // Validate input using schema
-  const validatedData = validateOrThrow<CreateRoundRequest>(body, commonSchemas.createRound);
+  let validatedData;
+  try {
+    validatedData = validateOrThrow<CreateRoundRequest>(body, commonSchemas.createRound);
+    console.log('Validation successful:', validatedData);
+  } catch (validationError) {
+    console.error('Validation failed:', validationError);
+    throw validationError; // Re-throw validation errors as-is
+  }
 
+  console.log('Getting Supabase client...');
   const supabase = getAdminSupabaseClient();
+
+  console.log('Attempting to insert round record:', {
+    dataset_name: validatedData.dataset_name,
+    user_id: validatedData.user_id,
+    completed: validatedData.completed || false
+  });
 
   // Insert new round
   const { data, error } = await supabase
@@ -33,15 +64,36 @@ async function createRound(req: NextRequest) {
     .select()
     .single();
 
+  console.log('Supabase insert result:', { data, error });
+
   if (error) {
+    console.error('Supabase error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
+    
     throw new AppError(
       `Failed to create round: ${error.message}`,
       ErrorCodes.DB_QUERY_ERROR,
       500,
-      { supabaseError: error },
+      { 
+        supabaseError: error,
+        inputData: validatedData,
+        errorDetails: {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        }
+      },
       'Failed to create game round. Please try again.'
     );
   }
+
+  console.log('Round created successfully:', data);
+  console.log('=== ROUND API ENDPOINT COMPLETED ===');
 
   return createSuccessResponse<Round>(data);
 }

@@ -60,8 +60,24 @@ async function getRound(req: NextRequest, { params }: { params: Promise<{ id: st
  * Update a specific round
  */
 async function updateRound(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  console.log('=== ROUND UPDATE API ENDPOINT CALLED ===');
   const { id: roundId } = await params;
-  const body = await req.json();
+  
+  let body;
+  try {
+    body = await req.json();
+    console.log('Request body received:', body);
+    console.log('Round ID:', roundId);
+  } catch (parseError) {
+    console.error('Failed to parse request body:', parseError);
+    throw new AppError(
+      'Invalid JSON in request body',
+      ErrorCodes.VALIDATION_ERROR,
+      400,
+      { parseError: parseError instanceof Error ? parseError.message : String(parseError) },
+      'Invalid request format. Please check your data and try again.'
+    );
+  }
 
   if (!roundId) {
     throw new ValidationError(
@@ -73,6 +89,7 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
+  console.log('Getting Supabase client...');
   const supabase = getAdminSupabaseClient();
 
   // Only allow updating specific fields
@@ -86,6 +103,7 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (Object.keys(updateData).length === 0) {
+    console.error('No valid fields to update');
     throw new ValidationError(
       'No valid fields to update',
       ErrorCodes.VALIDATION_ERROR,
@@ -95,6 +113,11 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
+  console.log('Attempting to update round:', {
+    roundId,
+    updateData
+  });
+
   const { data, error } = await supabase
     .from('rounds')
     .update(updateData)
@@ -102,13 +125,22 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
     .select()
     .single();
 
+  console.log('Supabase update result:', { data, error });
+
   if (error) {
+    console.error('Supabase error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
+    
     if (error.code === 'PGRST116') {
       throw new AppError(
         'Round not found',
         ErrorCodes.DB_RECORD_NOT_FOUND,
         404,
-        {},
+        { roundId, updateData },
         'The requested round was not found.'
       );
     }
@@ -116,10 +148,23 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
       `Failed to update round: ${error.message}`,
       ErrorCodes.DB_QUERY_ERROR,
       500,
-      { supabaseError: error },
+      { 
+        supabaseError: error,
+        roundId,
+        updateData,
+        errorDetails: {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        }
+      },
       'Failed to update round. Please try again.'
     );
   }
+
+  console.log('Round updated successfully:', data);
+  console.log('=== ROUND UPDATE API ENDPOINT COMPLETED ===');
 
   return createSuccessResponse<Round>(data);
 }

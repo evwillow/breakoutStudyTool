@@ -64,51 +64,7 @@ export default function FlashcardsContainer() {
 
   // Process current flashcard data
   const processedData = useMemo(() => {
-    console.log("=== PROCESSING FLASHCARD DATA ===");
-    console.log("Processing flashcard data for:", currentFlashcard?.folderName || currentFlashcard?.name);
-    console.log("Flashcard has files:", currentFlashcard?.jsonFiles?.map(f => f.fileName) || []);
-    
-    const result = processFlashcardData(currentFlashcard);
-    
-    console.log("After processing - result:", {
-      hasAfterData: !!result.afterJsonData,
-      afterDataLength: Array.isArray(result.afterJsonData) ? result.afterJsonData.length : 'not array',
-      hasThingData: result.thingData.length > 0,
-      orderedFilesCount: result.orderedFiles.length
-    });
-    
-    // Essential validation for afterJsonData
-    if (result.afterJsonData) {
-      console.log("✅ After JSON data detected!");
-      if (Array.isArray(result.afterJsonData) && result.afterJsonData.length > 0) {
-        const firstDataPoint = result.afterJsonData[0];
-        
-        // Check if this looks like valid stock data
-        const hasStockFields = ['open', 'high', 'low', 'close', 'volume'].some(field => 
-          firstDataPoint.hasOwnProperty(field) || firstDataPoint.hasOwnProperty(field.charAt(0).toUpperCase() + field.slice(1))
-        );
-        
-        if (!hasStockFields) {
-          console.warn("❌ After JSON data doesn't appear to contain stock chart data!", firstDataPoint);
-        } else {
-          console.log("✅ After JSON data contains valid stock fields");
-        }
-      } else {
-        console.warn("❌ After JSON data is not an array or is empty:", result.afterJsonData);
-      }
-    } else {
-      console.log("ℹ️ No after JSON data found for this flashcard");
-      // List all available files to help debug
-      if (currentFlashcard?.jsonFiles?.length) {
-        console.log("Available files in flashcard:");
-        currentFlashcard.jsonFiles.forEach(file => {
-          console.log(`  - ${file.fileName}`);
-        });
-      }
-    }
-    
-    console.log("=== END PROCESSING FLASHCARD DATA ===");
-    return result;
+    return processFlashcardData(currentFlashcard);
   }, [currentFlashcard]);
 
   // UI state
@@ -188,15 +144,70 @@ export default function FlashcardsContainer() {
             }),
           });
 
-          if (response.ok) {
-            console.log('Round marked as completed');
+          let result;
+          let responseText: string = '';
+          try {
+            responseText = await response.text();
+            if (!responseText) {
+              console.error('Failed to update round: Empty response body', {
+                status: response.status,
+                statusText: response.statusText,
+                url: response.url,
+                roundId: currentRoundId,
+              });
+              return;
+            }
+            try {
+              result = JSON.parse(responseText);
+            } catch (parseError) {
+              console.error('Failed to update round: Invalid JSON response', {
+                status: response.status,
+                statusText: response.statusText,
+                parseError: parseError instanceof Error ? parseError.message : String(parseError),
+                responseText: responseText.substring(0, 200),
+                url: response.url,
+                roundId: currentRoundId,
+              });
+              return;
+            }
+          } catch (readError) {
+            console.error('Failed to update round: Could not read response', {
+              status: response.status,
+              statusText: response.statusText,
+              readError: readError instanceof Error ? readError.message : String(readError),
+              url: response.url,
+              roundId: currentRoundId,
+            });
+            return;
+          }
+
+          if (!response.ok) {
+            // API returns: { success: false, error: { code, message, details, validationErrors } }
+            const error = result?.error || {};
+            const errorMessage = error?.message || error?.details || result?.message || `HTTP ${response.status}: ${response.statusText}`;
+            const errorCode = error?.code || `HTTP_${response.status}`;
+            const validationErrors = error?.validationErrors || null;
+            
+            console.error('Failed to mark round as completed', {
+              status: response.status,
+              statusText: response.statusText,
+              message: errorMessage || 'Unknown error',
+              code: errorCode || 'UNKNOWN_ERROR',
+              validationErrors: validationErrors || undefined,
+              fullResult: result || null,
+              roundId: currentRoundId,
+            });
+          } else {
+            console.log('Round marked as completed:', result.data);
             // Use the new refresh mechanism
             triggerRoundHistoryRefresh();
-          } else {
-            console.error('Failed to mark round as completed');
           }
         } catch (error) {
-          console.error('Error updating round completion:', error);
+          console.error('Error updating round completion:', {
+            error: error instanceof Error ? error.message : String(error),
+            errorStack: error instanceof Error ? error.stack : undefined,
+            roundId: currentRoundId,
+          });
         }
       }
     }, [currentRoundId, triggerRoundHistoryRefresh]),
@@ -244,25 +255,71 @@ export default function FlashcardsContainer() {
         body: JSON.stringify(requestData),
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error('Round creation failed:', {
+      let result;
+      let responseText: string = '';
+      try {
+        responseText = await response.text();
+        if (!responseText) {
+          console.error('Failed to create round: Empty response body', {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            requestData,
+          });
+          return null;
+        }
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to create round: Invalid JSON response', {
+            status: response.status,
+            statusText: response.statusText,
+            parseError: parseError instanceof Error ? parseError.message : String(parseError),
+            responseText: responseText.substring(0, 200),
+            url: response.url,
+            requestData,
+          });
+          return null;
+        }
+      } catch (readError) {
+        console.error('Failed to create round: Could not read response', {
           status: response.status,
           statusText: response.statusText,
-          error: result.error,
-          fullResponse: result
+          readError: readError instanceof Error ? readError.message : String(readError),
+          url: response.url,
+          requestData,
         });
-        throw new Error(result.error?.message || 'Failed to create round');
+        return null;
+      }
+
+      if (!response.ok) {
+        // API returns: { success: false, error: { code, message, details, validationErrors } }
+        const error = result?.error || {};
+        const errorMessage = error?.message || error?.details || result?.message || `HTTP ${response.status}: ${response.statusText}`;
+        const errorCode = error?.code || `HTTP_${response.status}`;
+        const validationErrors = error?.validationErrors || null;
+        
+        console.error('Round creation failed', {
+          status: response.status,
+          statusText: response.statusText,
+          message: errorMessage || 'Unknown error',
+          code: errorCode || 'UNKNOWN_ERROR',
+          validationErrors: validationErrors || undefined,
+          fullResult: result || null,
+          requestData,
+        });
+        // Don't block the game from starting, just log the error
+        return null;
       }
 
       console.log('Created new round successfully:', result.data);
-      console.log('New round ID:', result.data.id);
+      console.log('New round ID:', result.data?.id);
       
-      return result.data.id;
+      return result.data?.id || null;
     } catch (error) {
       console.error('Error creating round:', {
         error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
         userId: session.user.id,
         selectedFolder
       });
@@ -432,18 +489,12 @@ export default function FlashcardsContainer() {
   // Log match to database
   const logMatch = useCallback(async (buttonIndex: number, isCorrect: boolean) => {
     if (!currentRoundId || !currentFlashcard || !session?.user?.id) {
-      console.log("Skipping match logging:", {
-        hasRoundId: !!currentRoundId,
-        hasFlashcard: !!currentFlashcard,
-        hasUserId: !!session?.user?.id
-      });
       return; // Don't log if no active round or missing data
     }
 
     // Validate round ID format (must be a UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(currentRoundId)) {
-      console.error("Invalid round ID format:", currentRoundId, "- skipping match logging");
       return;
     }
 
@@ -457,17 +508,6 @@ export default function FlashcardsContainer() {
       correct: isCorrect,
     };
 
-    console.log("=== MATCH LOGGING DEBUG ===");
-    console.log("Attempting to log match:", matchData);
-    console.log("Round ID validation:", {
-      roundId: currentRoundId,
-      isValidUUID: uuidRegex.test(currentRoundId),
-      length: currentRoundId.length,
-      type: typeof currentRoundId
-    });
-    console.log("Stock symbol:", stockSymbol);
-    console.log("Button index:", buttonIndex);
-    console.log("Is correct:", isCorrect);
 
     try {
       const response = await fetch('/api/game/matches', {
@@ -478,90 +518,79 @@ export default function FlashcardsContainer() {
         body: JSON.stringify(matchData),
       });
 
-      console.log("Response status:", response.status);
-      console.log("Response status text:", response.statusText);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-
       let result;
-      let responseText = '';
+      let responseText: string = '';
       try {
         responseText = await response.text();
-        console.log("Raw response text:", responseText);
-        
-        // Try to parse as JSON
-        result = responseText ? JSON.parse(responseText) : {};
-        console.log("Parsed response:", result);
-      } catch (parseError) {
-        console.error('Failed to parse response JSON:', parseError);
-        console.error('Raw response text was:', responseText);
-        console.error('Response status:', response.status, response.statusText);
-        console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+        if (!responseText) {
+          console.error('Failed to log match: Empty response body', {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+          });
+          return;
+        }
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to log match: Invalid JSON response', {
+            status: response.status,
+            statusText: response.statusText,
+            parseError: parseError instanceof Error ? parseError.message : String(parseError),
+            responseText: responseText.substring(0, 200),
+            url: response.url,
+          });
+          return;
+        }
+      } catch (readError) {
+        console.error('Failed to log match: Could not read response', {
+          status: response.status,
+          statusText: response.statusText,
+          readError: readError instanceof Error ? readError.message : String(readError),
+          url: response.url,
+        });
         return;
       }
 
       if (!response.ok) {
-        // Extract error information with better fallbacks
-        const errorInfo = result?.error || {};
-        const errorMessage = errorInfo?.message || errorInfo?.details || JSON.stringify(errorInfo) || 'Unknown error';
-        const errorCode = errorInfo?.code || `HTTP_${response.status}`;
+        // API returns: { success: false, error: { code, message, details, validationErrors } }
+        const error = result?.error || {};
+        const errorMessage = error?.message || error?.details || result?.message || `HTTP ${response.status}: ${response.statusText}`;
+        const errorCode = error?.code || `HTTP_${response.status}`;
+        const validationErrors = error?.validationErrors || null;
         
-        console.error('Failed to log match:', {
+        console.error('Failed to log match', {
           status: response.status,
           statusText: response.statusText,
-          errorMessage: errorMessage,
-          errorCode: errorCode,
-          error: errorInfo,
-          validationErrors: errorInfo?.validationErrors,
-          fullResponse: result,
-          matchData: matchData,
-          rawResponseLength: responseText?.length || 0,
+          message: errorMessage || 'Unknown error',
+          code: errorCode || 'UNKNOWN_ERROR',
+          validationErrors: validationErrors || undefined,
+          fullResult: result || null,
+          matchData: {
+            round_id: matchData.round_id,
+            stock_symbol: matchData.stock_symbol,
+            user_selection: matchData.user_selection,
+            correct: matchData.correct,
+          },
         });
-        // Don't throw error - continue game even if logging fails
       } else {
-        console.log('Match logged successfully:', result.data);
-        // Update the last match log time and count
-        const currentTime = Date.now();
-        const currentMatchCount = matchLogCount + 1;
-        setLastMatchLogTime(currentTime);
-        setMatchLogCount(currentMatchCount);
-        console.log('Updated last match log time to:', currentTime);
-        console.log('Updated match log count to:', currentMatchCount);
-        
-        // Trigger refresh with the new mechanism
+        // Update match log tracking
+        setLastMatchLogTime(Date.now());
+        setMatchLogCount(prev => prev + 1);
         triggerRoundHistoryRefresh();
       }
     } catch (error) {
-      console.error('Error logging match (network/fetch error):', {
-        error: error instanceof Error ? error.message : String(error),
-        matchData,
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      // Continue game even if logging fails
+      console.error('Error logging match:', error instanceof Error ? error.message : String(error));
     }
-    console.log("=== END MATCH LOGGING DEBUG ===");
-  }, [currentRoundId, currentFlashcard, session?.user?.id, triggerRoundHistoryRefresh, matchLogCount]);
+  }, [currentRoundId, currentFlashcard, session?.user?.id, triggerRoundHistoryRefresh]);
 
   // Handle selection with timer integration and match logging
   const handleSelection = useCallback((buttonIndex: number) => {
-    console.log("=== HANDLE SELECTION DEBUG ===");
-    console.log("Current round ID:", currentRoundId);
-    console.log("Current flashcard:", currentFlashcard ? "exists" : "null");
-    console.log("Session user ID:", session?.user?.id);
-    console.log("Button index:", buttonIndex);
-    
-    // Let the game state handle the answer checking and feedback, and get the result immediately
     gameState.handleSelection(buttonIndex, (isCorrect: boolean) => {
-      console.log("Feedback callback - Is correct:", isCorrect);
-      
-      // Log the match asynchronously
       logMatch(buttonIndex, isCorrect);
     });
-
     timer.pause();
-    
-    // The ChartSection will handle the animation automatically when after data is available
-    console.log("Selection handled - ChartSection will manage animation");
-  }, [gameState, timer, logMatch, currentRoundId, currentFlashcard, session?.user?.id]);
+  }, [gameState, timer, logMatch]);
 
   // Start timer when flashcard changes or when moving to a new card
   useEffect(() => {
