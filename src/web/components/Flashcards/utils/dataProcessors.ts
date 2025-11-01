@@ -79,13 +79,36 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
   console.log("📁 Folder:", flashcardData.name || flashcardData.folderName || 'unnamed');
   console.log("📄 All files:", flashcardData.jsonFiles.map(f => f.fileName));
 
-  // Find the after.json file
-  const afterFile = flashcardData.jsonFiles.find(file => {
-    const fileName = file.fileName;
-    const isAfterFile = fileName.endsWith('/after.json') || fileName.includes('after') && fileName.endsWith('.json');
-    console.log(`   - "${file.fileName}" is after file: ${isAfterFile}`);
+  // Find the after.json file - check for exact match first, then partial
+  // Also check for files that might be in the same stock directory
+  let afterFile = flashcardData.jsonFiles.find(file => {
+    const fileName = file.fileName.toLowerCase();
+    const fileNameParts = fileName.split(/[/\\]/);
+    const lastPart = fileNameParts[fileNameParts.length - 1];
+    
+    // Match: "after.json" or "stock_folder/after.json" or any path ending with after.json
+    const isAfterFile = lastPart === 'after.json' || 
+                       fileName.endsWith('/after.json') || 
+                       fileName.endsWith('\\after.json') ||
+                       (fileName.includes('after') && fileName.endsWith('.json'));
+    
+    console.log(`   - "${file.fileName}" (last part: "${lastPart}") is after file: ${isAfterFile}`);
     return isAfterFile;
   });
+  
+  // If not found, try case-insensitive search on the file name
+  if (!afterFile) {
+    afterFile = flashcardData.jsonFiles.find(file => {
+      const fileName = file.fileName;
+      const fileNameParts = fileName.split(/[/\\]/);
+      const lastPart = fileNameParts[fileNameParts.length - 1]?.toLowerCase();
+      return lastPart === 'after.json';
+    });
+    
+    if (afterFile) {
+      console.log("✅ Found after.json with case-insensitive search:", afterFile.fileName);
+    }
+  }
   
   if (!afterFile) {
     console.log("❌ No after.json file found");
@@ -102,6 +125,10 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
     if ('value' in afterData && Array.isArray(afterData.value)) {
       console.log("📦 After.json has 'value' wrapper, extracting array");
       afterData = afterData.value;
+    } else if (Array.isArray(Object.values(afterData)[0])) {
+      // Handle case where first property is the array
+      afterData = Object.values(afterData)[0];
+      console.log("📦 After.json has nested structure, extracting first array property");
     }
   }
   
@@ -112,7 +139,20 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
     return null;
   }
 
+  // Validate structure - ensure it has required price fields (case-insensitive)
+  const firstPoint = afterData[0];
+  const hasValidStructure = firstPoint && (
+    (firstPoint.close || firstPoint.Close || firstPoint.CLOSE) ||
+    (firstPoint.open || firstPoint.Open || firstPoint.OPEN)
+  );
+  
+  if (!hasValidStructure) {
+    console.log("⚠️ After.json data structure may be invalid - missing price fields");
+    console.log("📊 First point:", firstPoint);
+  }
+
   console.log("✅ after.json data is valid array with", afterData.length, "points");
+  console.log("✅ Sample point:", firstPoint);
   console.log("✅ Returning after.json data");
   return afterData;
 }

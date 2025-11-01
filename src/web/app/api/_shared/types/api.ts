@@ -82,6 +82,11 @@ export interface LogMatchRequest {
   target_y?: number;
   distance?: number;
   score?: number;
+  // Price-focused accuracy fields (primary metric for stock trading)
+  price_accuracy?: number; // 0-100, price accuracy percentage
+  time_position?: number; // Time index where user selected
+  price_error?: number; // Price error percentage (0-100)
+  time_error?: number; // Time error percentage (0-100)
 }
 
 // User-related types

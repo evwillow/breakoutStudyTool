@@ -108,35 +108,51 @@ export function calculateDistance(
 }
 
 /**
- * Calculate distance-based score (0-100) using normalized distance
- * Uses percentage error approach for more logical scoring
+ * Calculate distance-based score (0-100) primarily based on price accuracy
+ * Price accuracy is the primary metric for stock trading
+ * Time position is recorded but doesn't heavily impact the score
  */
 export function calculateDistanceScore(
   userPoint: ChartCoordinate,
   targetPoint: ChartCoordinate,
   priceRange: { min: number; max: number },
   timeRange: { min: number; max: number }
-): number {
-  // Calculate normalized differences (0-1 range)
+): {
+  score: number;
+  priceAccuracy: number;
+  timePosition: number;
+  priceError: number;
+  timeError: number;
+} {
+  // Calculate price difference (vertical accuracy - PRIMARY METRIC)
   const priceDiff = Math.abs(targetPoint.y - userPoint.y);
-  const timeDiff = Math.abs(targetPoint.x - userPoint.x);
-  
   const priceRangeSize = priceRange.max - priceRange.min;
+  
+  // Calculate time difference (for recording, but minimal impact on score)
+  const timeDiff = Math.abs(targetPoint.x - userPoint.x);
   const timeRangeSize = timeRange.max - timeRange.min;
   
-  // Normalize differences to percentage of range
+  // Normalize to percentage of range
   const priceError = priceRangeSize > 0 ? priceDiff / priceRangeSize : 0;
   const timeError = timeRangeSize > 0 ? timeDiff / timeRangeSize : 0;
   
-  // Weight price accuracy more heavily (70% price, 30% time)
-  // Since price prediction is more important than exact timing
-  const weightedError = priceError * 0.7 + timeError * 0.3;
+  // Calculate price accuracy (0-100%) - PRIMARY METRIC
+  // Score is based almost entirely on price accuracy (95% weight)
+  // Time accuracy has minimal impact (5% weight) - just for recording
+  const priceAccuracy = Math.max(0, 100 * (1 - priceError));
+  const timeAccuracy = Math.max(0, 100 * (1 - timeError));
   
-  // Convert error to score (0% error = 100 points, 100% error = 0 points)
-  // Use exponential decay for more forgiving scoring near perfect
-  const score = Math.max(0, 100 * (1 - weightedError));
+  // Weighted score: 95% price, 5% time
+  // This ensures price prediction accuracy is the primary factor
+  const weightedScore = priceAccuracy * 0.95 + timeAccuracy * 0.05;
   
-  return Math.round(score * 100) / 100; // Round to 2 decimal places
+  return {
+    score: Math.round(weightedScore * 100) / 100,
+    priceAccuracy: Math.round(priceAccuracy * 100) / 100,
+    timePosition: userPoint.x, // Record the time index where user selected
+    priceError: Math.round(priceError * 10000) / 100, // Percentage error (0-100)
+    timeError: Math.round(timeError * 10000) / 100, // Percentage error (0-100)
+  };
 }
 
 /**

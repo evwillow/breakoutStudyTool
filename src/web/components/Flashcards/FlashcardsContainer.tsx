@@ -661,14 +661,29 @@ export default function FlashcardsContainer() {
 
   // Handle chart coordinate selection
   const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
-    if (!targetPoint || !priceRange || !timeRange) return;
+    if (!targetPoint || !priceRange || !timeRange) {
+      console.log("Cannot process selection - missing targetPoint, priceRange, or timeRange");
+      return;
+    }
+    
+    // Verify selection is after the last data point
+    const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
+    console.log("Selection attempt - Index:", coordinates.x, "Main data length:", mainDataLength);
+    
+    if (coordinates.x <= mainDataLength - 1) {
+      // Selection is not in the future - don't process
+      console.log("Selection rejected - must be after last data point");
+      return;
+    }
+    
+    console.log("Selection accepted - processing...");
     
     gameState.handleCoordinateSelection(
       coordinates,
-      (distance: number, score: number) => {
+      (distance: number, score: number, scoreData?: any) => {
         // Log match with coordinates
         const stockSymbol = extractStockName(currentFlashcard) || 'UNKNOWN';
-        const isCorrect = score >= 70;
+        const isCorrect = scoreData?.priceAccuracy >= 70 || score >= 70;
         
         logMatchWithCoordinates({
           coordinates,
@@ -677,6 +692,10 @@ export default function FlashcardsContainer() {
           score,
           stockSymbol,
           isCorrect,
+          priceAccuracy: scoreData?.priceAccuracy,
+          timePosition: scoreData?.timePosition,
+          priceError: scoreData?.priceError,
+          timeError: scoreData?.timeError,
         });
       },
       targetPoint,
@@ -684,7 +703,7 @@ export default function FlashcardsContainer() {
       timeRange
     );
     timer.pause();
-  }, [gameState, timer, targetPoint, priceRange, timeRange, currentFlashcard]);
+  }, [gameState, timer, targetPoint, priceRange, timeRange, currentFlashcard, processedData]);
 
   // Log match with coordinates
   const logMatchWithCoordinates = useCallback(async (data: {
@@ -694,6 +713,10 @@ export default function FlashcardsContainer() {
     score: number;
     stockSymbol: string;
     isCorrect: boolean;
+    priceAccuracy?: number;
+    timePosition?: number;
+    priceError?: number;
+    timeError?: number;
   }) => {
     if (!currentRoundId || !session?.user?.id) return;
 
@@ -707,6 +730,11 @@ export default function FlashcardsContainer() {
       distance: data.distance,
       score: data.score,
       correct: data.isCorrect,
+      // New price-focused accuracy fields
+      price_accuracy: data.priceAccuracy,
+      time_position: data.timePosition,
+      price_error: data.priceError,
+      time_error: data.timeError,
     };
 
     try {

@@ -153,12 +153,14 @@ export function useGameState({
   // Handle coordinate-based selection
   const handleCoordinateSelection = useCallback((
     coordinates: ChartCoordinate,
-    onResult?: (distance: number, score: number) => void,
+    onResult?: (distance: number, score: number, scoreData?: any) => void,
     target?: ChartCoordinate,
     priceRange?: { min: number; max: number },
     timeRange?: { min: number; max: number }
   ) => {
-    if (disableButtons && !showTimeUpOverlay) return;
+    // Allow selection even if buttons are disabled - user might be using magnifier
+    // Only block if we already have a selection (score exists)
+    if (score !== null && score !== undefined && !showTimeUpOverlay) return;
     
     // Clear time up overlay when user makes selection
     if (showTimeUpOverlay) {
@@ -174,14 +176,15 @@ export function useGameState({
     // Calculate distance and score if target and ranges are provided
     if (target && priceRange && timeRange) {
       const calculatedDistance = calculateDistance(coordinates, target);
-      const calculatedScore = calculateDistanceScore(coordinates, target, priceRange, timeRange);
+      const scoreData = calculateDistanceScore(coordinates, target, priceRange, timeRange);
       
       setDistance(calculatedDistance);
-      setScore(calculatedScore);
+      setScore(scoreData.score);
       setTargetPoint(target);
       
-      // Update metrics based on score (threshold at 70% for "correct")
-      const isCorrect = calculatedScore >= 70;
+      // Update metrics based on price accuracy (primary metric for stock trading)
+      // Threshold at 70% price accuracy for "correct"
+      const isCorrect = scoreData.priceAccuracy >= 70;
       setMatchCount(prev => prev + 1);
       if (isCorrect) {
         setCorrectCount(prev => prev + 1);
@@ -190,12 +193,12 @@ export function useGameState({
         onIncorrectAnswer?.();
       }
       
-      // Set feedback based on score
+      // Set feedback based on price accuracy
       setFeedback(isCorrect ? 'correct' : 'incorrect');
       
-      // Call result callback
+      // Call result callback with full score data
       if (onResult) {
-        onResult(calculatedDistance, calculatedScore);
+        onResult(calculatedDistance, scoreData.score, scoreData);
       }
     }
   }, [
@@ -203,6 +206,7 @@ export function useGameState({
     showTimeUpOverlay,
     onCorrectAnswer,
     onIncorrectAnswer,
+    score,
   ]);
   
   // Move to next card

@@ -464,7 +464,15 @@ const StockChart = React.memo(({
     const updateDimensions = () => {
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
-        const containerHeight = containerRef.current.clientHeight || 400;
+        // Use full available height - check parent or use a sensible default
+        let containerHeight = containerRef.current.clientHeight;
+        if (!containerHeight || containerHeight < 400) {
+          // Try parent height
+          const parent = containerRef.current.parentElement;
+          containerHeight = parent?.clientHeight || parent?.offsetHeight || 600;
+        }
+        // Ensure minimum height
+        containerHeight = Math.max(containerHeight, 500);
         const isMobileView = window.innerWidth < 768;
         
         setIsMobile(isMobileView);
@@ -1201,7 +1209,9 @@ const StockChart = React.memo(({
 
   // Handle chart click - MUST be before any early returns to avoid hook order issues
   const handleChartClick = useCallback((event) => {
-    if (!onChartClick || disabled || !scales || !dimensions || !svgRef.current) return;
+    if (!onChartClick || disabled || !scales || !dimensions || !svgRef.current || !stockData || stockData.length === 0) {
+      return;
+    }
     
     const svgRect = svgRef.current.getBoundingClientRect();
     const point = svgRef.current.createSVGPoint();
@@ -1213,34 +1223,26 @@ const StockChart = React.memo(({
     const chartX = svgPoint.x - dimensions.margin.left;
     const chartY = svgPoint.y - dimensions.margin.top;
     
-    // Allow clicking anywhere in the chart area, even beyond visible data
-    // For xScale (scalePoint), find closest index or extrapolate
-    const domain = scales.xScale.domain();
-    let selectedIndex = 0;
-    let minDist = Infinity;
+    // Get the last data point index and position
+    const lastDataIndex = stockData.length - 1;
+    const lastDataXPos = scales.xScale(lastDataIndex);
     
-    // Check if click is within the domain
-    domain.forEach((index) => {
-      const xPos = scales.xScale(index);
-      const dist = Math.abs(chartX - xPos);
-      if (dist < minDist) {
-        minDist = dist;
-        selectedIndex = index;
-      }
-    });
-    
-    // If click is beyond the last data point, extrapolate
-    const lastDomainIndex = domain[domain.length - 1];
-    const lastXPos = scales.xScale(lastDomainIndex);
-    if (chartX > lastXPos) {
-      // Extrapolate: extend time index beyond data
-      const step = scales.xScale.step();
-      const stepsBeyond = Math.max(0, Math.round((chartX - lastXPos) / step));
-      selectedIndex = lastDomainIndex + stepsBeyond + 1;
+    // ONLY allow selection AFTER the last data point (future predictions only)
+    if (chartX <= lastDataXPos) {
+      // Click is on or before existing data - don't allow selection
+      console.log("Selection must be after the last data point. Clicked at:", chartX, "Last data at:", lastDataXPos);
+      return;
     }
+    
+    // Extrapolate: extend time index beyond data
+    const step = scales.xScale.step();
+    const stepsBeyond = Math.max(0, Math.round((chartX - lastDataXPos) / step));
+    const selectedIndex = lastDataIndex + stepsBeyond + 1;
     
     // Invert yScale to get price (supports clicking above/below visible range)
     const price = Math.max(0, scales.priceScale.invert(chartY));
+    
+    console.log("Selection made - Index:", selectedIndex, "Price:", price, "Last data index:", lastDataIndex);
     
     // Call parent handler with coordinates
     onChartClick({
@@ -1249,7 +1251,7 @@ const StockChart = React.memo(({
       chartX: chartX,
       chartY: chartY
     });
-  }, [onChartClick, disabled, scales, dimensions]);
+  }, [onChartClick, disabled, scales, dimensions, stockData]);
 
   // Early return check AFTER all hooks
   if (!dimensions || !scales || !stockData.length) {
@@ -1320,16 +1322,20 @@ const StockChart = React.memo(({
   const progressiveMaskWidth = getProgressiveMaskWidth();
 
   return (
-    <div ref={containerRef} className="w-full h-full stock-chart-container">
+    <div 
+      ref={containerRef} 
+      className="w-full h-full stock-chart-container"
+      style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}
+    >
       <svg
         ref={svgRef}
         width="100%"
         height="100%"
         viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-        className={`w-full h-full ${onChartClick && !disabled ? 'cursor-crosshair' : ''}`}
+        className={`w-full h-full ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
         preserveAspectRatio="xMidYMid meet"
         onClick={handleChartClick}
-        style={{ display: 'block' }}
+        style={{ display: 'block', width: '100%', height: '100%' }}
       >
         {/* Add CSS to ensure proper sizing */}
         <defs>
@@ -1340,6 +1346,11 @@ const StockChart = React.memo(({
                   aspect-ratio: 1 / 1;
                   min-height: 300px;
                 }
+              }
+              
+              /* Cursor styling - default to not-allowed, but allow selections in future area */
+              .chart-selectable {
+                cursor: not-allowed;
               }
             `}
           </style>
@@ -1621,55 +1632,111 @@ const StockChart = React.memo(({
               </g>
             ))}
 
-            {/* User selection marker */}
-            {userSelection && scales && (
-              <g>
-                <circle
-                  cx={scales.xScale(userSelection.x) + dimensions.margin.left}
-                  cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
-                  r="6"
-                  fill="#FFD700"
-                  stroke="#FFFFFF"
-                  strokeWidth="2"
-                  opacity="0.9"
-                />
-                <circle
-                  cx={scales.xScale(userSelection.x) + dimensions.margin.left}
-                  cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
-                  r="3"
-                  fill="#FFFFFF"
-                />
-              </g>
-            )}
+            {/* User selection marker - only show if selection is after last data point */}
+            {userSelection && scales && (() => {
+              const lastDataIndex = stockData.length - 1;
+              const isFutureSelection = userSelection.x > lastDataIndex;
+              
+              if (!isFutureSelection) return null;
+              
+              // Calculate position for future selection (extrapolate from last data point)
+              const lastDataXPos = scales.xScale(lastDataIndex);
+              const step = scales.xScale.step();
+              const stepsBeyond = userSelection.x - lastDataIndex - 1;
+              const futureXPos = lastDataXPos + (stepsBeyond + 1) * step;
+              
+              return (
+                <g>
+                  <circle
+                    cx={futureXPos + dimensions.margin.left}
+                    cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                    r="6"
+                    fill="#FFD700"
+                    stroke="#FFFFFF"
+                    strokeWidth="2"
+                    opacity="0.9"
+                  />
+                  <circle
+                    cx={futureXPos + dimensions.margin.left}
+                    cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                    r="3"
+                    fill="#FFFFFF"
+                  />
+                </g>
+              );
+            })()}
 
-            {/* Target point marker (correct answer) - only show after user selection */}
-            {targetPoint && scales && userSelection && (
+            {/* Target point marker (correct answer) - only show after user selection and if both are in future */}
+            {targetPoint && scales && userSelection && (() => {
+              const lastDataIndex = stockData.length - 1;
+              const isUserSelectionFuture = userSelection.x > lastDataIndex;
+              const isTargetFuture = targetPoint.x > lastDataIndex;
+              
+              // Only show if both user selection and target are in future area
+              if (!isUserSelectionFuture || !isTargetFuture) return null;
+              
+              // Calculate positions for future selections (extrapolate from last data point)
+              const lastDataXPos = scales.xScale(lastDataIndex);
+              const step = scales.xScale.step();
+              
+              const userStepsBeyond = userSelection.x - lastDataIndex - 1;
+              const userFutureXPos = lastDataXPos + (userStepsBeyond + 1) * step;
+              
+              const targetStepsBeyond = targetPoint.x - lastDataIndex - 1;
+              const targetFutureXPos = lastDataXPos + (targetStepsBeyond + 1) * step;
+              
+              return (
+                <g>
+                  <circle
+                    cx={targetFutureXPos + dimensions.margin.left}
+                    cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                    r="8"
+                    fill="#00FF00"
+                    stroke="#FFFFFF"
+                    strokeWidth="2"
+                    opacity="0.9"
+                  />
+                  <circle
+                    cx={targetFutureXPos + dimensions.margin.left}
+                    cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                    r="4"
+                    fill="#FFFFFF"
+                  />
+                  {/* Line connecting user selection to target */}
+                  <line
+                    x1={userFutureXPos + dimensions.margin.left}
+                    y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                    x2={targetFutureXPos + dimensions.margin.left}
+                    y2={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                    stroke="#FFD700"
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                    opacity="0.7"
+                  />
+                </g>
+              );
+            })()}
+            
+            {/* Visual divider line between historical data and future selection area */}
+            {onChartClick && !disabled && scales && stockData.length > 0 && (
               <g>
-                <circle
-                  cx={scales.xScale(targetPoint.x) + dimensions.margin.left}
-                  cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
-                  r="8"
-                  fill="#00FF00"
-                  stroke="#FFFFFF"
-                  strokeWidth="2"
-                  opacity="0.9"
-                />
-                <circle
-                  cx={scales.xScale(targetPoint.x) + dimensions.margin.left}
-                  cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
-                  r="4"
-                  fill="#FFFFFF"
-                />
-                {/* Line connecting user selection to target */}
                 <line
-                  x1={scales.xScale(userSelection.x) + dimensions.margin.left}
-                  y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
-                  x2={scales.xScale(targetPoint.x) + dimensions.margin.left}
-                  y2={scales.priceScale(targetPoint.y) + dimensions.margin.top}
-                  stroke="#FFD700"
+                  x1={scales.xScale(stockData.length - 1) + dimensions.margin.left}
+                  y1={dimensions.margin.top}
+                  x2={scales.xScale(stockData.length - 1) + dimensions.margin.left}
+                  y2={dimensions.height - dimensions.margin.bottom}
+                  stroke="#00FFFF"
                   strokeWidth="2"
-                  strokeDasharray="5,5"
-                  opacity="0.7"
+                  strokeDasharray="10,5"
+                  opacity="0.5"
+                />
+                <rect
+                  x={scales.xScale(stockData.length - 1) + dimensions.margin.left}
+                  y={dimensions.margin.top}
+                  width={dimensions.width - dimensions.margin.left - dimensions.margin.right - (scales.xScale(stockData.length - 1))}
+                  height={dimensions.height - dimensions.margin.top - dimensions.margin.bottom}
+                  fill="rgba(0, 255, 255, 0.05)"
+                  pointerEvents="none"
                 />
               </g>
             )}

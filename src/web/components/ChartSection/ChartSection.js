@@ -98,21 +98,24 @@ const ChartSection = React.memo(function ChartSection({
     console.log("last feedback processed:", lastFeedbackRef.current);
     
     // Only start animation if user has made a selection (feedback is set)
-    if (!feedback) {
-      console.log("No feedback yet - waiting for user selection");
+    // OR if we have afterData and want to show it after selection
+    if (!feedback && !afterData) {
+      console.log("No feedback yet and no afterData - waiting for user selection");
       lastFeedbackRef.current = null; // Reset when feedback is cleared
       return;
     }
     
+    // If we have feedback, trigger animation even if afterData loads later
     // Prevent duplicate animations for the same feedback state
-    if (lastFeedbackRef.current === feedback) {
-      console.log("Already processed this feedback state, skipping animation");
+    const animationKey = `${feedback || 'none'}-${!!afterData}`;
+    if (lastFeedbackRef.current === animationKey) {
+      console.log("Already processed this animation state, skipping");
       return;
     }
     
-    // Mark this feedback as processed
-    lastFeedbackRef.current = feedback;
-    console.log("Processing new feedback state:", feedback);
+    // Mark this animation state as processed
+    lastFeedbackRef.current = animationKey;
+    console.log("Processing animation state:", animationKey);
     
     // Clear any existing timers
     if (delayTimerRef.current) {
@@ -124,62 +127,10 @@ const ChartSection = React.memo(function ChartSection({
       debugIntervalRef.current = null;
     }
 
-    // Reset animation states when afterData is removed
-    if (!afterData) {
-      console.log("No afterData - starting animation sequence without after data");
-      setShowAfterAnimation(false);
-      setProgressPercentage(0);
-      setZoomPercentage(0);
-      setCompletionDelay(false);
-      setAfterAnimationComplete(false);
-      
-      // Start animation sequence even without after data to maintain timing and button disabling
-      if (!animationInProgress) {
-        setAnimationInProgress(true);
-        
-        // Run a simplified animation sequence for no after data
-        const runNoAfterDataSequence = async () => {
-          try {
-            // Initial 1.5-second delay before any animation starts
-            // This gives the user time to see the correct answer feedback
-            await new Promise(resolve => {
-              console.log("Initial 1.5-second delay started (no after data)");
-              setTimeout(() => {
-                console.log("Initial delay completed (no after data)");
-                resolve();
-              }, 1500); // 1.5-second initial delay
-            });
-            
-            // Set completion state
-            setAfterAnimationComplete(true);
-            
-            // 5-second observation delay (same as with after data)
-            console.log("Starting 5-second observation delay (no after data)");
-            setCompletionDelay(true);
-            
-            await new Promise(resolve => {
-              setTimeout(() => {
-                console.log("Observation delay completed (no after data)");
-                setCompletionDelay(false);
-                resolve();
-              }, 5000); // 5-second delay
-            });
-            
-            // Call the completion callback
-            if (onAfterEffectComplete) {
-              console.log("Calling onAfterEffectComplete (no after data)");
-              onAfterEffectComplete();
-            }
-            
-            setAnimationInProgress(false);
-          } catch (error) {
-            console.error("No after data animation sequence error:", error);
-            setAnimationInProgress(false);
-          }
-        };
-        
-        runNoAfterDataSequence();
-      }
+    // If we have feedback, always trigger animation
+    // Animation will work whether we have afterData or not
+    if (!feedback) {
+      console.log("No feedback - waiting for user selection");
       return;
     }
 
@@ -189,7 +140,7 @@ const ChartSection = React.memo(function ChartSection({
       return;
     }
 
-    console.log("Animation sequence starting...");
+    console.log("Animation sequence starting...", { hasAfterData: !!afterData });
     setAnimationInProgress(true);
     
     // Animation sequence with proper timing
@@ -205,61 +156,74 @@ const ChartSection = React.memo(function ChartSection({
           }, 1500); // 1.5-second initial delay
         });
         
-        // Step 1: Zoom animation
-        await new Promise(resolve => {
-          let startTime = performance.now();
-          const zoomDuration = 1500; // 1.5 seconds
-          
-          const animateZoom = (timestamp) => {
-            const elapsed = timestamp - startTime;
-            const progress = Math.min(elapsed / zoomDuration, 1);
-            const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+        // Only run zoom and reveal animations if we have afterData
+        if (afterData && Array.isArray(afterData) && afterData.length > 0) {
+          // Step 1: Zoom animation
+          await new Promise(resolve => {
+            let startTime = performance.now();
+            const zoomDuration = 1500; // 1.5 seconds
             
-            setZoomPercentage(easedProgress * 100);
+            const animateZoom = (timestamp) => {
+              const elapsed = timestamp - startTime;
+              const progress = Math.min(elapsed / zoomDuration, 1);
+              const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+              
+              setZoomPercentage(easedProgress * 100);
+              
+              if (progress < 1) {
+                requestAnimationFrame(animateZoom);
+              } else {
+                setZoomPercentage(100);
+                resolve();
+              }
+            };
             
-            if (progress < 1) {
-              requestAnimationFrame(animateZoom);
-            } else {
-              setZoomPercentage(100);
-              resolve();
-            }
-          };
+            requestAnimationFrame(animateZoom);
+          });
           
-          requestAnimationFrame(animateZoom);
-        });
-        
-        console.log("Zoom animation completed");
-        
-        // Step 2: Reveal animation
-        setShowAfterAnimation(true);
-        await new Promise(resolve => {
-          let startTime = performance.now();
-          const revealDuration = 1800; // 1.8 seconds
+          console.log("Zoom animation completed");
           
-          const animateReveal = (timestamp) => {
-            const elapsed = timestamp - startTime;
-            const progress = Math.min(elapsed / revealDuration, 1);
-            const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+          // Step 2: Reveal animation
+          setShowAfterAnimation(true);
+          await new Promise(resolve => {
+            let startTime = performance.now();
+            const revealDuration = 1800; // 1.8 seconds
             
-            setProgressPercentage(easedProgress * 100);
+            const animateReveal = (timestamp) => {
+              const elapsed = timestamp - startTime;
+              const progress = Math.min(elapsed / revealDuration, 1);
+              const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+              
+              setProgressPercentage(easedProgress * 100);
+              
+              if (progress < 1) {
+                requestAnimationFrame(animateReveal);
+              } else {
+                setProgressPercentage(100);
+                setAfterAnimationComplete(true);
+                resolve();
+              }
+            };
             
-            if (progress < 1) {
-              requestAnimationFrame(animateReveal);
-            } else {
-              setProgressPercentage(100);
-              setAfterAnimationComplete(true);
-              resolve();
-            }
-          };
+            requestAnimationFrame(animateReveal);
+          });
           
-          requestAnimationFrame(animateReveal);
-        });
+          console.log("Reveal animation completed");
+        } else {
+          // No after data - just mark as complete after delay
+          console.log("No afterData to animate - skipping zoom/reveal");
+          setShowAfterAnimation(false);
+          setProgressPercentage(0);
+          setZoomPercentage(0);
+          await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for consistency
+          setAfterAnimationComplete(true);
+        }
         
-        console.log("Reveal animation completed");
-        
-        // Set the visual state to complete first
-        setProgressPercentage(100);
-        setAfterAnimationComplete(true);
+        // Set the visual state to complete
+        if (afterData && Array.isArray(afterData) && afterData.length > 0) {
+          setProgressPercentage(100);
+          setAfterAnimationComplete(true);
+        }
         
         // Ensure all visual updates have been applied before starting the delay timer
         // This forces the browser to complete all rendering before we start counting the 5 seconds
@@ -411,12 +375,12 @@ const ChartSection = React.memo(function ChartSection({
               </h2>
             </div>
           </div>
-          <div className="w-full relative aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300">
+          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ height: '100%', minHeight: '500px', maxHeight: '800px' }}>
             {/* D Label - positioned in the top left corner */}
             <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-br-md text-xs sm:text-sm">
               D
             </div>
-            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`}>
+            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               <StockChart 
                 data={orderedFiles[0].data} 
@@ -430,27 +394,29 @@ const ChartSection = React.memo(function ChartSection({
                 onChartClick={onChartClick}
                 userSelection={userSelection}
                 targetPoint={targetPoint}
-                disabled={disabled}
+                disabled={disabled || score !== null}
               />
-              {/* Magnifying glass tool - simplified integration */}
+              {/* Magnifying glass tool - properly integrated */}
               {onChartClick && !disabled && score === null && (
                 <ChartMagnifier
                   onSelection={(syntheticEvent) => {
-                    // Trigger chart click directly using the SVG element
-                    const chartContainer = chartRef.current;
-                    if (chartContainer) {
-                      const svgElement = chartContainer.querySelector('svg');
-                      if (svgElement && svgElement.onclick) {
-                        svgElement.onclick(syntheticEvent);
-                      } else {
-                        // Fallback: dispatch a click event
+                    // The syntheticEvent has viewport coordinates (clientX/clientY)
+                    // Create a proper MouseEvent that the StockChart can handle
+                    if (chartRef.current) {
+                      const svgElement = chartRef.current.querySelector('svg');
+                      if (svgElement) {
+                        // Create and dispatch a proper click event at the viewport coordinates
+                        // The StockChart's handleChartClick will use getBoundingClientRect to convert
                         const clickEvent = new MouseEvent('click', {
                           clientX: syntheticEvent.clientX,
                           clientY: syntheticEvent.clientY,
                           bubbles: true,
                           cancelable: true,
+                          view: window,
+                          button: 0,
+                          buttons: 1,
                         });
-                        svgElement?.dispatchEvent(clickEvent);
+                        svgElement.dispatchEvent(clickEvent);
                       }
                     }
                   }}

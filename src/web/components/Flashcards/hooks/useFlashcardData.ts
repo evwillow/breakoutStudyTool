@@ -237,8 +237,30 @@ export function useFlashcardData({
           }
         };
         
-        // Load first quick batch to get UI ready ASAP
-        const quickBatch = files.slice(0, QUICK_BATCH_SIZE);
+        // Prioritize files: Essential files (D/H/M) first, then after.json
+        const essentialFileNames = ['D.json', 'H.json', 'M.json'];
+        const prioritizedFiles = [
+          // First: Essential files
+          ...files.filter(f => {
+            const fileName = f.fileName.split('/').pop() || f.fileName;
+            return essentialFileNames.includes(fileName);
+          }),
+          // Second: after.json files for the same stocks
+          ...files.filter(f => {
+            const fileName = f.fileName.toLowerCase();
+            return fileName.includes('after') && fileName.endsWith('.json');
+          }),
+          // Then: Everything else
+          ...files.filter(f => {
+            const fileName = f.fileName.split('/').pop() || f.fileName;
+            const lowerFileName = fileName.toLowerCase();
+            return !essentialFileNames.includes(fileName) && 
+                   !(lowerFileName.includes('after') && lowerFileName.endsWith('.json'));
+          })
+        ];
+        
+        // Load first quick batch to get UI ready ASAP (now with prioritization)
+        const quickBatch = prioritizedFiles.slice(0, QUICK_BATCH_SIZE * 2); // Load more to include after.json
         const quickPromises = quickBatch.map(async (file: any) => {
           try {
             const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;

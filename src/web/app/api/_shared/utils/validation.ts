@@ -201,7 +201,12 @@ export const commonSchemas = {
     target_x: { type: 'number' as const },
     target_y: { type: 'number' as const },
     distance: { type: 'number' as const, min: 0 },
-    score: { type: 'number' as const, min: 0, max: 100 }
+    score: { type: 'number' as const, min: 0, max: 100 },
+    // Price-focused accuracy fields (primary metric for stock trading)
+    price_accuracy: { type: 'number' as const, min: 0, max: 100 },
+    time_position: { type: 'number' as const, min: 0 },
+    price_error: { type: 'number' as const, min: 0, max: 100 },
+    time_error: { type: 'number' as const, min: 0, max: 100 }
   },
   
   signup: {

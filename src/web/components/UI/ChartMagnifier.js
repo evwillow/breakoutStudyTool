@@ -36,18 +36,18 @@ const ChartMagnifier = ({
     };
 
     const handleMouseDown = (e) => {
-      e.preventDefault();
+      // Don't prevent default - let the click propagate to the chart
       const rect = chartElement.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
       
       setIsActive(false);
       
-      // Create synthetic click event for the chart
+      // Create synthetic click event with proper viewport coordinates
       if (onSelection) {
         const syntheticEvent = {
-          clientX: rect.left + x,
-          clientY: rect.top + y,
+          clientX: e.clientX, // Use actual clientX from event (viewport coordinates)
+          clientY: e.clientY, // Use actual clientY from event (viewport coordinates)
           preventDefault: () => {},
           stopPropagation: () => {},
         };
@@ -71,18 +71,15 @@ const ChartMagnifier = ({
 
     const handleTouchEnd = (e) => {
       if (e.changedTouches.length === 0) return;
-      e.preventDefault();
       const touch = e.changedTouches[0];
-      const rect = chartElement.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
       
       setIsActive(false);
       
+      // Use actual touch coordinates (viewport coordinates)
       if (onSelection) {
         const syntheticEvent = {
-          clientX: rect.left + x,
-          clientY: rect.top + y,
+          clientX: touch.clientX, // Use actual clientX from touch (viewport coordinates)
+          clientY: touch.clientY, // Use actual clientY from touch (viewport coordinates)
           preventDefault: () => {},
           stopPropagation: () => {},
         };
@@ -105,37 +102,9 @@ const ChartMagnifier = ({
 
   if (!enabled) return null;
 
-  if (!chartElement) {
-    // Return button only if no chart element yet
-    return (
-      <button
-        onClick={() => setIsActive(!isActive)}
-        className={`absolute top-2 right-2 z-50 p-2 rounded-full bg-turquoise-600 hover:bg-turquoise-700 text-white shadow-lg transition-all duration-200 ${
-          isActive ? 'ring-2 ring-turquoise-400 ring-offset-2 ring-offset-black' : ''
-        }`}
-        title="Magnifying Glass Tool"
-        aria-label="Toggle magnifying glass"
-      >
-        <svg 
-          className="w-5 h-5 sm:w-6 sm:h-6" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            strokeWidth={2} 
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" 
-          />
-        </svg>
-      </button>
-    );
-  }
-
-  const rect = chartElement.getBoundingClientRect();
-  const magnifierX = rect.left + position.x;
-  const magnifierY = rect.top + position.y;
+  // Calculate magnifier position relative to viewport
+  const magnifierX = chartElement ? chartElement.getBoundingClientRect().left + position.x : 0;
+  const magnifierY = chartElement ? chartElement.getBoundingClientRect().top + position.y : 0;
 
   return (
     <>

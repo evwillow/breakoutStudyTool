@@ -86,10 +86,26 @@ async function logMatch(req: NextRequest) {
   }
   if (validatedData.score !== undefined) {
     insertData.score = validatedData.score;
-    // Auto-calculate correct from score if not provided
+    // Auto-calculate correct from price accuracy or score if not provided
     if (validatedData.correct === undefined) {
-      insertData.correct = validatedData.score >= 70;
+      // Use price_accuracy if available (primary metric), otherwise use score
+      const primaryAccuracy = validatedData.price_accuracy ?? validatedData.score;
+      insertData.correct = primaryAccuracy >= 70;
     }
+  }
+  
+  // Add price-focused accuracy fields (primary metric for stock trading)
+  if (validatedData.price_accuracy !== undefined) {
+    insertData.price_accuracy = validatedData.price_accuracy;
+  }
+  if (validatedData.time_position !== undefined) {
+    insertData.time_position = validatedData.time_position;
+  }
+  if (validatedData.price_error !== undefined) {
+    insertData.price_error = validatedData.price_error;
+  }
+  if (validatedData.time_error !== undefined) {
+    insertData.time_error = validatedData.time_error;
   }
 
   const { data, error } = await supabase
