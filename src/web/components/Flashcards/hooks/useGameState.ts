@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { GAME_CONFIG } from '../constants';
-import { calculateDistance, calculateDistanceScore } from '../utils/coordinateUtils';
+import { calculateDistance, calculateDistanceScore, ChartCoordinate } from '../utils/coordinateUtils';
 
 export interface GameMetrics {
   currentMatchIndex: number;
@@ -155,7 +155,8 @@ export function useGameState({
     coordinates: ChartCoordinate,
     onResult?: (distance: number, score: number) => void,
     target?: ChartCoordinate,
-    maxDistance?: number
+    priceRange?: { min: number; max: number },
+    timeRange?: { min: number; max: number }
   ) => {
     if (disableButtons && !showTimeUpOverlay) return;
     
@@ -170,10 +171,10 @@ export function useGameState({
     // Set the user's selection
     setUserSelection(coordinates);
     
-    // Calculate distance and score if target is provided
-    if (target && maxDistance) {
+    // Calculate distance and score if target and ranges are provided
+    if (target && priceRange && timeRange) {
       const calculatedDistance = calculateDistance(coordinates, target);
-      const calculatedScore = calculateDistanceScore(calculatedDistance, maxDistance);
+      const calculatedScore = calculateDistanceScore(coordinates, target, priceRange, timeRange);
       
       setDistance(calculatedDistance);
       setScore(calculatedScore);

@@ -20,7 +20,6 @@ import { useSession } from "next-auth/react";
 // Components
 import { 
   ChartSection, 
-  ActionButtonsRow, 
   FolderSection, 
   RoundHistory, 
   DateFolderBrowser, 
@@ -40,7 +39,6 @@ import { GAME_CONFIG, UI_CONFIG, TIMER_CONFIG } from "./constants";
 
 // Type the imported JS components
 const TypedChartSection = ChartSection as React.ComponentType<any>;
-const TypedActionButtonsRow = ActionButtonsRow as React.ComponentType<any>;
 const TypedFolderSection = FolderSection as React.ComponentType<any>;
 
 export default function FlashcardsContainer() {
@@ -474,16 +472,21 @@ export default function FlashcardsContainer() {
     console.log('=== END ROUND SELECTION ===');
   }, [gameState, timer, timerDuration]);
 
-  // Handle next card
+  // Handle next card with smooth transition
   const handleNextCard = useCallback(() => {
-    // Reset game state first
+    // Pause timer first
+    timer.pause();
+    
+    // Reset game state - this clears all selection state
     gameState.nextCard();
+    
     // Reset and start timer for the new card
     timer.reset(timerDuration);
-    // Small delay to ensure reset completes before starting
+    
+    // Small delay to ensure state resets before starting new card
     setTimeout(() => {
       timer.start();
-    }, 50);
+    }, 200);
   }, [gameState, timer, timerDuration]);
 
   // Log match to database
@@ -592,13 +595,16 @@ export default function FlashcardsContainer() {
     timer.pause();
   }, [gameState, timer, logMatch]);
 
-  // Calculate target point from afterData (peak close price)
-  const targetPoint = useMemo(() => {
+  // Calculate target point and ranges from data
+  const { targetPoint, priceRange, timeRange } = useMemo(() => {
     if (!processedData.afterJsonData || !Array.isArray(processedData.afterJsonData) || processedData.afterJsonData.length === 0) {
-      return null;
+      return { targetPoint: null, priceRange: null, timeRange: null };
     }
     
-    // Find peak close price
+    const mainData = processedData.orderedFiles[0]?.data || [];
+    const mainDataLength = mainData.length;
+    
+    // Find peak close price in after data
     let maxClose = -Infinity;
     let maxIndex = -1;
     let maxPrice = 0;
@@ -612,30 +618,50 @@ export default function FlashcardsContainer() {
       }
     });
     
-    if (maxIndex === -1) return null;
+    if (maxIndex === -1) return { targetPoint: null, priceRange: null, timeRange: null };
     
-    // Calculate approximate time index (main data length + index in after data)
-    const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
+    // Calculate price range from all data (main + after)
+    const allPrices: number[] = [];
+    mainData.forEach((point: any) => {
+      const close = point.close || point.Close || point.CLOSE;
+      if (close && typeof close === 'number') allPrices.push(close);
+    });
+    processedData.afterJsonData.forEach((point: any) => {
+      const close = point.close || point.Close || point.CLOSE;
+      if (close && typeof close === 'number') allPrices.push(close);
+    });
+    
+    const priceMin = Math.min(...allPrices);
+    const priceMax = Math.max(...allPrices);
+    const pricePadding = (priceMax - priceMin) * 0.2; // 20% padding for extended selection
+    
+    // Calculate time range (extend beyond current data to allow future predictions)
+    const totalTimePoints = mainDataLength + processedData.afterJsonData.length;
+    const timeMin = 0;
+    const timeMax = totalTimePoints * 1.5; // Extend 50% beyond for future predictions
     const timeIndex = mainDataLength + maxIndex;
     
     return {
-      x: timeIndex,
-      y: maxPrice,
-      chartX: 0, // Will be calculated in chart component
-      chartY: 0, // Will be calculated in chart component
+      targetPoint: {
+        x: timeIndex,
+        y: maxPrice,
+        chartX: 0,
+        chartY: 0,
+      },
+      priceRange: {
+        min: priceMin - pricePadding,
+        max: priceMax + pricePadding,
+      },
+      timeRange: {
+        min: timeMin,
+        max: timeMax,
+      }
     };
   }, [processedData.afterJsonData, processedData.orderedFiles]);
 
-  // Calculate max distance for scoring (diagonal of chart)
-  const maxDistance = useMemo(() => {
-    // Approximate max distance as diagonal
-    // This will be refined based on actual chart dimensions
-    return Math.sqrt(Math.pow(100, 2) + Math.pow(100, 2)); // Rough estimate
-  }, []);
-
   // Handle chart coordinate selection
   const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
-    if (!targetPoint || !maxDistance) return;
+    if (!targetPoint || !priceRange || !timeRange) return;
     
     gameState.handleCoordinateSelection(
       coordinates,
@@ -654,10 +680,11 @@ export default function FlashcardsContainer() {
         });
       },
       targetPoint,
-      maxDistance
+      priceRange,
+      timeRange
     );
     timer.pause();
-  }, [gameState, timer, targetPoint, maxDistance, currentFlashcard]);
+  }, [gameState, timer, targetPoint, priceRange, timeRange, currentFlashcard]);
 
   // Log match with coordinates
   const logMatchWithCoordinates = useCallback(async (data: {
@@ -747,17 +774,12 @@ export default function FlashcardsContainer() {
     console.log('=== END ROUND ID DEBUG ===');
   }, [currentRoundId]);
 
-  // Handle after effect completion - advance to next card
-  const handleAfterEffectComplete = useCallback(async () => {
-    console.log("After effect completed, advancing to next card...");
-    
-    // Small delay to ensure UI has updated properly
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Advance to next card (nextCard() will clear the after chart data automatically)
-    console.log("Advancing to next flashcard after after effect completion");
-    handleNextCard();
-  }, [handleNextCard]);
+  // Handle after effect completion - show after data but don't auto-advance
+  // Auto-advance is now handled by score overlay after user selection
+  const handleAfterEffectComplete = useCallback(() => {
+    // After effect complete - just mark it as done
+    // User will see their selection result and score overlay will handle next card
+  }, []);
 
   // Show landing page for unauthenticated users
   if (status !== "authenticated" || !session) {
@@ -817,18 +839,12 @@ export default function FlashcardsContainer() {
       );
     }
     
+    // Don't pass debugInfo unless there's an actual error (which would have been handled above)
+    // This prevents showing "No error message available" during normal no-data states
     return (
       <LoadingStates.NoDataState
         onSelectDataset={() => {
           setSelectedFolder(null);
-        }}
-        debugInfo={{
-          flashcardsLength: flashcards.length,
-          hasCurrentFlashcard: !!currentFlashcard,
-          orderedFilesLength: processedData.orderedFiles.length,
-          selectedFolder,
-          loading,
-          error
         }}
       />
     );
@@ -839,8 +855,8 @@ export default function FlashcardsContainer() {
   // Main game interface
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
-      <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-6">
-        <div className="w-full max-w-[1000px] bg-black rounded-3xl overflow-hidden border border-white shadow-2xl">
+      <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-4 md:p-6">
+        <div className="w-full max-w-[1000px] bg-black rounded-2xl sm:rounded-3xl overflow-hidden border border-white shadow-2xl transition-all duration-300">
           
           {/* Chart Section */}
           <TypedChartSection
@@ -848,32 +864,19 @@ export default function FlashcardsContainer() {
             afterData={processedData.afterJsonData}
             timer={timer.displayValue}
             pointsTextArray={processedData.pointsTextArray}
-            actionButtons={GAME_CONFIG.ACTION_BUTTONS}
-            selectedButtonIndex={gameState.selectedButtonIndex}
             feedback={gameState.feedback}
-            onButtonClick={handleSelection}
             disabled={gameState.disableButtons}
             isTimeUp={gameState.showTimeUpOverlay}
             onAfterEffectComplete={handleAfterEffectComplete}
-            // New coordinate-based props
+            // Coordinate-based selection props
             onChartClick={handleChartClick}
             userSelection={gameState.userSelection}
+            targetPoint={targetPoint}
             distance={gameState.distance}
             score={gameState.score}
+            onNextCard={handleNextCard}
           />
 
-          {/* Action Buttons Row */}
-          <div className="pb-2 sm:pb-8 relative">
-            <TypedActionButtonsRow
-              actionButtons={GAME_CONFIG.ACTION_BUTTONS}
-              selectedButtonIndex={gameState.selectedButtonIndex}
-              correctAnswerButton={gameState.correctAnswerButton}
-              feedback={gameState.feedback}
-              onButtonClick={handleSelection}
-              disabled={gameState.showTimeUpOverlay ? false : gameState.disableButtons}
-              isTimeUp={gameState.showTimeUpOverlay}
-            />
-          </div>
 
           {/* Folder Section */}
           <TypedFolderSection

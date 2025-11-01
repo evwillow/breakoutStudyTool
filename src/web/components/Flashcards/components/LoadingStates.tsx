@@ -154,20 +154,27 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
 
 // Enhanced no data state
 export const NoDataState: React.FC<NoDataStateProps> = ({ onSelectDataset, debugInfo }) => {
-  // If we have debug info, show only the error details
-  if (debugInfo) {
+  // Only show error details if there's an actual error
+  const hasError = debugInfo?.error && debugInfo.error.trim().length > 0;
+  
+  // If we have debug info with an actual error, show error details
+  if (hasError) {
     return (
       <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
         <h2 className="text-2xl font-semibold text-white">Error Details</h2>
         
         <div className="bg-red-900 rounded-lg p-6 w-full">
           <div className="text-sm text-red-200 space-y-2">
-            <p><strong>Error:</strong> {debugInfo.error || 'No error message available'}</p>
-            <p><strong>Flashcards:</strong> {debugInfo.flashcardsLength}</p>
-            <p><strong>Current Flashcard:</strong> {debugInfo.hasCurrentFlashcard ? 'Yes' : 'No'}</p>
-            <p><strong>Ordered Files:</strong> {debugInfo.orderedFilesLength}</p>
-            <p><strong>Selected Folder:</strong> {debugInfo.selectedFolder || 'None'}</p>
-            <p><strong>Loading:</strong> {debugInfo.loading ? 'Yes' : 'No'}</p>
+            <p><strong>Error:</strong> {debugInfo.error}</p>
+            {debugInfo && (
+              <>
+                <p><strong>Flashcards:</strong> {debugInfo.flashcardsLength}</p>
+                <p><strong>Current Flashcard:</strong> {debugInfo.hasCurrentFlashcard ? 'Yes' : 'No'}</p>
+                <p><strong>Ordered Files:</strong> {debugInfo.orderedFilesLength}</p>
+                <p><strong>Selected Folder:</strong> {debugInfo.selectedFolder || 'None'}</p>
+                <p><strong>Loading:</strong> {debugInfo.loading ? 'Yes' : 'No'}</p>
+              </>
+            )}
           </div>
         </div>
       </div>

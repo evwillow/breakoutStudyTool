@@ -108,19 +108,33 @@ export function calculateDistance(
 }
 
 /**
- * Calculate distance-based score (0-100)
- * Lower distance = higher score
+ * Calculate distance-based score (0-100) using normalized distance
+ * Uses percentage error approach for more logical scoring
  */
 export function calculateDistanceScore(
-  distance: number,
-  maxDistance: number
+  userPoint: ChartCoordinate,
+  targetPoint: ChartCoordinate,
+  priceRange: { min: number; max: number },
+  timeRange: { min: number; max: number }
 ): number {
-  if (maxDistance === 0) return 100;
+  // Calculate normalized differences (0-1 range)
+  const priceDiff = Math.abs(targetPoint.y - userPoint.y);
+  const timeDiff = Math.abs(targetPoint.x - userPoint.x);
   
-  // Score decreases linearly with distance
-  // Perfect (distance 0) = 100 points
-  // Max distance = 0 points
-  const score = Math.max(0, 100 * (1 - distance / maxDistance));
+  const priceRangeSize = priceRange.max - priceRange.min;
+  const timeRangeSize = timeRange.max - timeRange.min;
+  
+  // Normalize differences to percentage of range
+  const priceError = priceRangeSize > 0 ? priceDiff / priceRangeSize : 0;
+  const timeError = timeRangeSize > 0 ? timeDiff / timeRangeSize : 0;
+  
+  // Weight price accuracy more heavily (70% price, 30% time)
+  // Since price prediction is more important than exact timing
+  const weightedError = priceError * 0.7 + timeError * 0.3;
+  
+  // Convert error to score (0% error = 100 points, 100% error = 0 points)
+  // Use exponential decay for more forgiving scoring near perfect
+  const score = Math.max(0, 100 * (1 - weightedError));
   
   return Math.round(score * 100) / 100; // Round to 2 decimal places
 }
@@ -144,17 +158,16 @@ export function formatDistance(distance: number): string {
 export function getAccuracyTier(score: number): {
   tier: string;
   color: string;
-  emoji: string;
 } {
   if (score >= 90) {
-    return { tier: 'Excellent', color: 'text-green-500', emoji: '🎯' };
+    return { tier: 'Excellent', color: 'text-green-500' };
   } else if (score >= 70) {
-    return { tier: 'Great', color: 'text-green-400', emoji: '👍' };
+    return { tier: 'Great', color: 'text-green-400' };
   } else if (score >= 50) {
-    return { tier: 'Good', color: 'text-yellow-400', emoji: '😊' };
+    return { tier: 'Good', color: 'text-yellow-400' };
   } else if (score >= 30) {
-    return { tier: 'Fair', color: 'text-orange-400', emoji: '🤔' };
+    return { tier: 'Fair', color: 'text-orange-400' };
   } else {
-    return { tier: 'Needs Work', color: 'text-red-400', emoji: '📈' };
+    return { tier: 'Needs Work', color: 'text-red-400' };
   }
 }

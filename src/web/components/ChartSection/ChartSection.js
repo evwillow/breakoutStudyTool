@@ -16,19 +16,19 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import StockChart from "../StockChart";
 import { AuthModal } from "../Auth";
-import { ActionButtonsRow } from "../UI";
-import DistanceFeedback from "../UI/DistanceFeedback";
-import { calculateTargetPoint, calculateDistance, calculateDistanceScore, getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
+import ChartScoreOverlay from "../UI/ChartScoreOverlay";
+import ChartMagnifier from "../UI/ChartMagnifier";
+import { getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
 
 const ChartSection = React.memo(function ChartSection({
   orderedFiles,
   afterData,
   timer,
   pointsTextArray,
-  actionButtons,
-  selectedButtonIndex, // Keep for backward compatibility but may not be used
+  actionButtons, // Deprecated - kept for compatibility
+  selectedButtonIndex, // Deprecated - kept for compatibility
   feedback,
-  onButtonClick, // Keep for backward compatibility
+  onButtonClick, // Deprecated - kept for compatibility
   disabled,
   isTimeUp,
   onAfterEffectComplete,
@@ -37,6 +37,8 @@ const ChartSection = React.memo(function ChartSection({
   userSelection = null, // { x, y, chartX, chartY }
   distance = null,
   score = null,
+  targetPoint = null, // Target point for visualization
+  onNextCard = null, // Callback to move to next card
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -50,6 +52,7 @@ const ChartSection = React.memo(function ChartSection({
   const delayStartTimeRef = useRef(null);
   const debugIntervalRef = useRef(null);
   const lastFeedbackRef = useRef(null);
+  const chartRef = useRef(null);
 
   // Check if device is mobile
   useEffect(() => {
@@ -66,6 +69,21 @@ const ChartSection = React.memo(function ChartSection({
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+
+  // Find chart container element for magnifier
+  useEffect(() => {
+    const findChartContainer = () => {
+      const container = document.querySelector('.stock-chart-container');
+      if (container) {
+        chartRef.current = container;
+      }
+    };
+    
+    // Try to find it after a short delay to ensure chart is rendered
+    const timeout = setTimeout(findChartContainer, 100);
+    
+    return () => clearTimeout(timeout);
+  }, [orderedFiles]);
 
   // Handle zoom animation and data reveal
   useEffect(() => {
@@ -378,38 +396,27 @@ const ChartSection = React.memo(function ChartSection({
 
   return (
     <>
-      {/* Authentication and timer controls for mobile view */}
-      <div className="md:hidden w-full flex justify-between items-center px-3 py-2 bg-transparent shadow-sm">
-        <div className="flex items-center">
-          <svg className="w-5 h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <h2 className={`text-2xl font-bold ${getTimerColor()} bg-black px-3 py-1 rounded-md`}>
-            {timer}s
-          </h2>
-        </div>
-      </div>
-      
       {/* Main content with Daily and Hourly charts */}
       <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-3 md:p-4">
-          <div className="w-full text-center hidden md:block mb-2">
+        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-2 sm:p-3 md:p-4">
+          {/* Timer - visible on mobile too */}
+          <div className="w-full text-center mb-2 sm:mb-3">
             <div className="flex items-center justify-center">
-              <svg className="w-5 h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
-              <h2 className={`text-xl font-bold ${getTimerColor()} bg-black px-3 py-1 rounded-md`}>
-                Timer: {timer}s
+              <h2 className={`text-base sm:text-lg md:text-xl font-bold ${getTimerColor()} bg-black px-2 sm:px-3 py-1 rounded-md`}>
+                {timer}s
               </h2>
             </div>
           </div>
-          <div className="w-full mt-1 sm:mt-2 relative aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
+          <div className="w-full relative aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300">
             {/* D Label - positioned in the top left corner */}
-            <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-2 py-1 rounded-br-md">
+            <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-br-md text-xs sm:text-sm">
               D
             </div>
-            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
+            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               <StockChart 
                 data={orderedFiles[0].data} 
@@ -422,30 +429,55 @@ const ChartSection = React.memo(function ChartSection({
                 showSMA={true}
                 onChartClick={onChartClick}
                 userSelection={userSelection}
-                targetPoint={null} // Will be calculated in parent
+                targetPoint={targetPoint}
                 disabled={disabled}
               />
-            </div>
-            {/* Distance feedback display */}
-            {score !== null && distance !== null && (
-              <div className="mt-4 w-full">
-                <DistanceFeedback 
-                  distance={distance}
+              {/* Magnifying glass tool - simplified integration */}
+              {onChartClick && !disabled && score === null && (
+                <ChartMagnifier
+                  onSelection={(syntheticEvent) => {
+                    // Trigger chart click directly using the SVG element
+                    const chartContainer = chartRef.current;
+                    if (chartContainer) {
+                      const svgElement = chartContainer.querySelector('svg');
+                      if (svgElement && svgElement.onclick) {
+                        svgElement.onclick(syntheticEvent);
+                      } else {
+                        // Fallback: dispatch a click event
+                        const clickEvent = new MouseEvent('click', {
+                          clientX: syntheticEvent.clientX,
+                          clientY: syntheticEvent.clientY,
+                          bubbles: true,
+                          cancelable: true,
+                        });
+                        svgElement?.dispatchEvent(clickEvent);
+                      }
+                    }
+                  }}
+                  enabled={!disabled && score === null}
+                  chartElement={chartRef.current?.querySelector('svg') || null}
+                />
+              )}
+              {/* Score overlay - appears after selection */}
+              {score !== null && feedback && (
+                <ChartScoreOverlay 
                   score={score}
                   accuracyTier={getAccuracyTier(score)}
+                  show={true}
+                  onNext={onNextCard}
                 />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Right Column: H Chart + Points Grid */}
-        <div className="w-full lg:w-2/5 flex flex-col gap-4">
+        {/* Right Column: H Chart + Points Grid - Hidden on mobile for cleaner UI */}
+        <div className="hidden lg:flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4">
           {/* H Chart */}
-          <div className="w-full flex flex-col items-center bg-transparent rounded-lg shadow-md p-3">
+          <div className="w-full flex flex-col items-center bg-transparent rounded-lg shadow-md p-2 sm:p-3">
             <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
               {/* H Label - positioned in the top left corner */}
-              <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md">
+              <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md text-xs sm:text-sm">
                 H
               </div>
               <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
@@ -460,12 +492,12 @@ const ChartSection = React.memo(function ChartSection({
             </div>
           </div>
           
-          {/* Points Grid - Responsive across all screen sizes */}
-          <div className={`grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 px-1 sm:px-0 bg-transparent rounded-lg shadow-md p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+          {/* Points Grid - Compact on mobile, full grid on desktop */}
+          <div className={`grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
             {pointsTextArray.map((text, index) => (
               <div
                 key={index}
-                className={`rounded-md shadow-sm p-2 text-center text-xs md:text-sm flex items-center justify-center min-h-[2rem] transition-all duration-200 ${
+                className={`rounded-md shadow-sm p-2 text-center text-xs sm:text-sm flex items-center justify-center min-h-[2.5rem] transition-all duration-200 ${
                   text ? "bg-turquoise-600 text-white hover:bg-turquoise-700" : "invisible"
                 }`}
               >

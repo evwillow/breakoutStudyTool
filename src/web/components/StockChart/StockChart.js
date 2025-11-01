@@ -652,9 +652,9 @@ const StockChart = React.memo(({
       combinedIndices = [...Array(stockData.length).keys()];
     }
 
-    // Add consistent padding
+    // Add consistent padding - extend more for clickable selection area
     const priceRange = currentMax - currentMin;
-    const pricePadding = priceRange * 0.05; // 5% padding
+    const pricePadding = priceRange * 0.2; // 20% padding to allow selecting beyond chart
 
     // Calculate volume range
     const volumeMax = Math.max(...stockData.map(d => d.volume));
@@ -669,6 +669,16 @@ const StockChart = React.memo(({
     const lastValidDataPoint = stockData[stockData.length - 1];
     const lastPrice = lastValidDataPoint?.close || lastValidDataPoint?.Close;
 
+    // Extend time indices to allow clicking beyond current data
+    const extendedIndices = [...combinedIndices];
+    if (onChartClick) {
+      // Extend indices 50% beyond for future predictions
+      const extensionCount = Math.floor(combinedIndices.length * 0.5);
+      for (let i = 0; i < extensionCount; i++) {
+        extendedIndices.push(combinedIndices[combinedIndices.length - 1] + i + 1);
+      }
+    }
+    
     return {
       priceScale: scaleLinear()
         .domain([currentMin - pricePadding, currentMax + pricePadding])
@@ -677,14 +687,15 @@ const StockChart = React.memo(({
         .domain([0, volumeMax + volumePadding])
         .range([volumeHeight, 0]),
       xScale: scalePoint()
-        .domain(combinedIndices)
+        .domain(extendedIndices)
         .range([0, dimensions.innerWidth])
         .padding(0.5),
       priceHeight,
       volumeHeight,
       useFullDomain: zoomPercentage > 0,
       lastPrice,
-      isZoomedOut: zoomPercentage > 0
+      isZoomedOut: zoomPercentage > 0,
+      extendedDomain: extendedIndices.length > combinedIndices.length
     };
   }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage]);
 
@@ -1202,26 +1213,38 @@ const StockChart = React.memo(({
     const chartX = svgPoint.x - dimensions.margin.left;
     const chartY = svgPoint.y - dimensions.margin.top;
     
-    // Convert to data coordinates
-    // For xScale (scalePoint), find closest index
+    // Allow clicking anywhere in the chart area, even beyond visible data
+    // For xScale (scalePoint), find closest index or extrapolate
     const domain = scales.xScale.domain();
-    let closestIndex = 0;
+    let selectedIndex = 0;
     let minDist = Infinity;
-    domain.forEach((index, i) => {
+    
+    // Check if click is within the domain
+    domain.forEach((index) => {
       const xPos = scales.xScale(index);
       const dist = Math.abs(chartX - xPos);
       if (dist < minDist) {
         minDist = dist;
-        closestIndex = index;
+        selectedIndex = index;
       }
     });
     
-    // Invert yScale to get price
-    const price = scales.priceScale.invert(chartY);
+    // If click is beyond the last data point, extrapolate
+    const lastDomainIndex = domain[domain.length - 1];
+    const lastXPos = scales.xScale(lastDomainIndex);
+    if (chartX > lastXPos) {
+      // Extrapolate: extend time index beyond data
+      const step = scales.xScale.step();
+      const stepsBeyond = Math.max(0, Math.round((chartX - lastXPos) / step));
+      selectedIndex = lastDomainIndex + stepsBeyond + 1;
+    }
+    
+    // Invert yScale to get price (supports clicking above/below visible range)
+    const price = Math.max(0, scales.priceScale.invert(chartY));
     
     // Call parent handler with coordinates
     onChartClick({
-      x: closestIndex,
+      x: selectedIndex,
       y: price,
       chartX: chartX,
       chartY: chartY
@@ -1306,6 +1329,7 @@ const StockChart = React.memo(({
         className={`w-full h-full ${onChartClick && !disabled ? 'cursor-crosshair' : ''}`}
         preserveAspectRatio="xMidYMid meet"
         onClick={handleChartClick}
+        style={{ display: 'block' }}
       >
         {/* Add CSS to ensure proper sizing */}
         <defs>
@@ -1618,37 +1642,35 @@ const StockChart = React.memo(({
               </g>
             )}
 
-            {/* Target point marker (correct answer) */}
-            {targetPoint && scales && (
+            {/* Target point marker (correct answer) - only show after user selection */}
+            {targetPoint && scales && userSelection && (
               <g>
                 <circle
-                  cx={targetPoint.x + dimensions.margin.left}
-                  cy={targetPoint.y + dimensions.margin.top}
-                  r="6"
+                  cx={scales.xScale(targetPoint.x) + dimensions.margin.left}
+                  cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                  r="8"
                   fill="#00FF00"
                   stroke="#FFFFFF"
                   strokeWidth="2"
                   opacity="0.9"
                 />
                 <circle
-                  cx={targetPoint.x + dimensions.margin.left}
-                  cy={targetPoint.y + dimensions.margin.top}
-                  r="3"
+                  cx={scales.xScale(targetPoint.x) + dimensions.margin.left}
+                  cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                  r="4"
                   fill="#FFFFFF"
                 />
                 {/* Line connecting user selection to target */}
-                {userSelection && (
-                  <line
-                    x1={scales.xScale(userSelection.x) + dimensions.margin.left}
-                    y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
-                    x2={targetPoint.x + dimensions.margin.left}
-                    y2={targetPoint.y + dimensions.margin.top}
-                    stroke="#FFD700"
-                    strokeWidth="2"
-                    strokeDasharray="5,5"
-                    opacity="0.7"
-                  />
-                )}
+                <line
+                  x1={scales.xScale(userSelection.x) + dimensions.margin.left}
+                  y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                  x2={scales.xScale(targetPoint.x) + dimensions.margin.left}
+                  y2={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                  stroke="#FFD700"
+                  strokeWidth="2"
+                  strokeDasharray="5,5"
+                  opacity="0.7"
+                />
               </g>
             )}
           </g>
