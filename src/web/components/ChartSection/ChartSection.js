@@ -376,8 +376,8 @@ const ChartSection = React.memo(function ChartSection({
             </div>
           </div>
           <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ height: '100%', minHeight: '500px', maxHeight: '800px' }}>
-            {/* D Label - positioned in the top left corner */}
-            <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-turquoise px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-br-md text-xs sm:text-sm">
+            {/* D Label - positioned in the top left, above magnifying glass */}
+            <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-turquoise px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-xs sm:text-sm shadow-lg">
               D
             </div>
             <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
@@ -437,18 +437,18 @@ const ChartSection = React.memo(function ChartSection({
           </div>
         </div>
 
-        {/* Right Column: H Chart + Points Grid - Hidden on mobile for cleaner UI */}
-        <div className="hidden lg:flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4">
+        {/* Right Column: H Chart + Points Grid - Now visible on mobile */}
+        <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4">
           {/* H Chart */}
           <div className="w-full flex flex-col items-center bg-transparent rounded-lg shadow-md p-2 sm:p-3">
-            <div className="relative w-full aspect-square rounded-xl overflow-hidden shadow-lg bg-black border border-white p-1">
-              {/* H Label - positioned in the top left corner */}
-              <div className="absolute top-0 left-0 text-white font-bold z-10 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-2 py-1 rounded-br-md text-xs sm:text-sm">
+            <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ height: '100%', minHeight: '400px', maxHeight: '600px' }}>
+              {/* H Label - positioned in the top left */}
+              <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-xs sm:text-sm shadow-lg">
                 H
               </div>
-              <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''}`}>
+              <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
                 <StockChart 
-                  data={orderedFiles[1].data}
+                  data={orderedFiles[1]?.data}
                   backgroundColor="black" 
                   showSMA={true} 
                   chartType="hourly"

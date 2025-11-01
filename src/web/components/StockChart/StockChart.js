@@ -478,10 +478,10 @@ const StockChart = React.memo(({
         setIsMobile(isMobileView);
         
         const margin = { 
-          top: isMobileView ? 10 : 15, 
+          top: 0, // No top margin - chart extends to top of container
           right: isMobileView ? 10 : 15, 
-          bottom: isMobileView ? 10 : 15, 
-          left: isMobileView ? 10 : 15 // Match all margins
+          bottom: 0, // No bottom margin - volume section extends to bottom of container
+          left: 0 // No left margin - chart extends to left edge of container
         };
         
         const innerWidth = containerWidth - margin.left - margin.right;
@@ -1220,23 +1220,25 @@ const StockChart = React.memo(({
     const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
     
     // Get chart coordinates (accounting for margins)
-    const chartX = svgPoint.x - dimensions.margin.left;
-    const chartY = svgPoint.y - dimensions.margin.top;
+            const chartX = svgPoint.x - (dimensions.margin.left || 0);
+            const chartY = svgPoint.y - (dimensions.margin.top || 0);
     
     // Get the last data point index and position
     const lastDataIndex = stockData.length - 1;
-    const lastDataXPos = scales.xScale(lastDataIndex);
+    const lastDataCenterX = scales.xScale(lastDataIndex);
+    const step = scales.xScale.step();
+    // Calculate the right edge of the last data bar (center + half step)
+    const lastDataRightEdge = lastDataCenterX + (step / 2);
     
-    // ONLY allow selection AFTER the last data point (future predictions only)
-    if (chartX <= lastDataXPos) {
+    // ONLY allow selection AFTER the right edge of the last data point (future predictions only)
+    if (chartX <= lastDataRightEdge) {
       // Click is on or before existing data - don't allow selection
-      console.log("Selection must be after the last data point. Clicked at:", chartX, "Last data at:", lastDataXPos);
+      console.log("Selection must be after the last data point. Clicked at:", chartX, "Last data right edge at:", lastDataRightEdge);
       return;
     }
     
     // Extrapolate: extend time index beyond data
-    const step = scales.xScale.step();
-    const stepsBeyond = Math.max(0, Math.round((chartX - lastDataXPos) / step));
+    const stepsBeyond = Math.max(0, Math.round((chartX - lastDataRightEdge) / step));
     const selectedIndex = lastDataIndex + stepsBeyond + 1;
     
     // Invert yScale to get price (supports clicking above/below visible range)
@@ -1335,7 +1337,41 @@ const StockChart = React.memo(({
         className={`w-full h-full ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
         preserveAspectRatio="xMidYMid meet"
         onClick={handleChartClick}
-        style={{ display: 'block', width: '100%', height: '100%' }}
+        onMouseMove={(e) => {
+          // Update cursor based on position - only if chart is selectable
+          if (!onChartClick || disabled || !scales || !stockData || stockData.length === 0 || !svgRef.current) {
+            if (svgRef.current) svgRef.current.style.cursor = 'default';
+            return;
+          }
+          
+          try {
+            const point = svgRef.current.createSVGPoint();
+            point.x = e.clientX;
+            point.y = e.clientY;
+            const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+            
+            const chartX = svgPoint.x - (dimensions.margin.left || 0);
+            const lastDataIndex = stockData.length - 1;
+            const lastDataCenterX = scales.xScale(lastDataIndex);
+            const step = scales.xScale.step();
+            const lastDataRightEdge = lastDataCenterX + (step / 2);
+            
+            // Set cursor based on position: not-allowed in data area, default (nothing special) elsewhere
+            if (chartX <= lastDataRightEdge) {
+              svgRef.current.style.cursor = 'not-allowed';
+            } else {
+              svgRef.current.style.cursor = 'default';
+            }
+          } catch (err) {
+            // Fallback to default cursor on error
+            if (svgRef.current) svgRef.current.style.cursor = 'default';
+          }
+        }}
+        onMouseLeave={() => {
+          // Reset to default when leaving chart
+          if (svgRef.current) svgRef.current.style.cursor = 'default';
+        }}
+        style={{ display: 'block', width: '100%', height: '100%', cursor: 'not-allowed' }}
       >
         {/* Add CSS to ensure proper sizing */}
         <defs>
@@ -1348,7 +1384,7 @@ const StockChart = React.memo(({
                 }
               }
               
-              /* Cursor styling - default to not-allowed, but allow selections in future area */
+              /* Cursor styling will be handled dynamically via JavaScript */
               .chart-selectable {
                 cursor: not-allowed;
               }
@@ -1369,7 +1405,7 @@ const StockChart = React.memo(({
         
         {/* SMA Legend */}
         {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
-          <g transform={`translate(${dimensions.margin.left + 10}, ${dimensions.margin.top + 10})`}>
+          <g transform={`translate(${(dimensions.margin.left || 0) + 40}, ${(dimensions.margin.top || 0) + 25})`}>
             {/* 10 SMA - Always show for daily or if data exists */}
             {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA10) && (
               <g transform="translate(0, 0)">
@@ -1433,7 +1469,7 @@ const StockChart = React.memo(({
           </>
         )}
         
-        <g transform={`translate(${dimensions.margin.left},${dimensions.margin.top})`}>
+        <g transform={`translate(${dimensions.margin.left || 0},${dimensions.margin.top || 0})`}>
           {/* Price section */}
           <g transform={`translate(0, 0)`}>
             {/* SMA lines for main data */}
@@ -1718,28 +1754,36 @@ const StockChart = React.memo(({
             })()}
             
             {/* Visual divider line between historical data and future selection area */}
-            {onChartClick && !disabled && scales && stockData.length > 0 && (
-              <g>
-                <line
-                  x1={scales.xScale(stockData.length - 1) + dimensions.margin.left}
-                  y1={dimensions.margin.top}
-                  x2={scales.xScale(stockData.length - 1) + dimensions.margin.left}
-                  y2={dimensions.height - dimensions.margin.bottom}
-                  stroke="#00FFFF"
-                  strokeWidth="2"
-                  strokeDasharray="10,5"
-                  opacity="0.5"
-                />
-                <rect
-                  x={scales.xScale(stockData.length - 1) + dimensions.margin.left}
-                  y={dimensions.margin.top}
-                  width={dimensions.width - dimensions.margin.left - dimensions.margin.right - (scales.xScale(stockData.length - 1))}
-                  height={dimensions.height - dimensions.margin.top - dimensions.margin.bottom}
-                  fill="rgba(0, 255, 255, 0.05)"
-                  pointerEvents="none"
-                />
-              </g>
-            )}
+            {onChartClick && !disabled && scales && stockData.length > 0 && (() => {
+              const lastDataIndex = stockData.length - 1;
+              const lastDataCenterX = scales.xScale(lastDataIndex);
+              const step = scales.xScale.step();
+              // Position divider at the right edge of the last data bar (center + half step)
+              const dividerX = lastDataCenterX + (step / 2) + dimensions.margin.left;
+              
+              return (
+                <g>
+                  <line
+                    x1={dividerX}
+                    y1={0}
+                    x2={dividerX}
+                    y2={dimensions.height}
+                    stroke="#00FFFF"
+                    strokeWidth="2"
+                    strokeDasharray="10,5"
+                    opacity="0.5"
+                  />
+                  <rect
+                    x={dividerX}
+                    y={0}
+                    width={dimensions.width - dividerX}
+                    height={dimensions.height}
+                    fill="rgba(0, 255, 255, 0.05)"
+                    pointerEvents="none"
+                  />
+                </g>
+              );
+            })()}
           </g>
 
           {/* Volume section */}

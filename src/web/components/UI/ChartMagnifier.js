@@ -108,10 +108,10 @@ const ChartMagnifier = ({
 
   return (
     <>
-      {/* Toggle Button */}
+      {/* Toggle Button - Positioned in top right of chart container */}
       <button
         onClick={() => setIsActive(!isActive)}
-        className={`absolute top-2 right-2 z-50 p-2 rounded-full bg-turquoise-600 hover:bg-turquoise-700 text-white shadow-lg transition-all duration-200 ${
+        className={`absolute top-2 right-2 z-30 p-2 rounded-full bg-turquoise-600 hover:bg-turquoise-700 text-white shadow-lg transition-all duration-200 ${
           isActive ? 'ring-2 ring-turquoise-400 ring-offset-2 ring-offset-black' : ''
         }`}
         title="Magnifying Glass Tool"
