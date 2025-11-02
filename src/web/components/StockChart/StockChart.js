@@ -41,9 +41,9 @@ const getChartConfig = (isMobile, chartType = 'default') => {
       DOWN: "#FF1744",   // Standard red for price decreases
       VOLUME: "#29B6F6", // Blue for volume bars
       GRID: "#1a1a1a",   // Dark gray for grid lines
-      SMA10: "#FF6B6B",  // Bright red for 10-period moving average
-      SMA20: "#4ECDC4",  // Teal for 20-period moving average
-      SMA50: "#FFD166",  // Amber yellow for 50-period moving average
+      SMA10: "#00D4FF",  // Vibrant cyan for 10-period moving average - fast, reactive
+      SMA20: "#7C3AED",  // Purple for 20-period moving average - medium term
+      SMA50: "#F59E0B",  // Amber orange for 50-period moving average - long term
       TEXT: "#ffffff",   // White text for labels
     },
     SMA_LINE_WIDTH: isMobile ? 1.5 : 2,
@@ -58,9 +58,9 @@ const getChartConfig = (isMobile, chartType = 'default') => {
       UP: "#00C853",     // Standard green for after chart
       DOWN: "#FF1744",   // Standard red for after chart
       VOLUME: "#42A5F5", // Darker blue for after chart
-      SMA10: "#FF6B6B",  // Keep consistent with main chart
-      SMA20: "#4ECDC4",  // Keep consistent with main chart
-      SMA50: "#FFD166",  // Keep consistent with main chart
+      SMA10: "#00D4FF",  // Keep consistent with main chart - vibrant cyan
+      SMA20: "#7C3AED",  // Keep consistent with main chart - purple
+      SMA50: "#F59E0B",  // Keep consistent with main chart - amber orange
       GRID: "#444444",   // Darker grid lines for better visibility on transparent background
       TEXT: "#ffffff",   // White text for labels
     };
@@ -71,9 +71,9 @@ const getChartConfig = (isMobile, chartType = 'default') => {
   if (chartType === 'hourly') {
     config.COLORS = {
       ...config.COLORS,
-      SMA10: "#FF9500",  // Bright orange for hourly 10-period moving average
-      SMA20: "#00BFA5",  // Vibrant teal for hourly 20-period moving average
-      SMA50: "#FFEB3B",  // Bright yellow for hourly 50-period moving average
+      SMA10: "#00D4FF",  // Vibrant cyan for hourly 10-period moving average - fast, reactive
+      SMA20: "#7C3AED",  // Purple for hourly 20-period moving average - medium term
+      SMA50: "#F59E0B",  // Amber orange for hourly 50-period moving average (if shown)
     };
     config.SMA_LINE_WIDTH = isMobile ? 1.5 : 2.5;
     config.SMA_LINE_OPACITY = 0.95;
@@ -1436,30 +1436,75 @@ const StockChart = React.memo(({
           />
         )}
         
-        {/* SMA Legend */}
-        {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
-          <g transform={`translate(${(dimensions.margin.left || 0) + 40}, ${(dimensions.margin.top || 0) + 25})`} style={{ pointerEvents: 'none' }}>
-            {/* 10 SMA - Always show for daily or if data exists */}
+        {/* SMA Legend - Always show for hourly, daily, and default charts */}
+        {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && dimensions && (
+          <g 
+            transform={`translate(${Math.max((dimensions.margin?.left || 0) + 8, 8)}, ${Math.max((dimensions.margin?.top || 0) + 8, 8)})`} 
+            style={{ pointerEvents: 'none' }}
+          >
+            {/* Background rectangle for better readability */}
+            <rect 
+              x="-6" 
+              y="-6" 
+              width="110" 
+              height={chartType === 'hourly' || chartType === 'H' ? "46" : "56"} 
+              fill="rgba(0, 0, 0, 0.75)" 
+              rx="4" 
+              stroke="rgba(255, 255, 255, 0.15)" 
+              strokeWidth="1"
+            />
+            
+            {/* 10 SMA - Always show for hourly charts */}
             {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA10) && (
               <g transform="translate(0, 0)">
-                <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA10} strokeWidth="2" />
-                <text x="20" y="4" fontSize="10" fill="#ffffff" fontWeight="500">10 SMA</text>
+                <line x1="0" y1="6" x2="18" y2="6" stroke={CHART_CONFIG.COLORS.SMA10} strokeWidth="2.5" strokeLinecap="round" />
+                <text 
+                  x="24" 
+                  y="9" 
+                  fontSize={isMobile ? "11" : "12"} 
+                  fill="#ffffff" 
+                  fontWeight="600"
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' }}
+                >
+                  10 SMA
+                </text>
               </g>
             )}
             
-            {/* 20 SMA - Always show for daily or if data exists */}
+            {/* 20 SMA - Always show for hourly charts */}
             {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA20) && (
-              <g transform="translate(0, 15)">
-                <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA20} strokeWidth="2" />
-                <text x="20" y="4" fontSize="10" fill="#ffffff" fontWeight="500">20 SMA</text>
+              <g transform="translate(0, 18)">
+                <line x1="0" y1="6" x2="18" y2="6" stroke={CHART_CONFIG.COLORS.SMA20} strokeWidth="2.5" strokeLinecap="round" />
+                <text 
+                  x="24" 
+                  y="9" 
+                  fontSize={isMobile ? "11" : "12"} 
+                  fill="#ffffff" 
+                  fontWeight="600"
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' }}
+                >
+                  20 SMA
+                </text>
               </g>
             )}
             
-            {/* 50 SMA - Don't show for hourly charts, show for daily even if no data */}
+            {/* 50 SMA - Only show for daily/default charts (not hourly) */}
             {(chartType !== 'hourly' && chartType !== 'H') && (chartType === 'default' || chartType === 'D' || hasSMA50) && (
-              <g transform="translate(0, 30)">
-                <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA50} strokeWidth="2" />
-                <text x="20" y="4" fontSize="10" fill="#ffffff" fontWeight="500">50 SMA</text>
+              <g transform="translate(0, 36)">
+                <line x1="0" y1="6" x2="18" y2="6" stroke={CHART_CONFIG.COLORS.SMA50} strokeWidth="2.5" strokeLinecap="round" />
+                <text 
+                  x="24" 
+                  y="9" 
+                  fontSize={isMobile ? "11" : "12"} 
+                  fill="#ffffff" 
+                  fontWeight="600"
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' }}
+                >
+                  50 SMA
+                </text>
               </g>
             )}
           </g>
