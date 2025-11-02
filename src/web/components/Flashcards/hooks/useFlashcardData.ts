@@ -205,7 +205,7 @@ export function useFlashcardData({
           // Check if any flashcard has essential files
           const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
           const hasReadyFlashcard = Array.from(tempStockGroups.values()).some(files => {
-            return files.some(f => {
+            return files.some((f: any) => {
               const fileName = f.fileName.split('/').pop() || f.fileName;
               return essentialFiles.has(fileName);
             });
@@ -214,7 +214,7 @@ export function useFlashcardData({
           if (hasReadyFlashcard && currentFiles.length >= 3) {
             // Create initial flashcard data
             const flashcardData = Array.from(tempStockGroups.entries()).map(([stockDir, files]) => {
-              const hasEssentialFile = files.some(f => {
+              const hasEssentialFile = files.some((f: any) => {
                 const fileName = f.fileName.split('/').pop() || f.fileName;
                 return essentialFiles.has(fileName);
               });
@@ -244,27 +244,27 @@ export function useFlashcardData({
         
         const prioritizedFiles = [
           // First: Essential files
-          ...files.filter(f => {
+          ...files.filter((f: any) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             return essentialFileNames.includes(fileName);
           }),
           // Second: after.json files for the same stocks
-          ...files.filter(f => {
+          ...files.filter((f: any) => {
             const fileName = f.fileName.toLowerCase();
             return fileName.includes('after') && fileName.endsWith('.json');
           }),
           // Third: points.json files
-          ...files.filter(f => {
+          ...files.filter((f: any) => {
             const fileName = f.fileName.toLowerCase();
             return fileName.includes('points') && fileName.endsWith('.json');
           }),
           // Fourth: Date-formatted files (previous breakouts) - important for DateFolderBrowser
-          ...files.filter(f => {
+          ...files.filter((f: any) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             return dateFilePattern.test(fileName);
           }),
           // Then: Everything else
-          ...files.filter(f => {
+          ...files.filter((f: any) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             const lowerFileName = fileName.toLowerCase();
             return !essentialFileNames.includes(fileName) && 
@@ -425,7 +425,7 @@ export function useFlashcardData({
                     // Add new flashcards for stock directories we just discovered
                     const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
                     const newCards = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
-                      const hasEssentialFile = files.some(f => {
+                      const hasEssentialFile = files.some((f: any) => {
                         const fileName = f.fileName.split('/').pop() || f.fileName;
                         return essentialFiles.has(fileName);
                       });
@@ -477,7 +477,7 @@ export function useFlashcardData({
         
         const flashcardData = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
           // Check if this flashcard has at least one essential file loaded
-          const hasEssentialFile = files.some(f => {
+          const hasEssentialFile = files.some((f: any) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             return essentialFiles.has(fileName);
           });
