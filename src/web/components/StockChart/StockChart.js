@@ -649,23 +649,35 @@ const StockChart = React.memo(({
     // - When zoomPercentage > 0, we zoom out to show the full combined range
     // - When showAfterAnimation is true, we show the turquoise line and background
     // - progressPercentage controls how many after candles are revealed
+    // - Use smooth interpolation to prevent "bump" when animation starts
     
     let currentMin, currentMax;
     let totalDataPoints;
     let combinedIndices;
     
-    if (zoomPercentage > 0 && afterStockData.length > 0) {
-      // ZOOM OUT MODE: Show full combined range to fit both datasets
-      currentMin = combinedMin;
-      currentMax = combinedMax;
-      
-      // Calculate total data points for the zoomed out view
+    // Always prepare for combined view if after data exists
+    // This prevents scale domain changes that cause visual bumps
+    const hasAfterData = afterStockData.length > 0;
+    
+    if (hasAfterData) {
+      // If we have after data, always use the combined indices for X scale
+      // This prevents the X axis from jumping when animation starts
       totalDataPoints = stockData.length + afterStockData.length;
-      
-      // Create indices for the full combined dataset
       combinedIndices = [...Array(totalDataPoints).keys()];
+      
+      // Smoothly interpolate the price scale domain based on zoomPercentage
+      // When zoomPercentage is 0, show main range; when 100, show combined range
+      const zoomFactor = zoomPercentage / 100;
+      const minRange = mainMin;
+      const maxRange = mainMax;
+      const minCombined = combinedMin;
+      const maxCombined = combinedMax;
+      
+      // Interpolate between main range and combined range
+      currentMin = minRange + (minCombined - minRange) * zoomFactor;
+      currentMax = maxRange + (maxCombined - maxRange) * zoomFactor;
     } else {
-      // NORMAL MODE: Show only main data range
+      // NORMAL MODE: Show only main data range (no after data available)
       currentMin = mainMin;
       currentMax = mainMax;
       totalDataPoints = stockData.length;
