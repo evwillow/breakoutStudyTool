@@ -626,9 +626,7 @@ export function useFlashcardData({
       });
       
       const batchResults = await Promise.all(batchPromises);
-      const loadedFiles = batchResults.filter((f): f is FlashcardFile => 
-        f !== null && typeof f === 'object' && 'fileName' in f && 'data' in f
-      ) as FlashcardFile[];
+      const loadedFiles = batchResults.filter((f): f is NonNullable<typeof f> => f !== null) as FlashcardFile[];
       
       if (loadedFiles.length > 0) {
         // Update flashcards with newly loaded files
