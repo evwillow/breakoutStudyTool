@@ -27,8 +27,8 @@ const FormButton = ({
   const baseClasses = "flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
   
   const variantClasses = {
-    primary: "text-white bg-turquoise-600 hover:bg-turquoise-700 focus:ring-turquoise-500 disabled:bg-turquoise-300",
-    secondary: "text-turquoise-700 bg-turquoise-100 hover:bg-turquoise-200 focus:ring-turquoise-500 disabled:bg-gray-100"
+    primary: "text-white bg-turquoise-600 hover:bg-turquoise-500 focus:ring-turquoise-500 disabled:bg-turquoise-800 disabled:text-turquoise-400 disabled:cursor-not-allowed",
+    secondary: "text-turquoise-300 bg-turquoise-900/50 hover:bg-turquoise-800/50 focus:ring-turquoise-500 disabled:bg-turquoise-950 disabled:text-turquoise-600 disabled:cursor-not-allowed"
   };
 
   const buttonClasses = `${baseClasses} ${variantClasses[variant]} ${disabled || isLoading ? 'disabled:cursor-not-allowed' : ''} ${className}`;

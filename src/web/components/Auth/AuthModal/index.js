@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
 import { AUTH_MODES, UI_TEXT, ERROR_MESSAGES } from '../utils/constants';
 import { validateAuthForm } from '../utils/validation';
@@ -78,8 +79,6 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       document.body.style.overflow = '';
     };
   }, [open]);
-
-  if (!open) return null;
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -221,13 +220,18 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     setMode(mode === AUTH_MODES.SIGNIN ? AUTH_MODES.SIGNUP : AUTH_MODES.SIGNIN);
   };
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-turquoise-950 bg-opacity-70 z-50 p-4 backdrop-blur-sm">
-      <div className="bg-soft-white rounded-xl p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-800 shadow-2xl border border-turquoise-200">
+  // Ensure modal is always rendered when open, using portal for proper z-index stacking
+  if (!open) return null;
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
+      <div className="fixed inset-0 bg-turquoise-950 bg-opacity-70 backdrop-blur-sm"></div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-soft-white rounded-xl p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-300 shadow-2xl border border-turquoise-700/50">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-turquoise-500 hover:text-turquoise-700 transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded"
+          className="absolute top-4 right-4 text-turquoise-400 hover:text-turquoise-300 transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded"
           aria-label="Close modal"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -237,15 +241,15 @@ const AuthModal = ({ open, onClose, initialMode }) => {
         
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="inline-block p-3 bg-turquoise-100 rounded-full mb-2">
-            <svg className="w-8 h-8 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="inline-block p-3 bg-turquoise-900/50 rounded-full mb-2 border border-turquoise-700/50">
+            <svg className="w-8 h-8 text-turquoise-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-turquoise-800">
+          <h2 className="text-2xl font-bold text-turquoise-300">
             {mode === AUTH_MODES.SIGNIN ? UI_TEXT.WELCOME_BACK : UI_TEXT.CREATE_ACCOUNT}
           </h2>
-          <p className="text-turquoise-600 mt-1">
+          <p className="text-turquoise-400 mt-1">
             {mode === AUTH_MODES.SIGNIN ? UI_TEXT.SIGNIN_SUBTITLE : UI_TEXT.SIGNUP_SUBTITLE}
           </p>
         </div>
@@ -276,9 +280,17 @@ const AuthModal = ({ open, onClose, initialMode }) => {
             HCaptchaComponent={HCaptcha}
           />
         )}
+        </div>
       </div>
     </div>
   );
+
+  // Use portal to render at document body level for proper z-index stacking
+  if (typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  
+  return null;
 };
 
 export default AuthModal; 

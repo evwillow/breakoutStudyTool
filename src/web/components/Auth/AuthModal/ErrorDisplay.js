@@ -20,13 +20,13 @@ const ErrorDisplay = ({ error, databaseError, solutions = [] }) => {
   if (!error) return null;
 
   return (
-    <div className="p-3 bg-red-50 border border-red-200 rounded-md" role="alert">
-      <p className="text-red-700 text-sm">{error}</p>
+    <div className="p-3 bg-red-950/50 border border-red-800/50 rounded-md" role="alert">
+      <p className="text-red-300 text-sm">{error}</p>
       
       {databaseError && solutions.length > 0 && (
         <div className="mt-2">
-          <p className="text-sm font-semibold text-red-700">Possible solutions:</p>
-          <ul className="list-disc ml-5 text-xs text-red-700 mt-1">
+          <p className="text-sm font-semibold text-red-300">Possible solutions:</p>
+          <ul className="list-disc ml-5 text-xs text-red-300/90 mt-1">
             {solutions.map((solution, index) => (
               <li key={index}>{solution}</li>
             ))}

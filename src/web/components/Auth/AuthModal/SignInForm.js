@@ -69,7 +69,7 @@ const SignInForm = ({
         <button
           type="button"
           onClick={onToggleMode}
-          className="text-sm text-turquoise-600 hover:text-turquoise-800 focus:outline-none focus:underline"
+          className="text-sm text-turquoise-400 hover:text-turquoise-300 focus:outline-none focus:underline"
         >
           {UI_TEXT.SWITCH_TO_SIGNUP}
         </button>

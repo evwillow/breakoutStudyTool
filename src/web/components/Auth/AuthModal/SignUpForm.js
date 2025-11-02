@@ -56,7 +56,7 @@ const SignUpForm = ({
       />
 
       {/* Password Requirements Hint */}
-      <div className="text-xs text-turquoise-600 mt-1 ml-1">
+      <div className="text-xs text-turquoise-400 mt-1 ml-1">
         <p className="font-medium mb-1">Password must include:</p>
         <ul className="space-y-0.5">
           <li>• At least 8 characters</li>
@@ -69,11 +69,11 @@ const SignUpForm = ({
 
       {/* Terms of Service */}
       <div className="flex flex-col items-center">
-        <p className="text-sm text-turquoise-600 mb-2 text-center">
+        <p className="text-sm text-turquoise-400 mb-2 text-center">
           {UI_TEXT.TERMS_TEXT}{' '}
           <Link 
             href="/terms" 
-            className="underline hover:text-turquoise-800 focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded"
+            className="underline hover:text-turquoise-300 focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded"
           >
             {UI_TEXT.TERMS_LINK}
           </Link>
@@ -82,7 +82,7 @@ const SignUpForm = ({
       
       {/* hCaptcha component with lazy loading */}
       <div className="flex justify-center">
-        <Suspense fallback={<div className="text-sm text-turquoise-600">Loading verification...</div>}>
+        <Suspense fallback={<div className="text-sm text-turquoise-400">Loading verification...</div>}>
           <HCaptchaComponent
             sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
             onVerify={onCaptchaVerify}
@@ -111,7 +111,7 @@ const SignUpForm = ({
         <button
           type="button"
           onClick={onToggleMode}
-          className="text-sm text-turquoise-600 hover:text-turquoise-800 focus:outline-none focus:underline"
+          className="text-sm text-turquoise-400 hover:text-turquoise-300 focus:outline-none focus:underline"
         >
           {UI_TEXT.SWITCH_TO_SIGNIN}
         </button>

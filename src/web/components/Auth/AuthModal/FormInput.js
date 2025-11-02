@@ -34,17 +34,17 @@ const FormInput = ({
     <div className={className}>
       <label 
         htmlFor={id} 
-        className="block text-sm font-medium text-turquoise-700 mb-1"
+        className="block text-sm font-medium text-turquoise-400 mb-1"
       >
         {label}
-        {required && <span className="text-red-500 ml-1" aria-label="required">*</span>}
+        {required && <span className="text-red-400 ml-1" aria-label="required">*</span>}
       </label>
       <input
         type={type}
         id={id}
         value={value}
         onChange={handleChange}
-        className="mt-1 block w-full rounded-md border-turquoise-300 shadow-sm focus:border-turquoise-500 focus:ring-turquoise-500 focus:ring-1 transition-colors"
+        className="mt-1 block w-full rounded-md bg-soft-gray-50 border border-turquoise-700/50 text-turquoise-300 placeholder-turquoise-600/50 shadow-sm focus:border-turquoise-500 focus:ring-turquoise-500 focus:ring-1 transition-colors px-3 py-2"
         required={required}
         autoComplete={autoComplete}
         placeholder={placeholder}
