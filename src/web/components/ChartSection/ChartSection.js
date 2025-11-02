@@ -16,9 +16,123 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import StockChart from "../StockChart";
 import { AuthModal } from "../Auth";
-import ChartScoreOverlay from "../UI/ChartScoreOverlay";
 import ChartMagnifier from "../UI/ChartMagnifier";
 import { getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
+
+// ChartScoreOverlay component - inlined to fix import issues
+const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile }) => {
+  const [countdown, setCountdown] = useState(8);
+  
+  useEffect(() => {
+    if (!show || score === null || score === undefined) {
+      return;
+    }
+    
+    // Reset countdown when popup appears
+    setCountdown(8);
+    
+    // Countdown timer
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [show, score]);
+  
+  if (!show || score === null || score === undefined) {
+    return null;
+  }
+
+  return (
+    <div className={`absolute z-50 pointer-events-none ${
+      isMobile 
+        ? 'bottom-2 left-2 right-2' 
+        : 'bottom-2 left-2 right-2'
+    }`}>
+      <div className={`bg-gradient-to-br from-gray-900 via-black to-gray-900 bg-opacity-98 backdrop-blur-lg border-2 border-turquoise-500/80 rounded-2xl shadow-2xl pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full ${
+        isMobile 
+          ? 'px-5 py-4' 
+          : 'px-8 py-4'
+      }`}>
+        {/* Decorative gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/10 via-transparent to-transparent pointer-events-none"></div>
+        
+        <div className={`relative z-10 ${isMobile ? 'text-center' : 'flex items-center gap-4'}`}>
+          <div className={`flex items-center ${isMobile ? 'justify-center mb-3' : 'justify-center flex-shrink-0'}`}>
+            <div className={`rounded-full bg-gradient-to-br from-turquoise-500 to-turquoise-600 flex items-center justify-center shadow-lg ring-4 ring-turquoise-500/20 ${
+              isMobile ? 'w-12 h-12' : 'w-12 h-12'
+            }`}>
+              <svg className={`text-white ${isMobile ? 'w-6 h-6' : 'w-6 h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+          </div>
+          <div className={`${isMobile ? '' : 'flex-1 flex items-center gap-4'}`}>
+            <div className={isMobile ? 'mb-3' : 'flex-1'}>
+              {isMobile && <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Score</p>}
+              <div className={isMobile ? '' : 'flex items-baseline gap-3'}>
+                <h3 className={`font-bold text-white tracking-tight ${isMobile ? 'text-3xl mb-1' : 'text-3xl'}`}>
+                  {Math.round(score)}%
+                </h3>
+                {!isMobile && <span className="text-xs text-gray-400 uppercase tracking-widest">Score</span>}
+              </div>
+              {accuracyTier && (
+                <p className={`font-semibold ${accuracyTier.color || 'text-turquoise-400'} ${isMobile ? 'text-sm mb-3 uppercase tracking-wider' : 'text-xs uppercase tracking-wider mt-1'}`}>
+                  {accuracyTier.tier || 'Good'}
+                </p>
+              )}
+            </div>
+            <div className={isMobile ? 'border-t border-turquoise-500/20 pt-3' : 'flex items-center gap-3 flex-shrink-0'}>
+              {isMobile ? (
+                <>
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <p className="text-xs text-gray-400">Next stock in</p>
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-turquoise-500/20 border border-turquoise-500/40">
+                      <span className="text-sm font-bold text-turquoise-400">{countdown}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">seconds</p>
+                  </div>
+                  {onNext && (
+                    <button
+                      onClick={onNext}
+                      className="bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-700 hover:to-turquoise-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 text-sm w-full border border-turquoise-400/30"
+                    >
+                      Next Stock
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-400">Next in</p>
+                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-turquoise-500/20 border border-turquoise-500/40">
+                      <span className="text-xs font-bold text-turquoise-400">{countdown}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">s</p>
+                  </div>
+                  {onNext && (
+                    <button
+                      onClick={onNext}
+                      className="bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-700 hover:to-turquoise-600 text-white px-4 py-2 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 text-xs border border-turquoise-400/30 whitespace-nowrap"
+                    >
+                      Next Stock
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function ChartSection({
   orderedFiles,
@@ -429,6 +543,7 @@ function ChartSection({
                       accuracyTier={getAccuracyTier(score)}
                       show={true}
                       onNext={onNextCard}
+                      isMobile={isMobile}
                     />
                   )}
                 </>
