@@ -1188,18 +1188,19 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                 
                 {expandedFiles.includes(file.id) && (
                   <div 
-                    className="p-4 bg-transparent transition-all duration-700 ease-in-out origin-top"
+                    className="bg-transparent transition-all duration-700 ease-in-out origin-top"
                     style={{
                       animation: `expandContent 700ms ease-out forwards`
                     }}
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className={`bg-black rounded-lg overflow-hidden w-full shadow-inner chart-container ${isTimeUp ? 'filter blur-xl' : ''}`}
+                        className={`bg-black overflow-hidden w-full h-full shadow-inner chart-container ${isTimeUp ? 'filter blur-xl' : ''}`}
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,
                           height: "500px",
+                          minHeight: "500px",
                           maxHeight: "calc(100vw - 2rem)"
                         }}
                       >
@@ -1265,11 +1266,33 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
           }
         }
         
+        /* Ensure chart containers fill their available space */
+        .chart-container {
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .chart-container > * {
+          flex: 1;
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          margin: 0;
+          padding: 0;
+        }
+        
         /* Charts become square only on smaller screens where height might exceed width */
         @media (max-width: 768px) {
           .chart-container {
             aspect-ratio: 1 / 1 !important;
             height: auto !important;
+          }
+          
+          .chart-container > * {
+            height: 100% !important;
           }
         }
         
