@@ -1045,8 +1045,9 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
   }, [visibleItems, expandVisibleItems]);
 
   return (
-    <div className="w-full pt-0 px-0 sm:px-6 md:px-10 pb-8">
-      <h3 className="text-xl font-bold mb-4 text-white bg-turquoise-600 px-4 py-2 rounded-lg shadow-md flex items-center">
+    <div className="w-full pt-0 px-2 sm:px-6 md:px-10 pb-2">
+      <div className="w-full">
+        <h3 className="text-xl font-bold mb-4 text-white bg-turquoise-600 px-4 py-2 rounded-lg shadow-md flex items-center">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
@@ -1316,6 +1317,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
           background: linear-gradient(90deg, rgba(56,178,172,0.7) 0%, rgba(129,230,217,0.7) 100%);
         }
       `}</style>
+      </div>
     </div>
   );
 };

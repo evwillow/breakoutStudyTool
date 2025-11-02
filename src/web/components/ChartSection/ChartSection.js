@@ -473,21 +473,21 @@ function ChartSection({
       {/* Main content with Daily and Hourly charts */}
       <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-2 sm:p-3 md:p-4">
+        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0 sm:p-3 md:p-4">
           {/* Timer - visible on mobile too */}
-          <div className="w-full text-center mb-2 sm:mb-3">
+          <div className="w-full text-center -mt-3 sm:mt-0 sm:mb-3">
             <div className="flex items-center justify-center">
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
-              <h2 className={`text-base sm:text-lg md:text-xl font-bold ${getTimerColor()} bg-black px-2 sm:px-3 py-1 rounded-md`}>
+              <h2 className={`text-xl sm:text-2xl md:text-3xl font-bold ${getTimerColor()} bg-black px-3 sm:px-4 py-2 sm:py-1.5 rounded-md`}>
                 {timer}s
               </h2>
             </div>
           </div>
           <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ height: '100%', minHeight: '500px', maxHeight: '800px' }}>
             {/* D Label - positioned in the top left, above magnifying glass */}
-            <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-turquoise px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-xs sm:text-sm shadow-lg">
+            <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
               D
             </div>
             <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
@@ -561,7 +561,7 @@ function ChartSection({
           {/* H Chart */}
           <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: '1 / 1', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             {/* H Label - positioned in the top left */}
-            <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-xs sm:text-sm shadow-lg">
+            <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
               H
             </div>
             <div className={`absolute inset-0 overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} transition-opacity duration-300`} style={{ height: '100%', width: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>

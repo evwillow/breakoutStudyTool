@@ -1028,7 +1028,7 @@ export default function FlashcardsContainer() {
 
           {/* Time's Up Overlay */}
           {gameState.showTimeUpOverlay && (
-            <div className="fixed inset-x-0 top-[80px] sm:top-[120px] flex justify-center z-50 pointer-events-none px-4">
+            <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none px-4">
               <div className="pointer-events-auto bg-black bg-opacity-90 border-2 border-turquoise-500 shadow-xl rounded-lg px-6 sm:px-8 py-3 sm:py-4 animate-pulse-slow max-w-[90%] sm:max-w-md mx-auto">
                 <div className="text-center">
                   <h2 className="text-2xl sm:text-2xl font-bold mb-1 text-turquoise-500 animate-glow">

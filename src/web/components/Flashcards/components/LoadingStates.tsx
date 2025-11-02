@@ -30,7 +30,8 @@ export const DataLoading: React.FC<DataLoadingProps> = ({
   step, 
   folder 
 }) => (
-  <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md mx-auto border border-white" style={{ marginTop: '10vh' }}>
+  <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
     <div className="relative">
       <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
       <div className="absolute inset-0 flex items-center justify-center">
@@ -56,6 +57,7 @@ export const DataLoading: React.FC<DataLoadingProps> = ({
         className="bg-gradient-to-r from-turquoise-500 to-turquoise-400 h-3 rounded-full transition-all duration-300 ease-in-out shadow-lg shadow-turquoise-500/50"
         style={{ width: `${progress}%` }}
       ></div>
+    </div>
     </div>
   </div>
 );

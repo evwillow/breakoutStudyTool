@@ -38,7 +38,7 @@ const FolderSection = React.memo(function FolderSection({
   isCreatingRound = false,
 }) {
   return (
-    <div className="px-1 sm:px-8 md:px-16 lg:px-24 xl:px-56 pb-2 sm:pb-6 md:pb-10 pt-2 sm:pt-0 bg-transparent">
+    <div className="px-2 sm:px-6 md:px-10 pb-2 sm:pb-6 md:pb-10 pt-2 sm:pt-0 bg-transparent">
       <div className="flex flex-col gap-4">
         {/* Dataset and Timer selectors - side by side on all screen sizes */}
         <div className="flex flex-row flex-wrap gap-3">
