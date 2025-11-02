@@ -533,7 +533,8 @@ function ChartSection({
                         }
                       }}
                       enabled={!disabled && score === null}
-                      chartElement={chartRef.current?.querySelector('svg') || null}
+                      chartElement={chartRef.current || null}
+                      mainDataLength={orderedFiles && orderedFiles[0]?.data ? orderedFiles[0].data.length : 0}
                     />
                   )}
                   {/* Score overlay - appears after selection */}
