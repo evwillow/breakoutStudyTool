@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GAME_CONFIG } from '../constants';
-import { calculateDistance, calculateDistanceScore, ChartCoordinate } from '../utils/coordinateUtils';
+import { calculateDistance, calculateDistanceScore } from '../utils/coordinateUtils';
 
 export interface GameMetrics {
   currentMatchIndex: number;
