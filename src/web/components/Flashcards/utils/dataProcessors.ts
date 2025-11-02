@@ -11,9 +11,11 @@ export interface FlashcardFile {
 }
 
 export interface FlashcardData {
+  id?: string;
   name?: string;
   folderName?: string;
   jsonFiles: FlashcardFile[];
+  isReady?: boolean;
 }
 
 export interface ProcessedFlashcardData {

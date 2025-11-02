@@ -244,27 +244,27 @@ export function useFlashcardData({
         
         const prioritizedFiles = [
           // First: Essential files
-          ...files.filter((f: any) => {
+          ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             return essentialFileNames.includes(fileName);
           }),
           // Second: after.json files for the same stocks
-          ...files.filter((f: any) => {
+          ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.toLowerCase();
             return fileName.includes('after') && fileName.endsWith('.json');
           }),
           // Third: points.json files
-          ...files.filter((f: any) => {
+          ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.toLowerCase();
             return fileName.includes('points') && fileName.endsWith('.json');
           }),
           // Fourth: Date-formatted files (previous breakouts) - important for DateFolderBrowser
-          ...files.filter((f: any) => {
+          ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             return dateFilePattern.test(fileName);
           }),
           // Then: Everything else
-          ...files.filter((f: any) => {
+          ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             const lowerFileName = fileName.toLowerCase();
             return !essentialFileNames.includes(fileName) && 
