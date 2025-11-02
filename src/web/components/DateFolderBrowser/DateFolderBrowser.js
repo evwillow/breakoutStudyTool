@@ -21,6 +21,13 @@ import StockChart from "../StockChart";
 /**
  * DateFolderBrowser component displays historical stock data files
  * and allows viewing them as charts
+ * @typedef {import('../Flashcards/utils/dataProcessors').FlashcardData} FlashcardData
+ * @param {Object} props
+ * @param {any} props.session
+ * @param {string|null} props.currentStock
+ * @param {boolean} props.isTimeUp
+ * @param {FlashcardData[]} [props.flashcards]
+ * @param {FlashcardData|null} [props.currentFlashcard]
  */
 const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], currentFlashcard = null }) => {
   const [allFiles, setAllFiles] = useState([]);

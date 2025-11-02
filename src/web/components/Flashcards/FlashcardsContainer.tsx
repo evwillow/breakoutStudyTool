@@ -34,7 +34,7 @@ import { useGameState } from "./hooks/useGameState";
 import { useTimer } from "./hooks/useTimer";
 
 // Utils
-import { processFlashcardData, extractStockName } from "./utils/dataProcessors";
+import { processFlashcardData, extractStockName, FlashcardData } from "./utils/dataProcessors";
 import { GAME_CONFIG, UI_CONFIG, TIMER_CONFIG } from "./constants";
 
 // Type the imported JS components
@@ -1021,7 +1021,7 @@ export default function FlashcardsContainer() {
               session={session} 
               currentStock={currentStock}
               isTimeUp={gameState.showTimeUpOverlay}
-              flashcards={flashcards}
+              flashcards={flashcards as FlashcardData[]}
               currentFlashcard={currentFlashcard}
             />
           </div>
