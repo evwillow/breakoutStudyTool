@@ -351,14 +351,26 @@ const processChartData = (chartData, chartType) => {
   // Log the number of data points
   console.log(`Processing ${processedData.length} data points`);
   
-  // Check if SMAs exist in the data
-  const hasSMA10 = processedData.some(d => d.sma10 !== null && d.sma10 !== undefined);
-  const hasSMA20 = processedData.some(d => d.sma20 !== null && d.sma20 !== undefined);
-  const hasSMA50 = processedData.some(d => d.sma50 !== null && d.sma50 !== undefined);
+  // Check if SMAs exist in the data (after normalization)
+  const hasSMA10 = processedData.some(d => d.sma10 !== null && d.sma10 !== undefined && !isNaN(d.sma10));
+  const hasSMA20 = processedData.some(d => d.sma20 !== null && d.sma20 !== undefined && !isNaN(d.sma20));
+  const hasSMA50 = processedData.some(d => d.sma50 !== null && d.sma50 !== undefined && !isNaN(d.sma50));
   
-  console.log(`SMA data present: SMA10: ${hasSMA10}, SMA20: ${hasSMA20}, SMA50: ${hasSMA50}`);
+  console.log(`SMA data present after normalization: SMA10: ${hasSMA10}, SMA20: ${hasSMA20}, SMA50: ${hasSMA50}`);
   
-  // Calculate SMAs if they don't exist in the data
+  // For hourly charts, always ensure SMA10 and SMA20 are available (calculate if missing)
+  if (chartType === 'hourly' || chartType === 'H') {
+    if (!hasSMA10) {
+      console.log('Calculating SMA10 for hourly chart as it is not present in the data');
+      calculateSMA(processedData, 10, 'close', 'sma10');
+    }
+    if (!hasSMA20) {
+      console.log('Calculating SMA20 for hourly chart as it is not present in the data');
+      calculateSMA(processedData, 20, 'close', 'sma20');
+    }
+  }
+  
+  // Calculate SMAs if they don't exist in the data (for non-monthly charts)
   if (!hasSMA10 && (chartType !== 'monthly' && chartType !== 'M')) {
     console.log('Calculating SMA10 as it is not present in the data');
     calculateSMA(processedData, 10, 'close', 'sma10');
@@ -382,11 +394,11 @@ const processChartData = (chartData, chartType) => {
   // Log chart type to help with debugging
   console.log(`Chart type detected: "${chartType}"`);
   
-  // For hourly charts, only display SMA10 and SMA20
+  // For hourly charts, only display SMA10 and SMA20 (not SMA50)
   if (chartType === 'hourly' || chartType === 'H') {
     showSMA10 = true;
     showSMA20 = true;
-    showSMA50 = false; // Don't show SMA50 for hourly
+    showSMA50 = false; // Don't show SMA50 for hourly charts
     console.log(`Hourly chart detected - showing only SMA10 and SMA20`);
   }
   
@@ -1436,23 +1448,31 @@ const StockChart = React.memo(({
           />
         )}
         
-        {/* SMA Legend - Always show for hourly, daily, and default charts */}
-        {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && dimensions && (
+        {/* SMA Legend - Show for daily and default charts (not hourly) */}
+        {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && chartType !== 'hourly' && chartType !== 'H' && dimensions && (
           <g 
-            transform={`translate(${Math.max((dimensions.margin?.left || 0) + 8, 8)}, ${Math.max((dimensions.margin?.top || 0) + 8, 8)})`} 
+            transform={`translate(${Math.max((dimensions.margin?.left || 0) + 50, 50)}, ${(chartType === 'hourly' || chartType === 'H') ? Math.max((dimensions.margin?.top || 0) + 45, 45) : Math.max((dimensions.margin?.top || 0) + 35, 35)})`} 
             style={{ pointerEvents: 'none' }}
           >
-            {/* Background rectangle for better readability */}
-            <rect 
-              x="-6" 
-              y="-6" 
-              width="110" 
-              height={chartType === 'hourly' || chartType === 'H' ? "46" : "56"} 
-              fill="rgba(0, 0, 0, 0.75)" 
-              rx="4" 
-              stroke="rgba(255, 255, 255, 0.15)" 
-              strokeWidth="1"
-            />
+            {/* Background rectangle for better readability - adjust height based on whether SMA50 is shown */}
+            {(() => {
+              const showSMA50InLegend = (chartType === 'hourly' || chartType === 'H') ? false : (chartType === 'default' || chartType === 'D' || hasSMA50);
+              const legendHeight = (chartType === 'hourly' || chartType === 'H') 
+                ? "46" 
+                : "56";
+              return (
+                <rect 
+                  x="-6" 
+                  y="-6" 
+                  width="110" 
+                  height={legendHeight} 
+                  fill="rgba(0, 0, 0, 0.75)" 
+                  rx="4" 
+                  stroke="rgba(255, 255, 255, 0.15)" 
+                  strokeWidth="1"
+                />
+              );
+            })()}
             
             {/* 10 SMA - Always show for hourly charts */}
             {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA10) && (
@@ -1601,7 +1621,7 @@ const StockChart = React.memo(({
                   />
                 )}
                 
-                {/* SMA50 line */}
+                {/* SMA50 line - only for non-hourly charts */}
                 {sma50Line && hasSMA50 && chartType !== 'hourly' && chartType !== 'H' && (
                   <path
                     d={(() => {
