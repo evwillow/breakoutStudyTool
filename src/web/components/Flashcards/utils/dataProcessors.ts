@@ -19,7 +19,6 @@ export interface FlashcardData {
 export interface ProcessedFlashcardData {
   orderedFiles: FlashcardFile[];
   afterJsonData: any;
-  thingData: number[];
   pointsTextArray: string[];
 }
 
@@ -158,124 +157,97 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
 }
 
 /**
- * Extracts and processes thing.json data
- * Supports both old format (array with 'thing' property) and new format (object with 'Log Sale Price')
- */
-export function extractThingData(flashcardData: FlashcardData | null): number[] {
-  if (!flashcardData?.jsonFiles) {
-    return [];
-  }
-  
-  const thingFile = flashcardData.jsonFiles.find(file => {
-    const baseFileName = file.fileName.split('/').pop() || file.fileName;
-    return FILE_PATTERNS.THING.test(baseFileName);
-  });
-  
-  if (!thingFile?.data) {
-    return [];
-  }
-  
-  try {
-    const jsonData = thingFile.data;
-    
-    // Handle object format with 'value' array (e.g., { "value": [{ "thing": 2 }] })
-    if (typeof jsonData === 'object' && jsonData !== null && !Array.isArray(jsonData)) {
-      // Check if there's a 'value' property with an array
-      if ('value' in jsonData && Array.isArray((jsonData as any).value) && (jsonData as any).value.length > 0) {
-        const firstItem = (jsonData as any).value[0];
-        
-        // Look for 'Log Sale Price' field first (primary field)
-        const logSalePrice = firstItem?.['Log Sale Price'] || 
-                            firstItem?.['log sale price'] ||
-                            firstItem?.['LogSalePrice'] ||
-                            firstItem?.['logSalePrice'];
-        
-        if (typeof logSalePrice === 'number') {
-          console.log('✅ Found Log Sale Price in thing.json:', logSalePrice);
-          return [logSalePrice];
-        }
-        
-        // Fallback to 'thing' field
-        if (typeof firstItem?.thing === 'number') {
-          return [firstItem.thing];
-        }
-      }
-      
-      // Check for 'Log Sale Price' directly on the object
-      const logSalePrice = (jsonData as any)['Log Sale Price'] || 
-                           (jsonData as any)['log sale price'] ||
-                           (jsonData as any)['LogSalePrice'] ||
-                           (jsonData as any)['logSalePrice'];
-      
-      if (typeof logSalePrice === 'number') {
-        console.log('✅ Found Log Sale Price directly in thing.json:', logSalePrice);
-        return [logSalePrice];
-      }
-      
-      // Fallback to 'thing' field if it exists
-      const thingValue = (jsonData as any).thing;
-      if (typeof thingValue === 'number') {
-        return [thingValue];
-      }
-    }
-    
-    // Handle array format (old format)
-    if (Array.isArray(jsonData) && jsonData.length > 0) {
-      const firstItem = jsonData[0];
-      
-      // Look for 'Log Sale Price' first
-      const logSalePrice = firstItem?.['Log Sale Price'] || 
-                          firstItem?.['log sale price'] ||
-                          firstItem?.['LogSalePrice'] ||
-                          firstItem?.['logSalePrice'];
-      
-      if (typeof logSalePrice === 'number') {
-        console.log('✅ Found Log Sale Price in array format:', logSalePrice);
-        return [logSalePrice];
-      }
-      
-      // Fallback to 'thing' field
-      if (typeof firstItem?.thing === 'number') {
-        return [firstItem.thing];
-      }
-    }
-    
-    return [];
-  } catch (error) {
-    console.error("Error processing thing.json:", error);
-    return [];
-  }
-}
-
-/**
  * Extracts and processes points.json data
+ * Handles both formats:
+ * - Array of strings: ["Higher Lows", "Cup and Handle", ...]
+ * - Array of objects: [{ "points": "Higher Lows" }, { "points": "Cup and Handle" }, ...]
  */
 export function extractPointsTextArray(flashcardData: FlashcardData | null): string[] {
   if (!flashcardData?.jsonFiles) {
+    console.log("⚠️ No jsonFiles in flashcardData");
     return [];
   }
   
+  console.log("🔍 Looking for points.json in:", flashcardData.jsonFiles.map(f => f.fileName.split('/').pop()));
+  
   const pointsFile = flashcardData.jsonFiles.find(file => {
     const baseFileName = file.fileName.split('/').pop() || file.fileName;
-    return FILE_PATTERNS.POINTS.test(baseFileName);
+    const matches = FILE_PATTERNS.POINTS.test(baseFileName);
+    console.log(`  - "${file.fileName}" (last part: "${baseFileName}") matches points pattern: ${matches}`);
+    return matches;
   });
   
-  if (!pointsFile?.data) {
+  if (!pointsFile) {
+    console.log("⚠️ points.json file not found. Available files:", flashcardData.jsonFiles.map(f => f.fileName));
+    return [];
+  }
+  
+  if (!pointsFile.data) {
+    console.log("⚠️ points.json file exists but has no data");
     return [];
   }
   
   try {
     const jsonData = pointsFile.data;
+    console.log("📊 Processing points.json, data type:", typeof jsonData, Array.isArray(jsonData) ? `array[${jsonData.length}]` : "object");
     
-    if (!Array.isArray(jsonData)) {
-      return [];
+    // Handle array format
+    if (Array.isArray(jsonData)) {
+      const result = jsonData
+        .map((item, idx) => {
+          // If item is a string, return it directly
+          if (typeof item === 'string') {
+            return item;
+          }
+          // If item is an object with 'points' property
+          if (typeof item === 'object' && item !== null) {
+            // Check various possible property names
+            const pointsValue = item.points || item.point || item.text || item.label || item.name;
+            if (typeof pointsValue === 'string') {
+              return pointsValue;
+            }
+            // If the object itself is a string-like structure, try to extract it
+            if (typeof item === 'object' && Object.keys(item).length === 1) {
+              const firstValue = Object.values(item)[0];
+              if (typeof firstValue === 'string') {
+                return firstValue;
+              }
+            }
+          }
+          return null;
+        })
+        .filter(Boolean) as string[];
+      
+      console.log("✅ Extracted points:", result);
+      return result;
     }
     
-    return jsonData
-      .map(item => typeof item.points === 'string' ? item.points : null)
-      .filter(Boolean) as string[];
+    // Handle object format with 'value' wrapper
+    if (typeof jsonData === 'object' && jsonData !== null && 'value' in jsonData && Array.isArray((jsonData as any).value)) {
+      const valueArray = (jsonData as any).value;
+      const result = valueArray
+        .map((item: any) => {
+          if (typeof item === 'string') {
+            return item;
+          }
+          if (typeof item === 'object' && item !== null) {
+            const pointsValue = item.points || item.point || item.text || item.label || item.name;
+            if (typeof pointsValue === 'string') {
+              return pointsValue;
+            }
+          }
+          return null;
+        })
+        .filter(Boolean) as string[];
+      
+      console.log("✅ Extracted points from value wrapper:", result);
+      return result;
+    }
+    
+    console.log("⚠️ points.json has unexpected structure:", typeof jsonData);
+    return [];
   } catch (error) {
-    console.error("Error processing points.json:", error);
+    console.error("❌ Error processing points.json:", error);
     return [];
   }
 }
@@ -289,20 +261,17 @@ export function processFlashcardData(flashcardData: FlashcardData | null): Proce
   
   const orderedFiles = extractOrderedFiles(flashcardData);
   const afterJsonData = extractAfterJsonData(flashcardData);
-  const thingData = extractThingData(flashcardData);
   const pointsTextArray = extractPointsTextArray(flashcardData);
   
   console.log("Processed results:");
   console.log("- orderedFiles:", orderedFiles.length);
   console.log("- afterJsonData:", afterJsonData ? "exists" : "null");
-  console.log("- thingData:", thingData);
   console.log("- pointsTextArray:", pointsTextArray);
   console.log("=== END PROCESSING ===");
   
   return {
     orderedFiles,
     afterJsonData,
-    thingData,
     pointsTextArray,
   };
 }
@@ -326,7 +295,6 @@ export function validateFlashcardData(flashcardData: FlashcardData | null): bool
   // This matches the behavior before the refactoring
   return (
     processed.orderedFiles.length > 0  // At least one of D.json, H.json, or M.json
-    // Removed the strict requirement for thing.json data as it's optional
   );
 }
 

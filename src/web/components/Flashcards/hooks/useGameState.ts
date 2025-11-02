@@ -52,7 +52,6 @@ export interface UseGameStateReturn extends GameState {
 
 export interface UseGameStateOptions {
   flashcardsLength: number;
-  thingData: number[];
   onCorrectAnswer?: () => void;
   onIncorrectAnswer?: () => void;
   onGameComplete?: () => void;
@@ -60,7 +59,6 @@ export interface UseGameStateOptions {
 
 export function useGameState({
   flashcardsLength,
-  thingData,
   onCorrectAnswer,
   onIncorrectAnswer,
   onGameComplete,
@@ -108,10 +106,10 @@ export function useGameState({
     // Set the user's selection
     setUserSelectedButton(buttonIndex);
     
-    // Check if answer is correct
-    const correctAnswer = thingData[currentMatchIndex];
-    const correctButtonIndex = correctAnswer - 1;
-    const isCorrect = buttonIndex === correctButtonIndex;
+    // Note: Button-based selection is deprecated in favor of coordinate-based selection
+    // This handler remains for backward compatibility but is no longer used
+    const isCorrect = false; // Always false since thingData is no longer used
+    const correctButtonIndex = null;
     
     // Set the correct answer for display
     setCorrectAnswerButton(correctButtonIndex);
@@ -144,7 +142,6 @@ export function useGameState({
   }, [
     disableButtons,
     showTimeUpOverlay,
-    thingData,
     currentMatchIndex,
     onCorrectAnswer,
     onIncorrectAnswer,

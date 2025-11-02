@@ -237,8 +237,11 @@ export function useFlashcardData({
           }
         };
         
-        // Prioritize files: Essential files (D/H/M) first, then after.json
+        // Prioritize files: Essential files (D/H/M) first, then after.json, then points.json, then date-formatted files
         const essentialFileNames = ['D.json', 'H.json', 'M.json'];
+        // Pattern to match date-formatted files like "Feb_22_2016.json"
+        const dateFilePattern = /^[A-Za-z]{3}_\d{1,2}_\d{4}\.json$/;
+        
         const prioritizedFiles = [
           // First: Essential files
           ...files.filter(f => {
@@ -250,17 +253,31 @@ export function useFlashcardData({
             const fileName = f.fileName.toLowerCase();
             return fileName.includes('after') && fileName.endsWith('.json');
           }),
+          // Third: points.json files
+          ...files.filter(f => {
+            const fileName = f.fileName.toLowerCase();
+            return fileName.includes('points') && fileName.endsWith('.json');
+          }),
+          // Fourth: Date-formatted files (previous breakouts) - important for DateFolderBrowser
+          ...files.filter(f => {
+            const fileName = f.fileName.split('/').pop() || f.fileName;
+            return dateFilePattern.test(fileName);
+          }),
           // Then: Everything else
           ...files.filter(f => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
             const lowerFileName = fileName.toLowerCase();
             return !essentialFileNames.includes(fileName) && 
-                   !(lowerFileName.includes('after') && lowerFileName.endsWith('.json'));
+                   !(lowerFileName.includes('after') && lowerFileName.endsWith('.json')) &&
+                   !(lowerFileName.includes('points') && lowerFileName.endsWith('.json')) &&
+                   !dateFilePattern.test(fileName);
           })
         ];
         
         // Load first quick batch to get UI ready ASAP (now with prioritization)
-        const quickBatch = prioritizedFiles.slice(0, QUICK_BATCH_SIZE * 2); // Load more to include after.json
+        // Load enough files to get essential files + after.json + points.json + date-formatted files for at least one flashcard
+        // Include date-formatted files in initial batch so DateFolderBrowser can display them immediately
+        const quickBatch = prioritizedFiles.slice(0, QUICK_BATCH_SIZE * 5); // Load more to include after.json, points.json, and date files
         const quickPromises = quickBatch.map(async (file: any) => {
           try {
             const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
@@ -361,35 +378,71 @@ export function useFlashcardData({
                 const batchLoaded = batchResults.filter(Boolean);
                 loadedFiles.push(...batchLoaded);
                 
-                // Update flashcards with new files
+                // Update flashcards with new files - MERGE instead of rebuild to preserve existing data
                 if (batchLoaded.length > 0) {
-                  const stockGroups = new Map<string, any[]>();
-                  loadedFiles.forEach(file => {
-                    if (file) {
-                      const stockDir = file.fileName.split('/')[0];
-                      if (!stockGroups.has(stockDir)) {
-                        stockGroups.set(stockDir, []);
+                  setFlashcards((prevCards: FlashcardData[]) => {
+                    const updatedCards = prevCards.map(card => {
+                      const stockDir = card.name || card.id;
+                      const newFiles = batchLoaded.filter(f => f && f.fileName.startsWith(`${stockDir}/`));
+                      
+                      if (newFiles.length > 0) {
+                        // Merge new files with existing files, avoiding duplicates
+                        const existingFileNames = new Set(card.jsonFiles.map(f => f.fileName));
+                        const uniqueNewFiles = newFiles.filter(f => !existingFileNames.has(f.fileName));
+                        
+                        // Check if this card now has essential files
+                        const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+                        const hasEssentialFile = [...card.jsonFiles, ...uniqueNewFiles].some(f => {
+                          const fileName = f.fileName.split('/').pop() || f.fileName;
+                          return essentialFiles.has(fileName);
+                        });
+                        
+                        console.log(`✅ Batch: Added ${uniqueNewFiles.length} files to ${stockDir}:`, 
+                          uniqueNewFiles.map(f => f.fileName.split('/').pop()));
+                        
+                        return {
+                          ...card,
+                          jsonFiles: [...card.jsonFiles, ...uniqueNewFiles],
+                          isReady: hasEssentialFile
+                        };
                       }
-                      stockGroups.get(stockDir)!.push(file);
-                    }
-                  });
-                  
-                  const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
-                  const flashcardData = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
-                    const hasEssentialFile = files.some(f => {
-                      const fileName = f.fileName.split('/').pop() || f.fileName;
-                      return essentialFiles.has(fileName);
+                      
+                      return card;
                     });
-                    return {
-                      id: stockDir,
-                      name: stockDir,
-                      folderName: selectedFolder,
-                      jsonFiles: files,
-                      isReady: hasEssentialFile
-                    };
+                    
+                    // Add any new flashcards for stock directories we haven't seen yet
+                    const existingStockDirs = new Set(updatedCards.map(card => card.name || card.id));
+                    const stockGroups = new Map<string, any[]>();
+                    batchLoaded.forEach(file => {
+                      if (file) {
+                        const stockDir = file.fileName.split('/')[0];
+                        if (!existingStockDirs.has(stockDir)) {
+                          if (!stockGroups.has(stockDir)) {
+                            stockGroups.set(stockDir, []);
+                          }
+                          stockGroups.get(stockDir)!.push(file);
+                        }
+                      }
+                    });
+                    
+                    // Add new flashcards for stock directories we just discovered
+                    const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+                    const newCards = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
+                      const hasEssentialFile = files.some(f => {
+                        const fileName = f.fileName.split('/').pop() || f.fileName;
+                        return essentialFiles.has(fileName);
+                      });
+                      return {
+                        id: stockDir,
+                        name: stockDir,
+                        folderName: selectedFolder,
+                        jsonFiles: files,
+                        isReady: hasEssentialFile
+                      };
+                    });
+                    
+                    return [...updatedCards, ...newCards];
                   });
-                  
-                  setFlashcards(flashcardData);
                 }
                 
                 // Small delay between batches
@@ -448,7 +501,8 @@ export function useFlashcardData({
         console.log("Number of flashcards:", flashcardData.length);
         console.log("Ready flashcards:", readyFlashcards.length);
         console.log("First flashcard:", flashcardData[0]);
-        console.log("First flashcard files:", flashcardData[0]?.jsonFiles);
+        console.log("First flashcard files:", flashcardData[0]?.jsonFiles?.map(f => f.fileName.split('/').pop()));
+        console.log("Total files loaded so far:", loadedFiles.length);
         console.log("=== END FLASHCARD DATA ===");
         
         // Set flashcards immediately with whatever files we have loaded
@@ -595,6 +649,9 @@ export function useFlashcardData({
                 const fileName = f.fileName.split('/').pop() || f.fileName;
                 return essentialFiles.has(fileName);
               });
+              
+              console.log(`✅ Background: Added ${uniqueNewFiles.length} files to ${stockDir}:`, 
+                uniqueNewFiles.map(f => f.fileName.split('/').pop()));
               
               return {
                 ...card,

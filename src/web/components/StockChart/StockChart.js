@@ -1209,7 +1209,17 @@ const StockChart = React.memo(({
 
   // Handle chart click - MUST be before any early returns to avoid hook order issues
   const handleChartClick = useCallback((event) => {
-    if (!onChartClick || disabled || !scales || !dimensions || !svgRef.current || !stockData || stockData.length === 0) {
+    // Debug logging to help identify why selection might not be working
+    if (!onChartClick) {
+      console.log("Chart click blocked: onChartClick is not provided");
+      return;
+    }
+    if (disabled) {
+      console.log("Chart click blocked: chart is disabled");
+      return;
+    }
+    if (!scales || !dimensions || !svgRef.current || !stockData || stockData.length === 0) {
+      console.log("Chart click blocked: chart not ready", { scales: !!scales, dimensions: !!dimensions, svgRef: !!svgRef.current, stockData: stockData?.length || 0 });
       return;
     }
     
@@ -1244,15 +1254,20 @@ const StockChart = React.memo(({
     // Invert yScale to get price (supports clicking above/below visible range)
     const price = Math.max(0, scales.priceScale.invert(chartY));
     
-    console.log("Selection made - Index:", selectedIndex, "Price:", price, "Last data index:", lastDataIndex);
+    console.log("Selection made - Index:", selectedIndex, "Price:", price, "Last data index:", lastDataIndex, "Chart coordinates:", { chartX, chartY });
     
     // Call parent handler with coordinates
-    onChartClick({
-      x: selectedIndex,
-      y: price,
-      chartX: chartX,
-      chartY: chartY
-    });
+    if (onChartClick) {
+      onChartClick({
+        x: selectedIndex,
+        y: price,
+        chartX: chartX,
+        chartY: chartY
+      });
+      console.log("Selection coordinates passed to parent handler");
+    } else {
+      console.warn("onChartClick handler is not available");
+    }
   }, [onChartClick, disabled, scales, dimensions, stockData]);
 
   // Early return check AFTER all hooks
@@ -1356,11 +1371,11 @@ const StockChart = React.memo(({
             const step = scales.xScale.step();
             const lastDataRightEdge = lastDataCenterX + (step / 2);
             
-            // Set cursor based on position: not-allowed in data area, default (nothing special) elsewhere
+            // Set cursor based on position: not-allowed in data area, crosshair (clickable) in selection area
             if (chartX <= lastDataRightEdge) {
               svgRef.current.style.cursor = 'not-allowed';
             } else {
-              svgRef.current.style.cursor = 'default';
+              svgRef.current.style.cursor = 'crosshair';
             }
           } catch (err) {
             // Fallback to default cursor on error
@@ -1371,7 +1386,7 @@ const StockChart = React.memo(({
           // Reset to default when leaving chart
           if (svgRef.current) svgRef.current.style.cursor = 'default';
         }}
-        style={{ display: 'block', width: '100%', height: '100%', cursor: 'not-allowed' }}
+        style={{ display: 'block', width: '100%', height: '100%', cursor: (onChartClick && !disabled) ? 'crosshair' : 'default', pointerEvents: 'auto' }}
       >
         {/* Add CSS to ensure proper sizing */}
         <defs>
@@ -1616,9 +1631,9 @@ const StockChart = React.memo(({
             {candlesticks.map((candle, i) => (
               <g key={`main-${i}`}>
                   <line
-                    x1={candle.x + candle.width / 2}
+                    x1={candle.x}
                     y1={candle.highY}
-                    x2={candle.x + candle.width / 2}
+                    x2={candle.x}
                     y2={candle.lowY}
                     stroke={candle.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
                     strokeWidth={1}
@@ -1646,9 +1661,9 @@ const StockChart = React.memo(({
               <g key={`after-${i}`}>
                 {!isNaN(candle.x) && !isNaN(candle.highY) && !isNaN(candle.lowY) && (
                   <line
-                    x1={candle.x + candle.width / 2}
+                    x1={candle.x}
                     y1={candle.highY}
-                    x2={candle.x + candle.width / 2}
+                    x2={candle.x}
                     y2={candle.lowY}
                     stroke={candle.isUp ? CHART_CONFIG.COLORS.UP : CHART_CONFIG.COLORS.DOWN}
                     strokeWidth={1}

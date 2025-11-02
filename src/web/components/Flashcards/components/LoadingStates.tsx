@@ -16,17 +16,6 @@ interface ErrorStateProps {
   onRetry: () => void;
 }
 
-interface NoDataStateProps {
-  onSelectDataset: () => void;
-  debugInfo?: {
-    flashcardsLength: number;
-    hasCurrentFlashcard: boolean;
-    orderedFilesLength: number;
-    selectedFolder: string | null;
-    loading: boolean;
-    error: string | null;
-  };
-}
 
 // Authentication loading state
 export const AuthLoading: React.FC = () => (
@@ -41,23 +30,30 @@ export const DataLoading: React.FC<DataLoadingProps> = ({
   step, 
   folder 
 }) => (
-  <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-white rounded-lg shadow-lg max-w-md mx-auto border border-gray-300 mt-20">
+  <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md mx-auto border border-white" style={{ marginTop: '10vh' }}>
     <div className="relative">
-      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+      <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-blue-500 font-semibold">{progress}%</span>
+        <span className="text-turquoise-400 font-bold text-lg">{progress}%</span>
       </div>
     </div>
-    <div className="text-center space-y-2">
-      <h2 className="text-xl font-semibold text-gray-800">Loading Dataset</h2>
-      <p className="text-gray-600">{step}</p>
+    <div className="text-center space-y-3">
+      <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
+        Loading Dataset
+      </h2>
+      <p className="text-turquoise-300 text-lg font-medium">{step}</p>
       {folder && (
-        <p className="text-sm text-gray-500">Folder: {folder}</p>
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <span className="text-gray-400 text-sm">Folder:</span>
+          <span className="text-turquoise-400 text-sm font-semibold bg-gray-900 px-3 py-1 rounded-md border border-turquoise-500/30">
+            {folder}
+          </span>
+        </div>
       )}
     </div>
-    <div className="w-full bg-gray-200 rounded-full h-2.5">
+    <div className="w-full bg-gray-900 rounded-full h-3 border border-gray-700">
       <div 
-        className="bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+        className="bg-gradient-to-r from-turquoise-500 to-turquoise-400 h-3 rounded-full transition-all duration-300 ease-in-out shadow-lg shadow-turquoise-500/50"
         style={{ width: `${progress}%` }}
       ></div>
     </div>
@@ -152,76 +148,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
   );
 };
 
-// Enhanced no data state
-export const NoDataState: React.FC<NoDataStateProps> = ({ onSelectDataset, debugInfo }) => {
-  // Only show error details if there's an actual error
-  const hasError = debugInfo?.error && debugInfo.error.trim().length > 0;
-  
-  // If we have debug info with an actual error, show error details
-  if (hasError) {
-    return (
-      <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
-        <h2 className="text-2xl font-semibold text-white">Error Details</h2>
-        
-        <div className="bg-red-900 rounded-lg p-6 w-full">
-          <div className="text-sm text-red-200 space-y-2">
-            <p><strong>Error:</strong> {debugInfo.error}</p>
-            {debugInfo && (
-              <>
-                <p><strong>Flashcards:</strong> {debugInfo.flashcardsLength}</p>
-                <p><strong>Current Flashcard:</strong> {debugInfo.hasCurrentFlashcard ? 'Yes' : 'No'}</p>
-                <p><strong>Ordered Files:</strong> {debugInfo.orderedFilesLength}</p>
-                <p><strong>Selected Folder:</strong> {debugInfo.selectedFolder || 'None'}</p>
-                <p><strong>Loading:</strong> {debugInfo.loading ? 'Yes' : 'No'}</p>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Normal no data state when no debug info
-  return (
-    <div className="flex flex-col justify-center items-center h-96 space-y-6 p-8 bg-black rounded-lg shadow-lg max-w-2xl mx-auto border border-white">
-      <div className="text-6xl mb-4">📊</div>
-      <h2 className="text-2xl font-semibold text-white">No Data Available</h2>
-      <p className="text-gray-300 text-center text-lg">
-        Ready to start practicing? Select a dataset to begin your trading education.
-      </p>
-      
-      <div className="bg-gray-900 rounded-lg p-6 w-full">
-        <h3 className="text-lg font-medium text-white mb-3">📚 What you'll practice:</h3>
-        <ul className="text-gray-300 space-y-2">
-          <li className="flex items-center">
-            <span className="text-green-400 mr-3">📈</span>
-            <span>Identify breakout patterns in real market data</span>
-          </li>
-          <li className="flex items-center">
-            <span className="text-blue-400 mr-3">⏱️</span>
-            <span>Make quick decisions under time pressure</span>
-          </li>
-          <li className="flex items-center">
-            <span className="text-yellow-400 mr-3">🎯</span>
-            <span>Improve your trading accuracy and speed</span>
-          </li>
-        </ul>
-      </div>
-      
-      <button 
-        onClick={onSelectDataset}
-        className="mt-6 px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-lg"
-      >
-        Select Dataset to Begin
-      </button>
-    </div>
-  );
-};
-
 // Export as namespace for easier usage
 export const LoadingStates = {
   AuthLoading,
   DataLoading,
   ErrorState,
-  NoDataState,
 }; 

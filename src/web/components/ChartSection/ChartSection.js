@@ -20,11 +20,11 @@ import ChartScoreOverlay from "../UI/ChartScoreOverlay";
 import ChartMagnifier from "../UI/ChartMagnifier";
 import { getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
 
-const ChartSection = React.memo(function ChartSection({
+function ChartSection({
   orderedFiles,
   afterData,
   timer,
-  pointsTextArray,
+  pointsTextArray = [],
   actionButtons, // Deprecated - kept for compatibility
   selectedButtonIndex, // Deprecated - kept for compatibility
   feedback,
@@ -382,56 +382,64 @@ const ChartSection = React.memo(function ChartSection({
             </div>
             <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
-              <StockChart 
-                data={orderedFiles[0].data} 
-                afterData={afterData}
-                showAfterAnimation={showAfterAnimation}
-                progressPercentage={progressPercentage}
-                zoomPercentage={zoomPercentage}
-                isInDelayPhase={completionDelay}
-                afterAnimationComplete={afterAnimationComplete}
-                showSMA={true}
-                onChartClick={onChartClick}
-                userSelection={userSelection}
-                targetPoint={targetPoint}
-                disabled={disabled || score !== null}
-              />
-              {/* Magnifying glass tool - properly integrated */}
-              {onChartClick && !disabled && score === null && (
-                <ChartMagnifier
-                  onSelection={(syntheticEvent) => {
-                    // The syntheticEvent has viewport coordinates (clientX/clientY)
-                    // Create a proper MouseEvent that the StockChart can handle
-                    if (chartRef.current) {
-                      const svgElement = chartRef.current.querySelector('svg');
-                      if (svgElement) {
-                        // Create and dispatch a proper click event at the viewport coordinates
-                        // The StockChart's handleChartClick will use getBoundingClientRect to convert
-                        const clickEvent = new MouseEvent('click', {
-                          clientX: syntheticEvent.clientX,
-                          clientY: syntheticEvent.clientY,
-                          bubbles: true,
-                          cancelable: true,
-                          view: window,
-                          button: 0,
-                          buttons: 1,
-                        });
-                        svgElement.dispatchEvent(clickEvent);
-                      }
-                    }
-                  }}
-                  enabled={!disabled && score === null}
-                  chartElement={chartRef.current?.querySelector('svg') || null}
-                />
-              )}
-              {/* Score overlay - appears after selection */}
-              {score !== null && feedback && (
-                <ChartScoreOverlay 
-                  score={score}
-                  accuracyTier={getAccuracyTier(score)}
-                  show={true}
-                  onNext={onNextCard}
-                />
+              {orderedFiles && orderedFiles.length > 0 && orderedFiles[0]?.data ? (
+                <>
+                  <StockChart 
+                    data={orderedFiles[0].data} 
+                    afterData={afterData}
+                    showAfterAnimation={showAfterAnimation}
+                    progressPercentage={progressPercentage}
+                    zoomPercentage={zoomPercentage}
+                    isInDelayPhase={completionDelay}
+                    afterAnimationComplete={afterAnimationComplete}
+                    showSMA={true}
+                    onChartClick={onChartClick}
+                    userSelection={userSelection}
+                    targetPoint={targetPoint}
+                    disabled={disabled || (score !== null && score !== undefined)}
+                  />
+                  {/* Magnifying glass tool - properly integrated */}
+                  {onChartClick && !disabled && score === null && (
+                    <ChartMagnifier
+                      onSelection={(syntheticEvent) => {
+                        // The syntheticEvent has viewport coordinates (clientX/clientY)
+                        // Create a proper MouseEvent that the StockChart can handle
+                        if (chartRef.current) {
+                          const svgElement = chartRef.current.querySelector('svg');
+                          if (svgElement) {
+                            // Create and dispatch a proper click event at the viewport coordinates
+                            // The StockChart's handleChartClick will use getBoundingClientRect to convert
+                            const clickEvent = new MouseEvent('click', {
+                              clientX: syntheticEvent.clientX,
+                              clientY: syntheticEvent.clientY,
+                              bubbles: true,
+                              cancelable: true,
+                              view: window,
+                              button: 0,
+                              buttons: 1,
+                            });
+                            svgElement.dispatchEvent(clickEvent);
+                          }
+                        }
+                      }}
+                      enabled={!disabled && score === null}
+                      chartElement={chartRef.current?.querySelector('svg') || null}
+                    />
+                  )}
+                  {/* Score overlay - appears after selection */}
+                  {score !== null && feedback && (
+                    <ChartScoreOverlay 
+                      score={score}
+                      accuracyTier={getAccuracyTier(score)}
+                      show={true}
+                      onNext={onNextCard}
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-black rounded-lg">
+                  <p className="text-gray-400 text-lg">No chart data available. Please select a dataset.</p>
+                </div>
               )}
             </div>
           </div>
@@ -440,13 +448,13 @@ const ChartSection = React.memo(function ChartSection({
         {/* Right Column: H Chart + Points Grid - Now visible on mobile */}
         <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4">
           {/* H Chart */}
-          <div className="w-full flex flex-col items-center bg-transparent rounded-lg shadow-md p-2 sm:p-3">
-            <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ height: '100%', minHeight: '400px', maxHeight: '600px' }}>
+          <div className="w-full flex flex-col bg-transparent rounded-lg shadow-md">
+            <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: '1 / 1' }}>
               {/* H Label - positioned in the top left */}
               <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-xs sm:text-sm shadow-lg">
                 H
               </div>
-              <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
+              <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%', width: '100%' }}>
                 <StockChart 
                   data={orderedFiles[1]?.data}
                   backgroundColor="black" 
@@ -460,21 +468,69 @@ const ChartSection = React.memo(function ChartSection({
           
           {/* Points Grid - Compact on mobile, full grid on desktop */}
           <div className={`grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
-            {pointsTextArray.map((text, index) => (
-              <div
-                key={index}
-                className={`rounded-md shadow-sm p-2 text-center text-xs sm:text-sm flex items-center justify-center min-h-[2.5rem] transition-all duration-200 ${
-                  text ? "bg-turquoise-600 text-white hover:bg-turquoise-700" : "invisible"
-                }`}
-              >
-                {text || "\u00A0"}
-              </div>
-            ))}
+            {(() => {
+              // Ensure we have a valid array - handle undefined/null gracefully
+              const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
+              
+              // Debug logging (only when there's data or on first render)
+              if (safePointsArray.length > 0) {
+                console.log("📊 ChartSection rendering points grid:", {
+                  pointsTextArray: safePointsArray,
+                  length: safePointsArray.length
+                });
+              }
+              
+              if (safePointsArray.length > 0) {
+                return safePointsArray.map((text, index) => {
+                  const displayText = text && typeof text === 'string' ? text.trim() : '';
+                  return (
+                    <div
+                      key={`point-${index}-${displayText || index}`}
+                      className={`rounded-md shadow-sm p-2 text-center text-xs sm:text-sm flex items-center justify-center min-h-[2.5rem] transition-all duration-200 ${
+                        displayText ? "bg-turquoise-600 text-white hover:bg-turquoise-700" : "invisible"
+                      }`}
+                    >
+                      {displayText || "\u00A0"}
+                    </div>
+                  );
+                });
+              } else {
+                // Show placeholder boxes when no points data is available
+                return Array.from({ length: 8 }).map((_, index) => (
+                  <div
+                    key={`placeholder-${index}`}
+                    className="rounded-md shadow-sm p-2 text-center text-xs sm:text-sm flex items-center justify-center min-h-[2.5rem] transition-all duration-200 invisible"
+                  >
+                    {"\u00A0"}
+                  </div>
+                ));
+              }
+            })()}
           </div>
         </div>
       </div>
     </>
   );
-});
+}
 
-export default ChartSection;
+export default React.memo(ChartSection, (prevProps, nextProps) => {
+  // Custom comparison to ensure pointsTextArray changes trigger re-render
+  // Also compare other props that might affect rendering
+  const pointsEqual = JSON.stringify(prevProps.pointsTextArray || []) === JSON.stringify(nextProps.pointsTextArray || []);
+  const otherPropsEqual = (
+    prevProps.orderedFiles === nextProps.orderedFiles &&
+    prevProps.afterData === nextProps.afterData &&
+    prevProps.timer === nextProps.timer &&
+    prevProps.feedback === nextProps.feedback &&
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.isTimeUp === nextProps.isTimeUp &&
+    prevProps.onChartClick === nextProps.onChartClick &&
+    prevProps.userSelection === nextProps.userSelection &&
+    prevProps.targetPoint === nextProps.targetPoint &&
+    prevProps.distance === nextProps.distance &&
+    prevProps.score === nextProps.score
+  );
+  
+  // Return true if props are equal (skip re-render), false if they differ (re-render)
+  return pointsEqual && otherPropsEqual;
+});

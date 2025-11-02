@@ -14,7 +14,7 @@ export const TIMER_CONFIG = {
 export const GAME_CONFIG = {
   ACTION_BUTTONS: ["-5%", "0%", "20%", "50%"],
   REQUIRED_FILES: ["D.json", "H.json", "M.json"],
-  OPTIONAL_FILES: ["after.json", "points.json", "thing.json"],
+  OPTIONAL_FILES: ["after.json", "points.json"],
   MOBILE_BREAKPOINT: 1024,
 } as const;
 
@@ -51,7 +51,6 @@ export const FILE_PATTERNS = {
   HOURLY: /H\.json$/i,
   MINUTE: /M\.json$/i,
   AFTER: /after\.json$/i,
-  THING: /thing\.json$/i,
   POINTS: /points\.json$/i,
 } as const;
 

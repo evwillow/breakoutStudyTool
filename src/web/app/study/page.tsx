@@ -18,10 +18,20 @@ export default function Study() {
   
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-turquoise-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading study session...</p>
+      <div className="flex items-center justify-center min-h-screen bg-transparent">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
+            </div>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
+              Loading Study Session
+            </h2>
+            <p className="mt-2 text-turquoise-300 text-sm">Preparing your trading practice...</p>
+          </div>
         </div>
       </div>
     );

@@ -49,7 +49,6 @@ export default function FlashcardsContainer() {
     folders,
     flashcards,
     selectedFolder,
-    currentFlashcard,
     loading,
     loadingProgress,
     loadingStep,
@@ -60,12 +59,7 @@ export default function FlashcardsContainer() {
     autoSelectFirstFolder: true,
   });
 
-  // Process current flashcard data
-  const processedData = useMemo(() => {
-    return processFlashcardData(currentFlashcard);
-  }, [currentFlashcard]);
-
-  // UI state
+  // UI state (must be defined before gameState so callbacks can use them)
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showRoundHistory, setShowRoundHistory] = React.useState(false);
   const [roundHistoryRefresh, setRoundHistoryRefresh] = React.useState<(() => void) | null>(null);
@@ -116,10 +110,9 @@ export default function FlashcardsContainer() {
     }
   }, [roundHistoryRefresh, lastMatchLogTime, matchLogCount, refreshCount]);
 
-  // Game state management
+  // Game state management (initialize with flashcards length)
   const gameState = useGameState({
     flashcardsLength: flashcards.length,
-    thingData: processedData.thingData,
     onCorrectAnswer: useCallback(() => {
       console.log("Correct answer!");
     }, []),
@@ -210,6 +203,43 @@ export default function FlashcardsContainer() {
       }
     }, [currentRoundId, triggerRoundHistoryRefresh]),
   });
+
+  // Compute current flashcard using gameState's currentIndex
+  // This ensures proper synchronization when transitioning between stocks
+  const currentFlashcard = useMemo(() => {
+    const index = gameState.currentIndex;
+    // Ensure index is within bounds
+    const safeIndex = Math.max(0, Math.min(index, flashcards.length - 1));
+    const flashcard = flashcards[safeIndex] || null;
+    
+    // If index was out of bounds, reset it
+    if (index !== safeIndex && flashcards.length > 0) {
+      console.warn(`⚠️ Current index ${index} out of bounds, resetting to ${safeIndex}`);
+      gameState.setCurrentIndex(safeIndex);
+    }
+    
+    console.log("📊 Current flashcard updated:", {
+      index: safeIndex,
+      totalFlashcards: flashcards.length,
+      flashcardName: flashcard?.name || 'null',
+      hasData: !!flashcard?.jsonFiles?.length
+    });
+    return flashcard;
+  }, [gameState.currentIndex, flashcards, gameState]);
+
+  // Process current flashcard data
+  const processedData = useMemo(() => {
+    const result = processFlashcardData(currentFlashcard);
+    console.log("🔄 Processed data updated:", {
+      orderedFiles: result.orderedFiles.length,
+      hasAfterData: !!result.afterJsonData,
+      pointsTextArray: result.pointsTextArray,
+      pointsCount: result.pointsTextArray?.length || 0,
+      currentIndex: gameState.currentIndex
+    });
+    return result;
+  }, [currentFlashcard, gameState.currentIndex]);
+
 
   // Timer management
   const timer = useTimer({
@@ -779,6 +809,17 @@ export default function FlashcardsContainer() {
     [currentFlashcard]
   );
 
+  // Ensure currentIndex stays within bounds when flashcards array changes
+  useEffect(() => {
+    if (flashcards.length > 0 && gameState.currentIndex >= flashcards.length) {
+      console.log(`⚠️ Adjusting currentIndex from ${gameState.currentIndex} to ${flashcards.length - 1} (flashcards array changed)`);
+      gameState.setCurrentIndex(flashcards.length - 1);
+    } else if (flashcards.length > 0 && gameState.currentIndex < 0) {
+      console.log(`⚠️ Adjusting currentIndex from ${gameState.currentIndex} to 0 (flashcards array changed)`);
+      gameState.setCurrentIndex(0);
+    }
+  }, [flashcards.length, gameState]);
+
   // Load rounds when folder is selected, but only if folder/userId actually changed
   useEffect(() => {
     if (
@@ -848,35 +889,25 @@ export default function FlashcardsContainer() {
     );
   }
 
-  // Show no data state
+  // Show error state if there's an error and no data
   if (
-    !flashcards.length ||
+    (!flashcards.length ||
     !currentFlashcard ||
-    processedData.orderedFiles.length === 0
+    processedData.orderedFiles.length === 0) &&
+    error
   ) {
-    // Show error if there's an error, otherwise show no data state
-    if (error) {
-      return (
-        <LoadingStates.ErrorState
-          error={error}
-          onRetry={() => {
-            clearError();
-            setSelectedFolder(null);
-          }}
-        />
-      );
-    }
-    
-    // Don't pass debugInfo unless there's an actual error (which would have been handled above)
-    // This prevents showing "No error message available" during normal no-data states
     return (
-      <LoadingStates.NoDataState
-        onSelectDataset={() => {
+      <LoadingStates.ErrorState
+        error={error}
+        onRetry={() => {
+          clearError();
           setSelectedFolder(null);
         }}
       />
     );
   }
+  
+  // If no data but no error, continue to render the main interface (will show folder selector)
 
   // Show round selection prompt when no round is selected
 
@@ -925,6 +956,8 @@ export default function FlashcardsContainer() {
               session={session} 
               currentStock={currentStock}
               isTimeUp={gameState.showTimeUpOverlay}
+              flashcards={flashcards}
+              currentFlashcard={currentFlashcard}
             />
           </div>
 
@@ -1018,32 +1051,38 @@ export default function FlashcardsContainer() {
       `}</style>
       {/* Round Selector Modal (rendered over the main interface) */}
       {showRoundSelector && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent pointer-events-none">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 pointer-events-auto">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Choose Round</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm pointer-events-none">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 pointer-events-auto border-2 border-turquoise-400">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 bg-clip-text text-transparent">
+              Choose Round
+            </h3>
             {isLoadingRounds ? (
               <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-turquoise-600 mx-auto"></div>
-                <p className="text-gray-600 mt-2">Loading rounds...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-r-2 border-b-2 border-turquoise-500 border-t-transparent mx-auto"></div>
+                <p className="text-turquoise-600 mt-2 font-medium">Loading rounds...</p>
               </div>
             ) : (
               <>
                 {availableRounds.length > 0 && (
                   <div className="mb-4">
-                    <h4 className="font-semibold text-gray-700 mb-2">Recent Rounds:</h4>
+                    <h4 className="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Recent Rounds:</h4>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {availableRounds.map((round: any) => (
                         <div
                           key={round.id}
-                          className="flex items-center justify-between p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                          className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg hover:bg-turquoise-50 hover:border-turquoise-400 cursor-pointer transition-all"
                           onClick={() => handleSelectRound(round.id)}
                         >
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">
-                              {round.completed ? '✓' : '◯'} Round from {new Date(round.created_at).toLocaleDateString()}
+                              <span className={round.completed ? 'text-turquoise-600' : 'text-turquoise-500'}>{round.completed ? '✓' : '◯'}</span> Round from {new Date(round.created_at).toLocaleDateString()}
                             </p>
-                            <p className="text-xs text-gray-500">
-                              {round.completed ? 'Completed' : 'In Progress'} • {round.dataset_name}
+                            <p className="text-xs text-gray-600 mt-1">
+                              {round.completed ? (
+                                <span className="text-turquoise-600 font-medium">Completed</span>
+                              ) : (
+                                <span className="text-turquoise-500 font-medium">In Progress</span>
+                              )} • <span className="text-gray-700">{round.dataset_name}</span>
                             </p>
                           </div>
                         </div>
@@ -1055,13 +1094,13 @@ export default function FlashcardsContainer() {
                   <button
                     onClick={handleNewRound}
                     disabled={isCreatingRound}
-                    className="flex-1 bg-turquoise-600 text-white px-4 py-2 rounded hover:bg-turquoise-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white px-4 py-2 rounded-lg hover:from-turquoise-700 hover:to-turquoise-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-lg shadow-turquoise-500/50"
                   >
                     {isCreatingRound ? 'Creating...' : 'Start New Round'}
                   </button>
                   <button
                     onClick={() => setShowRoundSelector(false)}
-                    className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all font-medium"
                   >
                     Cancel
                   </button>
