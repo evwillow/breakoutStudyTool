@@ -669,8 +669,10 @@ const StockChart = React.memo(({
     const volumePadding = volumeMax * 0.1;
 
     // Calculate heights for price and volume sections
+    // On mobile, give volume a bit more space for better visibility
     const totalHeight = dimensions.innerHeight;
-    const volumeHeight = totalHeight * 0.2; // 20% of total height for volume
+    const volumePercentage = isMobile ? 0.25 : 0.2; // 25% on mobile, 20% on desktop
+    const volumeHeight = totalHeight * volumePercentage;
     const priceHeight = totalHeight - volumeHeight;
 
     // Get the last valid price for labels
@@ -678,14 +680,26 @@ const StockChart = React.memo(({
     const lastPrice = lastValidDataPoint?.close || lastValidDataPoint?.Close;
 
     // Extend time indices to allow clicking beyond current data
+    // On mobile, provide enough space for selection but keep chart compact
     const extendedIndices = [...combinedIndices];
     if (onChartClick) {
-      // Extend indices 50% beyond for future predictions
-      const extensionCount = Math.floor(combinedIndices.length * 0.5);
-      for (let i = 0; i < extensionCount; i++) {
-        extendedIndices.push(combinedIndices[combinedIndices.length - 1] + i + 1);
+      if (isMobile) {
+        // On mobile, use a fixed reasonable amount of space (about 30% of data length, but min 15 points)
+        const extensionCount = Math.max(15, Math.floor(combinedIndices.length * 0.3)); // Min 15 points, or 30% of data
+        for (let i = 0; i < extensionCount; i++) {
+          extendedIndices.push(combinedIndices[combinedIndices.length - 1] + i + 1);
+        }
+      } else {
+        // Extend indices for future predictions - desktop
+        const extensionCount = Math.floor(combinedIndices.length * 0.5); // 50% on desktop
+        for (let i = 0; i < extensionCount; i++) {
+          extendedIndices.push(combinedIndices[combinedIndices.length - 1] + i + 1);
+        }
       }
     }
+    
+    // Adjust padding for mobile - reduce padding but keep some spacing for better touch targets
+    const xScalePadding = isMobile ? 0.2 : 0.5;
     
     return {
       priceScale: scaleLinear()
@@ -697,7 +711,7 @@ const StockChart = React.memo(({
       xScale: scalePoint()
         .domain(extendedIndices)
         .range([0, dimensions.innerWidth])
-        .padding(0.5),
+        .padding(xScalePadding),
       priceHeight,
       volumeHeight,
       useFullDomain: zoomPercentage > 0,
@@ -705,7 +719,7 @@ const StockChart = React.memo(({
       isZoomedOut: zoomPercentage > 0,
       extendedDomain: extendedIndices.length > combinedIndices.length
     };
-  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage]);
+  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage, isMobile]);
 
   // Create line generators for SMA
   const sma10Line = useMemo(() => {
@@ -1392,10 +1406,14 @@ const StockChart = React.memo(({
         <defs>
           <style>
             {`
-              @media (max-width: 1024px) {
+              @media (max-width: 768px) {
                 .stock-chart-container {
-                  aspect-ratio: 1 / 1;
-                  min-height: 300px;
+                  width: 100% !important;
+                  min-height: 400px;
+                }
+                .stock-chart-container svg {
+                  width: 100% !important;
+                  height: 100% !important;
                 }
               }
               

@@ -89,25 +89,28 @@ function ChartSection({
   useEffect(() => {
     console.log("=== CHART SECTION AFTER DATA DEBUG ===");
     console.log("ChartSection useEffect triggered - afterData:", !!afterData, afterData ? (Array.isArray(afterData) ? `array length ${afterData.length}` : 'not array') : 'null');
-    console.log("afterData type:", typeof afterData);
-    console.log("afterData value:", afterData);
-    console.log("afterData is null:", afterData === null);
-    console.log("afterData is undefined:", afterData === undefined);
-    console.log("afterData is falsy:", !afterData);
     console.log("feedback state:", feedback);
     console.log("last feedback processed:", lastFeedbackRef.current);
     
-    // Only start animation if user has made a selection (feedback is set)
-    // OR if we have afterData and want to show it after selection
-    if (!feedback && !afterData) {
-      console.log("No feedback yet and no afterData - waiting for user selection");
-      lastFeedbackRef.current = null; // Reset when feedback is cleared
+    // CRITICAL: Only start animation if user has made a selection (feedback is set)
+    // Animation should NEVER trigger without a selection being made first
+    if (!feedback) {
+      console.log("No feedback yet - waiting for user selection before animation");
+      // Reset tracking when feedback is cleared (moving to new card)
+      if (lastFeedbackRef.current !== null) {
+        lastFeedbackRef.current = null;
+        setAnimationInProgress(false);
+        setShowAfterAnimation(false);
+        setProgressPercentage(0);
+        setZoomPercentage(0);
+        setCompletionDelay(false);
+        setAfterAnimationComplete(false);
+      }
       return;
     }
     
-    // If we have feedback, trigger animation even if afterData loads later
     // Prevent duplicate animations for the same feedback state
-    const animationKey = `${feedback || 'none'}-${!!afterData}`;
+    const animationKey = `${feedback}-${!!afterData}`;
     if (lastFeedbackRef.current === animationKey) {
       console.log("Already processed this animation state, skipping");
       return;
@@ -115,7 +118,7 @@ function ChartSection({
     
     // Mark this animation state as processed
     lastFeedbackRef.current = animationKey;
-    console.log("Processing animation state:", animationKey);
+    console.log("Processing animation state after selection:", animationKey);
     
     // Clear any existing timers
     if (delayTimerRef.current) {
@@ -125,13 +128,6 @@ function ChartSection({
     if (debugIntervalRef.current) {
       clearInterval(debugIntervalRef.current);
       debugIntervalRef.current = null;
-    }
-
-    // If we have feedback, always trigger animation
-    // Animation will work whether we have afterData or not
-    if (!feedback) {
-      console.log("No feedback - waiting for user selection");
-      return;
     }
 
     // Prevent multiple animations from starting simultaneously
@@ -471,14 +467,6 @@ function ChartSection({
             {(() => {
               // Ensure we have a valid array - handle undefined/null gracefully
               const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
-              
-              // Debug logging (only when there's data or on first render)
-              if (safePointsArray.length > 0) {
-                console.log("📊 ChartSection rendering points grid:", {
-                  pointsTextArray: safePointsArray,
-                  length: safePointsArray.length
-                });
-              }
               
               if (safePointsArray.length > 0) {
                 return safePointsArray.map((text, index) => {

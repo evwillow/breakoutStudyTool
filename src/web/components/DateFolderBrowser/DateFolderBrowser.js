@@ -6,7 +6,8 @@
  * Component for browsing and displaying historical stock data files.
  * Features:
  * - Fetches and displays historical stock data files for the current stock
- * - Progressively auto-expands items as user scrolls down
+ * - Auto-expands items as user scrolls down over them
+ * - Auto-closes items as user scrolls up past them (only auto-expanded items)
  * - Allows users to manually open and close dropdowns with their choices respected
  * - Supports multiple open dropdowns simultaneously
  * - Implements multiple fallback strategies to find relevant files
@@ -50,12 +51,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     
     const fetchAllStockFiles = async () => {
       try {
-        console.log(`=== FETCHING PREVIOUS BREAKOUTS ===`);
-        console.log(`Current stock: ${currentStock}`);
-        console.log(`Session: ${!!session}`);
-        console.log(`Flashcards available: ${flashcards.length}`);
-        console.log(`Current flashcard:`, currentFlashcard?.name);
-        
         // First, try to use files from flashcards that are already loaded
         // Extract date-formatted files and after.json files from all flashcards
         const preloadedFiles = [];
@@ -94,10 +89,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
           });
         }
         
-        console.log(`Preloaded files from flashcards: ${preloadedFiles.length}`);
         if (preloadedFiles.length > 0) {
-          console.log(`Sample preloaded files:`, preloadedFiles.slice(0, 3).map(f => f.fileName));
-          
           // If we have preloaded files, set them immediately so they display right away
           // Set fileData for preloaded files immediately
           const preloadedFileData = {};
@@ -189,9 +181,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
             const files = folderData.files;
             processedFolders++;
             
-            // Log raw data for debugging
-            console.log(`Files data for folder ${folder.name}:`, filesData);
-            
             // Handle case where API returns an empty array
             if (!files || files.length === 0) {
               console.log(`No files found in folder ${folder.name}`);
@@ -206,8 +195,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
             
             const { relevantFiles: filteredFiles, totalFilesBeforeFiltering } = processAndFilterFiles(files, folder.name, currentStock);
             totalFilesFound += totalFilesBeforeFiltering;
-            console.log(`Filtered files for ${folder.name}: ${filteredFiles.length} files found (${totalFilesBeforeFiltering} total before filtering)`);
-            console.log(`Sample filtered files:`, filteredFiles.slice(0, 3).map(f => f.fileName));
             relevantFiles = [...relevantFiles, ...filteredFiles];
           } catch (error) {
             // Continue with other folders if one fails
@@ -321,8 +308,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
             const filePath = file.fileName || file.path || file.id;
             // All files are in the quality_breakouts folder, regardless of stock directory
             const folderName = 'quality_breakouts';
-            
-            console.log(`Loading file data (after.json): ${file.id}, using path: ${filePath}`);
             
             const response = await fetch(`/api/files/local-data?file=${encodeURIComponent(filePath)}&folder=${encodeURIComponent(folderName)}`);
             if (response.ok) {
@@ -449,6 +434,52 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     }
   }, []);
 
+  // Load file data for a specific file
+  const loadFileData = useCallback(async (fileId) => {
+    const file = allFiles.find(f => f.id === fileId);
+    if (!file || fileData[fileId]) return;
+    
+    try {
+      // If file already has data property, use it
+      if (file.data) {
+        setFileData(prev => ({ ...prev, [fileId]: file.data }));
+        return;
+      }
+      
+      // Otherwise fetch the data using the local-data API
+      // The file.fileName format from API is "STOCK_DIR/JSON_FILE" (e.g., "AAL_Dec_11_2006/Sep_7_2021.json")
+      // The API expects file as "STOCK_DIR/JSON_FILE" and folder as "quality_breakouts"
+      // Prefer fileName (from API) over path or id
+      const filePath = file.fileName || file.path || file.id;
+      // All files are in the quality_breakouts folder, regardless of stock directory
+      const folderName = 'quality_breakouts';
+      
+      if (!filePath) {
+        console.error(`Invalid file path for ${fileId}:`, file);
+        throw new Error(`Invalid file path: file.fileName=${file.fileName}, file.path=${file.path}, file.id=${file.id}`);
+      }
+      
+      const response = await fetch(`/api/files/local-data?file=${encodeURIComponent(filePath)}&folder=${encodeURIComponent(folderName)}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file content: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      if (result.success && result.data) {
+        setFileData(prev => ({ ...prev, [fileId]: result.data }));
+      } else if (result.data) {
+        // Handle case where data is returned but success flag is missing
+        setFileData(prev => ({ ...prev, [fileId]: result.data }));
+      } else {
+        console.error(`❌ No data returned for ${fileId}:`, result);
+        throw new Error(result.message || 'No data returned from API');
+      }
+    } catch (err) {
+      console.error(`Error loading file data for ${fileId}:`, err);
+      setError(`Failed to load chart data: ${err.message}`);
+    }
+  }, [allFiles, fileData]);
+
   // Set up intersection observer for scroll reveal and progressive auto-expand effect
   useEffect(() => {
     if (!allFiles.length) return; // Don't set up observer if there are no files
@@ -498,9 +529,23 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
               return prev;
             });
           }
+        } else {
+          // Item has left the viewport
+          // Auto-close if:
+          // 1. The item is not manually controlled
+          // 2. It was auto-expanded (is in autoExpandedItems)
+          // 3. We're scrolling up
+          if (!manuallyControlledItems.includes(id) && scrollingDirection.current === 'up') {
+            setAutoExpandedItems(prev => {
+              if (prev.includes(id)) {
+                // Remove from expanded files
+                setExpandedFiles(current => current.filter(fileId => fileId !== id));
+                return prev.filter(item => item !== id);
+              }
+              return prev;
+            });
+          }
         }
-        // We don't auto-close items when they leave the viewport
-        // This allows for progressive opening only
       });
     };
 
@@ -516,62 +561,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     return () => {
       observer.disconnect();
     };
-  }, [allFiles, expandedFiles, fileData, manuallyControlledItems]);
-
-  // Load file data for a specific file
-  const loadFileData = async (fileId) => {
-    const file = allFiles.find(f => f.id === fileId);
-    if (!file || fileData[fileId]) return;
-    
-    try {
-      // If file already has data property, use it
-      if (file.data) {
-        setFileData(prev => ({ ...prev, [fileId]: file.data }));
-        return;
-      }
-      
-      // Otherwise fetch the data using the local-data API
-      // The file.fileName format from API is "STOCK_DIR/JSON_FILE" (e.g., "AAL_Dec_11_2006/Sep_7_2021.json")
-      // The API expects file as "STOCK_DIR/JSON_FILE" and folder as "quality_breakouts"
-      // Prefer fileName (from API) over path or id
-      const filePath = file.fileName || file.path || file.id;
-      // All files are in the quality_breakouts folder, regardless of stock directory
-      const folderName = 'quality_breakouts';
-      
-      if (!filePath) {
-        console.error(`Invalid file path for ${fileId}:`, file);
-        throw new Error(`Invalid file path: file.fileName=${file.fileName}, file.path=${file.path}, file.id=${file.id}`);
-      }
-      
-      console.log(`Loading file data for ${fileId}:`);
-      console.log(`  - file.fileName: ${file.fileName}`);
-      console.log(`  - file.path: ${file.path}`);
-      console.log(`  - file.id: ${file.id}`);
-      console.log(`  - Using filePath: ${filePath}`);
-      console.log(`  - API URL: /api/files/local-data?file=${encodeURIComponent(filePath)}&folder=${encodeURIComponent(folderName)}`);
-      
-      const response = await fetch(`/api/files/local-data?file=${encodeURIComponent(filePath)}&folder=${encodeURIComponent(folderName)}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file content: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      if (result.success && result.data) {
-        setFileData(prev => ({ ...prev, [fileId]: result.data }));
-        console.log(`✅ Successfully loaded data for ${fileId}`);
-      } else if (result.data) {
-        // Handle case where data is returned but success flag is missing
-        setFileData(prev => ({ ...prev, [fileId]: result.data }));
-        console.log(`✅ Successfully loaded data for ${fileId} (no success flag)`);
-      } else {
-        console.error(`❌ No data returned for ${fileId}:`, result);
-        throw new Error(result.message || 'No data returned from API');
-      }
-    } catch (err) {
-      console.error(`Error loading file data for ${fileId}:`, err);
-      setError(`Failed to load chart data: ${err.message}`);
-    }
-  };
+  }, [allFiles, expandedFiles, fileData, manuallyControlledItems, loadFileData]);
 
   // Handle manual file expansion toggle
   const handleFileToggle = async (fileId) => {
@@ -655,15 +645,11 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     const addFileIfRelevant = (fileName, subfolder, fileData, filePath = null) => {
       // Skip files that don't match our criteria
       if (!fileName || !fileName.toLowerCase().endsWith('.json')) {
-        console.log(`Skipping file "${fileName}" - not a JSON file`);
         return;
       }
       
-      console.log(`Checking file: "${fileName}" for stock: "${stockSymbol}"`);
-      
       // Only add files relevant to the current stock
       const isRelevant = isRelevantToCurrentStock(fileName, stockSymbol);
-      console.log(`File "${fileName}" isRelevant: ${isRelevant}`);
       
       if (isRelevant) {
         // fileName already includes the full path (e.g., "AAL_Dec_11_2006/after.json")
@@ -772,9 +758,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
       return false; // If no stock symbol, don't show any files (need current stock to filter)
     }
     
-    // Log for debugging
-    console.log(`Checking if file "${fileName}" is relevant to stock "${stockSymbol}"`);
-    
     // Clean up the stock name and filename for comparison
     const fileNameLower = fileName.toLowerCase();
     const stockLower = stockSymbol.toLowerCase();
@@ -791,7 +774,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     // Exclude files from the current stock's directory to avoid showing the same breakout
     // If the directory matches the current stock exactly, exclude it
     if (directoryName && directoryName === stockLower) {
-      console.log(`Excluding file "${fileName}" - matches current stock directory`);
       return false;
     }
     
@@ -799,7 +781,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     // Check if the directory name starts with the current stock symbol
     if (!directoryName) {
       // If no directory path, can't determine stock - exclude it
-      console.log(`Excluding file "${fileName}" - no directory path to match stock`);
       return false;
     }
     
@@ -809,11 +790,8 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     
     // Only include files from directories that match the current stock symbol (case-insensitive)
     if (fileStockSymbol !== currentStockSymbol) {
-      console.log(`Excluding file "${fileName}" - different stock symbol (${fileStockSymbol} !== ${currentStockSymbol})`);
       return false;
     }
-    
-    console.log(`✅ Stock symbol matches: ${fileStockSymbol} === ${currentStockSymbol}`);
     
     // Now check if it's a date-formatted file (e.g., "Sep_7_2021.json")
     // Use case-insensitive matching for date files
@@ -822,12 +800,8 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     // If it's a date-formatted file from the same stock (different directory), include it
     // Note: All files are previous breakouts (none occur after the current one)
     if (isDateFile) {
-      console.log(`✅ Including file "${fileName}" - date-formatted file from same stock (${currentStockSymbol})`);
       return true;
     }
-    
-    // For debugging purposes, log when a file is rejected
-    console.log(`File ${fileName} not matched for stock ${stockSymbol} - not a date-formatted file`);
     
     // Default: exclude files that don't match our criteria
     // We only show date-formatted files from the same stock symbol
@@ -887,11 +861,8 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
       
       // Extract date from the stock folder name (if available)
       if (currentStock) {
-        console.log(`Parsing stock folder name: ${currentStock}`);
-        
         // Parse the stock folder name to extract the date
         const stockParts = currentStock.split('_');
-        console.log(`Stock parts:`, stockParts);
         
         // Try different methods to extract the date
         let breakoutDate = null;
@@ -906,9 +877,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
               !isNaN(potentialDay) && potentialDay >= 1 && potentialDay <= 31 &&
               !isNaN(potentialYear) && potentialYear >= 1900 && potentialYear <= 2100) {
             
-            console.log(`Found date in stock name: ${potentialMonth}_${potentialDay}_${potentialYear}`);
             breakoutDate = new Date(potentialYear, monthMap[potentialMonth], potentialDay);
-            console.log(`Breakout date (Method 1): ${breakoutDate.toDateString()}`);
             break;
           }
         }
@@ -924,21 +893,16 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                 !isNaN(potentialDay) && potentialDay >= 1 && potentialDay <= 31 &&
                 !isNaN(potentialYear) && potentialYear >= 1900 && potentialYear <= 2100) {
               
-              console.log(`Found numeric date: ${potentialMonth}/${potentialDay}/${potentialYear}`);
               breakoutDate = new Date(potentialYear, potentialMonth - 1, potentialDay);
-              console.log(`Breakout date (Method 2): ${breakoutDate.toDateString()}`);
             }
           }
         }
         
         // If we have a valid breakout date, calculate the difference
         if (breakoutDate) {
-          console.log(`File date: ${fileDate.toDateString()}`);
-          
           // Calculate the difference in days
           const timeDiff = breakoutDate.getTime() - fileDate.getTime();
           const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
-          console.log(`Days difference: ${daysDiff}`);
           
           // Format the time difference in the most appropriate unit
           if (daysDiff > 0) {
@@ -1074,7 +1038,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
   }, [visibleItems, expandVisibleItems]);
 
   return (
-    <div className="w-full pt-1 sm:pt-4 px-0 sm:px-6 md:px-10 pb-8">
+    <div className="w-full pt-0 px-0 sm:px-6 md:px-10 pb-8">
       <h3 className="text-xl font-bold mb-4 text-white bg-turquoise-600 px-4 py-2 rounded-lg shadow-md flex items-center">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>

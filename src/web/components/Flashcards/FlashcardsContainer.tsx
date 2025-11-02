@@ -72,6 +72,9 @@ export default function FlashcardsContainer() {
   const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
   const [matchLogCount, setMatchLogCount] = React.useState<number>(0);
   const [refreshCount, setRefreshCount] = React.useState<number>(0);
+  
+  // Ref to store handleNextCard for timer callback
+  const handleNextCardRef = React.useRef<(() => void) | null>(null);
 
   // Create a more reliable refresh function
   const triggerRoundHistoryRefresh = useCallback(() => {
@@ -218,12 +221,6 @@ export default function FlashcardsContainer() {
       gameState.setCurrentIndex(safeIndex);
     }
     
-    console.log("📊 Current flashcard updated:", {
-      index: safeIndex,
-      totalFlashcards: flashcards.length,
-      flashcardName: flashcard?.name || 'null',
-      hasData: !!flashcard?.jsonFiles?.length
-    });
     return flashcard;
   }, [gameState.currentIndex, flashcards, gameState]);
 
@@ -241,11 +238,12 @@ export default function FlashcardsContainer() {
   }, [currentFlashcard, gameState.currentIndex]);
 
 
-  // Timer management
+  // Timer management - normal timer behavior, no auto-advance on time up
   const timer = useTimer({
     initialDuration: TIMER_CONFIG.INITIAL_DURATION,
     onTimeUp: useCallback(() => {
       gameState.setShowTimeUpOverlay(true);
+      // Timer expired - show overlay but don't auto-advance
     }, [gameState]),
     autoStart: false,
   });
@@ -399,6 +397,19 @@ export default function FlashcardsContainer() {
       if (mostRecentIncomplete) {
         console.log('Auto-loading most recent incomplete round:', mostRecentIncomplete.id);
         setCurrentRoundId(mostRecentIncomplete.id);
+        // Load matches for this round to initialize game state
+        try {
+          const matchResponse = await fetch(`/api/game/matches?roundId=${mostRecentIncomplete.id}`);
+          if (matchResponse.ok) {
+            const matchResult = await matchResponse.json();
+            const matches = matchResult.data || [];
+            if (matches.length > 0) {
+              gameState.initializeFromMatches(matches);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading matches for auto-loaded round:', error);
+        }
       } else if (rounds.length > 0) {
         console.log('All recent rounds are completed. User can start a new round.');
         setShowRoundSelector(true);
@@ -431,12 +442,13 @@ export default function FlashcardsContainer() {
       setIsLoadingRounds(false);
       console.log('=== END LOADING ROUNDS ===');
     }
-  }, [session?.user?.id, createNewRound]);
+  }, [session?.user?.id, createNewRound, gameState]);
 
   // Handle folder change
   const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     const newFolder = e.target.value;
     setSelectedFolder(newFolder);
+    // Reset game state BEFORE clearing flashcards to ensure clean state
     gameState.resetGame();
     // Reset timer to current duration setting
     timer.reset(timerDuration);
@@ -486,7 +498,7 @@ export default function FlashcardsContainer() {
   }, [selectedFolder, createNewRound, gameState, timer, timerDuration]);
 
   // Handle selecting an existing round
-  const handleSelectRound = useCallback((roundId: string) => {
+  const handleSelectRound = useCallback(async (roundId: string) => {
     console.log('=== SELECTING EXISTING ROUND ===');
     console.log('Round ID:', roundId);
     console.log('Round ID type:', typeof roundId);
@@ -494,11 +506,38 @@ export default function FlashcardsContainer() {
     
     setCurrentRoundId(roundId);
     setShowRoundSelector(false);
-    // Reset game and timer for the selected round
+    
+    // Reset game state first
     gameState.resetGame();
     timer.reset(timerDuration);
     
-    console.log('Round selected and game reset');
+    // Fetch existing matches for this round and initialize game state
+    try {
+      console.log('Fetching matches for round:', roundId);
+      const response = await fetch(`/api/game/matches?roundId=${roundId}`);
+      
+      if (response.ok) {
+        const result = await response.json();
+        const matches = result.data || [];
+        
+        console.log('Loaded matches for round:', {
+          roundId,
+          matchCount: matches.length,
+          matches
+        });
+        
+        // Initialize game state with existing matches
+        if (matches.length > 0) {
+          gameState.initializeFromMatches(matches);
+        }
+      } else {
+        console.error('Failed to fetch matches for round:', roundId);
+      }
+    } catch (error) {
+      console.error('Error fetching matches for round:', error);
+    }
+    
+    console.log('Round selected and game initialized');
     console.log('=== END ROUND SELECTION ===');
   }, [gameState, timer, timerDuration]);
 
@@ -507,17 +546,23 @@ export default function FlashcardsContainer() {
     // Pause timer first
     timer.pause();
     
-    // Reset game state - this clears all selection state
+    // Reset game state - this clears all selection state (including feedback)
     gameState.nextCard();
     
-    // Reset and start timer for the new card
+    // Reset timer to the current duration setting
     timer.reset(timerDuration);
     
-    // Small delay to ensure state resets before starting new card
+    // Start timer for the new card after a small delay to ensure state resets
+    // nextCard() clears feedback synchronously, so it should be null by now
     setTimeout(() => {
       timer.start();
-    }, 200);
+    }, 250);
   }, [gameState, timer, timerDuration]);
+  
+  // Store handleNextCard in ref for timer callback
+  React.useEffect(() => {
+    handleNextCardRef.current = handleNextCard;
+  }, [handleNextCard]);
 
   // Log match to database
   const logMatch = useCallback(async (buttonIndex: number, isCorrect: boolean) => {
@@ -784,9 +829,10 @@ export default function FlashcardsContainer() {
     }
   }, [currentRoundId, session?.user?.id, triggerRoundHistoryRefresh]);
 
-  // Start timer when flashcard changes or when moving to a new card
+  // Start timer when flashcard changes (but NOT when moving via handleNextCard - that manages its own timer)
+  // Only auto-start if there's no feedback (no selection made yet) and timer is not already running
   useEffect(() => {
-    if (currentFlashcard && !gameState.feedback && !loading && !gameState.showTimeUpOverlay) {
+    if (currentFlashcard && !gameState.feedback && !loading && !gameState.showTimeUpOverlay && !timer.isRunning) {
       // Reset timer to the current duration and start it
       timer.reset(timerDuration);
       // Small delay to ensure reset completes before starting
@@ -795,6 +841,25 @@ export default function FlashcardsContainer() {
       }, 50);
     }
   }, [currentFlashcard, gameState.feedback, gameState.showTimeUpOverlay, loading, timer, timerDuration]);
+  
+  // Auto-advance 8 seconds after a selection is made
+  useEffect(() => {
+    // Only trigger if feedback is set (user made a selection)
+    if (gameState.feedback && gameState.score !== null && gameState.score !== undefined) {
+      console.log('Selection made - starting 8-second auto-advance timer');
+      
+      const autoAdvanceTimer = setTimeout(() => {
+        console.log('8 seconds elapsed after selection - auto-advancing to next stock');
+        if (handleNextCardRef.current) {
+          handleNextCardRef.current();
+        }
+      }, 8000); // 8 seconds after selection
+      
+      return () => {
+        clearTimeout(autoAdvanceTimer);
+      };
+    }
+  }, [gameState.feedback, gameState.score]);
 
   // Always decide overlay visibility in a hook before any conditional returns
   useEffect(() => {
@@ -951,7 +1016,7 @@ export default function FlashcardsContainer() {
           />
           
           {/* Date Folder Browser Section */}
-          <div className="mt-8 pt-6 mb-20">
+          <div className="mt-8 sm:mt-1 mb-20">
             <DateFolderBrowser 
               session={session} 
               currentStock={currentStock}

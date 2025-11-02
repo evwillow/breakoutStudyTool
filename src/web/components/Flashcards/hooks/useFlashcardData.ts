@@ -397,9 +397,6 @@ export function useFlashcardData({
                           return essentialFiles.has(fileName);
                         });
                         
-                        console.log(`✅ Batch: Added ${uniqueNewFiles.length} files to ${stockDir}:`, 
-                          uniqueNewFiles.map(f => f.fileName.split('/').pop()));
-                        
                         return {
                           ...card,
                           jsonFiles: [...card.jsonFiles, ...uniqueNewFiles],
@@ -650,9 +647,6 @@ export function useFlashcardData({
                 return essentialFiles.has(fileName);
               });
               
-              console.log(`✅ Background: Added ${uniqueNewFiles.length} files to ${stockDir}:`, 
-                uniqueNewFiles.map(f => f.fileName.split('/').pop()));
-              
               return {
                 ...card,
                 jsonFiles: [...card.jsonFiles, ...uniqueNewFiles],
@@ -665,8 +659,6 @@ export function useFlashcardData({
           
           return updatedCards;
         });
-        
-        console.log(`Background loading: Added ${loadedFiles.length} files`);
       }
       
       // Small delay between batches

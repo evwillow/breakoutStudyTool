@@ -3,7 +3,7 @@
  * Manages game state, metrics, and user interactions
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { GAME_CONFIG } from '../constants';
 import { calculateDistance, calculateDistanceScore, ChartCoordinate } from '../utils/coordinateUtils';
 
@@ -36,6 +36,7 @@ export interface UseGameStateReturn extends GameState {
   handleCoordinateSelection: (coordinates: ChartCoordinate, onResult?: (distance: number, score: number) => void) => void;
   nextCard: () => void;
   resetGame: () => void;
+  initializeFromMatches: (matches: Array<{ correct: boolean }>) => void;
   setAfterChartData: (data: any) => void;
   setShowTimeUpOverlay: (show: boolean) => void;
   setCurrentIndex: (index: number) => void;
@@ -86,10 +87,35 @@ export function useGameState({
   // Refs for stable references
   const actionButtonsRef = useRef<HTMLDivElement>(null);
   
+  // Store flashcardsLength in state so it updates reactively when flashcards load
+  const [trackedFlashcardsLength, setTrackedFlashcardsLength] = useState(flashcardsLength);
+  
+  // Update tracked length when prop changes (flashcards loading dynamically)
+  // Handle both increases (lazy loading) and resets (folder changes)
+  useEffect(() => {
+    // Always update if length increases (lazy loading scenario)
+    if (flashcardsLength > trackedFlashcardsLength) {
+      setTrackedFlashcardsLength(flashcardsLength);
+    }
+    // Also update if length decreases significantly (folder change scenario)
+    // This prevents stale length when switching folders
+    else if (flashcardsLength < trackedFlashcardsLength && flashcardsLength > 0) {
+      setTrackedFlashcardsLength(flashcardsLength);
+    }
+    // Reset to 0 if flashcards array is cleared
+    else if (flashcardsLength === 0 && trackedFlashcardsLength > 0) {
+      setTrackedFlashcardsLength(0);
+    }
+  }, [flashcardsLength, trackedFlashcardsLength]);
+  
   // Computed values
+  // Accuracy is calculated as percentage of selections that are "correct"
+  // A selection is "correct" if priceAccuracy >= 70% (stock price prediction accuracy)
   const accuracy = matchCount > 0 ? Math.round((correctCount / matchCount) * 100) : 0;
   const selectedButtonIndex = userSelectedButton;
-  const isGameComplete = currentIndex >= flashcardsLength - 1;
+  // Fix edge case: when length is 0, game is not complete (can't be complete with no cards)
+  // When length is 1, index 0 means we're on the last card
+  const isGameComplete = trackedFlashcardsLength > 0 && currentIndex >= trackedFlashcardsLength - 1;
   
   // Handle user selection
   const handleSelection = useCallback((buttonIndex: number, onResult?: (isCorrect: boolean) => void) => {
@@ -208,7 +234,8 @@ export function useGameState({
   
   // Move to next card
   const nextCard = useCallback(() => {
-    if (currentIndex < flashcardsLength - 1) {
+    // Use tracked length instead of stale prop
+    if (trackedFlashcardsLength > 0 && currentIndex < trackedFlashcardsLength - 1) {
       setCurrentIndex(prev => prev + 1);
       setCurrentMatchIndex(prev => prev + 1);
     } else if (isGameComplete) {
@@ -226,8 +253,25 @@ export function useGameState({
     setTargetPoint(null);
     setDistance(null);
     setScore(null);
-  }, [currentIndex, flashcardsLength, isGameComplete, onGameComplete]);
+  }, [currentIndex, trackedFlashcardsLength, isGameComplete, onGameComplete]);
   
+  // Initialize game state from existing matches
+  const initializeFromMatches = useCallback((matches: Array<{ correct: boolean }>) => {
+    const totalMatches = matches.length;
+    const correctMatches = matches.filter(m => m.correct).length;
+    
+    console.log('Initializing game state from matches:', {
+      totalMatches,
+      correctMatches,
+      accuracy: totalMatches > 0 ? Math.round((correctMatches / totalMatches) * 100) : 0
+    });
+    
+    setMatchCount(totalMatches);
+    setCorrectCount(correctMatches);
+    // Set current match index to the number of matches (so next match is at this index)
+    setCurrentMatchIndex(totalMatches);
+  }, []);
+
   // Reset entire game state
   const resetGame = useCallback(() => {
     setCurrentIndex(0);
@@ -244,7 +288,9 @@ export function useGameState({
     setTargetPoint(null);
     setDistance(null);
     setScore(null);
-  }, []);
+    // Reset tracked length to current flashcardsLength to sync with fresh data
+    setTrackedFlashcardsLength(flashcardsLength);
+  }, [flashcardsLength]);
   
   return {
     // State
@@ -265,6 +311,7 @@ export function useGameState({
     handleCoordinateSelection,
     nextCard,
     resetGame,
+    initializeFromMatches,
     setAfterChartData,
     setShowTimeUpOverlay,
     setCurrentIndex,

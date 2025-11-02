@@ -179,8 +179,9 @@ async function getUserRounds(req: NextRequest) {
       }
 
       const totalMatches = matches ? matches.length : 0;
+      // Explicitly check for correct === true to handle null/undefined cases
       const correctMatches = matches
-        ? matches.filter((match) => match.correct).length
+        ? matches.filter((match) => match.correct === true).length
         : 0;
       const accuracy = totalMatches > 0
         ? ((correctMatches / totalMatches) * 100).toFixed(2)
