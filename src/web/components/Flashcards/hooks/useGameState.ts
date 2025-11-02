@@ -33,7 +33,13 @@ export interface ChartCoordinate {
 export interface UseGameStateReturn extends GameState {
   // Actions
   handleSelection: (buttonIndex: number, onResult?: (isCorrect: boolean) => void) => void;
-  handleCoordinateSelection: (coordinates: ChartCoordinate, onResult?: (distance: number, score: number) => void) => void;
+  handleCoordinateSelection: (
+    coordinates: ChartCoordinate,
+    onResult?: (distance: number, score: number, scoreData?: any) => void,
+    target?: ChartCoordinate,
+    priceRange?: { min: number; max: number },
+    timeRange?: { min: number; max: number }
+  ) => void;
   nextCard: () => void;
   resetGame: () => void;
   initializeFromMatches: (matches: Array<{ correct: boolean }>) => void;
