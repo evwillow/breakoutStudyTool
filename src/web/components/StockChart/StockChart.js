@@ -1356,7 +1356,7 @@ const StockChart = React.memo(({
     <div 
       ref={containerRef} 
       className="w-full h-full stock-chart-container"
-      style={{ position: 'relative', width: '100%', height: '100%', minHeight: '400px' }}
+      style={{ position: 'relative', width: '100%', height: '100%', minHeight: chartType === 'hourly' ? '0' : '400px' }}
     >
       <svg
         ref={svgRef}
@@ -1364,7 +1364,7 @@ const StockChart = React.memo(({
         height="100%"
         viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
         className={`w-full h-full ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio={chartType === 'hourly' ? 'xMidYMid slice' : 'xMidYMid meet'}
         onClick={handleChartClick}
         onMouseMove={(e) => {
           // Update cursor based on position - only if chart is selectable
@@ -1438,12 +1438,12 @@ const StockChart = React.memo(({
         
         {/* SMA Legend */}
         {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
-          <g transform={`translate(${(dimensions.margin.left || 0) + 40}, ${(dimensions.margin.top || 0) + 25})`}>
+          <g transform={`translate(${(dimensions.margin.left || 0) + 40}, ${(dimensions.margin.top || 0) + 25})`} style={{ pointerEvents: 'none' }}>
             {/* 10 SMA - Always show for daily or if data exists */}
             {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA10) && (
               <g transform="translate(0, 0)">
                 <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA10} strokeWidth="2" />
-                <text x="20" y="4" fontSize="10" fill="#ffffff">10 SMA</text>
+                <text x="20" y="4" fontSize="10" fill="#ffffff" fontWeight="500">10 SMA</text>
               </g>
             )}
             
@@ -1451,7 +1451,7 @@ const StockChart = React.memo(({
             {(chartType === 'hourly' || chartType === 'H' || chartType === 'default' || chartType === 'D' || hasSMA20) && (
               <g transform="translate(0, 15)">
                 <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA20} strokeWidth="2" />
-                <text x="20" y="4" fontSize="10" fill="#ffffff">20 SMA</text>
+                <text x="20" y="4" fontSize="10" fill="#ffffff" fontWeight="500">20 SMA</text>
               </g>
             )}
             
@@ -1459,7 +1459,7 @@ const StockChart = React.memo(({
             {(chartType !== 'hourly' && chartType !== 'H') && (chartType === 'default' || chartType === 'D' || hasSMA50) && (
               <g transform="translate(0, 30)">
                 <line x1="0" y1="0" x2="15" y2="0" stroke={CHART_CONFIG.COLORS.SMA50} strokeWidth="2" />
-                <text x="20" y="4" fontSize="10" fill="#ffffff">50 SMA</text>
+                <text x="20" y="4" fontSize="10" fill="#ffffff" fontWeight="500">50 SMA</text>
               </g>
             )}
           </g>

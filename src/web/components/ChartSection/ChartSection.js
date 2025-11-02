@@ -559,12 +559,12 @@ function ChartSection({
         {/* Right Column: H Chart + Points Grid - Now visible on mobile */}
         <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4">
           {/* H Chart */}
-          <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: '1 / 1', margin: 0, padding: 0 }}>
+          <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: '1 / 1', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             {/* H Label - positioned in the top left */}
             <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md text-xs sm:text-sm shadow-lg">
               H
             </div>
-            <div className={`absolute inset-0 overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%', width: '100%', margin: 0, padding: 0 }}>
+            <div className={`absolute inset-0 overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} transition-opacity duration-300`} style={{ height: '100%', width: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <StockChart 
                 data={orderedFiles[1]?.data}
                 backgroundColor="black" 
