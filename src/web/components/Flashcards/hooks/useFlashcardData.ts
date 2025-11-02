@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { API_CONFIG, LOADING_STATES, ERROR_MESSAGES, UI_CONFIG } from '../constants';
-import { FlashcardData, validateFlashcardData } from '../utils/dataProcessors';
+import { FlashcardData, FlashcardFile, validateFlashcardData } from '../utils/dataProcessors';
 import type { LoadingState } from '../constants';
 
 export interface FolderOption {
@@ -626,11 +626,13 @@ export function useFlashcardData({
       });
       
       const batchResults = await Promise.all(batchPromises);
-      const loadedFiles = batchResults.filter(Boolean);
+      const loadedFiles = batchResults.filter((f): f is FlashcardFile => 
+        f !== null && typeof f === 'object' && 'fileName' in f && 'data' in f
+      ) as FlashcardFile[];
       
       if (loadedFiles.length > 0) {
         // Update flashcards with newly loaded files
-        updateFlashcards((prevCards: FlashcardData[]) => {
+        updateFlashcards((prevCards: FlashcardData[]): FlashcardData[] => {
           const updatedCards = prevCards.map(card => {
             const stockDir = card.name || card.id;
             const newFiles = loadedFiles.filter(f => f.fileName.startsWith(`${stockDir}/`));
@@ -638,7 +640,7 @@ export function useFlashcardData({
             if (newFiles.length > 0) {
               // Merge new files with existing files, avoiding duplicates
               const existingFileNames = new Set(card.jsonFiles.map(f => f.fileName));
-              const uniqueNewFiles = newFiles.filter(f => !existingFileNames.has(f.fileName));
+              const uniqueNewFiles: FlashcardFile[] = newFiles.filter(f => !existingFileNames.has(f.fileName));
               
               // Check if this card now has essential files
               const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
