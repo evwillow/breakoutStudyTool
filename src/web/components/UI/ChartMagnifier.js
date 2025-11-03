@@ -21,6 +21,7 @@ const ChartMagnifier = ({
   const [isMobile, setIsMobile] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [hasBeenPositioned, setHasBeenPositioned] = useState(false); // Track if user has interacted
+  const [isActivated, setIsActivated] = useState(false); // Track if magnifier is activated (after double tap)
   const magnifierRef = useRef(null);
   const magnifiedContentRef = useRef(null);
   const chartCloneRef = useRef(null);
@@ -29,6 +30,8 @@ const ChartMagnifier = ({
   const lastTapPositionRef = useRef(null);
   const lastTapTimeRef = useRef(0);
   const hasPositionedRef = useRef(false); // Track if user has positioned the magnifier
+  const magnifierDoubleTapTimeRef = useRef(0); // Track double tap on magnifier itself
+  const magnifierLastTapTimeRef = useRef(0); // Track last tap time on magnifier
   const onSelectionRef = useRef(onSelection);
   
   // Keep onSelection ref updated
@@ -151,8 +154,11 @@ const ChartMagnifier = ({
       // Reset tap tracking when component remounts or chart changes
       hasPositionedRef.current = false;
       setHasBeenPositioned(false); // Hide magnified content initially
+      setIsActivated(false); // Reset activation state
       lastTapPositionRef.current = null;
       lastTapTimeRef.current = 0;
+      magnifierLastTapTimeRef.current = 0;
+      magnifierDoubleTapTimeRef.current = 0;
     }
   }, [chartElement, isMobile]);
 
@@ -187,9 +193,233 @@ const ChartMagnifier = ({
     };
   }, [chartElement]);
 
-  // Handle touch events - prevent direct chart clicks, only allow magnifier interaction
+  // Handle touch events on magnifier itself - double tap to activate, drag when activated
+  useEffect(() => {
+    if (!enabled || !magnifierRef.current || !isMobile) return;
+
+    const DOUBLE_TAP_TIME = 400; // ms - time window for double tap detection
+    const MOVEMENT_THRESHOLD = 10; // pixels - movement threshold to distinguish tap from drag
+
+    let touchStartTime = 0;
+    let touchStartPos = null;
+    let touchMoved = false;
+    let activeTouchId = null;
+    let isDraggingMagnifier = false;
+
+    const handleMagnifierTouchStart = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      
+      // Always prevent default on magnifier to handle double tap detection
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const touch = e.touches[0];
+      touchStartTime = Date.now();
+      touchMoved = false;
+      touchStartPos = { x: touch.clientX, y: touch.clientY };
+      activeTouchId = touch.identifier;
+      isDraggingMagnifier = false;
+      
+      // If activated, prepare for dragging
+      if (isActivated) {
+        setIsDragging(true);
+      }
+    };
+
+    const handleMagnifierTouchMove = (e) => {
+      if (!e.touches || e.touches.length === 0 || activeTouchId === null) return;
+      
+      // Always prevent default on magnifier when touching it
+      e.preventDefault();
+      e.stopPropagation();
+      
+      let touch = null;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === activeTouchId) {
+          touch = e.touches[i];
+          break;
+        }
+      }
+      if (!touch || !touchStartPos) return;
+      
+      const dx = touch.clientX - touchStartPos.x;
+      const dy = touch.clientY - touchStartPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Track movement for tap detection
+      if (distance > MOVEMENT_THRESHOLD) {
+        touchMoved = true;
+      }
+      
+      // If activated, allow dragging the magnifier - update position continuously during drag
+      if (isActivated) {
+        isDraggingMagnifier = true;
+        const selectionBounds = getSelectionAreaBounds();
+        if (selectionBounds) {
+          const x = touch.clientX - selectionBounds.left;
+          
+          // Get separator position
+          const separatorX = getSeparatorX();
+          const separatorXInSelection = separatorX ? separatorX - selectionBounds.left : selectionBounds.width;
+          const minX = separatorX ? Math.max(0, separatorX - selectionBounds.left) : 0;
+          const maxX = Math.min(separatorXInSelection, selectionBounds.width);
+          
+          const clampedX = Math.max(minX, Math.min(maxX, x));
+          
+          setPosition(prev => {
+            const newPos = { x: clampedX, y: prev.y };
+            lastTapPositionRef.current = newPos;
+            return newPos;
+          });
+        }
+      }
+    };
+
+    const handleMagnifierTouchEnd = (e) => {
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      
+      // Always prevent default on magnifier
+      e.preventDefault();
+      e.stopPropagation();
+      
+      let touch = null;
+      if (activeTouchId !== null) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === activeTouchId) {
+            touch = e.changedTouches[i];
+            break;
+          }
+        }
+      }
+      
+      if (!touch) {
+        activeTouchId = null;
+        setIsDragging(false);
+        return;
+      }
+      
+      const touchDuration = Date.now() - touchStartTime;
+      const isQuickTap = touchDuration < 300 && !touchMoved;
+      const timeSinceLastTap = Date.now() - magnifierLastTapTimeRef.current;
+      
+      if (isQuickTap && !isDraggingMagnifier) {
+        // Check for double tap
+        if (timeSinceLastTap < DOUBLE_TAP_TIME && magnifierLastTapTimeRef.current > 0) {
+          // Double tap detected
+          if (isActivated) {
+            // Second double tap when activated - make selection
+            const selectionBounds = getSelectionAreaBounds();
+            if (selectionBounds && onSelectionRef.current) {
+              const magnifierPosition = lastTapPositionRef.current || { x: position.x, y: position.y };
+              const selectionX = selectionBounds.left + magnifierPosition.x;
+              const selectionY = selectionBounds.top + magnifierPosition.y;
+              
+              const syntheticEvent = {
+                clientX: selectionX,
+                clientY: selectionY,
+                preventDefault: () => {},
+                stopPropagation: () => {},
+              };
+              onSelectionRef.current(syntheticEvent);
+              
+              // Reset after selection
+              hasPositionedRef.current = false;
+              setHasBeenPositioned(false);
+              setIsActivated(false);
+              lastTapPositionRef.current = null;
+              lastTapTimeRef.current = 0;
+            }
+          } else {
+            // First double tap - activate magnifier
+            setIsActivated(true);
+            setHasBeenPositioned(true);
+            hasPositionedRef.current = true;
+          }
+          magnifierDoubleTapTimeRef.current = Date.now();
+          magnifierLastTapTimeRef.current = 0; // Reset to prevent triple tap issues
+        } else {
+          magnifierLastTapTimeRef.current = Date.now();
+        }
+      } else if (isDraggingMagnifier && isActivated) {
+        // Update final position after drag
+        const selectionBounds = getSelectionAreaBounds();
+        if (selectionBounds) {
+          const finalX = touch.clientX - selectionBounds.left;
+          const separatorX = getSeparatorX();
+          const separatorXInSelection = separatorX ? separatorX - selectionBounds.left : selectionBounds.width;
+          const minX = separatorX ? Math.max(0, separatorX - selectionBounds.left) : 0;
+          const maxX = Math.min(separatorXInSelection, selectionBounds.width);
+          const clampedX = Math.max(minX, Math.min(maxX, finalX));
+          
+          setPosition(prev => {
+            const newPos = { x: clampedX, y: prev.y };
+            lastTapPositionRef.current = newPos;
+            lastTapTimeRef.current = Date.now();
+            return newPos;
+          });
+        }
+      }
+      
+      activeTouchId = null;
+      touchMoved = false;
+      touchStartPos = null;
+      isDraggingMagnifier = false;
+      setIsDragging(false);
+    };
+
+    const handleMagnifierTouchCancel = () => {
+      activeTouchId = null;
+      touchMoved = false;
+      touchStartPos = null;
+      isDraggingMagnifier = false;
+      setIsDragging(false);
+    };
+
+    const magnifierElement = magnifierRef.current;
+    magnifierElement.addEventListener('touchstart', handleMagnifierTouchStart, { passive: false });
+    magnifierElement.addEventListener('touchmove', handleMagnifierTouchMove, { passive: false });
+    magnifierElement.addEventListener('touchend', handleMagnifierTouchEnd, { passive: false });
+    magnifierElement.addEventListener('touchcancel', handleMagnifierTouchCancel, { passive: false });
+
+    return () => {
+      magnifierElement.removeEventListener('touchstart', handleMagnifierTouchStart);
+      magnifierElement.removeEventListener('touchmove', handleMagnifierTouchMove);
+      magnifierElement.removeEventListener('touchend', handleMagnifierTouchEnd);
+      magnifierElement.removeEventListener('touchcancel', handleMagnifierTouchCancel);
+    };
+  }, [enabled, isMobile, isActivated, chartElement]);
+
+  // Block all chart touch events on mobile - magnifier is the only way to interact
   useEffect(() => {
     if (!enabled || !chartElement || !isMobile) return;
+
+    // Always block normal chart clicks/touches on mobile
+    const handleChartClick = (e) => {
+      // On mobile, completely block chart clicks - magnifier handles everything
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    const handleChartTouch = (e) => {
+      // Block all touches when magnifier is not activated
+      if (!isActivated) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    chartElement.addEventListener('click', handleChartClick, { passive: false });
+    chartElement.addEventListener('touchstart', handleChartTouch, { passive: false });
+
+    return () => {
+      chartElement.removeEventListener('click', handleChartClick);
+      chartElement.removeEventListener('touchstart', handleChartTouch);
+    };
+  }, [enabled, chartElement, isMobile, isActivated]);
+
+  // Handle touch events on chart - only work when magnifier is activated
+  useEffect(() => {
+    if (!enabled || !chartElement || !isMobile || !isActivated) return;
 
     let touchMoved = false;
     let initialTouch = null;
@@ -201,9 +431,13 @@ const ChartMagnifier = ({
     const handleChartTouchStart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
       
-      // Prevent default chart click handling on mobile - magnifier is the only way to select
-      e.preventDefault();
-      e.stopPropagation();
+      // Only work when activated - prevent default to allow dragging
+      if (isActivated) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        return; // Don't do anything if not activated
+      }
       
       const touch = e.touches[0];
       const selectionBounds = getSelectionAreaBounds();
@@ -234,38 +468,23 @@ const ChartMagnifier = ({
         // Only update X position (magnifier stays at fixed Y position)
         const clampedX = Math.max(minX, Math.min(maxX, x));
         
-        // Calculate distance from last tap position to determine if this is a second tap
-        const timeSinceLastTap = Date.now() - lastTapTimeRef.current;
-        const distanceFromLastTap = lastTapPositionRef.current 
-          ? Math.abs(clampedX - lastTapPositionRef.current.x)
-          : Infinity;
-        
-        // Check if this might be a second tap (selection) vs first tap (positioning)
-        const isPotentialSecondTap = hasPositionedRef.current && 
-          timeSinceLastTap < DOUBLE_TAP_TIME && 
-          distanceFromLastTap < POSITION_CHANGE_THRESHOLD;
-        
-        if (!isPotentialSecondTap) {
-          // First tap or significant movement - update position
-          setPosition(prev => {
-            const newPos = { x: clampedX, y: prev.y };
-            lastTapPositionRef.current = newPos;
-            lastTapTimeRef.current = Date.now();
-            hasPositionedRef.current = true;
-            setHasBeenPositioned(true); // Show magnified content after first interaction
-            return newPos;
-          });
-        }
-        // If it's a potential second tap, we'll handle it in touchend
+        // Update position immediately on touch start
+        setPosition(prev => {
+          const newPos = { x: clampedX, y: prev.y };
+          lastTapPositionRef.current = newPos;
+          return newPos;
+        });
       }
     };
 
     const handleChartTouchMove = (e) => {
       if (!e.touches || e.touches.length === 0) return;
       
-      // Prevent default to stop chart scrolling/selection
+      // Only prevent default when magnifier is activated
+      if (isActivated) {
       e.preventDefault();
       e.stopPropagation();
+      }
       
       // Find the active touch
       let touch = null;
@@ -314,9 +533,11 @@ const ChartMagnifier = ({
     const handleChartTouchEnd = (e) => {
       if (!e.changedTouches || e.changedTouches.length === 0) return;
       
-      // Prevent default chart click
+      // Only prevent default when magnifier is activated
+      if (isActivated) {
       e.preventDefault();
       e.stopPropagation();
+      }
       
       // Find the ended touch
       let touch = null;
@@ -360,51 +581,16 @@ const ChartMagnifier = ({
       const maxX = Math.min(separatorXInSelection, selectionBounds.width);
       const clampedFinalX = Math.max(minX, Math.min(maxX, finalX));
       
-      // Determine if this is a quick tap with minimal movement
-      const isQuickTap = touchDuration < 300 && totalMovement < MOVEMENT_THRESHOLD;
-      
-      // Check if this is a second tap (selection) - user tapped again without moving much
-      const distanceFromLastTap = lastTapPositionRef.current 
-        ? Math.abs(clampedFinalX - lastTapPositionRef.current.x)
-        : Infinity;
-      
-      const isSecondTap = hasPositionedRef.current && 
-        isQuickTap &&
-        timeSinceLastTap < DOUBLE_TAP_TIME && 
-        distanceFromLastTap < POSITION_CHANGE_THRESHOLD &&
-        totalMovement < MOVEMENT_THRESHOLD;
-      
-      if (isSecondTap) {
-        // Second tap means "make a guess" - trigger selection at current magnifier position
-        // Use the stored position (lastTapPositionRef) which is the actual magnifier position
-        const magnifierPosition = lastTapPositionRef.current || { x: position.x, y: position.y };
-        const selectionX = selectionBounds.left + magnifierPosition.x;
-        const selectionY = selectionBounds.top + magnifierPosition.y;
-        
-        if (onSelectionRef.current) {
-          const syntheticEvent = {
-            clientX: selectionX,
-            clientY: selectionY,
-            preventDefault: () => {},
-            stopPropagation: () => {},
-          };
-          onSelectionRef.current(syntheticEvent);
-        }
-        
-        // Reset for next round
-        hasPositionedRef.current = false;
-        setHasBeenPositioned(false); // Hide magnified content for next round
-        lastTapPositionRef.current = null;
-        lastTapTimeRef.current = 0;
-      } else {
-        // First tap or drag - update position
-        // This covers both quick taps (first positioning) and dragging
+      // When activated, chart touches only move the magnifier - no selection
+      // Selection only happens by double-tapping the magnifier itself
+      if (isActivated) {
+        // Update position - this covers both quick taps and dragging
         setPosition(prev => {
           const newPos = { x: clampedFinalX, y: prev.y };
           lastTapPositionRef.current = newPos;
           lastTapTimeRef.current = Date.now();
           hasPositionedRef.current = true;
-          setHasBeenPositioned(true); // Show magnified content after first interaction
+          setHasBeenPositioned(true);
           return newPos;
         });
       }
@@ -478,7 +664,7 @@ const ChartMagnifier = ({
       chartElement.removeEventListener('touchcancel', handleChartTouchCancel);
       document.removeEventListener('touchmove', handleGlobalTouchMove);
     };
-  }, [enabled, chartElement, isMobile, onSelection]);
+  }, [enabled, chartElement, isMobile, isActivated, onSelection, position]);
 
   // Update magnified content position
   useEffect(() => {
@@ -543,13 +729,14 @@ const ChartMagnifier = ({
       {chartElement && (
         <div
           ref={magnifierRef}
-          className="absolute z-50 pointer-events-none transition-all duration-150"
+          className={`absolute z-50 transition-all duration-150 ${isActivated ? 'pointer-events-auto' : 'pointer-events-auto'}`}
           style={{
             left: `${magnifierX - selectionBounds.left}px`,
             top: `${magnifierY - selectionBounds.top}px`,
             width: `${magnifierSize}px`,
             height: `${magnifierSize}px`,
             transform: isDragging ? 'scale(1.05)' : 'scale(1)',
+            cursor: isActivated ? 'move' : 'pointer',
           }}
         >
           {/* Magnifier container */}
@@ -557,12 +744,16 @@ const ChartMagnifier = ({
             className="absolute inset-0 rounded-full overflow-hidden"
             style={{
               background: 'rgba(0, 0, 0, 0.85)',
-              border: isDragging 
-                ? '2px solid rgba(0, 255, 255, 0.5)' 
-                : '1.5px solid rgba(0, 255, 255, 0.35)',
-              boxShadow: isDragging
-                ? '0 4px 20px rgba(0, 255, 255, 0.3), inset 0 0 30px rgba(0, 255, 255, 0.08)'
-                : '0 2px 12px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.05)',
+              border: isActivated 
+                ? (isDragging 
+                  ? '2px solid rgba(0, 255, 255, 0.7)' 
+                  : '2px solid rgba(0, 255, 255, 0.5)')
+                : '1.5px solid rgba(255, 255, 255, 0.3)',
+              boxShadow: isActivated
+                ? (isDragging
+                  ? '0 4px 20px rgba(0, 255, 255, 0.4), inset 0 0 30px rgba(0, 255, 255, 0.1)'
+                  : '0 4px 20px rgba(0, 255, 255, 0.3), inset 0 0 30px rgba(0, 255, 255, 0.08)')
+                : '0 2px 12px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.05)',
               transition: 'all 0.15s ease-out',
             }}
           >
