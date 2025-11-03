@@ -150,7 +150,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
         
         // Apply the shuffle to randomize folder order
         const shuffledFolders = shuffleFolders([...folders]);
-        console.log('Folders have been randomly shuffled');
         
         // Filter to include folders with underscores (date-like folders) OR quality_breakouts folder
         // The quality_breakouts folder contains all stock breakout data
@@ -384,12 +383,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
         }
         
         // Only update files if we found some, otherwise keep existing files to prevent flicker
-        console.log(`=== FINAL FILES SUMMARY ===`);
-        console.log(`Total relevant files found: ${finalFiles.length}`);
-        console.log(`Current stock: ${currentStock}`);
-        console.log(`Sample final files:`, finalFiles.slice(0, 5).map(f => f.fileName || f.id));
-        console.log(`=== END SUMMARY ===`);
-        
         if (finalFiles.length > 0) {
           setAllFiles(finalFiles);
           setDebugInfo(`Processed ${processedFolders} folders, found ${finalFiles.length} files for ${currentStock || "all stocks"} (total files before filtering: ${totalFilesFound})`);
