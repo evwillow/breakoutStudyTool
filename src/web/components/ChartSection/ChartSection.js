@@ -473,22 +473,21 @@ function ChartSection({
       {/* Main content with Daily and Hourly charts */}
       <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0">
-          {/* Timer - visible on mobile too */}
-          <div className="w-full text-center mb-1 sm:mb-1.5">
-            <div className="flex items-center justify-center">
-              <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <h2 className={`text-xl sm:text-2xl md:text-3xl font-bold ${getTimerColor()} bg-black px-3 sm:px-4 py-2 sm:py-1.5 rounded-md`}>
-                {timer}s
-              </h2>
-            </div>
-          </div>
+        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0 mt-4 sm:mt-6">
           <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', margin: 0, padding: 0, boxSizing: 'border-box' }}>
-            {/* D Label - positioned in the top left, above magnifying glass */}
-            <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
-              D
+            {/* D Label and Timer - positioned in the top left */}
+            <div className="absolute top-2 left-2 z-30 flex items-center gap-3 sm:gap-4">
+              <div className="text-white font-bold bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
+                D
+              </div>
+              <div className="inline-flex items-center gap-1.5 bg-black/80 backdrop-blur-sm pl-2.5 pr-4 sm:pl-3 sm:pr-5 py-1.5 sm:py-1.5 rounded-md border border-white/40 shadow-lg ml-2 sm:ml-3">
+                <svg className="w-4 h-4 sm:w-4 sm:h-4 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span className={`text-base sm:text-lg font-bold ${getTimerColor()}`}>
+                  {timer}s
+                </span>
+              </div>
             </div>
             <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%' }}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
@@ -576,8 +575,8 @@ function ChartSection({
             </div>
           </div>
           
-          {/* Points Grid - Responsive grid with better spacing */}
-          <div className={`grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+          {/* Points Labels - Flexible flow layout that only wraps when necessary */}
+          <div className={`flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-xl' : ''}`}>
             {(() => {
               // Ensure we have a valid array - handle undefined/null gracefully
               const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
@@ -588,11 +587,11 @@ function ChartSection({
                   return (
                     <div
                       key={`point-${index}-${displayText || index}`}
-                      className={`rounded-lg shadow-md px-3 py-2 text-center text-xs sm:text-sm flex items-center justify-center h-auto transition-all duration-300 font-medium whitespace-nowrap overflow-hidden ${
-                        displayText ? "bg-gradient-to-br from-turquoise-600 to-turquoise-500 text-white hover:from-turquoise-700 hover:to-turquoise-600 hover:shadow-lg transform hover:scale-105" : "invisible"
+                      className={`inline-flex items-center rounded-lg shadow-md px-4 py-2.5 text-sm sm:text-base font-semibold transition-all duration-300 whitespace-nowrap ${
+                        displayText ? "bg-gradient-to-br from-turquoise-600 to-turquoise-500 text-white hover:from-turquoise-700 hover:to-turquoise-600 hover:shadow-lg hover:scale-105 cursor-default" : "invisible"
                       }`}
                     >
-                      <span className="truncate w-full">{displayText || "\u00A0"}</span>
+                      {displayText || "\u00A0"}
                     </div>
                   );
                 });
@@ -601,7 +600,7 @@ function ChartSection({
                 return Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={`placeholder-${index}`}
-                    className="rounded-lg shadow-md px-3 py-2 text-center text-xs sm:text-sm flex items-center justify-center h-auto transition-all duration-300 invisible whitespace-nowrap"
+                    className="rounded-lg shadow-md px-4 py-2.5 text-sm sm:text-base flex items-center justify-center h-auto transition-all duration-300 invisible whitespace-nowrap"
                   >
                     {"\u00A0"}
                   </div>

@@ -79,6 +79,11 @@ const getChartConfig = (isMobile, chartType = 'default') => {
     config.SMA_LINE_OPACITY = 0.95;
   }
   
+  // Add extra top padding for default charts to align with hourly chart top border
+  if (chartType === 'default' || chartType === 'D') {
+    config.PADDING.top = isMobile ? 20 : 30; // Increased from 10/20 to 20/30
+  }
+  
   // Special adjustments for small screens/charts
   if (isMobile) {
     // Make SMAs slightly more visible on small screens
@@ -1321,6 +1326,9 @@ const StockChart = React.memo(({
   // Calculate divider line position based on zoom state
   let dividerLineX, darkBackgroundWidth;
   
+  // Offset to move border line further to the right (in step units)
+  const borderLineOffset = 1.5; // Move border line 1.5 steps further to the right
+  
   if (scales?.isZoomedOut && afterStockData.length > 0) {
     // ZOOM OUT MODE: Position divider at the exact boundary between main and after data
     const lastMainDataIndex = stockData.length - 1;
@@ -1331,8 +1339,8 @@ const StockChart = React.memo(({
     const firstAfterX = scales.xScale(firstAfterDataIndex);
     const step = scales.xScale.step();
     
-    // Position the divider exactly at the midpoint between datasets
-    dividerLineX = lastMainX + (step / 2) + (dimensions?.margin?.left || 0);
+    // Position the divider exactly at the midpoint between datasets, then offset further right
+    dividerLineX = lastMainX + (step / 2) + (step * borderLineOffset) + (dimensions?.margin?.left || 0);
     
     // Background covers from divider to end of chart
     darkBackgroundWidth = (dimensions?.width || 0) - dividerLineX;
@@ -1346,10 +1354,11 @@ const StockChart = React.memo(({
       finalDividerX: dividerLineX,
       backgroundWidth: darkBackgroundWidth
     });
-  } else if (scales && dimensions) {
-    // NORMAL MODE: Use the original logic
+  } else if (scales && dimensions && stockData.length > 0) {
+    // NORMAL MODE: Use the original logic, then offset further right
     const lastMainDataX = scales.xScale(stockData.length - 1);
-    dividerLineX = lastMainDataX + scales.xScale.step() + dimensions.margin.left;
+    const step = scales.xScale.step();
+    dividerLineX = lastMainDataX + scales.xScale.step() + (step * borderLineOffset) + dimensions.margin.left;
     darkBackgroundWidth = dimensions.width - dividerLineX;
   } else {
     dividerLineX = 0;
@@ -1399,7 +1408,9 @@ const StockChart = React.memo(({
             const lastDataIndex = stockData.length - 1;
             const lastDataCenterX = scales.xScale(lastDataIndex);
             const step = scales.xScale.step();
-            const lastDataRightEdge = lastDataCenterX + (step / 2);
+            // Match the border line offset (1.5 steps) for consistent cursor behavior
+            const borderLineOffset = 1.5;
+            const lastDataRightEdge = lastDataCenterX + (step / 2) + (step * borderLineOffset);
             
             // Set cursor based on position: not-allowed in data area, crosshair (clickable) in selection area
             if (chartX <= lastDataRightEdge) {
@@ -1455,7 +1466,7 @@ const StockChart = React.memo(({
         {/* SMA Legend - Show for daily and default charts (not hourly) */}
         {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && chartType !== 'hourly' && chartType !== 'H' && dimensions && (
           <g 
-            transform={`translate(${Math.max((dimensions.margin?.left || 0) + 50, 50)}, ${(chartType === 'hourly' || chartType === 'H') ? Math.max((dimensions.margin?.top || 0) + 45, 45) : Math.max((dimensions.margin?.top || 0) + 35, 35)})`} 
+            transform={`translate(${Math.max((dimensions.margin?.left || 0) + 50, 50)}, ${(chartType === 'hourly' || chartType === 'H') ? Math.max((dimensions.margin?.top || 0) + 45, 45) : Math.max((dimensions.margin?.top || 0) + 65, 65)})`} 
             style={{ pointerEvents: 'none' }}
           >
             {/* Background rectangle for better readability - adjust height based on whether SMA50 is shown */}
