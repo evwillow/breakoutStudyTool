@@ -724,8 +724,9 @@ const StockChart = React.memo(({
       }
     }
     
-    // Adjust padding for mobile - reduce padding but keep some spacing for better touch targets
-    const xScalePadding = isMobile ? 0.2 : 0.5;
+    // Adjust padding for mobile - reduce padding to move data visualization further right
+    // Reduced padding so data takes up more of the chart width, moving the divider line further right
+    const xScalePadding = isMobile ? 0.05 : 0.1;
     
     return {
       priceScale: scaleLinear()
@@ -736,7 +737,8 @@ const StockChart = React.memo(({
         .range([volumeHeight, 0]),
       xScale: scalePoint()
         .domain(extendedIndices)
-        .range([0, dimensions.innerWidth])
+        // Extend range to push data visualization further right
+        .range([0, dimensions.innerWidth * 1.2]) // Use 120% of innerWidth to move data right
         .padding(xScalePadding),
       priceHeight,
       volumeHeight,
@@ -1871,8 +1873,8 @@ const StockChart = React.memo(({
               const lastDataIndex = stockData.length - 1;
               const lastDataCenterX = scales.xScale(lastDataIndex);
               const step = scales.xScale.step();
-              // Position divider at the right edge of the last data bar (center + half step)
-              const dividerX = lastDataCenterX + (step / 2) + dimensions.margin.left;
+              // Position divider at the right edge of the last data bar (center + half step) + 2px
+              const dividerX = lastDataCenterX + (step / 2) + dimensions.margin.left + 2;
               
               return (
                 <g>
@@ -1881,17 +1883,17 @@ const StockChart = React.memo(({
                     y1={0}
                     x2={dividerX}
                     y2={dimensions.height}
-                    stroke="#00FFFF"
-                    strokeWidth="2"
-                    strokeDasharray="10,5"
-                    opacity="0.5"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                    strokeDasharray="4,4"
+                    opacity="0.3"
                   />
                   <rect
                     x={dividerX}
                     y={0}
                     width={dimensions.width - dividerX}
                     height={dimensions.height}
-                    fill="rgba(0, 255, 255, 0.05)"
+                    fill="rgba(255, 255, 255, 0.02)"
                     pointerEvents="none"
                   />
                 </g>
