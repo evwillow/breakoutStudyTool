@@ -275,8 +275,14 @@ function ChartSection({
     // Try to find it after a short delay to ensure chart is rendered
     const timeout = setTimeout(findChartContainer, 100);
     
-    return () => clearTimeout(timeout);
-  }, [orderedFiles]);
+    // Also try to find it after a longer delay in case chart takes time to render
+    const timeout2 = setTimeout(findChartContainer, 500);
+    
+    return () => {
+      clearTimeout(timeout);
+      clearTimeout(timeout2);
+    };
+  }, [orderedFiles, afterData]);
 
   // Handle zoom animation and data reveal
   useEffect(() => {
@@ -812,7 +818,7 @@ function ChartSection({
       <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
         <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0 mt-4 sm:mt-6">
-          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? '800px' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
             {/* D Label and Timer - positioned in the top left */}
             <div className="absolute top-2 left-2 z-30 flex items-center gap-3 sm:gap-4">
               <div className="text-white font-bold bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
@@ -827,7 +833,7 @@ function ChartSection({
                 </span>
               </div>
             </div>
-            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%', maxHeight: '100%', overflow: 'hidden' }}>
+            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%', width: '100%' }}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               {orderedFiles && orderedFiles.length > 0 && orderedFiles[0]?.data ? (
                 <>

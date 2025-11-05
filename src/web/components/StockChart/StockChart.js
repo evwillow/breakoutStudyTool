@@ -484,38 +484,32 @@ const StockChart = React.memo(({
         const containerWidth = containerRef.current.clientWidth;
         const isMobileView = window.innerWidth < 768;
         
-        // On mobile, use a fixed height calculation to prevent growth
-        // Use parent's computed height or maxHeight, whichever is smaller
+        // On mobile, calculate height based on width to maintain aspect ratio, but cap at maxHeight
+        // This prevents vertical growth while maintaining the original size
         let containerHeight;
         if (isMobileView) {
           const parent = containerRef.current.parentElement;
           let maxHeight = 800; // Default max height for mobile
           
+          // Get maxHeight from parent if it's set
           if (parent) {
             const computedStyle = window.getComputedStyle(parent);
             const parentMaxHeight = computedStyle.maxHeight;
-            const parentHeight = computedStyle.height;
             
-            // Try to get maxHeight from parent if it's set
             if (parentMaxHeight && parentMaxHeight !== 'none' && parentMaxHeight !== 'auto') {
               const parsed = parseFloat(parentMaxHeight);
               if (!isNaN(parsed)) {
                 maxHeight = parsed;
               }
             }
-            
-            // Use parent's height if it's valid and smaller than maxHeight
-            // Parse height (could be "800px", "800", etc.)
-            const parsedParentHeight = parseFloat(parentHeight);
-            if (!isNaN(parsedParentHeight) && parsedParentHeight > 0) {
-              containerHeight = Math.min(parsedParentHeight, maxHeight);
-            } else {
-              // Fallback to clientHeight but cap at maxHeight
-              containerHeight = Math.min(containerRef.current.clientHeight || 600, maxHeight);
-            }
-          } else {
-            containerHeight = Math.min(containerRef.current.clientHeight || 600, maxHeight);
           }
+          
+          // Calculate height based on width to maintain square aspect ratio (like desktop)
+          // But cap it at maxHeight to prevent growth
+          const calculatedHeight = Math.min(containerWidth, maxHeight);
+          
+          // Use the calculated height, but ensure it's at least 500px
+          containerHeight = Math.max(calculatedHeight, 500);
         } else {
           // Desktop: use full available height
           containerHeight = containerRef.current.clientHeight;
