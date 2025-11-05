@@ -1838,23 +1838,19 @@ const StockChart = React.memo(({
               const step = scales.xScale.step();
               const stepsBeyond = userSelection.x - lastDataIndex - 1;
               const futureXPos = lastDataXPos + (stepsBeyond + 1) * step;
+              const yPos = scales.priceScale(userSelection.y) + dimensions.margin.top;
               
               return (
                 <g>
+                  {/* Clean, professional marker */}
                   <circle
                     cx={futureXPos + dimensions.margin.left}
-                    cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
-                    r="6"
+                    cy={yPos}
+                    r="4"
                     fill="#FFD700"
                     stroke="#FFFFFF"
-                    strokeWidth="2"
-                    opacity="0.9"
-                  />
-                  <circle
-                    cx={futureXPos + dimensions.margin.left}
-                    cy={scales.priceScale(userSelection.y) + dimensions.margin.top}
-                    r="3"
-                    fill="#FFFFFF"
+                    strokeWidth="1.5"
+                    opacity="0.95"
                   />
                 </g>
               );
@@ -1878,34 +1874,30 @@ const StockChart = React.memo(({
               
               const targetStepsBeyond = targetPoint.x - lastDataIndex - 1;
               const targetFutureXPos = lastDataXPos + (targetStepsBeyond + 1) * step;
+              const targetYPos = scales.priceScale(targetPoint.y) + dimensions.margin.top;
               
               return (
                 <g>
+                  {/* Clean, professional marker */}
                   <circle
                     cx={targetFutureXPos + dimensions.margin.left}
-                    cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
-                    r="8"
-                    fill="#00FF00"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    opacity="0.9"
-                  />
-                  <circle
-                    cx={targetFutureXPos + dimensions.margin.left}
-                    cy={scales.priceScale(targetPoint.y) + dimensions.margin.top}
+                    cy={targetYPos}
                     r="4"
-                    fill="#FFFFFF"
+                    fill="#10B981"
+                    stroke="#FFFFFF"
+                    strokeWidth="1.5"
+                    opacity="0.95"
                   />
-                  {/* Line connecting user selection to target */}
+                  {/* Subtle connecting line */}
                   <line
                     x1={userFutureXPos + dimensions.margin.left}
                     y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
                     x2={targetFutureXPos + dimensions.margin.left}
-                    y2={scales.priceScale(targetPoint.y) + dimensions.margin.top}
-                    stroke="#FFD700"
-                    strokeWidth="2"
-                    strokeDasharray="5,5"
-                    opacity="0.7"
+                    y2={targetYPos}
+                    stroke="#666666"
+                    strokeWidth="1"
+                    strokeDasharray="3,3"
+                    opacity="0.4"
                   />
                 </g>
               );
