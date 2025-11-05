@@ -41,6 +41,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
   const fileRefs = useRef({});
   const lastScrollY = useRef(0);
   const scrollingDirection = useRef('down');
+  const prevExpandedFilesRef = useRef([]);
 
   // Function to expand visible items that aren't manually controlled
   const expandVisibleItems = useCallback(() => {
@@ -524,10 +525,6 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
             // Add to expanded files array instead of setting a single expanded file
             setExpandedFiles(prev => {
               if (!prev.includes(id)) {
-                // Notify parent that a chart was expanded (for timer functionality)
-                if (onChartExpanded && typeof onChartExpanded === 'function') {
-                  onChartExpanded();
-                }
                 return [...prev, id];
               }
               return prev;
@@ -565,7 +562,24 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     return () => {
       observer.disconnect();
     };
-  }, [allFiles, expandedFiles, fileData, manuallyControlledItems, loadFileData, onChartExpanded]);
+  }, [allFiles, expandedFiles, fileData, manuallyControlledItems, loadFileData]);
+
+  // Notify parent when files are expanded (for timer functionality)
+  // This runs after state updates to avoid setState during render errors
+  useEffect(() => {
+    const prevExpanded = prevExpandedFilesRef.current;
+    const newlyExpanded = expandedFiles.filter(id => !prevExpanded.includes(id));
+    
+    if (newlyExpanded.length > 0 && onChartExpanded && typeof onChartExpanded === 'function') {
+      // Use setTimeout to ensure this runs after all state updates
+      setTimeout(() => {
+        onChartExpanded();
+      }, 0);
+    }
+    
+    // Update the ref for next comparison
+    prevExpandedFilesRef.current = expandedFiles;
+  }, [expandedFiles, onChartExpanded]);
 
   // Handle manual file expansion toggle
   const handleFileToggle = async (fileId) => {
