@@ -823,37 +823,69 @@ export default function FlashcardsContainer() {
   }) => {
     if (!currentRoundId || !session?.user?.id) return;
 
-    const matchData = {
+    // Build match data, filtering out undefined/null/NaN values
+    const matchData: any = {
       round_id: currentRoundId,
       stock_symbol: data.stockSymbol,
-      user_selection_x: data.coordinates.x,
-      user_selection_y: data.coordinates.y,
-      target_x: data.targetPoint.x,
-      target_y: data.targetPoint.y,
-      distance: data.distance,
-      score: data.score,
-      correct: data.isCorrect,
-      // New price-focused accuracy fields
-      price_accuracy: data.priceAccuracy,
-      time_position: data.timePosition,
-      price_error: data.priceError,
-      time_error: data.timeError,
+      correct: Boolean(data.isCorrect), // Ensure it's always a boolean
     };
+    
+    // Add numeric fields only if they are valid numbers
+    if (typeof data.coordinates.x === 'number' && !isNaN(data.coordinates.x)) {
+      matchData.user_selection_x = data.coordinates.x;
+    }
+    if (typeof data.coordinates.y === 'number' && !isNaN(data.coordinates.y)) {
+      matchData.user_selection_y = data.coordinates.y;
+    }
+    if (typeof data.targetPoint.x === 'number' && !isNaN(data.targetPoint.x)) {
+      matchData.target_x = data.targetPoint.x;
+    }
+    if (typeof data.targetPoint.y === 'number' && !isNaN(data.targetPoint.y)) {
+      matchData.target_y = data.targetPoint.y;
+    }
+    if (typeof data.distance === 'number' && !isNaN(data.distance)) {
+      matchData.distance = data.distance;
+    }
+    if (typeof data.score === 'number' && !isNaN(data.score)) {
+      matchData.score = data.score;
+    }
+    
+    // Add optional fields only if they are defined and not NaN
+    if (data.priceAccuracy !== undefined && !isNaN(data.priceAccuracy)) {
+      matchData.price_accuracy = data.priceAccuracy;
+    }
+    if (data.timePosition !== undefined && !isNaN(data.timePosition)) {
+      matchData.time_position = data.timePosition;
+    }
+    if (data.priceError !== undefined && !isNaN(data.priceError)) {
+      matchData.price_error = data.priceError;
+    }
+    if (data.timeError !== undefined && !isNaN(data.timeError)) {
+      matchData.time_error = data.timeError;
+    }
 
     try {
+      console.log('[MATCHES CLIENT] Sending match data:', matchData);
       const response = await fetch('/api/game/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(matchData),
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[MATCHES CLIENT] Failed to log match:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+      } else {
         setLastMatchLogTime(Date.now());
         setMatchLogCount(prev => prev + 1);
         triggerRoundHistoryRefresh();
       }
     } catch (error) {
-      console.error('Error logging match:', error);
+      console.error('[MATCHES CLIENT] Error logging match:', error);
     }
   }, [currentRoundId, session?.user?.id, triggerRoundHistoryRefresh]);
 

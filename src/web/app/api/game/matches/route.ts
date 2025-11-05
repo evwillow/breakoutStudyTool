@@ -29,12 +29,19 @@ async function logMatch(req: NextRequest) {
     );
   }
   
+  // Log incoming request for debugging
+  console.log('[MATCHES API] Received request body:', JSON.stringify(body, null, 2));
+  
   // Validate input using schema
   let validatedData;
   try {
     validatedData = validateOrThrow<LogMatchRequest>(body, commonSchemas.logMatch);
-  } catch (validationError) {
-    console.error('Validation failed:', validationError);
+  } catch (validationError: any) {
+    console.error('[MATCHES API] Validation failed:', {
+      error: validationError.message,
+      validationErrors: validationError.context?.validationErrors,
+      receivedData: body
+    });
     throw validationError; // Re-throw validation errors as-is
   }
 
@@ -47,11 +54,12 @@ async function logMatch(req: NextRequest) {
   };
   
   // Add legacy button-based fields if provided
+  // For coordinate-based matches, set user_selection to a default value (0) to satisfy NOT NULL constraint
   if (validatedData.user_selection !== undefined) {
     insertData.user_selection = validatedData.user_selection;
-  }
-  if (validatedData.correct !== undefined) {
-    insertData.correct = validatedData.correct;
+  } else if (validatedData.user_selection_x !== undefined || validatedData.user_selection_y !== undefined) {
+    // Coordinate-based match - set default user_selection to satisfy database NOT NULL constraint
+    insertData.user_selection = 0;
   }
   
   // Add new coordinate-based fields if provided
@@ -72,17 +80,25 @@ async function logMatch(req: NextRequest) {
   }
   if (validatedData.score !== undefined) {
     insertData.score = validatedData.score;
-    // Auto-calculate correct from price accuracy or score if not provided
-    if (validatedData.correct === undefined) {
-      // Use price_accuracy if available (primary metric), otherwise use score
-      const primaryAccuracy = validatedData.price_accuracy ?? validatedData.score;
-      insertData.correct = primaryAccuracy >= 70;
-    }
   }
   
   // Add price-focused accuracy fields (primary metric for stock trading)
   if (validatedData.price_accuracy !== undefined) {
     insertData.price_accuracy = validatedData.price_accuracy;
+  }
+  
+  // Determine correct field: use explicit value if provided, otherwise calculate from accuracy metrics
+  // Priority: explicit correct > price_accuracy > score
+  if (validatedData.correct !== undefined) {
+    // Use explicitly provided correct value
+    insertData.correct = validatedData.correct;
+  } else {
+    // Auto-calculate correct from price_accuracy (primary metric) or score if available
+    const primaryAccuracy = validatedData.price_accuracy ?? validatedData.score;
+    if (primaryAccuracy !== undefined) {
+      insertData.correct = primaryAccuracy >= 70;
+    }
+    // If no accuracy data is available, correct will remain undefined (which is fine for legacy matches)
   }
   if (validatedData.time_position !== undefined) {
     insertData.time_position = validatedData.time_position;
@@ -94,6 +110,8 @@ async function logMatch(req: NextRequest) {
     insertData.time_error = validatedData.time_error;
   }
 
+  console.log('[MATCHES API] Inserting match data:', JSON.stringify(insertData, null, 2));
+  
   const { data, error } = await supabase
     .from('matches')
     .insert([insertData])
@@ -101,11 +119,12 @@ async function logMatch(req: NextRequest) {
     .single();
 
   if (error) {
-    console.error('Supabase error details:', {
+    console.error('[MATCHES API] Supabase error details:', {
       message: error.message,
       details: error.details,
       hint: error.hint,
-      code: error.code
+      code: error.code,
+      insertData: insertData
     });
     
     throw new AppError(
@@ -126,6 +145,7 @@ async function logMatch(req: NextRequest) {
     );
   }
 
+  console.log('[MATCHES API] Successfully saved match:', data?.id);
   return createSuccessResponse<Match>(data);
 }
 

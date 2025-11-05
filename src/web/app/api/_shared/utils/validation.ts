@@ -192,7 +192,7 @@ export const commonSchemas = {
   
   logMatch: {
     round_id: { required: true, type: 'uuid' as const },
-    stock_symbol: { required: true, type: 'string' as const, minLength: 1, maxLength: 10 },
+    stock_symbol: { required: true, type: 'string' as const, minLength: 1, maxLength: 100 },
     // Legacy button-based fields (optional for backward compatibility)
     user_selection: { type: 'number' as const, min: 0, max: 10 },
     correct: { type: 'boolean' as const },
