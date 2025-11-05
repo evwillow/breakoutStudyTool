@@ -24,6 +24,13 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
   const [countdown, setCountdown] = useState(10);
   const [isPaused, setIsPaused] = useState(alwaysPaused);
   const intervalRef = useRef(null);
+  const isPausedRef = useRef(alwaysPaused);
+  const onNextRef = useRef(onNext);
+  
+  // Keep onNext ref up to date
+  useEffect(() => {
+    onNextRef.current = onNext;
+  }, [onNext]);
   
   // Reset countdown when popup appears
   useEffect(() => {
@@ -33,6 +40,7 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
     
     setCountdown(10);
     setIsPaused(alwaysPaused);
+    isPausedRef.current = alwaysPaused;
     
     // Clear any existing interval
     if (intervalRef.current) {
@@ -58,6 +66,12 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
+          // Call onNext when countdown reaches 0 (if not paused)
+          // Use refs to get current state (avoid stale closure)
+          if (!isPausedRef.current && !alwaysPaused && onNextRef.current) {
+            console.log("ChartScoreOverlay: Countdown reached 0, calling onNext");
+            onNextRef.current();
+          }
           return 0;
         }
         return prev - 1;
@@ -76,6 +90,7 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
   const handlePauseToggle = () => {
     setIsPaused(prev => {
       const newPaused = !prev;
+      isPausedRef.current = newPaused; // Update ref immediately
       console.log("ChartScoreOverlay: Pause button clicked, new state:", newPaused);
       // Clear interval when pausing
       if (newPaused && intervalRef.current) {
@@ -202,6 +217,7 @@ function ChartSection({
   onNextCard = null, // Callback to move to next card
   timerDuration = null, // Timer duration to check if always paused (0 = always pause)
   onTimerDurationChange = null, // Callback to change timer duration
+  onPauseStateChange = null, // Callback to notify parent of pause state changes
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -215,7 +231,11 @@ function ChartSection({
     console.log("Pause state changed:", paused);
     isAnimationPausedRef.current = paused;
     console.log("Animation pause ref updated to:", isAnimationPausedRef.current);
-  }, []);
+    // Notify parent component about pause state change
+    if (onPauseStateChange) {
+      onPauseStateChange(paused);
+    }
+  }, [onPauseStateChange]);
   const [completionDelay, setCompletionDelay] = useState(false);
   const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
   const [isMobile, setIsMobile] = useState(false);

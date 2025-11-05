@@ -79,6 +79,12 @@ export default function FlashcardsContainer() {
   
   // Ref to store pending round ID and dataset to load after folder switch
   const pendingRoundRef = React.useRef<{ roundId: string; datasetName: string } | null>(null);
+  
+  // Ref to track pause state from ChartSection (to prevent auto-advance when paused)
+  const isChartPausedRef = React.useRef<boolean>(false);
+  
+  // Ref to prevent double-advance when both countdown and auto-advance timers fire
+  const hasAdvancedRef = React.useRef<boolean>(false);
 
   // Create a more reliable refresh function
   const triggerRoundHistoryRefresh = useCallback(() => {
@@ -914,19 +920,66 @@ export default function FlashcardsContainer() {
     }
   }, [currentFlashcard, gameState.feedback, gameState.showTimeUpOverlay, loading, timer, timerDuration, selectedFolder]);
   
-  // Auto-advance 8 seconds after a selection is made
+  // Auto-advance 10 seconds after a selection is made (only if not paused)
+  // This works in sync with the countdown timer in ChartScoreOverlay
   useEffect(() => {
     // Only trigger if feedback is set (user made a selection)
     if (gameState.feedback && gameState.score !== null && gameState.score !== undefined) {
-      const autoAdvanceTimer = setTimeout(() => {
-        if (handleNextCardRef.current) {
-          handleNextCardRef.current();
+      // Reset advance flag when starting new timer
+      hasAdvancedRef.current = false;
+      
+      let autoAdvanceTimer: NodeJS.Timeout | null = null;
+      let elapsedTime = 0;
+      let startTime = Date.now();
+      let pauseStartTime: number | null = null;
+      const delayDuration = 10000; // 10 seconds after selection (matches countdown timer)
+      
+      const checkAndAdvance = () => {
+        // Check if paused - if so, track pause time and reschedule check
+        if (isChartPausedRef.current) {
+          if (pauseStartTime === null) {
+            // Just entered pause state - record when we paused
+            pauseStartTime = Date.now();
+          }
+          // Check again after a short delay to see if unpaused
+          autoAdvanceTimer = setTimeout(checkAndAdvance, 100);
+          return;
         }
-      }, 8000); // 8 seconds after selection
+        
+        // If we were paused, add the pause duration to elapsed time
+        if (pauseStartTime !== null) {
+          const pauseDuration = Date.now() - pauseStartTime;
+          startTime += pauseDuration; // Adjust start time to account for pause
+          pauseStartTime = null;
+        }
+        
+        // Calculate elapsed time (excluding paused time)
+        elapsedTime = Date.now() - startTime;
+        const remainingTime = delayDuration - elapsedTime;
+        
+        if (remainingTime <= 0) {
+          // Time is up, advance to next card (double-check we're not paused and haven't already advanced)
+          if (handleNextCardRef.current && !isChartPausedRef.current && !hasAdvancedRef.current) {
+            hasAdvancedRef.current = true;
+            handleNextCardRef.current();
+          }
+        } else {
+          // Schedule next check
+          autoAdvanceTimer = setTimeout(checkAndAdvance, Math.min(100, remainingTime));
+        }
+      };
+      
+      // Start checking
+      autoAdvanceTimer = setTimeout(checkAndAdvance, 100);
       
       return () => {
-        clearTimeout(autoAdvanceTimer);
+        if (autoAdvanceTimer) {
+          clearTimeout(autoAdvanceTimer);
+        }
       };
+    } else {
+      // Reset advance flag when feedback is cleared
+      hasAdvancedRef.current = false;
     }
   }, [gameState.feedback, gameState.score]);
 
@@ -1093,6 +1146,9 @@ export default function FlashcardsContainer() {
             onNextCard={handleNextCard}
             timerDuration={timerDuration}
             onTimerDurationChange={handleTimerDurationChange}
+            onPauseStateChange={(paused) => {
+              isChartPausedRef.current = paused;
+            }}
           />
 
 
