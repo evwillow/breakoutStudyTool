@@ -475,14 +475,6 @@ const StockChart = React.memo(({
   const lastDimensionsRef = useRef({ width: 0, height: 0 });
   const handleChartClickRef = useRef(null);
   
-  // Expose handleChartClick via ref so parent can call it directly
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.handleChartClick = handleChartClick;
-      handleChartClickRef.current = handleChartClick;
-    }
-  }, [handleChartClick]);
-  
   // Use either data or csvData prop
   const chartData = data || csvData;
   
@@ -1381,6 +1373,15 @@ const StockChart = React.memo(({
       console.warn("onChartClick handler is not available");
     }
   }, [onChartClick, disabled, scales, dimensions, stockData]);
+
+  // Expose handleChartClick via ref so parent can call it directly
+  // This must be after handleChartClick is defined
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.handleChartClick = handleChartClick;
+      handleChartClickRef.current = handleChartClick;
+    }
+  }, [handleChartClick]);
 
   // Early return check AFTER all hooks
   if (!dimensions || !scales || !stockData.length) {
