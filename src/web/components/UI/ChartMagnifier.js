@@ -881,6 +881,100 @@ const ChartMagnifier = ({
   //   }
   // }, [targetPosition, chartElement, magnifierSize, zoomLevel]);
 
+  // Track scroll to update magnifier position so it stays aligned with the chart
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeoutRef = useRef(null);
+  
+  // Sync position when targetPosition changes (user interaction)
+  useEffect(() => {
+    if (!enabled || !isMobile || !chartElement || !magnifierRef.current || isScrolling) return;
+    
+    const selectionBounds = getSelectionAreaBounds();
+    if (!selectionBounds) return;
+    
+    const renderPos = isDraggingMagnifierWidgetRef.current 
+      ? magnifierRenderPos 
+      : getMagnifierRenderPosition(targetPosition, selectionBounds);
+    
+    magnifierRef.current.style.left = `${selectionBounds.left + renderPos.x}px`;
+    magnifierRef.current.style.top = `${selectionBounds.top + renderPos.y}px`;
+  }, [targetPosition, enabled, isMobile, chartElement, isScrolling, magnifierRenderPos]);
+  
+  // Update position directly via DOM for smoother scrolling
+  useEffect(() => {
+    if (!enabled || !isMobile || !chartElement || !magnifierRef.current) return;
+    
+    let rafId = null;
+    
+    const updatePosition = () => {
+      // Mark that we're scrolling
+      setIsScrolling(true);
+      
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Set timeout to mark scrolling as stopped
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+      }, 150);
+      
+      // Use requestAnimationFrame for smooth updates
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          // Update position directly via DOM for maximum smoothness
+          if (magnifierRef.current && chartElement) {
+            const selectionBounds = getSelectionAreaBounds();
+            if (selectionBounds) {
+              const renderPos = isDraggingMagnifierWidgetRef.current 
+                ? magnifierRenderPos 
+                : getMagnifierRenderPosition(targetPosition, selectionBounds);
+              
+              // Update directly without triggering React re-render
+              magnifierRef.current.style.left = `${selectionBounds.left + renderPos.x}px`;
+              magnifierRef.current.style.top = `${selectionBounds.top + renderPos.y}px`;
+            }
+          }
+          rafId = null;
+        });
+      }
+    };
+    
+    // Listen to scroll events on window and any scrollable parents
+    window.addEventListener('scroll', updatePosition, { passive: true });
+    window.addEventListener('resize', updatePosition, { passive: true });
+    
+    // Track parent elements so we can clean them up
+    const parentElements = [];
+    let parent = chartElement.parentElement;
+    while (parent && parent !== document.body) {
+      parentElements.push(parent);
+      parent.addEventListener('scroll', updatePosition, { passive: true });
+      parent = parent.parentElement;
+    }
+    
+    return () => {
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      window.removeEventListener('scroll', updatePosition);
+      window.removeEventListener('resize', updatePosition);
+      
+      // Remove listeners from tracked parents
+      parentElements.forEach(parentEl => {
+        parentEl.removeEventListener('scroll', updatePosition);
+      });
+    };
+  }, [enabled, isMobile, chartElement, targetPosition, magnifierRenderPos]);
+
   // Don't show on desktop
   if (!enabled || !isMobile) {
     return null;
@@ -906,7 +1000,9 @@ const ChartMagnifier = ({
             width: `${magnifierSize}px`,
             height: `${magnifierSize}px`,
             transform: isDragging ? 'scale(1.05)' : 'scale(1)',
-            transition: isDragging ? 'none' : 'transform 0.15s ease-out', // Disable transition during drag for smoothness
+            transition: (isDragging || isScrolling) 
+              ? 'none' 
+              : 'transform 0.15s ease-out', // Only transition when not dragging or scrolling
             cursor: 'move',
             willChange: 'transform, left, top',
             touchAction: 'none', // Prevent default touch behaviors for smooth dragging
