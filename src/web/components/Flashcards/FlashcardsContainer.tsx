@@ -1238,7 +1238,7 @@ export default function FlashcardsContainer() {
             onNextCard={handleNextCard}
             timerDuration={timerDuration}
             onTimerDurationChange={handleTimerDurationChange}
-            onPauseStateChange={(paused) => {
+            onPauseStateChange={(paused: boolean) => {
               isChartPausedRef.current = paused;
             }}
           />
