@@ -89,8 +89,8 @@ const FolderSection = React.memo(function FolderSection({
               </svg>
               Timer:
             </label>
-            <div className="h-12">
-              <div className="h-full">
+            <div className="h-12 flex items-center justify-center">
+              <div className="h-full w-full flex items-center justify-center">
                 <TimerDurationSelector 
                   duration={timerDuration} 
                   onChange={onTimerDurationChange} 

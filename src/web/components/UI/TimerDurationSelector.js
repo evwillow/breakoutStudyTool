@@ -182,15 +182,24 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   }, [showCustomInput, duration, presetValues, customOption]);
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full flex items-center justify-center h-12">
       <select
         id="timer-duration"
         value={selectValue}
         onChange={handleSelectChange}
-        className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 appearance-none bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
+        className="border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-lg sm:text-base md:text-lg h-12 appearance-none bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium text-center"
+        style={{ 
+          textAlign: 'center', 
+          textAlignLast: 'center',
+          paddingLeft: '1rem',
+          paddingRight: '2.5rem',
+          paddingTop: 0,
+          paddingBottom: 0,
+          lineHeight: '3rem'
+        }}
       >
         {getAllOptions().map((option) => (
-          <option key={option.value} value={option.value} className="text-turquoise-900 font-medium">
+          <option key={option.value} value={option.value} className="text-turquoise-900 font-medium text-lg">
             {option.label}
           </option>
         ))}

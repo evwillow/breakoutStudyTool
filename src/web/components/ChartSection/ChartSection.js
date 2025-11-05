@@ -146,12 +146,17 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
             {/* Pause/Resume button (when not always paused) */}
             {!alwaysPaused && (
               <button
-                onClick={handlePauseToggle}
-                className={`bg-gray-700/50 hover:bg-gray-700/70 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 border border-gray-600/50 ${
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePauseToggle();
+                }}
+                className={`bg-gray-700/50 hover:bg-gray-700/70 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 border border-gray-600/50 relative z-20 ${
                   isMobile 
                     ? 'px-3 py-1.5 text-xs' 
                     : 'px-2.5 py-1 text-xs whitespace-nowrap'
                 }`}
+                type="button"
               >
                 {isPaused ? 'Resume' : 'Pause'}
               </button>
@@ -311,12 +316,49 @@ function ChartSection({
       try {
         // Initial 1.5-second delay before any animation starts
         // This gives the user time to see the correct answer feedback
+        // This delay is now pause-aware
         await new Promise(resolve => {
           console.log("Initial 1.5-second delay started");
-          setTimeout(() => {
-            console.log("Initial delay completed, beginning animation sequence");
-            resolve();
-          }, 1500); // 1.5-second initial delay
+          
+          let remainingDelay = 1500; // 1.5 seconds in milliseconds
+          let pausedTime = 0;
+          let pauseStartTime = null;
+          const delayStartTime = performance.now();
+          
+          const checkInitialDelay = () => {
+            const now = performance.now();
+            const isPaused = isAnimationPausedRef.current;
+            
+            if (isPaused) {
+              // If paused, track pause time but don't advance delay
+              if (pauseStartTime === null) {
+                pauseStartTime = now;
+              }
+              // Continue checking in case pause is released
+              requestAnimationFrame(checkInitialDelay);
+              return;
+            }
+            
+            // If we were paused, add the pause duration to pausedTime
+            if (pauseStartTime !== null) {
+              pausedTime += now - pauseStartTime;
+              pauseStartTime = null;
+            }
+            
+            // Calculate elapsed time (excluding paused time)
+            const elapsed = (now - delayStartTime) - pausedTime;
+            
+            if (elapsed >= remainingDelay) {
+              // Delay complete
+              console.log("Initial delay completed, beginning animation sequence");
+              resolve();
+            } else {
+              // Continue checking
+              requestAnimationFrame(checkInitialDelay);
+            }
+          };
+          
+          requestAnimationFrame(checkInitialDelay);
         });
         
         // Only run zoom and reveal animations if we have afterData
