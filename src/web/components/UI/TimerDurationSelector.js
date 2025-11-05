@@ -179,7 +179,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
         id="timer-duration"
         value={selectValue}
         onChange={handleSelectChange}
-        className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
+        className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 appearance-none bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
       >
         {getAllOptions().map((option) => (
           <option key={option.value} value={option.value} className="text-turquoise-900 font-medium">

@@ -471,11 +471,11 @@ function ChartSection({
   return (
     <>
       {/* Main content with Daily and Hourly charts */}
-      <div className="flex flex-col pt-2 sm:pt-4 md:pt-8 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
+      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0 sm:p-3 md:p-4">
+        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0">
           {/* Timer - visible on mobile too */}
-          <div className="w-full text-center -mt-3 sm:mt-0 sm:mb-3">
+          <div className="w-full text-center mb-1 sm:mb-1.5">
             <div className="flex items-center justify-center">
               <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 text-turquoise-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -485,7 +485,7 @@ function ChartSection({
               </h2>
             </div>
           </div>
-          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             {/* D Label - positioned in the top left, above magnifying glass */}
             <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
               D
@@ -558,7 +558,7 @@ function ChartSection({
         </div>
 
         {/* Right Column: H Chart + Points Grid - Now visible on mobile */}
-        <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4">
+        <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4 mt-4 sm:mt-6">
           {/* H Chart */}
           <div className="relative w-full rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: '1 / 1', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             {/* H Label - positioned in the top left */}
@@ -576,8 +576,8 @@ function ChartSection({
             </div>
           </div>
           
-          {/* Points Grid - Compact on mobile, full grid on desktop */}
-          <div className={`grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+          {/* Points Grid - Responsive grid with better spacing */}
+          <div className={`grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-xl' : ''}`}>
             {(() => {
               // Ensure we have a valid array - handle undefined/null gracefully
               const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
@@ -588,20 +588,20 @@ function ChartSection({
                   return (
                     <div
                       key={`point-${index}-${displayText || index}`}
-                      className={`rounded-md shadow-sm p-2 text-center text-xs sm:text-sm flex items-center justify-center min-h-[2.5rem] transition-all duration-200 ${
-                        displayText ? "bg-turquoise-600 text-white hover:bg-turquoise-700" : "invisible"
+                      className={`rounded-lg shadow-md px-3 py-2 text-center text-xs sm:text-sm flex items-center justify-center h-auto transition-all duration-300 font-medium whitespace-nowrap overflow-hidden ${
+                        displayText ? "bg-gradient-to-br from-turquoise-600 to-turquoise-500 text-white hover:from-turquoise-700 hover:to-turquoise-600 hover:shadow-lg transform hover:scale-105" : "invisible"
                       }`}
                     >
-                      {displayText || "\u00A0"}
+                      <span className="truncate w-full">{displayText || "\u00A0"}</span>
                     </div>
                   );
                 });
               } else {
                 // Show placeholder boxes when no points data is available
-                return Array.from({ length: 8 }).map((_, index) => (
+                return Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={`placeholder-${index}`}
-                    className="rounded-md shadow-sm p-2 text-center text-xs sm:text-sm flex items-center justify-center min-h-[2.5rem] transition-all duration-200 invisible"
+                    className="rounded-lg shadow-md px-3 py-2 text-center text-xs sm:text-sm flex items-center justify-center h-auto transition-all duration-300 invisible whitespace-nowrap"
                   >
                     {"\u00A0"}
                   </div>

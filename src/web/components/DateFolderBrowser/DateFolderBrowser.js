@@ -1152,7 +1152,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                   if (el) fileRefs.current[file.id] = { current: el };
                 }}
                 data-file-id={file.id}
-                className={`border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
+                className={`border border-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
                   visibleItems.includes(file.id) 
                     ? 'opacity-100 translate-y-0' 
                     : 'opacity-0 translate-y-16'
@@ -1160,7 +1160,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                 style={{ transitionDelay: `${index * 150}ms` }}
               >
                 <button 
-                  className={`w-full p-4 text-left text-white bg-transparent hover:bg-transparent flex justify-between items-center setup-item-interactive transition-transform duration-150 ${expandedFiles.includes(file.id) ? 'border-b border-gray-200' : ''} ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
+                  className={`w-full p-4 text-left text-white bg-transparent hover:bg-transparent flex justify-between items-center setup-item-interactive transition-transform duration-150 ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
                   onClick={() => handleFileToggle(file.id)}
                 >
                   <span className="font-medium flex items-center">

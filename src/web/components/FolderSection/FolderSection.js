@@ -38,11 +38,14 @@ const FolderSection = React.memo(function FolderSection({
   isCreatingRound = false,
 }) {
   return (
-    <div className="px-2 sm:px-6 md:px-10 pb-2 sm:pb-6 md:pb-10 pt-2 sm:pt-0 bg-transparent">
-      <div className="flex flex-col gap-4">
-        {/* Dataset and Timer selectors - side by side on all screen sizes */}
+    <div className="px-2 sm:px-6 md:px-10 pb-2 sm:pb-6 md:pb-10 mt-5 sm:mt-6 bg-transparent">
+      {/* ====================================================================
+          DATASET SELECTOR - COMMENTED OUT BUT EASILY FINDABLE
+          To re-enable: uncomment the section below (lines ~47-72)
+          ==================================================================== */}
+      {/* 
+      <div className="flex flex-col gap-4 mb-4">
         <div className="flex flex-row flex-wrap gap-3">
-          {/* Dataset label and dropdown */}
           <div className="flex flex-col flex-1 min-w-[140px]">
             <label htmlFor="dataset-selector" className="mb-1 text-sm font-medium text-turquoise-700">
               <svg className="w-4 h-4 inline-block mr-1 text-turquoise-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -70,76 +73,100 @@ const FolderSection = React.memo(function FolderSection({
               </div>
             </div>
           </div>
-          
-          {/* Timer Duration label and selector */}
-          <div className="flex flex-col flex-1 min-w-[140px]">
+        </div>
+      </div>
+      */}
+
+      {/* Compact layout: Timer, Accuracy, New Round, and Round History - one line on desktop, two lines on mobile */}
+      <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-4 mt-3">
+        {/* First row on mobile: Timer and Accuracy */}
+        <div className="flex flex-row gap-3 md:contents">
+          {/* Timer Duration - first item */}
+          <div className="flex flex-col flex-1 md:flex-1">
             <label htmlFor="timer-duration" className="mb-1 text-sm font-medium text-turquoise-700">
               <svg className="w-4 h-4 inline-block mr-1 text-turquoise-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
               Timer:
             </label>
-            <TimerDurationSelector 
-              duration={timerDuration} 
-              onChange={onTimerDurationChange} 
-            />
+            <div className="h-12">
+              <div className="h-full">
+                <TimerDurationSelector 
+                  duration={timerDuration} 
+                  onChange={onTimerDurationChange} 
+                />
+              </div>
+            </div>
           </div>
-        </div>
-        
-        {/* Accuracy display */}
-        <div className="flex flex-row items-center">
-          <div className="flex flex-col flex-1 max-w-[140px]">
+          
+          {/* Accuracy display - second item */}
+          <div className="flex flex-col flex-1 md:flex-1">
             <label className="mb-1 text-sm font-medium text-turquoise-700">
               <svg className="w-4 h-4 inline-block mr-1 text-turquoise-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
               Accuracy:
             </label>
-            <div className="relative w-full">
-              <div className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg bg-turquoise-600 text-white w-full text-base sm:text-sm md:text-base h-12 sm:h-auto shadow-sm font-medium flex items-center">
-                <span className="font-bold pl-2">{accuracy}%</span>
+            <div className="relative w-full h-12">
+              <div className="p-3 border border-turquoise-300 rounded-lg bg-turquoise-600 text-white w-full h-full text-base shadow-sm font-medium flex items-center justify-center">
+                <span className="font-bold">{accuracy}%</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Round management controls */}
-      <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3 justify-start">
-        <button 
-          onClick={onNewRound}
-          disabled={isCreatingRound}
-          className={`px-4 py-2 ${
-            isCreatingRound 
-              ? 'bg-gray-400 cursor-not-allowed' 
-              : 'bg-gradient-turquoise hover-gradient-turquoise'
-          } text-white text-sm sm:text-sm md:text-base rounded-lg shadow-md transition flex-1 sm:flex-none font-medium flex items-center justify-center`}
-        >
-          {isCreatingRound ? (
-            <>
-              <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-              </svg>
-              Creating...
-            </>
-          ) : (
-            <>
+
+        {/* Second row on mobile: New Round and Round History */}
+        <div className="flex flex-row gap-3 md:contents">
+          {/* New Round button - third item */}
+          <div className="flex flex-col flex-1 md:flex-1">
+            <label className="mb-1 text-sm font-medium text-turquoise-700 invisible">
+              {/* Invisible label for alignment */}
+              Button:
+            </label>
+            <button 
+              onClick={onNewRound}
+              disabled={isCreatingRound}
+              className={`w-full h-12 ${
+                isCreatingRound 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-gradient-turquoise hover-gradient-turquoise'
+              } text-white text-base rounded-lg shadow-md transition font-medium flex items-center justify-center border border-turquoise-300`}
+            >
+              {isCreatingRound ? (
+                <>
+                  <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  New Round
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Round History button - fourth item */}
+          <div className="flex flex-col flex-1 md:flex-1">
+            <label className="mb-1 text-sm font-medium text-turquoise-700 invisible">
+              {/* Invisible label for alignment */}
+              Button:
+            </label>
+            <button 
+              onClick={onRoundHistory}
+              className="w-full h-12 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-base rounded-lg shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition font-medium flex items-center justify-center border border-turquoise-300"
+            >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
-              New Round
-            </>
-          )}
-        </button>
-        <button 
-          onClick={onRoundHistory}
-          className="px-4 py-2 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-sm sm:text-sm md:text-base rounded-lg shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition flex-1 sm:flex-none font-medium flex items-center justify-center"
-        >
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          Round History
-        </button>
+              Round History
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
