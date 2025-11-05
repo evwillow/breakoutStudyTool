@@ -260,41 +260,41 @@ const ChartMagnifier = ({
     }
   }, [chartElement, isMobile]);
 
-  // Clone chart element for magnification
-  useEffect(() => {
-    if (!chartElement || !magnifiedContentRef.current) return;
+  // Clone chart element for magnification - DISABLED (no magnifying effect)
+  // useEffect(() => {
+  //   if (!chartElement || !magnifiedContentRef.current) return;
 
-    const chartRect = chartElement.getBoundingClientRect();
-    const svgElement = chartElement.querySelector('svg');
+  //   const chartRect = chartElement.getBoundingClientRect();
+  //   const svgElement = chartElement.querySelector('svg');
     
-    if (!svgElement) return;
+  //   if (!svgElement) return;
 
-    const clone = svgElement.cloneNode(true);
-    clone.style.width = `${chartRect.width}px`;
-    clone.style.height = `${chartRect.height}px`;
-    clone.style.position = 'absolute';
+  //   const clone = svgElement.cloneNode(true);
+  //   clone.style.width = `${chartRect.width}px`;
+  //   clone.style.height = `${chartRect.height}px`;
+  //   clone.style.position = 'absolute';
     
-    if (chartCloneRef.current) {
-      magnifiedContentRef.current.removeChild(chartCloneRef.current);
-    }
+  //   if (chartCloneRef.current) {
+  //     magnifiedContentRef.current.removeChild(chartCloneRef.current);
+  //   }
     
-    magnifiedContentRef.current.appendChild(clone);
-    chartCloneRef.current = clone;
+  //   magnifiedContentRef.current.appendChild(clone);
+  //   chartCloneRef.current = clone;
 
-    return () => {
-      if (chartCloneRef.current && magnifiedContentRef.current) {
-        magnifiedContentRef.current.removeChild(chartCloneRef.current);
-        chartCloneRef.current = null;
-      }
-    };
-  }, [chartElement]);
+  //   return () => {
+  //     if (chartCloneRef.current && magnifiedContentRef.current) {
+  //       magnifiedContentRef.current.removeChild(chartCloneRef.current);
+  //       chartCloneRef.current = null;
+  //     }
+  //   };
+  // }, [chartElement]);
 
   // Handle touch events on magnifier itself - double tap to activate, drag when activated
   useEffect(() => {
     if (!enabled || !magnifierRef.current || !isMobile) return;
 
     const DOUBLE_TAP_TIME = 400;
-    const MOVEMENT_THRESHOLD = 10;
+    const MOVEMENT_THRESHOLD = 5; // Lower threshold for more responsive dragging
 
     let touchStartTime = 0;
     let touchStartPos = null;
@@ -302,6 +302,8 @@ const ChartMagnifier = ({
     let touchMoved = false;
     let activeTouchId = null;
     let isDraggingMagnifier = false;
+    let selectionBoundsCache = null; // Cache selection bounds during drag for performance
+    let rafId = null; // RequestAnimationFrame ID for smooth updates
 
     const handleMagnifierTouchStart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
@@ -309,9 +311,7 @@ const ChartMagnifier = ({
       const touch = e.touches[0];
       
       // If we already have an active touch with this identifier, ignore this new touchstart
-      // This prevents resetting the drag position during an ongoing drag
       if (activeTouchId !== null && activeTouchId === touch.identifier) {
-        console.log('[Magnifier] TouchStart - duplicate touch for same ID, ignoring');
         return;
       }
       
@@ -324,26 +324,16 @@ const ChartMagnifier = ({
       activeTouchId = touch.identifier;
       isDraggingMagnifier = false;
       
-      console.log('[Magnifier] TouchStart:', {
-        touchId: touch.identifier,
-        clientPos: { x: touch.clientX, y: touch.clientY },
-        targetPosition,
-        magnifierRenderPos
-      });
+      // Cache selection bounds for performance during drag
+      selectionBoundsCache = getSelectionAreaBounds();
       
-      // Store initial magnifier position when drag starts (only if not already dragging)
-      if (magnifierRef.current && magnifierStartPos === null) {
-        const selectionBounds = getSelectionAreaBounds();
-        if (selectionBounds) {
-          const rect = magnifierRef.current.getBoundingClientRect();
-          magnifierStartPos = {
-            x: rect.left - selectionBounds.left,
-            y: rect.top - selectionBounds.top,
-          };
-          console.log('[Magnifier] Drag start - stored initial pos:', magnifierStartPos);
-        } else {
-          console.warn('[Magnifier] Drag start - no selectionBounds!');
-        }
+      // Store initial magnifier position when drag starts
+      if (magnifierRef.current && magnifierStartPos === null && selectionBoundsCache) {
+        const rect = magnifierRef.current.getBoundingClientRect();
+        magnifierStartPos = {
+          x: rect.left - selectionBoundsCache.left,
+          y: rect.top - selectionBoundsCache.top,
+        };
       }
       
       setIsDragging(true);
@@ -352,19 +342,10 @@ const ChartMagnifier = ({
     const handleMagnifierTouchMove = (e) => {
       // Only handle touches that started on the magnifier itself
       if (activeTouchId === null) {
-        // This touch didn't start on magnifier - ignore it (chart will handle it)
         return;
       }
       
-      console.log('[Magnifier] TouchMove called:', {
-        hasTouches: !!(e.touches && e.touches.length > 0),
-        touchCount: e.touches?.length || 0,
-        activeTouchId,
-        hasMagnifierStartPos: magnifierStartPos !== null
-      });
-      
       if (!e.touches || e.touches.length === 0) {
-        console.warn('[Magnifier] TouchMove - no touches, returning');
         return;
       }
       
@@ -379,13 +360,7 @@ const ChartMagnifier = ({
         }
       }
       
-      if (!touch) {
-        console.warn('[Magnifier] TouchMove - touch not found for activeTouchId:', activeTouchId);
-        return;
-      }
-      
-      if (!touchStartPos) {
-        console.warn('[Magnifier] TouchMove - no touchStartPos, returning');
+      if (!touch || !touchStartPos || !selectionBoundsCache) {
         return;
       }
       
@@ -401,11 +376,14 @@ const ChartMagnifier = ({
       if (magnifierStartPos !== null) {
         isDraggingMagnifier = true;
         setIsDraggingMagnifierWidget(true);
-        const selectionBounds = getSelectionAreaBounds();
-        if (selectionBounds) {
-          // magnifierStartPos is in selection-area-relative coordinates
-          // dx/dy are in viewport coordinates, but since we're moving within the same scale,
-          // we can use them directly (dx in viewport = dx in selection-area for 1:1 scale)
+        
+        // Cancel any pending animation frame
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
+        
+        // Use requestAnimationFrame for smooth updates
+        rafId = requestAnimationFrame(() => {
           // Calculate new magnifier render position (top-left corner) in selection-area-relative coords
           const newMagnifierX = magnifierStartPos.x + dx;
           const newMagnifierY = magnifierStartPos.y + dy;
@@ -415,19 +393,11 @@ const ChartMagnifier = ({
           const newCenterY = newMagnifierY + magnifierSize / 2;
           
           // Constrain the CENTER to stay within selection area (widget can extend beyond)
-          const constrainedTarget = constrainPosition(newCenterX, newCenterY, selectionBounds);
+          const constrainedTarget = constrainPosition(newCenterX, newCenterY, selectionBoundsCache);
           
           // Calculate render position from constrained center (in selection-area-relative coords)
           const constrainedRenderX = constrainedTarget.x - magnifierSize / 2;
           const constrainedRenderY = constrainedTarget.y - magnifierSize / 2;
-          
-          console.log('[Magnifier] TouchMove (dragging):', {
-            dx, dy, distance,
-            newCenter: { x: newCenterX, y: newCenterY },
-            constrainedCenter: constrainedTarget,
-            renderPos: { x: constrainedRenderX, y: constrainedRenderY },
-            bounds: { width: selectionBounds.width, height: selectionBounds.height }
-          });
           
           // Update render position (can extend beyond selection area, in selection-area-relative coords)
           setMagnifierRenderPos({ x: constrainedRenderX, y: constrainedRenderY });
@@ -436,14 +406,8 @@ const ChartMagnifier = ({
           // Update target position (center, constrained to selection area)
           setTargetPosition(constrainedTarget);
           lastTapPositionRef.current = constrainedTarget;
-        } else {
-          console.warn('[Magnifier] TouchMove (dragging) - no selectionBounds!');
-        }
-      } else {
-        console.log('[Magnifier] TouchMove (not dragging):', {
-          hasMagnifierStartPos: magnifierStartPos !== null,
-          distance,
-          touchMoved
+          
+          rafId = null;
         });
       }
     };
@@ -453,6 +417,12 @@ const ChartMagnifier = ({
       
       safePreventDefault(e);
       e.stopPropagation();
+      
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       
       let touch = null;
       if (activeTouchId !== null) {
@@ -467,6 +437,7 @@ const ChartMagnifier = ({
       if (!touch) {
         activeTouchId = null;
         setIsDragging(false);
+        selectionBoundsCache = null;
         return;
       }
       
@@ -477,15 +448,11 @@ const ChartMagnifier = ({
       if (isQuickTap && !isDraggingMagnifier) {
         if (timeSinceLastTap < DOUBLE_TAP_TIME && magnifierLastTapTimeRef.current > 0) {
           // Double tap detected - make selection at the center of the magnifying glass
-          console.log('[Magnifier] Double tap detected - making selection at center');
-          const selectionBounds = getSelectionAreaBounds();
+          const selectionBounds = selectionBoundsCache || getSelectionAreaBounds();
           if (selectionBounds && onSelectionRef.current) {
             // Always use targetPositionRef.current (center point of magnifying glass) for selection
-            // This ensures we get the latest value even if handler closure is stale
             const selectionPos = targetPositionRef.current;
             const clientCoords = selectionToClientCoords(selectionPos.x, selectionPos.y, selectionBounds);
-            
-            console.log('[Magnifier] Making selection at center:', clientCoords, 'from targetPosition:', selectionPos);
             
             const syntheticEvent = {
               clientX: clientCoords.x,
@@ -514,9 +481,16 @@ const ChartMagnifier = ({
       setIsDragging(false);
       setIsDraggingMagnifierWidget(false);
       isDraggingMagnifierWidgetRef.current = false;
+      selectionBoundsCache = null;
     };
 
     const handleMagnifierTouchCancel = () => {
+      // Cancel any pending animation frame
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      
       activeTouchId = null;
       touchMoved = false;
       touchStartPos = null;
@@ -525,6 +499,7 @@ const ChartMagnifier = ({
       setIsDragging(false);
       setIsDraggingMagnifierWidget(false);
       isDraggingMagnifierWidgetRef.current = false;
+      selectionBoundsCache = null;
     };
 
     const magnifierElement = magnifierRef.current;
@@ -534,12 +509,17 @@ const ChartMagnifier = ({
     magnifierElement.addEventListener('touchcancel', handleMagnifierTouchCancel, { passive: false });
 
     return () => {
+      // Cancel any pending animation frames
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      
       magnifierElement.removeEventListener('touchstart', handleMagnifierTouchStart);
       magnifierElement.removeEventListener('touchmove', handleMagnifierTouchMove);
       magnifierElement.removeEventListener('touchend', handleMagnifierTouchEnd);
       magnifierElement.removeEventListener('touchcancel', handleMagnifierTouchCancel);
     };
-  }, [enabled, isMobile, chartElement, targetPosition]);
+  }, [enabled, isMobile, chartElement]);
 
   // Block all chart touch events on mobile
   useEffect(() => {
@@ -777,26 +757,26 @@ const ChartMagnifier = ({
     };
   }, [enabled, chartElement, isMobile]);
 
-  // Update magnified content transform to align with target position
-  useEffect(() => {
-    if (!chartElement || !magnifiedContentRef.current || !chartCloneRef.current) return;
+  // Update magnified content transform to align with target position - DISABLED (no magnifying effect)
+  // useEffect(() => {
+  //   if (!chartElement || !magnifiedContentRef.current || !chartCloneRef.current) return;
     
-    const selectionBounds = getSelectionAreaBounds();
-    if (!selectionBounds) return;
+  //   const selectionBounds = getSelectionAreaBounds();
+  //   if (!selectionBounds) return;
     
-    const scale = zoomLevel;
+  //   const scale = zoomLevel;
     
-    // Calculate offset to center the target position in the magnifier
-    // The target position is where we want to look at in the chart
-    // We need to transform the cloned chart so that target position appears at magnifier center
-    const offsetX = (magnifierSize / 2) / scale - targetPosition.x;
-    const offsetY = (magnifierSize / 2) / scale - targetPosition.y;
+  //   // Calculate offset to center the target position in the magnifier
+  //   // The target position is where we want to look at in the chart
+  //   // We need to transform the cloned chart so that target position appears at magnifier center
+  //   const offsetX = (magnifierSize / 2) / scale - targetPosition.x;
+  //   const offsetY = (magnifierSize / 2) / scale - targetPosition.y;
     
-    if (chartCloneRef.current) {
-      chartCloneRef.current.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
-      chartCloneRef.current.style.transformOrigin = 'top left';
-    }
-  }, [targetPosition, chartElement, magnifierSize, zoomLevel]);
+  //   if (chartCloneRef.current) {
+  //     chartCloneRef.current.style.transform = `scale(${scale}) translate(${offsetX}px, ${offsetY}px)`;
+  //     chartCloneRef.current.style.transformOrigin = 'top left';
+  //   }
+  // }, [targetPosition, chartElement, magnifierSize, zoomLevel]);
 
   // Don't show on desktop
   if (!enabled || !isMobile) {
@@ -816,37 +796,28 @@ const ChartMagnifier = ({
       {chartElement && (
         <div
           ref={magnifierRef}
-          className={`fixed z-30 transition-all duration-200 ease-out pointer-events-auto`}
+          className={`fixed z-30 pointer-events-auto`}
           style={{
             left: `${selectionBounds.left + renderPos.x}px`,
             top: `${selectionBounds.top + renderPos.y}px`,
             width: `${magnifierSize}px`,
             height: `${magnifierSize}px`,
             transform: isDragging ? 'scale(1.05)' : 'scale(1)',
+            transition: isDragging ? 'none' : 'transform 0.15s ease-out', // Disable transition during drag for smoothness
             cursor: 'move',
             willChange: 'transform, left, top',
+            touchAction: 'none', // Prevent default touch behaviors for smooth dragging
           }}
         >
           <div
-            className="absolute inset-0 rounded-full overflow-hidden"
+            className="absolute inset-0 rounded-full overflow-hidden pointer-events-none"
             style={{
-              background: 'rgba(0, 0, 0, 0.85)',
-              // Always use inactive look - never show active styling
-              border: '1.5px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '0 2px 12px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.05)',
-              transition: 'all 0.2s ease-out',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
             }}
           >
-            <div
-              ref={magnifiedContentRef}
-              className="absolute inset-0"
-              style={{
-                clipPath: 'circle(50% at 50% 50%)',
-                overflow: 'hidden',
-                opacity: hasBeenPositioned ? 1 : 0,
-                transition: 'opacity 0.2s ease-in-out',
-              }}
-            />
+            {/* Removed magnified content - no magnifying effect */}
             
             <div className="absolute inset-0 pointer-events-none">
               <div 
