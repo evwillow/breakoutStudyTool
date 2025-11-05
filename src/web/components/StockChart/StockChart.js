@@ -472,6 +472,7 @@ const StockChart = React.memo(({
   const [dimensions, setDimensions] = useState(null);
   const containerRef = useRef(null);
   const svgRef = useRef(null);
+  const lastDimensionsRef = useRef({ width: 0, height: 0 });
   
   // Use either data or csvData prop
   const chartData = data || csvData;
@@ -481,16 +482,52 @@ const StockChart = React.memo(({
     const updateDimensions = () => {
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
-        // Use full available height - check parent or use a sensible default
-        let containerHeight = containerRef.current.clientHeight;
-        if (!containerHeight || containerHeight < 400) {
-          // Try parent height
+        const isMobileView = window.innerWidth < 768;
+        
+        // On mobile, use a fixed height calculation to prevent growth
+        // Use parent's computed height or maxHeight, whichever is smaller
+        let containerHeight;
+        if (isMobileView) {
           const parent = containerRef.current.parentElement;
-          containerHeight = parent?.clientHeight || parent?.offsetHeight || 600;
+          let maxHeight = 800; // Default max height for mobile
+          
+          if (parent) {
+            const computedStyle = window.getComputedStyle(parent);
+            const parentMaxHeight = computedStyle.maxHeight;
+            const parentHeight = computedStyle.height;
+            
+            // Try to get maxHeight from parent if it's set
+            if (parentMaxHeight && parentMaxHeight !== 'none' && parentMaxHeight !== 'auto') {
+              const parsed = parseFloat(parentMaxHeight);
+              if (!isNaN(parsed)) {
+                maxHeight = parsed;
+              }
+            }
+            
+            // Use parent's height if it's valid and smaller than maxHeight
+            // Parse height (could be "800px", "800", etc.)
+            const parsedParentHeight = parseFloat(parentHeight);
+            if (!isNaN(parsedParentHeight) && parsedParentHeight > 0) {
+              containerHeight = Math.min(parsedParentHeight, maxHeight);
+            } else {
+              // Fallback to clientHeight but cap at maxHeight
+              containerHeight = Math.min(containerRef.current.clientHeight || 600, maxHeight);
+            }
+          } else {
+            containerHeight = Math.min(containerRef.current.clientHeight || 600, maxHeight);
+          }
+        } else {
+          // Desktop: use full available height
+          containerHeight = containerRef.current.clientHeight;
+          if (!containerHeight || containerHeight < 400) {
+            // Try parent height
+            const parent = containerRef.current.parentElement;
+            containerHeight = parent?.clientHeight || parent?.offsetHeight || 600;
+          }
         }
+        
         // Ensure minimum height
         containerHeight = Math.max(containerHeight, 500);
-        const isMobileView = window.innerWidth < 768;
         
         setIsMobile(isMobileView);
         
@@ -504,13 +541,24 @@ const StockChart = React.memo(({
         const innerWidth = containerWidth - margin.left - margin.right;
         const innerHeight = containerHeight - margin.top - margin.bottom;
         
-        setDimensions({
+        // Only update dimensions if they actually changed (prevent feedback loop)
+        const newDims = {
           width: containerWidth,
           height: containerHeight,
           margin,
           innerWidth,
           innerHeight
-        });
+        };
+        
+        // Check if dimensions actually changed (more than 1px difference to account for rounding)
+        const hasChanged = 
+          Math.abs(lastDimensionsRef.current.width - containerWidth) > 1 ||
+          Math.abs(lastDimensionsRef.current.height - containerHeight) > 1;
+        
+        if (hasChanged) {
+          lastDimensionsRef.current = { width: containerWidth, height: containerHeight };
+          setDimensions(newDims);
+        }
       }
     };
 
@@ -524,15 +572,30 @@ const StockChart = React.memo(({
     // Initial dimensions
     updateDimensions();
 
-    // Create resize observer with debounced handler
-    const resizeObserver = new ResizeObserver(debouncedResize);
+    // Create resize observer - only observe container size changes, not content changes
+    // Use ResizeObserver on the container itself to track size changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Only update if the container's actual size changed (not content size)
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (Math.abs(lastDimensionsRef.current.width - width) > 1 ||
+            Math.abs(lastDimensionsRef.current.height - height) > 1) {
+          debouncedResize();
+        }
+      }
+    });
+    
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
 
+    // Also listen to window resize for mobile orientation changes
+    window.addEventListener('resize', debouncedResize);
+
     // Cleanup
     return () => {
       clearTimeout(timeoutId);
+      window.removeEventListener('resize', debouncedResize);
       if (containerRef.current) {
         resizeObserver.unobserve(containerRef.current);
       }
