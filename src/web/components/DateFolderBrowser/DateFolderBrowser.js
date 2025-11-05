@@ -25,11 +25,11 @@ import StockChart from "../StockChart";
  * @param {Object} props
  * @param {any} props.session
  * @param {string|null} props.currentStock
- * @param {boolean} props.isTimeUp
  * @param {FlashcardData[]} [props.flashcards]
  * @param {FlashcardData|null} [props.currentFlashcard]
+ * @param {Function} [props.onChartExpanded] - Callback when a chart is expanded
  */
-const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], currentFlashcard = null }) => {
+const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlashcard = null, onChartExpanded = null }) => {
   const [allFiles, setAllFiles] = useState([]);
   const [expandedFiles, setExpandedFiles] = useState([]);
   const [fileData, setFileData] = useState({});
@@ -524,6 +524,10 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
             // Add to expanded files array instead of setting a single expanded file
             setExpandedFiles(prev => {
               if (!prev.includes(id)) {
+                // Notify parent that a chart was expanded (for timer functionality)
+                if (onChartExpanded && typeof onChartExpanded === 'function') {
+                  onChartExpanded();
+                }
                 return [...prev, id];
               }
               return prev;
@@ -561,7 +565,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
     return () => {
       observer.disconnect();
     };
-  }, [allFiles, expandedFiles, fileData, manuallyControlledItems, loadFileData]);
+  }, [allFiles, expandedFiles, fileData, manuallyControlledItems, loadFileData, onChartExpanded]);
 
   // Handle manual file expansion toggle
   const handleFileToggle = async (fileId) => {
@@ -585,6 +589,11 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
       // Load file data if not already loaded
       if (!fileData[fileId]) {
         await loadFileData(fileId);
+      }
+      
+      // Notify parent that a chart was expanded (for timer functionality)
+      if (onChartExpanded && typeof onChartExpanded === 'function') {
+        onChartExpanded();
       }
     }
   };
@@ -1191,7 +1200,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className={`bg-black overflow-hidden w-full h-full shadow-inner chart-container border-0 ${isTimeUp ? 'filter blur-xl' : ''}`}
+                        className="bg-black overflow-hidden w-full h-full shadow-inner chart-container border-0"
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,

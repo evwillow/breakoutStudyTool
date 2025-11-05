@@ -52,7 +52,14 @@ export function useTimer({
 
   // Update timer based on current time
   const updateTimer = useCallback(() => {
-    if (!timerEndTimeRef.current) return false;
+    if (!timerEndTimeRef.current) {
+      // If timerEndTimeRef is null but we should be running, something went wrong
+      // Try to restart if isRunning is true
+      if (isRunning && !isPaused) {
+        console.warn('Timer end time is null but timer should be running');
+      }
+      return false;
+    }
 
     const now = Date.now();
     const remaining = Math.max(0, Math.ceil((timerEndTimeRef.current - now) / 1000));
@@ -71,7 +78,7 @@ export function useTimer({
     displayValueRef.current = remaining;
     setIsReady(true);
     return true;
-  }, [onTimeUp, cleanup]);
+  }, [onTimeUp, cleanup, isRunning, isPaused]);
 
   // Animation frame loop for smooth updates
   const tick = useCallback(() => {
@@ -81,10 +88,17 @@ export function useTimer({
     if (now - lastUpdateTimeRef.current >= TIMER_CONFIG.UPDATE_INTERVAL) {
       lastUpdateTimeRef.current = now;
       const shouldContinue = updateTimer();
-      if (!shouldContinue) return;
+      if (!shouldContinue) {
+        // Timer expired or stopped
+        return;
+      }
     }
     
-    animationFrameRef.current = requestAnimationFrame(tick);
+    // Continue the animation loop - check if we should still be running
+    // Use refs to avoid stale closure issues
+    if (timerEndTimeRef.current) {
+      animationFrameRef.current = requestAnimationFrame(tick);
+    }
   }, [updateTimer]);
 
   // Handle visibility change for background timer accuracy
@@ -113,9 +127,9 @@ export function useTimer({
 
   // Start timer
   const start = useCallback(() => {
-    // Use current timer state, but if it's 0, use initial duration
-    // Also check displayValueRef as a fallback to ensure we have the latest value
-    const currentTimerValue = timer > 0 ? timer : (displayValueRef.current > 0 ? displayValueRef.current : initialDuration);
+    // Prioritize displayValueRef.current if it's been set (most recent value)
+    // This ensures we use the value from reset() even if state hasn't updated yet
+    const currentTimerValue = displayValueRef.current > 0 ? displayValueRef.current : (timer > 0 ? timer : initialDuration);
     const durationToUse = currentTimerValue > 0 ? currentTimerValue : initialDuration;
     
     if (durationToUse <= 0) {
@@ -128,14 +142,15 @@ export function useTimer({
     setIsPaused(false);
     setIsReady(false);
     
-    // Update timer state if needed
-    if (timer !== durationToUse) {
-      setTimer(durationToUse);
-    }
+    // Update timer state immediately so UI shows the correct value
+    setTimer(durationToUse);
     displayValueRef.current = durationToUse;
     
     timerEndTimeRef.current = Date.now() + durationToUse * 1000;
-    lastUpdateTimeRef.current = Date.now();
+    // Set lastUpdateTime to 0 so the first tick will immediately update
+    lastUpdateTimeRef.current = 0;
+    
+    // Start the tick loop immediately - this will update after UPDATE_INTERVAL
     tick();
   }, [timer, initialDuration, cleanup, tick]);
 
@@ -207,20 +222,32 @@ export function useTimer({
     }
   }, [isRunning, isPaused, cleanup, tick]);
 
-  // Main timer effect
+  // Main timer effect - manages visibility listener and ensures timer keeps running
   useEffect(() => {
     if (isRunning && !isPaused) {
       // Set up visibility change listener
       document.addEventListener('visibilitychange', handleVisibilityChange);
       
+      // Ensure tick is running if timer should be running
+      // This is a safety net in case tick() wasn't called or was stopped
+      if (!animationFrameRef.current && timerEndTimeRef.current) {
+        // Use requestAnimationFrame to start the loop
+        requestAnimationFrame(() => {
+          if (!animationFrameRef.current && timerEndTimeRef.current && isRunning && !isPaused) {
+            tick();
+          }
+        });
+      }
+      
       return () => {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
-        cleanup();
+        // Don't cleanup animation frame here - let it run until timer stops naturally
       };
     } else {
+      // Only cleanup when timer is explicitly stopped
       cleanup();
     }
-  }, [isRunning, isPaused, handleVisibilityChange, cleanup]);
+  }, [isRunning, isPaused, handleVisibilityChange, cleanup, tick]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -589,15 +589,7 @@ const StockChart = React.memo(({
       console.log("First data point for hourly with SMAs:", stockData[0]);
     }
 
-    // Debug SMA detection for chart scaling
-    console.log("SMA status for chart scaling:", {
-      hasSMA10: hasSMA10,
-      hasSMA20: hasSMA20, 
-      hasSMA50: hasSMA50,
-      sampleSMA10: stockData[0]?.sma10,
-      sampleSMA20: stockData[0]?.sma20,
-      sampleSMA50: stockData[0]?.sma50
-    });
+    // SMA detection for chart scaling (debugging removed)
 
     // Get initial min/max for main data only
     const mainValues = stockData.flatMap(d => {
@@ -801,7 +793,6 @@ const StockChart = React.memo(({
       d.sma10 !== null && d.sma10 !== undefined && !isNaN(d.sma10)
     );
     
-    console.log(`SMA10 line generation: ${validSMA10Points.length} valid points out of ${stockData.length} total points`);
     
     // If no valid points, don't try to create a line
     if (validSMA10Points.length === 0) {
@@ -820,10 +811,6 @@ const StockChart = React.memo(({
         // If point isn't in the domain, it will be excluded from the path
         if (xPos === null) return null;
         
-        // Debug occasional points
-        if (i % 100 === 0) {
-          console.log(`SMA10 x-position for point ${i}:`, xPos);
-        }
         return xPos;
       })
       .y(d => {
@@ -859,7 +846,6 @@ const StockChart = React.memo(({
       d.sma20 !== null && d.sma20 !== undefined && !isNaN(d.sma20)
     );
     
-    console.log(`SMA20 line generation: ${validSMA20Points.length} valid points out of ${stockData.length} total points`);
     
     // If no valid points, don't try to create a line
     if (validSMA20Points.length === 0) {
@@ -897,7 +883,6 @@ const StockChart = React.memo(({
       d.sma50 !== null && d.sma50 !== undefined && !isNaN(d.sma50)
     );
     
-    console.log(`SMA50 line generation: ${validSMA50Points.length} valid points out of ${stockData.length} total points`);
     
     // If no valid points, don't try to create a line
     if (validSMA50Points.length === 0) {
@@ -988,7 +973,6 @@ const StockChart = React.memo(({
       return [];
     }
     
-    console.log(`Generating candlesticks for ${stockData.length} data points (zoom: ${zoomPercentage}%)`);
     
     const result = stockData.map((d, i) => {
       // More flexible property access - check various property names
@@ -1008,14 +992,6 @@ const StockChart = React.memo(({
       const low = getPrice(d, ['low', 'Low', 'LOW']);
       const close = getPrice(d, ['close', 'Close', 'CLOSE']);
       
-      // Debug data for a sample point
-      if (i === 0) {
-        console.log('First candlestick data point:', {
-          raw: d,
-          processed: { open, high, low, close },
-          isZoomedOut: scales.isZoomedOut
-        });
-      }
       
       // Skip invalid data points
       if (open === null || high === null || low === null || close === null) {
@@ -1071,7 +1047,6 @@ const StockChart = React.memo(({
       }
     }).filter(Boolean); // Remove any null entries
     
-    console.log(`Generated ${result.length} valid candlesticks out of ${stockData.length} data points`);
     return result;
   }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length]);
   
@@ -1081,7 +1056,6 @@ const StockChart = React.memo(({
       return [];
     }
     
-    console.log(`Generating volume bars for ${stockData.length} data points (zoom: ${zoomPercentage}%)`);
     
     const result = stockData.map((d, i) => {
       // More flexible property access for volume
@@ -1130,7 +1104,6 @@ const StockChart = React.memo(({
       }
     }).filter(Boolean); // Remove any null entries
     
-    console.log(`Generated ${result.length} valid volume bars out of ${stockData.length} data points`);
     return result;
   }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length]);
 
@@ -1144,7 +1117,6 @@ const StockChart = React.memo(({
     // Calculate offset based on original data length
     const offset = stockData.length;
     
-    console.log(`Generating after candlesticks for ${visibleAfterData.length} data points (zoom: ${zoomPercentage}%, progress: ${progressPercentage}%)`);
     
     const result = visibleAfterData.map((d, i) => {
       // More flexible property access - check various property names
@@ -1216,7 +1188,6 @@ const StockChart = React.memo(({
       }
     }).filter(Boolean); // Remove any null entries
     
-    console.log(`Generated ${result.length} valid after candlesticks out of ${visibleAfterData.length} data points`);
     return result;
   }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, progressPercentage, afterStockData.length]);
 
@@ -1230,7 +1201,6 @@ const StockChart = React.memo(({
     // Calculate offset based on original data length
     const offset = stockData.length;
     
-    console.log(`Generating after volume bars for ${visibleAfterData.length} data points (zoom: ${zoomPercentage}%, progress: ${progressPercentage}%)`);
     
     const result = visibleAfterData.map((d, i) => {
       // More flexible property access for volume
@@ -1280,7 +1250,6 @@ const StockChart = React.memo(({
       }
     }).filter(Boolean);
     
-    console.log(`Generated ${result.length} valid after volume bars out of ${visibleAfterData.length} data points`);
     return result;
   }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, progressPercentage, afterStockData.length]);
 
@@ -1392,16 +1361,6 @@ const StockChart = React.memo(({
     // Background covers from divider to end of chart
     darkBackgroundWidth = (dimensions?.width || 0) - dividerLineX;
     
-    console.log("ZOOM OUT DIVIDER POSITIONING:", {
-      lastMainDataIndex,
-      firstAfterDataIndex,
-      lastMainX,
-      firstAfterX,
-      step,
-      finalDividerX: dividerLineX,
-      backgroundWidth: darkBackgroundWidth,
-      isDChart
-    });
   } else if (scales && dimensions && stockData.length > 0) {
     // NORMAL MODE: Use the original logic, then offset further right
     const lastMainDataX = scales.xScale(stockData.length - 1);
@@ -1642,11 +1601,6 @@ const StockChart = React.memo(({
                     d={(() => {
                       try {
                         const pathData = sma10Line(stockData);
-                        if (chartType === 'hourly' || chartType === 'H') {
-                          console.log("Generated SMA10 path for hourly:", pathData ? "Valid path data" : "Empty path");
-                        } else {
-                          console.log("Generated SMA10 path:", pathData ? "Valid path data" : "Empty path");
-                        }
                         return pathData || "";
                       } catch (error) {
                         console.error("Error generating SMA10 path:", error);
@@ -1666,11 +1620,6 @@ const StockChart = React.memo(({
                     d={(() => {
                       try {
                         const pathData = sma20Line(stockData);
-                        if (chartType === 'hourly' || chartType === 'H') {
-                          console.log("Generated SMA20 path for hourly:", pathData ? "Valid path data" : "Empty path");
-                        } else {
-                          console.log("Generated SMA20 path:", pathData ? "Valid path data" : "Empty path");
-                        }
                         return pathData || "";
                       } catch (error) {
                         console.error("Error generating SMA20 path:", error);
@@ -1690,7 +1639,6 @@ const StockChart = React.memo(({
                     d={(() => {
                       try {
                         const pathData = sma50Line(stockData);
-                        console.log("Generated SMA50 path:", pathData ? "Valid path data" : "Empty path");
                         return pathData || "";
                       } catch (error) {
                         console.error("Error generating SMA50 path:", error);
@@ -1773,7 +1721,6 @@ const StockChart = React.memo(({
             {/* Candlesticks for main data */}
             {candlesticks && candlesticks.length > 0 ? (
               <>
-                {console.log(`Rendering ${candlesticks.length} candlesticks`)}
             {candlesticks.map((candle, i) => (
               <g key={`main-${i}`}>
                   <line
@@ -1944,7 +1891,6 @@ const StockChart = React.memo(({
             {/* Volume bars for main data */}
             {volumeBars && volumeBars.length > 0 ? (
               <>
-                {console.log(`Rendering ${volumeBars.length} volume bars`)}
                 {volumeBars.map((bar, i) => (
               <rect
                 key={`vol-${i}`}

@@ -223,16 +223,128 @@ export default function FlashcardsContainer() {
     return result;
   }, [currentFlashcard, gameState.currentIndex]);
 
+  // Log match with coordinates
+  const logMatchWithCoordinates = useCallback(async (data: {
+    coordinates: { x: number; y: number };
+    targetPoint: { x: number; y: number };
+    distance: number;
+    score: number;
+    stockSymbol: string;
+    isCorrect: boolean;
+    priceAccuracy?: number;
+    timePosition?: number;
+    priceError?: number;
+    timeError?: number;
+  }) => {
+    if (!currentRoundId || !session?.user?.id) return;
 
-  // Timer management - normal timer behavior, no auto-advance on time up
+    // Build match data, filtering out undefined/null/NaN values
+    const matchData: any = {
+      round_id: currentRoundId,
+      stock_symbol: data.stockSymbol,
+      correct: Boolean(data.isCorrect), // Ensure it's always a boolean
+    };
+    
+    // Add numeric fields only if they are valid numbers
+    if (typeof data.coordinates.x === 'number' && !isNaN(data.coordinates.x)) {
+      matchData.user_selection_x = data.coordinates.x;
+    }
+    if (typeof data.coordinates.y === 'number' && !isNaN(data.coordinates.y)) {
+      matchData.user_selection_y = data.coordinates.y;
+    }
+    if (typeof data.targetPoint.x === 'number' && !isNaN(data.targetPoint.x)) {
+      matchData.target_x = data.targetPoint.x;
+    }
+    if (typeof data.targetPoint.y === 'number' && !isNaN(data.targetPoint.y)) {
+      matchData.target_y = data.targetPoint.y;
+    }
+    if (typeof data.distance === 'number' && !isNaN(data.distance)) {
+      matchData.distance = data.distance;
+    }
+    if (typeof data.score === 'number' && !isNaN(data.score)) {
+      matchData.score = data.score;
+    }
+    
+    // Add optional fields only if they are defined and not NaN
+    if (data.priceAccuracy !== undefined && !isNaN(data.priceAccuracy)) {
+      matchData.price_accuracy = data.priceAccuracy;
+    }
+    if (data.timePosition !== undefined && !isNaN(data.timePosition)) {
+      matchData.time_position = data.timePosition;
+    }
+    if (data.priceError !== undefined && !isNaN(data.priceError)) {
+      matchData.price_error = data.priceError;
+    }
+    if (data.timeError !== undefined && !isNaN(data.timeError)) {
+      matchData.time_error = data.timeError;
+    }
+
+    try {
+      console.log('[MATCHES CLIENT] Sending match data:', matchData);
+      const response = await fetch('/api/game/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(matchData),
+      });
+
+      if (!response.ok) {
+        // Try to get error details from response
+        let errorData = {};
+        let responseText = '';
+        try {
+          responseText = await response.text();
+          if (responseText) {
+            try {
+              errorData = JSON.parse(responseText);
+            } catch {
+              // If not JSON, use the text as error message
+              errorData = { message: responseText };
+            }
+          }
+        } catch (textError) {
+          console.error('[MATCHES CLIENT] Failed to read response text:', textError);
+        }
+        
+        console.error('[MATCHES CLIENT] Failed to log match:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          responseText: responseText || 'No response text',
+          matchData: matchData // Log the data we tried to send for debugging
+        });
+      } else {
+        setLastMatchLogTime(Date.now());
+        setMatchLogCount(prev => prev + 1);
+        triggerRoundHistoryRefresh();
+      }
+    } catch (error) {
+      console.error('[MATCHES CLIENT] Error logging match:', error);
+    }
+  }, [currentRoundId, session?.user?.id, triggerRoundHistoryRefresh]);
+
+  // Timer management - normal timer behavior, force selection on time up
+  // Note: forceSelection will be defined after targetPoint, priceRange, and timeRange
+  const forceSelectionRef = React.useRef<(() => void) | null>(null);
+  const timerRef = React.useRef<{ reset: (duration: number) => void; start: () => void } | null>(null);
+  
   const timer = useTimer({
     initialDuration: TIMER_CONFIG.INITIAL_DURATION,
     onTimeUp: useCallback(() => {
-      gameState.setShowTimeUpOverlay(true);
-      // Timer expired - show overlay but don't auto-advance
-    }, [gameState]),
+      // Automatically move to next stock when timer expires
+      if (handleNextCardRef.current) {
+        handleNextCardRef.current();
+      }
+    }, []),
     autoStart: false,
   });
+
+  // Update timer ref so onTimeUp callback can access timer methods
+  React.useEffect(() => {
+    timerRef.current = {
+      reset: timer.reset,
+      start: timer.start,
+    };
+  }, [timer.reset, timer.start]);
 
   // Track last loaded folder/userId to prevent repeated calls
   const lastLoadedRef = React.useRef<{folder: string|null, userId: string|null}>({folder: null, userId: null});
@@ -366,11 +478,7 @@ export default function FlashcardsContainer() {
         const newRoundId = await createNewRound(autoName);
         if (newRoundId) {
           setCurrentRoundId(newRoundId);
-          // Start timer for new round
-          timer.reset(timerDuration);
-          setTimeout(() => {
-            timer.start();
-          }, 100);
+          // Timer will start automatically via useEffect when currentRoundId is set
         }
         return;
       }
@@ -416,11 +524,7 @@ export default function FlashcardsContainer() {
         const newRoundId = await createNewRound(autoName);
         if (newRoundId) {
           setCurrentRoundId(newRoundId);
-          // Start timer for new round
-          timer.reset(timerDuration);
-          setTimeout(() => {
-            timer.start();
-          }, 100);
+          // Timer will start automatically via useEffect when currentRoundId is set
         } else {
           // Even if round creation fails, allow game to work (practice mode)
           // Timer will start via the auto-start effect when flashcard loads
@@ -501,19 +605,11 @@ export default function FlashcardsContainer() {
     if (roundId) {
       setCurrentRoundId(roundId);
       setShowRoundSelector(false);
-      
-      // Start timer for the new round after a small delay
-      setTimeout(() => {
-        timer.start();
-      }, 100);
+      // Timer will start automatically via useEffect when currentRoundId is set
     } else {
       console.error('Failed to create round - no round ID returned');
       // Still allow the game to start even if round creation fails
       setShowRoundSelector(false);
-      // Start timer even if round creation failed
-      setTimeout(() => {
-        timer.start();
-      }, 100);
     }
   }, [selectedFolder, roundNameInput, generateRoundName, createNewRound, gameState, timer, timerDuration]);
 
@@ -546,10 +642,7 @@ export default function FlashcardsContainer() {
       console.error('Error fetching matches for round:', error);
     }
     
-    // Start timer for the selected round after a small delay
-    setTimeout(() => {
-      timer.start();
-    }, 100);
+    // Timer will start automatically via the useEffect that watches currentRoundId
   }, [gameState, timer, timerDuration]);
 
   // Handle selecting an existing round
@@ -774,6 +867,64 @@ export default function FlashcardsContainer() {
     };
   }, [processedData.afterJsonData, processedData.orderedFiles]);
 
+  // Force selection when timer expires - selects at middle of selectable area
+  // Must be defined after targetPoint, priceRange, and timeRange
+  const forceSelection = useCallback(() => {
+    if (!targetPoint || !priceRange || !timeRange || gameState.score !== null) {
+      // Already have a selection or no target point available
+      return;
+    }
+    
+    const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
+    
+    // Select at middle of the selectable time range (after last data point)
+    // Use middle of price range for Y coordinate
+    const selectableTimeMin = mainDataLength;
+    const selectableTimeMax = timeRange.max;
+    const forcedX = selectableTimeMin + Math.floor((selectableTimeMax - selectableTimeMin) / 2);
+    const forcedY = priceRange.min + (priceRange.max - priceRange.min) / 2;
+    
+    // Create coordinates object
+    const forcedCoordinates = {
+      x: forcedX,
+      y: forcedY,
+      chartX: 0, // Will be calculated by chart
+      chartY: 0, // Will be calculated by chart
+    };
+    
+    // Directly call gameState.handleCoordinateSelection (same as handleChartClick does)
+    gameState.handleCoordinateSelection(
+      forcedCoordinates,
+      (distance: number, score: number, scoreData?: any) => {
+        // Log match with coordinates
+        const stockSymbol = extractStockName(currentFlashcard) || 'UNKNOWN';
+        const isCorrect = scoreData?.priceAccuracy >= 70 || score >= 70;
+        
+        logMatchWithCoordinates({
+          coordinates: forcedCoordinates,
+          targetPoint,
+          distance,
+          score,
+          stockSymbol,
+          isCorrect,
+          priceAccuracy: scoreData?.priceAccuracy,
+          timePosition: scoreData?.timePosition,
+          priceError: scoreData?.priceError,
+          timeError: scoreData?.timeError,
+        });
+      },
+      targetPoint,
+      priceRange,
+      timeRange
+    );
+    timer.pause();
+  }, [targetPoint, priceRange, timeRange, gameState, processedData, currentFlashcard, timer, logMatchWithCoordinates]);
+
+  // Update the ref so timer can access forceSelection
+  React.useEffect(() => {
+    forceSelectionRef.current = forceSelection;
+  }, [forceSelection]);
+
   // Handle chart coordinate selection
   const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
     if (!targetPoint || !priceRange || !timeRange) {
@@ -813,112 +964,53 @@ export default function FlashcardsContainer() {
       timeRange
     );
     timer.pause();
-  }, [gameState, timer, targetPoint, priceRange, timeRange, currentFlashcard, processedData]);
+  }, [gameState, timer, targetPoint, priceRange, timeRange, currentFlashcard, processedData, logMatchWithCoordinates]);
 
-  // Log match with coordinates
-  const logMatchWithCoordinates = useCallback(async (data: {
-    coordinates: { x: number; y: number };
-    targetPoint: { x: number; y: number };
-    distance: number;
-    score: number;
-    stockSymbol: string;
-    isCorrect: boolean;
-    priceAccuracy?: number;
-    timePosition?: number;
-    priceError?: number;
-    timeError?: number;
-  }) => {
-    if (!currentRoundId || !session?.user?.id) return;
-
-    // Build match data, filtering out undefined/null/NaN values
-    const matchData: any = {
-      round_id: currentRoundId,
-      stock_symbol: data.stockSymbol,
-      correct: Boolean(data.isCorrect), // Ensure it's always a boolean
-    };
-    
-    // Add numeric fields only if they are valid numbers
-    if (typeof data.coordinates.x === 'number' && !isNaN(data.coordinates.x)) {
-      matchData.user_selection_x = data.coordinates.x;
-    }
-    if (typeof data.coordinates.y === 'number' && !isNaN(data.coordinates.y)) {
-      matchData.user_selection_y = data.coordinates.y;
-    }
-    if (typeof data.targetPoint.x === 'number' && !isNaN(data.targetPoint.x)) {
-      matchData.target_x = data.targetPoint.x;
-    }
-    if (typeof data.targetPoint.y === 'number' && !isNaN(data.targetPoint.y)) {
-      matchData.target_y = data.targetPoint.y;
-    }
-    if (typeof data.distance === 'number' && !isNaN(data.distance)) {
-      matchData.distance = data.distance;
-    }
-    if (typeof data.score === 'number' && !isNaN(data.score)) {
-      matchData.score = data.score;
-    }
-    
-    // Add optional fields only if they are defined and not NaN
-    if (data.priceAccuracy !== undefined && !isNaN(data.priceAccuracy)) {
-      matchData.price_accuracy = data.priceAccuracy;
-    }
-    if (data.timePosition !== undefined && !isNaN(data.timePosition)) {
-      matchData.time_position = data.timePosition;
-    }
-    if (data.priceError !== undefined && !isNaN(data.priceError)) {
-      matchData.price_error = data.priceError;
-    }
-    if (data.timeError !== undefined && !isNaN(data.timeError)) {
-      matchData.time_error = data.timeError;
-    }
-
-    try {
-      console.log('[MATCHES CLIENT] Sending match data:', matchData);
-      const response = await fetch('/api/game/matches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(matchData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[MATCHES CLIENT] Failed to log match:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
+  // Start timer when a round is selected
+  useEffect(() => {
+    if (
+      currentRoundId && 
+      !loading && 
+      selectedFolder && 
+      timerDuration > 0 &&
+      timer.isReady &&
+      !timer.isRunning
+    ) {
+      // Reset and start timer when round is selected
+      timer.reset(timerDuration);
+      // Use requestAnimationFrame to ensure state is updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          timer.start();
         });
-      } else {
-        setLastMatchLogTime(Date.now());
-        setMatchLogCount(prev => prev + 1);
-        triggerRoundHistoryRefresh();
-      }
-    } catch (error) {
-      console.error('[MATCHES CLIENT] Error logging match:', error);
+      });
     }
-  }, [currentRoundId, session?.user?.id, triggerRoundHistoryRefresh]);
+  }, [currentRoundId, loading, selectedFolder, timerDuration, timer]);
 
-  // Start timer when flashcard changes (but NOT when moving via handleNextCard - that manages its own timer)
-  // Only auto-start if there's no feedback (no selection made yet) and timer is not already running
-  // Timer should work even without a round (for practice mode)
-  // Skip starting if timerDuration is 0 (always pause mode)
+  // Start timer when flashcard changes (new stock displayed)
+  // This ensures the timer starts when moving to a new stock
+  // Note: handleNextCard manages its own timer, so we only start if timer isn't already running
   useEffect(() => {
     if (
       currentFlashcard && 
-      !gameState.feedback && 
       !loading && 
-      !gameState.showTimeUpOverlay && 
+      selectedFolder && 
+      timerDuration > 0 &&
+      timer.isReady &&
       !timer.isRunning &&
-      timer.isReady && // Only start if timer is ready (not paused or in transition)
-      selectedFolder && // Only start if we have a folder selected (game is active)
-      timerDuration > 0 // Don't start timer if duration is 0 (always pause)
+      currentRoundId && // Only auto-start if we have a round selected
+      !gameState.feedback // Don't start if there's feedback (handleNextCard will handle it)
     ) {
-      // Reset timer to the current duration and start it
+      // Reset timer to the current duration and start it for new stock
       timer.reset(timerDuration);
-      // Small delay to ensure reset completes before starting
-      setTimeout(() => {
-        timer.start();
-      }, 50);
+      // Use requestAnimationFrame to ensure state is updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          timer.start();
+        });
+      });
     }
-  }, [currentFlashcard, gameState.feedback, gameState.showTimeUpOverlay, loading, timer, timerDuration, selectedFolder]);
+  }, [currentFlashcard, loading, selectedFolder, timerDuration, timer, currentRoundId, gameState.feedback]);
   
   // Auto-advance 10 seconds after a selection is made (only if not paused)
   // This works in sync with the countdown timer in ChartScoreOverlay
@@ -1170,27 +1262,27 @@ export default function FlashcardsContainer() {
             <DateFolderBrowser 
               session={session} 
               currentStock={currentStock}
-              isTimeUp={gameState.showTimeUpOverlay}
               flashcards={flashcards as FlashcardData[]}
               currentFlashcard={currentFlashcard}
+              onChartExpanded={() => {
+                // Stop any running timer first, then reset and start counting down
+                // Ensure we have a valid duration
+                if (timerDuration <= 0) {
+                  return;
+                }
+                // Pause if running
+                if (timer.isRunning) {
+                  timer.pause();
+                }
+                // Reset to the configured duration - this immediately sets state and ref
+                timer.reset(timerDuration);
+                // Start the timer immediately - reset() sets the state synchronously
+                // The start() function will use displayValueRef if timer state hasn't updated yet
+                timer.start();
+              }}
             />
           </div>
 
-          {/* Time's Up Overlay */}
-          {gameState.showTimeUpOverlay && (
-            <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none px-4">
-              <div className="pointer-events-auto bg-black bg-opacity-90 border-2 border-turquoise-500 shadow-xl rounded-lg px-6 sm:px-8 py-3 sm:py-4 animate-pulse-slow max-w-[90%] sm:max-w-md mx-auto">
-                <div className="text-center">
-                  <h2 className="text-2xl sm:text-2xl font-bold mb-1 text-turquoise-500 animate-glow">
-                    Time's Up!
-                  </h2>
-                  <p className="text-white opacity-90 text-base sm:text-lg">
-                    Please make your selection
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Round History Modal */}
           {showRoundHistory && (
