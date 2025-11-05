@@ -13,37 +13,85 @@
  * - Action buttons for user interaction
  * - Clean, borderless design with soft backgrounds for reduced eye strain
  */
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import StockChart from "../StockChart";
 import { AuthModal } from "../Auth";
 import ChartMagnifier from "../UI/ChartMagnifier";
 import { getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
 
 // ChartScoreOverlay component - inlined to fix import issues
-const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile }) => {
-  const [countdown, setCountdown] = useState(8);
+const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, alwaysPaused = false, onPauseChange = null }) => {
+  const [countdown, setCountdown] = useState(10);
+  const [isPaused, setIsPaused] = useState(alwaysPaused);
+  const intervalRef = useRef(null);
   
+  // Reset countdown when popup appears
   useEffect(() => {
     if (!show || score === null || score === undefined) {
       return;
     }
     
-    // Reset countdown when popup appears
-    setCountdown(8);
+    setCountdown(10);
+    setIsPaused(alwaysPaused);
     
-    // Countdown timer
-    const interval = setInterval(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, [show, score, alwaysPaused]);
+  
+  // Countdown timer - only runs when not paused and not always paused
+  useEffect(() => {
+    if (!show || score === null || score === undefined || isPaused || alwaysPaused) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+    
+    intervalRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     
-    return () => clearInterval(interval);
-  }, [show, score]);
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [show, score, isPaused, alwaysPaused]);
+  
+  // Handle pause toggle
+  const handlePauseToggle = () => {
+    setIsPaused(prev => {
+      const newPaused = !prev;
+      console.log("ChartScoreOverlay: Pause button clicked, new state:", newPaused);
+      // Clear interval when pausing
+      if (newPaused && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      // Notify parent about pause state change - this is critical for animation pause
+      if (onPauseChange) {
+        console.log("ChartScoreOverlay: Calling onPauseChange with:", newPaused);
+        onPauseChange(newPaused);
+      } else {
+        console.warn("ChartScoreOverlay: onPauseChange callback is not available!");
+      }
+      return newPaused;
+    });
+  };
   
   if (!show || score === null || score === undefined) {
     return null;
@@ -52,81 +100,75 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile }) => {
   return (
     <div className={`absolute z-50 pointer-events-none ${
       isMobile 
-        ? 'bottom-2 left-2 right-2' 
-        : 'bottom-2 left-2 right-2'
+        ? 'bottom-0 left-2 right-2' 
+        : 'bottom-0 left-2 right-2'
     }`}>
-      <div className={`bg-gradient-to-br from-gray-900 via-black to-gray-900 bg-opacity-98 backdrop-blur-lg border-2 border-turquoise-500/80 rounded-2xl shadow-2xl pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full ${
+      <div className={`bg-gradient-to-br from-gray-900 via-black to-gray-900 bg-opacity-98 backdrop-blur-lg border-2 border-turquoise-500/80 rounded-2xl shadow-2xl pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full flex flex-col ${
         isMobile 
-          ? 'px-5 py-4' 
-          : 'px-8 py-4'
+          ? 'px-4 py-3' 
+          : 'px-5 py-3'
       }`}>
         {/* Decorative gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/10 via-transparent to-transparent pointer-events-none"></div>
         
-        <div className={`relative z-10 ${isMobile ? 'text-center' : 'flex items-center gap-4'}`}>
-          <div className={`flex items-center ${isMobile ? 'justify-center mb-3' : 'justify-center flex-shrink-0'}`}>
-            <div className={`rounded-full bg-gradient-to-br from-turquoise-500 to-turquoise-600 flex items-center justify-center shadow-lg ring-4 ring-turquoise-500/20 ${
-              isMobile ? 'w-12 h-12' : 'w-12 h-12'
+        <div className={`relative z-10 ${isMobile ? 'flex items-center justify-between gap-2' : 'flex items-center justify-between gap-3'}`}>
+          {/* Left side: Badge icon and score */}
+          <div className={`flex items-center gap-2.5 ${isMobile ? '' : ''}`}>
+            <div className={`rounded-lg bg-gradient-to-br from-turquoise-500 to-turquoise-600 flex items-center justify-center shadow-lg ring-2 ring-turquoise-500/30 flex-shrink-0 ${
+              isMobile ? 'w-8 h-8' : 'w-10 h-10'
             }`}>
-              <svg className={`text-white ${isMobile ? 'w-6 h-6' : 'w-6 h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              <svg className={`text-white ${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
             </div>
+            <div className="flex flex-col">
+              {!isMobile && <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">Score</p>}
+              <h3 className={`font-bold text-white tracking-tight ${isMobile ? 'text-2xl' : 'text-2xl'}`}>
+                {Math.round(score)}%
+              </h3>
+            </div>
           </div>
-          <div className={`${isMobile ? '' : 'flex-1 flex items-center gap-4'}`}>
-            <div className={isMobile ? 'mb-3' : 'flex-1'}>
-              {isMobile && <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Score</p>}
-              <div className={isMobile ? '' : 'flex items-baseline gap-3'}>
-                <h3 className={`font-bold text-white tracking-tight ${isMobile ? 'text-3xl mb-1' : 'text-3xl'}`}>
-                  {Math.round(score)}%
-                </h3>
-                {!isMobile && <span className="text-xs text-gray-400 uppercase tracking-widest">Score</span>}
+          
+          {/* Right side: Countdown and buttons in one row on mobile */}
+          <div className={`flex items-center gap-2 flex-shrink-0 ${isMobile ? 'flex-1 justify-end' : ''}`}>
+            {/* Countdown (when not paused and not always paused) */}
+            {!alwaysPaused && !isPaused && (
+              <div className="flex items-center gap-1">
+                <p className={`text-gray-400 whitespace-nowrap ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{isMobile ? 'Next' : 'Next in'}</p>
+                <div className={`flex items-center justify-center rounded-full bg-turquoise-500/20 border border-turquoise-500/40 ${
+                  isMobile ? 'w-5 h-5' : 'w-7 h-7'
+                }`}>
+                  <span className={`font-bold text-turquoise-400 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{countdown}</span>
+                </div>
+                <p className={`text-gray-400 whitespace-nowrap ${isMobile ? 'text-[10px]' : 'text-xs'}`}>s</p>
               </div>
-              {accuracyTier && (
-                <p className={`font-semibold ${accuracyTier.color || 'text-turquoise-400'} ${isMobile ? 'text-sm mb-3 uppercase tracking-wider' : 'text-xs uppercase tracking-wider mt-1'}`}>
-                  {accuracyTier.tier || 'Good'}
-                </p>
-              )}
-            </div>
-            <div className={isMobile ? 'border-t border-turquoise-500/20 pt-3' : 'flex items-center gap-3 flex-shrink-0'}>
-              {isMobile ? (
-                <>
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <p className="text-xs text-gray-400">Next stock in</p>
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-turquoise-500/20 border border-turquoise-500/40">
-                      <span className="text-sm font-bold text-turquoise-400">{countdown}</span>
-                    </div>
-                    <p className="text-xs text-gray-400">seconds</p>
-                  </div>
-                  {onNext && (
-                    <button
-                      onClick={onNext}
-                      className="bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-700 hover:to-turquoise-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 text-sm w-full border border-turquoise-400/30"
-                    >
-                      Next Stock
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-gray-400">Next in</p>
-                    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-turquoise-500/20 border border-turquoise-500/40">
-                      <span className="text-xs font-bold text-turquoise-400">{countdown}</span>
-                    </div>
-                    <p className="text-xs text-gray-400">s</p>
-                  </div>
-                  {onNext && (
-                    <button
-                      onClick={onNext}
-                      className="bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-700 hover:to-turquoise-600 text-white px-4 py-2 rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 text-xs border border-turquoise-400/30 whitespace-nowrap"
-                    >
-                      Next Stock
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+            )}
+            {/* Pause/Resume button (when not always paused) */}
+            {!alwaysPaused && (
+              <button
+                onClick={handlePauseToggle}
+                className={`bg-gray-700/50 hover:bg-gray-700/70 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 border border-gray-600/50 ${
+                  isMobile 
+                    ? 'px-3 py-1.5 text-xs' 
+                    : 'px-2.5 py-1 text-xs whitespace-nowrap'
+                }`}
+              >
+                {isPaused ? 'Resume' : 'Pause'}
+              </button>
+            )}
+            {/* Next Stock button */}
+            {onNext && (
+              <button
+                onClick={onNext}
+                className={`bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-700 hover:to-turquoise-600 text-white rounded-lg font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 border border-turquoise-400/30 ${
+                  isMobile 
+                    ? 'px-3 py-1.5 text-xs' 
+                    : 'px-3 py-1 text-xs whitespace-nowrap'
+                }`}
+              >
+                Next Stock
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -153,11 +195,22 @@ function ChartSection({
   score = null,
   targetPoint = null, // Target point for visualization
   onNextCard = null, // Callback to move to next card
+  timerDuration = null, // Timer duration to check if always paused (0 = always pause)
+  onTimerDurationChange = null, // Callback to change timer duration
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
   const [progressPercentage, setProgressPercentage] = useState(0);
   const [zoomPercentage, setZoomPercentage] = useState(0);
+  const isAnimationPausedRef = useRef(false);
+  const animationPauseRef = useRef(null);
+  
+  // Handle pause state change from overlay
+  const handlePauseChange = useCallback((paused) => {
+    console.log("Pause state changed:", paused);
+    isAnimationPausedRef.current = paused;
+    console.log("Animation pause ref updated to:", isAnimationPausedRef.current);
+  }, []);
   const [completionDelay, setCompletionDelay] = useState(false);
   const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -273,22 +326,48 @@ function ChartSection({
             let startTime = performance.now();
             const zoomDuration = 1500; // 1.5 seconds
             
+            let pausedTime = 0;
+            let pauseStartTime = null;
+            let lastTimestamp = startTime;
+            
             const animateZoom = (timestamp) => {
-              const elapsed = timestamp - startTime;
+              // Check pause state on every frame
+              const isPaused = isAnimationPausedRef.current;
+              
+              if (isPaused) {
+                // If paused, track pause time but don't advance animation
+                if (pauseStartTime === null) {
+                  pauseStartTime = timestamp;
+                }
+                lastTimestamp = timestamp;
+                // Continue checking in case pause is released
+                animationPauseRef.current = requestAnimationFrame(animateZoom);
+                return;
+              }
+              
+              // If we were paused, add the pause duration to pausedTime
+              if (pauseStartTime !== null) {
+                pausedTime += timestamp - pauseStartTime;
+                pauseStartTime = null;
+              }
+              
+              const elapsed = timestamp - startTime - pausedTime;
               const progress = Math.min(elapsed / zoomDuration, 1);
               const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
               
               setZoomPercentage(easedProgress * 100);
               
               if (progress < 1) {
-                requestAnimationFrame(animateZoom);
+                lastTimestamp = timestamp;
+                animationPauseRef.current = requestAnimationFrame(animateZoom);
               } else {
                 setZoomPercentage(100);
+                animationPauseRef.current = null;
                 resolve();
               }
             };
             
-            requestAnimationFrame(animateZoom);
+            animationPauseRef.current = requestAnimationFrame(animateZoom);
           });
           
           console.log("Zoom animation completed");
@@ -299,23 +378,49 @@ function ChartSection({
             let startTime = performance.now();
             const revealDuration = 1800; // 1.8 seconds
             
+            let pausedTime = 0;
+            let pauseStartTime = null;
+            let lastTimestamp = startTime;
+            
             const animateReveal = (timestamp) => {
-              const elapsed = timestamp - startTime;
+              // Check pause state on every frame
+              const isPaused = isAnimationPausedRef.current;
+              
+              if (isPaused) {
+                // If paused, track pause time but don't advance animation
+                if (pauseStartTime === null) {
+                  pauseStartTime = timestamp;
+                }
+                lastTimestamp = timestamp;
+                // Continue checking in case pause is released
+                animationPauseRef.current = requestAnimationFrame(animateReveal);
+                return;
+              }
+              
+              // If we were paused, add the pause duration to pausedTime
+              if (pauseStartTime !== null) {
+                pausedTime += timestamp - pauseStartTime;
+                pauseStartTime = null;
+              }
+              
+              const elapsed = timestamp - startTime - pausedTime;
               const progress = Math.min(elapsed / revealDuration, 1);
               const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
               
               setProgressPercentage(easedProgress * 100);
               
               if (progress < 1) {
-                requestAnimationFrame(animateReveal);
+                lastTimestamp = timestamp;
+                animationPauseRef.current = requestAnimationFrame(animateReveal);
               } else {
                 setProgressPercentage(100);
                 setAfterAnimationComplete(true);
+                animationPauseRef.current = null;
                 resolve();
               }
             };
             
-            requestAnimationFrame(animateReveal);
+            animationPauseRef.current = requestAnimationFrame(animateReveal);
           });
           
           console.log("Reveal animation completed");
@@ -374,58 +479,93 @@ function ChartSection({
         }, 1000);
         
         // Use a precise timeout to ensure EXACTLY 5 seconds AFTER all data is visible
+        // This respects pause state by checking and adjusting the delay
         await new Promise(resolve => {
           console.log(`Observation delay started at ${new Date().toISOString()} - Will last EXACTLY 5 seconds`);
           
-          // Set a fixed 5-second (5000ms) delay that starts NOW (after rendering is complete)
-          delayTimerRef.current = setTimeout(() => {
-            const actualDelay = (Date.now() - delayStartTimeRef.current) / 1000;
-            console.log(`Observation delay ended after ${actualDelay.toFixed(1)} seconds`);
+          let remainingDelay = 5000; // 5 seconds in milliseconds
+          let pausedTime = 0;
+          let pauseStartTime = null;
+          
+          const checkDelay = () => {
+            // Check pause state on every check
+            const isPaused = isAnimationPausedRef.current;
             
-            if (debugIntervalRef.current) {
-              clearInterval(debugIntervalRef.current);
-              debugIntervalRef.current = null;
-            }
-            
-            setCompletionDelay(false);
-            
-            // Scroll to top on mobile after delay completes
-            if (isMobile) {
-              console.log("Scrolling to top on mobile device");
-              
-              // Find the D chart element for better positioning
-              const dChartElement = document.querySelector('.bg-gradient-turquoise');
-              
-              if (dChartElement) {
-                // Get the chart's container for better positioning
-                const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
-                const rect = chartContainer.getBoundingClientRect();
-                
-                // Scroll to position the D chart near the top of the viewport
-                window.scrollTo({
-                  top: window.pageYOffset + rect.top - 100, // Position with some padding at top
-                  behavior: 'smooth'
-                });
-              } else {
-                // Fallback to scrolling to top if D chart not found
-                window.scrollTo({
-                  top: 0,
-                  behavior: 'smooth'
-                });
+            if (isPaused) {
+              // If paused, track pause time but don't advance delay
+              if (pauseStartTime === null) {
+                pauseStartTime = Date.now();
               }
+              // Continue checking in case pause is released
+              delayTimerRef.current = setTimeout(checkDelay, 100);
+              return;
             }
             
-            // Call the callback to advance to next card after the delay completes
-            if (onAfterEffectComplete) {
-              console.log("After effect completed, calling onAfterEffectComplete callback");
-              onAfterEffectComplete();
+            // If we were paused, add the pause duration to pausedTime
+            if (pauseStartTime !== null) {
+              pausedTime += Date.now() - pauseStartTime;
+              pauseStartTime = null;
             }
             
-            // Mark animation as complete
-            setAnimationInProgress(false);
+            // Calculate elapsed time (excluding paused time)
+            const elapsed = (Date.now() - delayStartTimeRef.current) - pausedTime;
             
-            resolve();
-          }, 5000); // GUARANTEED EXACTLY 5000ms (5 seconds) delay
+            if (elapsed >= remainingDelay) {
+              // Delay complete
+              const actualDelay = (Date.now() - delayStartTimeRef.current) / 1000;
+              console.log(`Observation delay ended after ${actualDelay.toFixed(1)} seconds`);
+              
+              if (debugIntervalRef.current) {
+                clearInterval(debugIntervalRef.current);
+                debugIntervalRef.current = null;
+              }
+              
+              setCompletionDelay(false);
+              
+              // Scroll to top on mobile after delay completes
+              if (isMobile) {
+                console.log("Scrolling to top on mobile device");
+                
+                // Find the D chart element for better positioning
+                const dChartElement = document.querySelector('.bg-gradient-turquoise');
+                
+                if (dChartElement) {
+                  // Get the chart's container for better positioning
+                  const chartContainer = dChartElement.closest('.rounded-xl') || dChartElement;
+                  const rect = chartContainer.getBoundingClientRect();
+                  
+                  // Scroll to position the D chart near the top of the viewport
+                  window.scrollTo({
+                    top: window.pageYOffset + rect.top - 100, // Position with some padding at top
+                    behavior: 'smooth'
+                  });
+                } else {
+                  // Fallback to scrolling to top if D chart not found
+                  window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                  });
+                }
+              }
+              
+              // Call the callback to advance to next card after the delay completes
+              if (onAfterEffectComplete) {
+                console.log("After effect completed, calling onAfterEffectComplete callback");
+                onAfterEffectComplete();
+              }
+              
+              // Mark animation as complete
+              setAnimationInProgress(false);
+              
+              resolve();
+            } else {
+              // Continue checking
+              delayTimerRef.current = setTimeout(checkDelay, 100);
+            }
+          };
+          
+          // Start checking
+          delayTimerRef.current = setTimeout(checkDelay, 100);
         });
       } catch (error) {
         console.error("Animation sequence error:", error);
@@ -459,6 +599,12 @@ function ChartSection({
     setZoomPercentage(0);
     setCompletionDelay(false);
     setAfterAnimationComplete(false);
+    isAnimationPausedRef.current = false;
+    // Cancel any running animation frames
+    if (animationPauseRef.current) {
+      cancelAnimationFrame(animationPauseRef.current);
+      animationPauseRef.current = null;
+    }
   }, [orderedFiles]);
 
   // Timer color based on remaining time
@@ -544,6 +690,8 @@ function ChartSection({
                       show={true}
                       onNext={onNextCard}
                       isMobile={isMobile}
+                      alwaysPaused={timerDuration === 0}
+                      onPauseChange={handlePauseChange}
                     />
                   )}
                 </>

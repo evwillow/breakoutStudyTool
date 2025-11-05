@@ -39,6 +39,9 @@ const TimerDurationSelector = ({ duration, onChange }) => {
     [durations]
   );
   
+  // Check if always pause is selected
+  const isAlwaysPaused = duration === 0;
+  
   // Check if the current duration is a preset or custom value
   useEffect(() => {
     // Skip if duration hasn't changed to prevent infinite loops
@@ -162,6 +165,11 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   const selectValue = useMemo(() => {
     if (showCustomInput) {
       return "custom";
+    }
+    
+    // If duration is 0 (always pause), default to 60 seconds (always pause is handled by slider in overlay)
+    if (duration === 0) {
+      return 60;
     }
     
     // If the current duration is a preset value, use that

@@ -389,7 +389,7 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
         } else if (currentStock) {
           // If we have a currentStock but found no files, still update to show empty state
           setAllFiles([]);
-          setDebugInfo(`No files found for ${currentStock}. Check console for filtering details.`);
+          setDebugInfo('');
           console.warn(`No files found for current stock: ${currentStock}`);
         } else {
           // If no currentStock, clear files

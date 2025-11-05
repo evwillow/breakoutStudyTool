@@ -564,6 +564,8 @@ const StockChart = React.memo(({
   const hasSMA50 = stockData.some(item => item.sma50 !== null && item.sma50 !== undefined && !isNaN(item.sma50));
 
   // Memoize visible after data calculation
+  // IMPORTANT: For D charts, we show after.json data but don't use its prices for scaling
+  // This prevents revealing prediction information through scale while still showing the data
   const visibleAfterData = useMemo(() => {
     if (!afterStockData.length) return [];
     
@@ -621,10 +623,15 @@ const StockChart = React.memo(({
     const mainMax = Math.max(...mainValues);
 
     // Get min/max for after data
+    // IMPORTANT: For D chart (default/D), NEVER look at after.json prices to prevent revealing prediction data
+    // Instead, add generous padding above D.json data based only on D.json range
+    const isDChart = chartType === 'default' || chartType === 'D';
     let afterMin = mainMin;
     let afterMax = mainMax;
 
-    if (afterStockData.length > 0) {
+    if (afterStockData.length > 0 && !isDChart) {
+      // Only calculate after data min/max for non-D charts
+      // D charts must NEVER peek at after.json prices
       const afterValues = afterStockData.flatMap(d => {
         // Start with price values
         const values = [d.high, d.low, d.close];
@@ -644,14 +651,31 @@ const StockChart = React.memo(({
     }
 
     // Calculate combined range for zoom out functionality
-    const combinedMin = Math.min(mainMin, afterMin);
-    const combinedMax = Math.max(mainMax, afterMax);
+    // For D charts: use generous padding above D.json data (based only on D.json range, not after.json)
+    // IMPORTANT: Always apply padding for D charts, even if after.json hasn't loaded yet
+    // This prevents the chart from jumping when after.json loads later
+    let combinedMin, combinedMax;
+    
+    if (isDChart) {
+      // For D charts: ALWAYS add generous padding above D.json data WITHOUT looking at after.json prices
+      // This prevents vertical compression AND prevents jumping when after.json loads
+      const mainRange = mainMax - mainMin;
+      const paddingAbove = mainRange * 0.5; // Add 50% of D.json range as padding above
+      const paddingBelow = mainRange * 0.1; // 10% padding below for consistency
+      combinedMin = mainMin - paddingBelow;
+      combinedMax = mainMax + paddingAbove;
+    } else {
+      // For non-D charts, use actual after.json data for scaling
+      combinedMin = Math.min(mainMin, afterMin);
+      combinedMax = Math.max(mainMax, afterMax);
+    }
     
     // NEW ZOOM OUT LOGIC: 
     // - When zoomPercentage > 0, we zoom out to show the full combined range
     // - When showAfterAnimation is true, we show the turquoise line and background
     // - progressPercentage controls how many after candles are revealed
     // - Use smooth interpolation to prevent "bump" when animation starts
+    // - For D charts: Always add space above D.json data (based on D.json range only, never after.json prices)
     
     let currentMin, currentMax;
     let totalDataPoints;
@@ -661,8 +685,8 @@ const StockChart = React.memo(({
     // This prevents scale domain changes that cause visual bumps
     const hasAfterData = afterStockData.length > 0;
     
-    if (hasAfterData) {
-      // If we have after data, always use the combined indices for X scale
+    if (hasAfterData && !isDChart) {
+      // If we have after data and it's not a D chart, use the combined indices for X scale
       // This prevents the X axis from jumping when animation starts
       totalDataPoints = stockData.length + afterStockData.length;
       combinedIndices = [...Array(totalDataPoints).keys()];
@@ -678,8 +702,17 @@ const StockChart = React.memo(({
       // Interpolate between main range and combined range
       currentMin = minRange + (minCombined - minRange) * zoomFactor;
       currentMax = maxRange + (maxCombined - maxRange) * zoomFactor;
+    } else if (isDChart) {
+      // D CHART MODE: Always use combined range for Y-axis scale (prevents vertical compression and jumping)
+      // The combined range includes generous padding above D.json data (calculated WITHOUT looking at after.json prices)
+      // After.json data is rendered but scale is based on padding, not actual after.json prices
+      // Apply padding even if after.json hasn't loaded yet to prevent jumping
+      currentMin = combinedMin;
+      currentMax = combinedMax;
+      totalDataPoints = hasAfterData ? stockData.length + afterStockData.length : stockData.length;
+      combinedIndices = [...Array(totalDataPoints).keys()];
     } else {
-      // NORMAL MODE: Show only main data range (no after data available)
+      // NORMAL MODE: No after data available
       currentMin = mainMin;
       currentMax = mainMax;
       totalDataPoints = stockData.length;
@@ -1323,6 +1356,8 @@ const StockChart = React.memo(({
   
   // Calculate the x position and width for the dark background
   // NEW ZOOM OUT LOGIC: When zoomed out, always show the divider line and background
+  // IMPORTANT: For D charts, show divider/background animation but never reveal actual after.json data
+  const isDChart = chartType === 'default' || chartType === 'D';
   const shouldShowDividerAndBackground = (zoomPercentage > 0 && afterStockData.length > 0) || shouldShowBackground;
   
   // Calculate divider line position based on zoom state
@@ -1336,10 +1371,17 @@ const StockChart = React.memo(({
     const lastMainDataIndex = stockData.length - 1;
     const firstAfterDataIndex = stockData.length;
     
-    // Get the x-coordinate between the last main data point and first after data point
+    // Get the x-coordinate of the last main data point
     const lastMainX = scales.xScale(lastMainDataIndex);
-    const firstAfterX = scales.xScale(firstAfterDataIndex);
     const step = scales.xScale.step();
+    
+    // For D charts, the X scale doesn't include after data indices, so position divider at end of main data
+    // For non-D charts, try to get the first after data index position
+    let firstAfterX = scales.xScale(firstAfterDataIndex);
+    if (firstAfterX === undefined || isNaN(firstAfterX)) {
+      // If index doesn't exist in scale (e.g., D charts), use estimated position
+      firstAfterX = lastMainX + step;
+    }
     
     // Position the divider exactly at the midpoint between datasets, then offset further right
     dividerLineX = lastMainX + (step / 2) + (step * borderLineOffset) + (dimensions?.margin?.left || 0);
@@ -1354,7 +1396,8 @@ const StockChart = React.memo(({
       firstAfterX,
       step,
       finalDividerX: dividerLineX,
-      backgroundWidth: darkBackgroundWidth
+      backgroundWidth: darkBackgroundWidth,
+      isDChart
     });
   } else if (scales && dimensions && stockData.length > 0) {
     // NORMAL MODE: Use the original logic, then offset further right

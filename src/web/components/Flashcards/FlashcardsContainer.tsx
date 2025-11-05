@@ -585,8 +585,9 @@ export default function FlashcardsContainer() {
     // Start timer for the new card after a small delay to ensure state resets
     // nextCard() clears feedback synchronously, so it should be null by now
     // Timer should work even without a round (for practice mode)
+    // Don't start if timerDuration is 0 (always pause mode)
     setTimeout(() => {
-      if (selectedFolder) { // Only start if we have a folder selected (game is active)
+      if (selectedFolder && timerDuration > 0) { // Only start if we have a folder selected (game is active) and duration > 0
         timer.start();
       }
     }, 250);
@@ -892,6 +893,7 @@ export default function FlashcardsContainer() {
   // Start timer when flashcard changes (but NOT when moving via handleNextCard - that manages its own timer)
   // Only auto-start if there's no feedback (no selection made yet) and timer is not already running
   // Timer should work even without a round (for practice mode)
+  // Skip starting if timerDuration is 0 (always pause mode)
   useEffect(() => {
     if (
       currentFlashcard && 
@@ -900,7 +902,8 @@ export default function FlashcardsContainer() {
       !gameState.showTimeUpOverlay && 
       !timer.isRunning &&
       timer.isReady && // Only start if timer is ready (not paused or in transition)
-      selectedFolder // Only start if we have a folder selected (game is active)
+      selectedFolder && // Only start if we have a folder selected (game is active)
+      timerDuration > 0 // Don't start timer if duration is 0 (always pause)
     ) {
       // Reset timer to the current duration and start it
       timer.reset(timerDuration);
@@ -1088,6 +1091,8 @@ export default function FlashcardsContainer() {
             distance={gameState.distance}
             score={gameState.score}
             onNextCard={handleNextCard}
+            timerDuration={timerDuration}
+            onTimerDurationChange={handleTimerDurationChange}
           />
 
 
@@ -1239,9 +1244,6 @@ export default function FlashcardsContainer() {
                   </svg>
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Leave blank for automatic naming
-              </p>
             </div>
             {isLoadingRounds ? (
               <div className="flex items-center justify-center w-full py-8">
@@ -1273,20 +1275,8 @@ export default function FlashcardsContainer() {
                           onClick={() => handleSelectRound(round.id, round.dataset_name)}
                         >
                           <div className="flex-1">
-                            {round.name && (
-                              <p className="text-sm font-semibold text-gray-900 mb-1">
-                                {round.name}
-                              </p>
-                            )}
                             <p className="text-sm font-medium text-gray-900">
-                              <span className={round.completed ? 'text-turquoise-600' : 'text-turquoise-500'}>{round.completed ? '✓' : '◯'}</span> Round from {new Date(round.created_at).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-gray-600 mt-1">
-                              {round.completed ? (
-                                <span className="text-turquoise-600 font-medium">Completed</span>
-                              ) : (
-                                <span className="text-turquoise-500 font-medium">In Progress</span>
-                              )} • <span className="text-gray-700">{round.dataset_name}</span>
+                              <span className={round.completed ? 'text-turquoise-600' : 'text-turquoise-500'}>{round.completed ? '✓' : '◯'}</span> {round.name || 'Unnamed'} • {new Date(round.created_at).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
