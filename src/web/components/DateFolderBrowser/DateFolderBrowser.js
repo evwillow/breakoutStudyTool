@@ -1160,8 +1160,9 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                 style={{ transitionDelay: `${index * 150}ms` }}
               >
                 <button 
-                  className={`w-full p-4 text-left text-white bg-transparent hover:bg-transparent flex justify-between items-center setup-item-interactive transition-transform duration-150 ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
+                  className={`w-full p-4 text-left text-white bg-transparent hover:bg-transparent flex justify-between items-center setup-item-interactive transition-transform duration-150 border-0 ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
                   onClick={() => handleFileToggle(file.id)}
+                  style={{ borderBottom: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
                 >
                   <span className="font-medium flex items-center">
                     <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1182,20 +1183,22 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
                 
                 {expandedFiles.includes(file.id) && (
                   <div 
-                    className="bg-transparent transition-all duration-700 ease-in-out origin-top"
+                    className="bg-transparent transition-all duration-700 ease-in-out origin-top border-0"
                     style={{
-                      animation: `expandContent 700ms ease-out forwards`
+                      animation: `expandContent 700ms ease-out forwards`,
+                      borderTop: 'none'
                     }}
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className={`bg-black overflow-hidden w-full h-full shadow-inner chart-container ${isTimeUp ? 'filter blur-xl' : ''}`}
+                        className={`bg-black overflow-hidden w-full h-full shadow-inner chart-container border-0 ${isTimeUp ? 'filter blur-xl' : ''}`}
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,
                           height: "500px",
                           minHeight: "500px",
-                          maxHeight: "calc(100vw - 2rem)"
+                          maxHeight: "calc(100vw - 2rem)",
+                          borderTop: 'none'
                         }}
                       >
                         <StockChart 
@@ -1294,16 +1297,6 @@ const DateFolderBrowser = ({ session, currentStock, isTimeUp, flashcards = [], c
         /* Style for manually controlled items */
         .manually-controlled {
           position: relative;
-        }
-        
-        .manually-controlled::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, rgba(56,178,172,0.7) 0%, rgba(129,230,217,0.7) 100%);
         }
       `}</style>
       </div>

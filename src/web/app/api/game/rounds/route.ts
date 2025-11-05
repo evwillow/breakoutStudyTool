@@ -46,6 +46,7 @@ async function createRound(req: NextRequest) {
     .insert([{
       dataset_name: validatedData.dataset_name,
       user_id: validatedData.user_id,
+      name: validatedData.name || null,
       completed: validatedData.completed || false
     }])
     .select()

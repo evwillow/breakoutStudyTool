@@ -41,6 +41,7 @@ export interface Round {
   id: string;
   user_id: string;
   dataset_name: string;
+  name?: string | null;
   completed: boolean;
   created_at: string;
   accuracy?: string;
@@ -67,6 +68,7 @@ export interface Match {
 export interface CreateRoundRequest {
   dataset_name: string;
   user_id: string;
+  name?: string;
   completed?: boolean;
 }
 

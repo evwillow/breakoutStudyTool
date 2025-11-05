@@ -69,12 +69,16 @@ export default function FlashcardsContainer() {
   const [isLoadingRounds, setIsLoadingRounds] = React.useState(false);
   const [availableRounds, setAvailableRounds] = React.useState<any[]>([]);
   const [showRoundSelector, setShowRoundSelector] = React.useState(false);
+  const [roundNameInput, setRoundNameInput] = React.useState('');
   const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
   const [matchLogCount, setMatchLogCount] = React.useState<number>(0);
   const [refreshCount, setRefreshCount] = React.useState<number>(0);
   
   // Ref to store handleNextCard for timer callback
   const handleNextCardRef = React.useRef<(() => void) | null>(null);
+  
+  // Ref to store pending round ID and dataset to load after folder switch
+  const pendingRoundRef = React.useRef<{ roundId: string; datasetName: string } | null>(null);
 
   // Create a more reliable refresh function
   const triggerRoundHistoryRefresh = useCallback(() => {
@@ -227,8 +231,16 @@ export default function FlashcardsContainer() {
   // Track last loaded folder/userId to prevent repeated calls
   const lastLoadedRef = React.useRef<{folder: string|null, userId: string|null}>({folder: null, userId: null});
 
+  // Generate automatic round name
+  const generateRoundName = useCallback(() => {
+    const date = new Date();
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${dateStr} ${timeStr}`;
+  }, []);
+
   // Create a new round in the database
-  const createNewRound = useCallback(async () => {
+  const createNewRound = useCallback(async (name?: string) => {
     if (!session?.user?.id || !selectedFolder) {
       console.warn('Cannot create round: missing user ID or selected folder', {
         hasUserId: !!session?.user?.id,
@@ -243,6 +255,7 @@ export default function FlashcardsContainer() {
       const requestData = {
         dataset_name: selectedFolder,
         user_id: session.user.id,
+        name: name || undefined,
         completed: false,
       };
 
@@ -342,12 +355,29 @@ export default function FlashcardsContainer() {
       if (!response.ok) {
         console.error('Failed to load rounds:', result.error);
         setAvailableRounds([]);
+        // Try to create a new round even if loading fails, so the game can still work
+        const autoName = generateRoundName();
+        const newRoundId = await createNewRound(autoName);
+        if (newRoundId) {
+          setCurrentRoundId(newRoundId);
+          // Start timer for new round
+          timer.reset(timerDuration);
+          setTimeout(() => {
+            timer.start();
+          }, 100);
+        }
         return;
       }
 
       const rounds = result.data || [];
       
       setAvailableRounds(rounds);
+
+      // Skip auto-loading if there's a pending round to load (user selected a specific round)
+      if (pendingRoundRef.current) {
+        console.log('Skipping auto-load - pending round will be loaded:', pendingRoundRef.current.roundId);
+        return;
+      }
 
       // Auto-load the most recent incomplete round
       const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
@@ -367,14 +397,27 @@ export default function FlashcardsContainer() {
         } catch (error) {
           console.error('Error loading matches for auto-loaded round:', error);
         }
+        // Start timer for auto-loaded round
+        timer.reset(timerDuration);
+        setTimeout(() => {
+          timer.start();
+        }, 100);
       } else if (rounds.length > 0) {
         setShowRoundSelector(true);
       } else {
         // Automatically create a new round when none exist
-        const newRoundId = await createNewRound();
+        const autoName = generateRoundName();
+        const newRoundId = await createNewRound(autoName);
         if (newRoundId) {
           setCurrentRoundId(newRoundId);
+          // Start timer for new round
+          timer.reset(timerDuration);
+          setTimeout(() => {
+            timer.start();
+          }, 100);
         } else {
+          // Even if round creation fails, allow game to work (practice mode)
+          // Timer will start via the auto-start effect when flashcard loads
           setShowRoundSelector(true);
         }
       }
@@ -382,16 +425,22 @@ export default function FlashcardsContainer() {
       console.error('Error loading rounds:', error);
       setAvailableRounds([]);
       // Try to create a new round even if loading fails
-      const newRoundId = await createNewRound();
+      const autoName = generateRoundName();
+      const newRoundId = await createNewRound(autoName);
       if (newRoundId) {
         setCurrentRoundId(newRoundId);
+        // Start timer for new round
+        timer.reset(timerDuration);
+        setTimeout(() => {
+          timer.start();
+        }, 100);
       } else {
         setShowRoundSelector(true);
       }
     } finally {
       setIsLoadingRounds(false);
     }
-  }, [session?.user?.id, createNewRound, gameState]);
+  }, [session?.user?.id, createNewRound, gameState, timer, timerDuration, generateRoundName]);
 
   // Handle folder change
   const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -422,26 +471,51 @@ export default function FlashcardsContainer() {
       return;
     }
 
-    const roundId = await createNewRound();
+    // Show round selector modal so user can optionally name the round
+    setRoundNameInput(''); // Clear any previous input
+    setShowRoundSelector(true);
+  }, [selectedFolder]);
+
+  // Handle confirming round creation from the modal
+  const handleConfirmNewRound = useCallback(async () => {
+    if (!selectedFolder) {
+      return;
+    }
+
+    // Generate automatic name and use it if user hasn't provided one
+    const name = roundNameInput.trim() || generateRoundName();
+
+    const roundId = await createNewRound(name);
     
     // Reset game and timer regardless of round creation result
     gameState.resetGame();
     timer.reset(timerDuration);
+    setRoundNameInput(''); // Clear input after creating
     
     if (roundId) {
       setCurrentRoundId(roundId);
       setShowRoundSelector(false);
+      
+      // Start timer for the new round after a small delay
+      setTimeout(() => {
+        timer.start();
+      }, 100);
     } else {
       console.error('Failed to create round - no round ID returned');
       // Still allow the game to start even if round creation fails
       setShowRoundSelector(false);
+      // Start timer even if round creation failed
+      setTimeout(() => {
+        timer.start();
+      }, 100);
     }
-  }, [selectedFolder, createNewRound, gameState, timer, timerDuration]);
+  }, [selectedFolder, roundNameInput, generateRoundName, createNewRound, gameState, timer, timerDuration]);
 
-  // Handle selecting an existing round
-  const handleSelectRound = useCallback(async (roundId: string) => {
+  // Helper function to load round matches and initialize game state
+  const loadRoundMatches = useCallback(async (roundId: string) => {
     setCurrentRoundId(roundId);
     setShowRoundSelector(false);
+    pendingRoundRef.current = null; // Clear pending round
     
     // Reset game state first
     gameState.resetGame();
@@ -465,7 +539,37 @@ export default function FlashcardsContainer() {
     } catch (error) {
       console.error('Error fetching matches for round:', error);
     }
+    
+    // Start timer for the selected round after a small delay
+    setTimeout(() => {
+      timer.start();
+    }, 100);
   }, [gameState, timer, timerDuration]);
+
+  // Handle selecting an existing round
+  const handleSelectRound = useCallback(async (roundId: string, datasetName?: string) => {
+    // If datasetName is provided and different from current folder, switch folders first
+    if (datasetName && datasetName !== selectedFolder) {
+      console.log(`Switching folder from ${selectedFolder} to ${datasetName} for round ${roundId}`);
+      
+      // Reset game state before switching folders
+      gameState.resetGame();
+      timer.reset(timerDuration);
+      setCurrentRoundId(null);
+      
+      // Store the round ID and dataset name to load after folder is ready
+      pendingRoundRef.current = { roundId, datasetName };
+      
+      // Switch folder - this will trigger flashcard loading
+      setSelectedFolder(datasetName);
+      
+      // The round will be loaded by the effect that watches for flashcards being ready
+      return;
+    }
+    
+    // If folder already matches, load the round directly
+    await loadRoundMatches(roundId);
+  }, [gameState, timer, timerDuration, selectedFolder, setSelectedFolder, loadRoundMatches]);
 
   // Handle next card with smooth transition
   const handleNextCard = useCallback(() => {
@@ -480,10 +584,13 @@ export default function FlashcardsContainer() {
     
     // Start timer for the new card after a small delay to ensure state resets
     // nextCard() clears feedback synchronously, so it should be null by now
+    // Timer should work even without a round (for practice mode)
     setTimeout(() => {
-      timer.start();
+      if (selectedFolder) { // Only start if we have a folder selected (game is active)
+        timer.start();
+      }
     }, 250);
-  }, [gameState, timer, timerDuration]);
+  }, [gameState, timer, timerDuration, selectedFolder]);
   
   // Store handleNextCard in ref for timer callback
   React.useEffect(() => {
@@ -752,8 +859,17 @@ export default function FlashcardsContainer() {
 
   // Start timer when flashcard changes (but NOT when moving via handleNextCard - that manages its own timer)
   // Only auto-start if there's no feedback (no selection made yet) and timer is not already running
+  // Timer should work even without a round (for practice mode)
   useEffect(() => {
-    if (currentFlashcard && !gameState.feedback && !loading && !gameState.showTimeUpOverlay && !timer.isRunning) {
+    if (
+      currentFlashcard && 
+      !gameState.feedback && 
+      !loading && 
+      !gameState.showTimeUpOverlay && 
+      !timer.isRunning &&
+      timer.isReady && // Only start if timer is ready (not paused or in transition)
+      selectedFolder // Only start if we have a folder selected (game is active)
+    ) {
       // Reset timer to the current duration and start it
       timer.reset(timerDuration);
       // Small delay to ensure reset completes before starting
@@ -761,7 +877,7 @@ export default function FlashcardsContainer() {
         timer.start();
       }, 50);
     }
-  }, [currentFlashcard, gameState.feedback, gameState.showTimeUpOverlay, loading, timer, timerDuration]);
+  }, [currentFlashcard, gameState.feedback, gameState.showTimeUpOverlay, loading, timer, timerDuration, selectedFolder]);
   
   // Auto-advance 8 seconds after a selection is made
   useEffect(() => {
@@ -813,6 +929,15 @@ export default function FlashcardsContainer() {
       lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
     }
   }, [selectedFolder, session?.user?.id, loadRecentRounds, isLoadingRounds]);
+
+  // Load pending round after flashcards are ready (when switching folders for a round)
+  useEffect(() => {
+    const pendingRound = pendingRoundRef.current;
+    if (pendingRound && flashcards.length > 0 && !loading && selectedFolder === pendingRound.datasetName) {
+      console.log(`Flashcards ready, loading pending round: ${pendingRound.roundId} for dataset: ${pendingRound.datasetName}`);
+      loadRoundMatches(pendingRound.roundId);
+    }
+  }, [flashcards.length, loading, selectedFolder, loadRoundMatches]);
 
   // Handle after effect completion - show after data but don't auto-advance
   // Auto-advance is now handled by score overlay after user selection
@@ -1002,7 +1127,7 @@ export default function FlashcardsContainer() {
               }}
               onLoadRound={(roundId: string, datasetName: string) => {
                 console.log("Loading round:", roundId, datasetName);
-                handleSelectRound(roundId);
+                handleSelectRound(roundId, datasetName);
                 setShowRoundHistory(false);
               }}
               userId={session?.user?.id}
@@ -1053,6 +1178,39 @@ export default function FlashcardsContainer() {
             <h3 className="text-xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 bg-clip-text text-transparent">
               Choose Round
             </h3>
+            {/* Round Name Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Round Name (optional)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={roundNameInput}
+                  onChange={(e) => setRoundNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleNewRound();
+                    }
+                  }}
+                  placeholder="Auto-generated if left blank"
+                  maxLength={100}
+                  className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-turquoise-500 focus:outline-none text-gray-900 text-sm"
+                />
+                <button
+                  onClick={() => setRoundNameInput(generateRoundName())}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors border border-gray-300"
+                  title="Generate name"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Leave blank for automatic naming
+              </p>
+            </div>
             {isLoadingRounds ? (
               <div className="flex items-center justify-center w-full py-8">
                 <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
@@ -1080,9 +1238,14 @@ export default function FlashcardsContainer() {
                         <div
                           key={round.id}
                           className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg hover:bg-turquoise-50 hover:border-turquoise-400 cursor-pointer transition-all"
-                          onClick={() => handleSelectRound(round.id)}
+                          onClick={() => handleSelectRound(round.id, round.dataset_name)}
                         >
                           <div className="flex-1">
+                            {round.name && (
+                              <p className="text-sm font-semibold text-gray-900 mb-1">
+                                {round.name}
+                              </p>
+                            )}
                             <p className="text-sm font-medium text-gray-900">
                               <span className={round.completed ? 'text-turquoise-600' : 'text-turquoise-500'}>{round.completed ? '✓' : '◯'}</span> Round from {new Date(round.created_at).toLocaleDateString()}
                             </p>
@@ -1101,14 +1264,17 @@ export default function FlashcardsContainer() {
                 )}
                 <div className="flex space-x-3">
                   <button
-                    onClick={handleNewRound}
+                    onClick={handleConfirmNewRound}
                     disabled={isCreatingRound}
                     className="flex-1 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white px-4 py-2 rounded-lg hover:from-turquoise-700 hover:to-turquoise-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-lg shadow-turquoise-500/50"
                   >
                     {isCreatingRound ? 'Creating...' : 'Start New Round'}
                   </button>
                   <button
-                    onClick={() => setShowRoundSelector(false)}
+                    onClick={() => {
+                      setShowRoundSelector(false);
+                      setRoundNameInput(''); // Clear input when canceling
+                    }}
                     className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all font-medium"
                   >
                     Cancel
@@ -1119,6 +1285,7 @@ export default function FlashcardsContainer() {
           </div>
         </div>
       )}
+
     </div>
   );
 } 

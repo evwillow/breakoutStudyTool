@@ -27,7 +27,6 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   const fetchRounds = async () => {
@@ -138,7 +137,11 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
   };
 
   const handleDeleteAllRounds = async () => {
-    setShowConfirmDialog(false);
+    // Use browser confirm dialog instead of nested popup
+    if (!confirm("Are you sure you want to delete all of your rounds? This action cannot be undone.")) {
+      return;
+    }
+
     setIsDeletingAll(true);
     try {
       const response = await fetch(`/api/game/rounds/bulk?userId=${userId}`, {
@@ -178,13 +181,12 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
     return "text-red-400";
   };
 
-  // Helper to format date
+  // Helper to format date (date only, no time)
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleString(undefined, {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: true
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric'
     });
   };
 
@@ -196,107 +198,53 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
     console.log('RoundCard - Total Matches:', round.totalMatches, 'Type:', typeof round.totalMatches);
     
     return (
-      <div className="border border-turquoise-500/30 rounded-lg p-4 mb-3 bg-black/40 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-turquoise-500/50 transition-all duration-300">
-        <div className="flex justify-between mb-2">
-          <span className="font-medium text-white flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-turquoise-400" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-            </svg>
-            {round.dataset_name}
-          </span>
-          <span className="text-sm text-turquoise-400 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-turquoise-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-            </svg>
-            {formatDate(round.created_at)}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-black/30 p-2 rounded border border-turquoise-500/20">
-            <span className="text-xs text-turquoise-400">Accuracy</span>
-            <p className={`font-medium text-lg ${getAccuracyColor(round.accuracy)}`}>{round.accuracy ?? '0.00'}%</p>
+      <div className="border border-turquoise-500/30 rounded-lg p-2.5 mb-2 bg-black/40 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-turquoise-500/50 transition-all duration-300">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <div className="flex-1 min-w-0">
+            {round.name ? (
+              <button
+                onClick={() => onLoadRound(round.id, round.dataset_name)}
+                className="font-semibold text-white text-sm block hover:text-turquoise-300 transition-colors cursor-pointer text-left underline decoration-turquoise-500/50 hover:decoration-turquoise-400 truncate"
+              >
+                {round.name}
+              </button>
+            ) : (
+              <button
+                onClick={() => onLoadRound(round.id, round.dataset_name)}
+                className="font-semibold text-gray-400 text-sm block hover:text-turquoise-300 transition-colors cursor-pointer text-left italic"
+              >
+                Unnamed
+              </button>
+            )}
           </div>
-          <div className="bg-black/30 p-2 rounded border border-turquoise-500/20">
-            <span className="text-xs text-turquoise-400">Matches</span>
-            <p className="text-turquoise-300 font-medium text-lg">{(typeof round.correctMatches === 'number' ? round.correctMatches : 0)} / {(typeof round.totalMatches === 'number' ? round.totalMatches : 0)}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => onLoadRound(round.id, round.dataset_name)}
-            className="flex-1 px-3 py-2 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-sm rounded-md shadow-lg shadow-turquoise-500/30 hover:from-turquoise-500 hover:to-turquoise-400 transition-all flex items-center justify-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-            </svg>
-            Load
-          </button>
           <button
             onClick={() => handleDeleteRound(round.id)}
             disabled={isDeleting && deletingId === round.id}
-            className="flex-1 px-3 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm rounded-md shadow hover:from-red-600 hover:to-red-700 transition flex items-center justify-center disabled:opacity-50"
+            className="flex-shrink-0 px-2 py-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-md shadow hover:from-red-600 hover:to-red-700 transition flex items-center justify-center disabled:opacity-50"
           >
             {isDeleting && deletingId === round.id ? (
-              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             ) : (
-              <>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                Delete
-              </>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
             )}
           </button>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-turquoise-400/70 mb-1.5">
+          <span>{formatDate(round.created_at)}</span>
+          <span className="text-turquoise-500/50">•</span>
+          <span className={`font-medium ${getAccuracyColor(round.accuracy)}`}>{round.accuracy ?? '0.00'}%</span>
+          <span className="text-turquoise-500/50">•</span>
+          <span className="text-turquoise-300">{(typeof round.totalMatches === 'number' ? round.totalMatches : 0)} matches</span>
         </div>
       </div>
     );
   };
 
-  // Confirmation dialog component for delete all
-  const ConfirmDialog = () => (
-    <div className="fixed inset-0 overflow-y-auto z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black bg-opacity-70"></div>
-      <div className="relative bg-black/90 backdrop-blur-md rounded-lg max-w-md w-full mx-auto p-6 shadow-2xl border-2 border-red-500/50">
-        <div className="text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-red-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          <h3 className="text-xl font-bold text-white mb-2">Delete All Rounds</h3>
-          <p className="text-turquoise-300 mb-6">
-            Are you sure you want to delete all of your rounds? This action cannot be undone.
-          </p>
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={() => setShowConfirmDialog(false)}
-              className="px-4 py-2 bg-black/50 border border-turquoise-500/50 text-turquoise-300 rounded-md hover:bg-turquoise-500/10 hover:border-turquoise-500 transition-all"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDeleteAllRounds}
-              disabled={isDeletingAll}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-            >
-              {isDeletingAll ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Deleting...
-                </>
-              ) : (
-                "Yes, Delete All"
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   // Desktop table view
   const TableView = () => (
@@ -304,42 +252,45 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
       <table className="w-full divide-y divide-turquoise-500/20">
         <thead className="bg-transparent">
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Dataset</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Date</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Accuracy</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Matches</th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Status</th>
-            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-turquoise-400 uppercase tracking-wider">Actions</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Name</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Date</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Accuracy</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-turquoise-400 uppercase tracking-wider">Matches</th>
+            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-turquoise-400 uppercase tracking-wider">Delete</th>
           </tr>
         </thead>
         <tbody className="bg-transparent divide-y divide-turquoise-500/20">
           {rounds.map((round) => (
             <tr key={round.id} className="hover:bg-black/40 transition-colors">
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{round.dataset_name}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-turquoise-300">{formatDate(round.created_at)}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-4 py-3 whitespace-nowrap text-left">
+                <div className="text-sm">
+                  {round.name ? (
+                    <button
+                      onClick={() => onLoadRound(round.id, round.dataset_name)}
+                      className="font-semibold text-white hover:text-turquoise-300 transition-colors cursor-pointer underline decoration-turquoise-500/50 hover:decoration-turquoise-400"
+                    >
+                      {round.name}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onLoadRound(round.id, round.dataset_name)}
+                      className="font-semibold text-gray-400 hover:text-turquoise-300 transition-colors cursor-pointer italic"
+                    >
+                      Unnamed
+                    </button>
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap text-left text-sm text-turquoise-300">{formatDate(round.created_at)}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-left">
                 <span className={`px-2 py-1 text-sm font-medium ${getAccuracyColor(round.accuracy)}`}>
                   {round.accuracy ?? '0.00'}%
                 </span>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-turquoise-300">
-                {(typeof round.correctMatches === 'number' ? round.correctMatches : 0)} / {(typeof round.totalMatches === 'number' ? round.totalMatches : 0)}
+              <td className="px-4 py-3 whitespace-nowrap text-left text-sm text-turquoise-300">
+                {(typeof round.totalMatches === 'number' ? round.totalMatches : 0)}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${round.completed ? 'bg-turquoise-800/50 text-turquoise-200 border border-turquoise-500/30' : 'bg-yellow-800/50 text-yellow-200 border border-yellow-500/30'}`}>
-                  {round.completed ? 'Completed' : 'In Progress'}
-                </span>
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button
-                  onClick={() => onLoadRound(round.id, round.dataset_name)}
-                  className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-500 hover:to-turquoise-400 shadow-lg shadow-turquoise-500/30 mr-2 transition-all"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Load
-                </button>
+              <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                 <button
                   onClick={() => handleDeleteRound(round.id)}
                   disabled={isDeleting && deletingId === round.id}
@@ -368,13 +319,13 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
   );
 
   return (
-    <div className="fixed inset-0 overflow-y-auto z-50">
-      <div className="flex items-center justify-center min-h-screen px-4">
+    <div className="fixed inset-0 overflow-y-auto z-40">
+      <div className="flex items-center justify-center min-h-screen px-4 py-8 sm:py-12">
         <div className="fixed inset-0 bg-black bg-opacity-70 transition-opacity"></div>
         
-        <div className="relative bg-black/90 backdrop-blur-md rounded-lg shadow-xl max-w-6xl w-full mx-auto p-6 border-2 border-turquoise-500/50">
+        <div className="relative bg-black/90 backdrop-blur-md rounded-lg shadow-xl max-w-4xl w-full mx-auto p-4 sm:p-6 border-2 border-turquoise-500/50">
           <div className="flex justify-between items-center border-b border-turquoise-500/30 pb-4 mb-6">
-            <h2 className="text-xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">Your Round History</h2>
+            <h2 className="text-xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">Round History</h2>
             <button
               onClick={onClose}
               className="text-turquoise-400 hover:text-turquoise-300 transition-colors"
@@ -384,8 +335,6 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
               </svg>
             </button>
           </div>
-          
-          {showConfirmDialog && <ConfirmDialog />}
           
           {loading ? (
             <div className="flex items-center justify-center w-full min-h-[400px] py-8">
@@ -439,8 +388,9 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
                 {rounds.length} round{rounds.length !== 1 ? 's' : ''} in total
               </p>
               <button
-                onClick={() => setShowConfirmDialog(true)}
-                className="flex items-center text-red-400 hover:text-red-300 transition-colors"
+                onClick={handleDeleteAllRounds}
+                disabled={isDeletingAll}
+                className="flex items-center text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -450,14 +400,6 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
             </div>
           )}
           
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-turquoise-300 border border-turquoise-500/50 rounded-md hover:bg-turquoise-500/10 hover:border-turquoise-500 transition-all"
-            >
-              Close
-            </button>
-          </div>
         </div>
       </div>
     </div>

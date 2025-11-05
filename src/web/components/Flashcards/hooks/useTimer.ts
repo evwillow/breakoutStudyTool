@@ -114,7 +114,9 @@ export function useTimer({
   // Start timer
   const start = useCallback(() => {
     // Use current timer state, but if it's 0, use initial duration
-    const durationToUse = timer > 0 ? timer : initialDuration;
+    // Also check displayValueRef as a fallback to ensure we have the latest value
+    const currentTimerValue = timer > 0 ? timer : (displayValueRef.current > 0 ? displayValueRef.current : initialDuration);
+    const durationToUse = currentTimerValue > 0 ? currentTimerValue : initialDuration;
     
     if (durationToUse <= 0) {
       console.warn('Timer start called with invalid duration:', durationToUse);
@@ -126,11 +128,11 @@ export function useTimer({
     setIsPaused(false);
     setIsReady(false);
     
-    // Update timer state if we're using initial duration
-    if (timer <= 0) {
-      setTimer(initialDuration);
-      displayValueRef.current = initialDuration;
+    // Update timer state if needed
+    if (timer !== durationToUse) {
+      setTimer(durationToUse);
     }
+    displayValueRef.current = durationToUse;
     
     timerEndTimeRef.current = Date.now() + durationToUse * 1000;
     lastUpdateTimeRef.current = Date.now();

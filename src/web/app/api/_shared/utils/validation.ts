@@ -186,6 +186,7 @@ export const commonSchemas = {
   createRound: {
     dataset_name: { required: true, type: 'string' as const, minLength: 1, maxLength: 100 },
     user_id: { required: true, type: 'uuid' as const },
+    name: { type: 'string' as const, maxLength: 100 },
     completed: { type: 'boolean' as const }
   },
   
