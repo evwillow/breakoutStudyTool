@@ -225,6 +225,7 @@ function ChartSection({
   const debugIntervalRef = useRef(null);
   const lastFeedbackRef = useRef(null);
   const chartRef = useRef(null);
+  const shouldStopAnimationRef = useRef(false);
 
   // Check if device is mobile
   useEffect(() => {
@@ -277,6 +278,8 @@ function ChartSection({
         setZoomPercentage(0);
         setCompletionDelay(false);
         setAfterAnimationComplete(false);
+        // Set stop flag to terminate any running animation
+        shouldStopAnimationRef.current = true;
       }
       return;
     }
@@ -326,6 +329,19 @@ function ChartSection({
           const delayStartTime = performance.now();
           
           const checkInitialDelay = () => {
+            // Check if animation should be stopped (e.g., Next Stock button pressed)
+            if (shouldStopAnimationRef.current || !feedback) {
+              console.log("Animation stopped during initial delay");
+              setAnimationInProgress(false);
+              setShowAfterAnimation(false);
+              setProgressPercentage(0);
+              setZoomPercentage(0);
+              setCompletionDelay(false);
+              setAfterAnimationComplete(false);
+              resolve();
+              return;
+            }
+            
             const now = performance.now();
             const isPaused = isAnimationPausedRef.current;
             
@@ -373,6 +389,23 @@ function ChartSection({
             let lastTimestamp = startTime;
             
             const animateZoom = (timestamp) => {
+              // Check if animation should be stopped (e.g., Next Stock button pressed)
+              if (shouldStopAnimationRef.current || !feedback) {
+                console.log("Animation stopped during zoom");
+                setAnimationInProgress(false);
+                setShowAfterAnimation(false);
+                setProgressPercentage(0);
+                setZoomPercentage(0);
+                setCompletionDelay(false);
+                setAfterAnimationComplete(false);
+                if (animationPauseRef.current) {
+                  cancelAnimationFrame(animationPauseRef.current);
+                  animationPauseRef.current = null;
+                }
+                resolve();
+                return;
+              }
+              
               // Check pause state on every frame
               const isPaused = isAnimationPausedRef.current;
               
@@ -414,6 +447,18 @@ function ChartSection({
           
           console.log("Zoom animation completed");
           
+          // Check if animation should be stopped before starting reveal
+          if (shouldStopAnimationRef.current || !feedback) {
+            console.log("Animation stopped before reveal");
+            setAnimationInProgress(false);
+            setShowAfterAnimation(false);
+            setProgressPercentage(0);
+            setZoomPercentage(0);
+            setCompletionDelay(false);
+            setAfterAnimationComplete(false);
+            return;
+          }
+          
           // Step 2: Reveal animation
           setShowAfterAnimation(true);
           await new Promise(resolve => {
@@ -425,6 +470,23 @@ function ChartSection({
             let lastTimestamp = startTime;
             
             const animateReveal = (timestamp) => {
+              // Check if animation should be stopped (e.g., Next Stock button pressed)
+              if (shouldStopAnimationRef.current || !feedback) {
+                console.log("Animation stopped during reveal");
+                setAnimationInProgress(false);
+                setShowAfterAnimation(false);
+                setProgressPercentage(0);
+                setZoomPercentage(0);
+                setCompletionDelay(false);
+                setAfterAnimationComplete(false);
+                if (animationPauseRef.current) {
+                  cancelAnimationFrame(animationPauseRef.current);
+                  animationPauseRef.current = null;
+                }
+                resolve();
+                return;
+              }
+              
               // Check pause state on every frame
               const isPaused = isAnimationPausedRef.current;
               
@@ -530,6 +592,27 @@ function ChartSection({
           let pauseStartTime = null;
           
           const checkDelay = () => {
+            // Check if animation should be stopped (e.g., Next Stock button pressed)
+            if (shouldStopAnimationRef.current || !feedback) {
+              console.log("Animation stopped during observation delay");
+              setAnimationInProgress(false);
+              setShowAfterAnimation(false);
+              setProgressPercentage(0);
+              setZoomPercentage(0);
+              setCompletionDelay(false);
+              setAfterAnimationComplete(false);
+              if (delayTimerRef.current) {
+                clearTimeout(delayTimerRef.current);
+                delayTimerRef.current = null;
+              }
+              if (debugIntervalRef.current) {
+                clearInterval(debugIntervalRef.current);
+                debugIntervalRef.current = null;
+              }
+              resolve();
+              return;
+            }
+            
             // Check pause state on every check
             const isPaused = isAnimationPausedRef.current;
             
@@ -642,12 +725,59 @@ function ChartSection({
     setCompletionDelay(false);
     setAfterAnimationComplete(false);
     isAnimationPausedRef.current = false;
+    shouldStopAnimationRef.current = false; // Reset stop flag when moving to new card
     // Cancel any running animation frames
     if (animationPauseRef.current) {
       cancelAnimationFrame(animationPauseRef.current);
       animationPauseRef.current = null;
     }
+    // Clear any timers
+    if (delayTimerRef.current) {
+      clearTimeout(delayTimerRef.current);
+      delayTimerRef.current = null;
+    }
+    if (debugIntervalRef.current) {
+      clearInterval(debugIntervalRef.current);
+      debugIntervalRef.current = null;
+    }
   }, [orderedFiles]);
+
+  // Handle feedback being cleared (which happens when Next Stock button is clicked)
+  // This stops any running animation immediately
+  useEffect(() => {
+    if (!feedback && lastFeedbackRef.current !== null) {
+      // Feedback was cleared (Next Stock button pressed), stop animation immediately
+      console.log("Feedback cleared - stopping animation immediately");
+      shouldStopAnimationRef.current = true;
+      
+      // Immediately stop and clean up any running animations
+      setAnimationInProgress(false);
+      setShowAfterAnimation(false);
+      setProgressPercentage(0);
+      setZoomPercentage(0);
+      setCompletionDelay(false);
+      setAfterAnimationComplete(false);
+      
+      // Cancel any running animation frames
+      if (animationPauseRef.current) {
+        cancelAnimationFrame(animationPauseRef.current);
+        animationPauseRef.current = null;
+      }
+      
+      // Clear any timers
+      if (delayTimerRef.current) {
+        clearTimeout(delayTimerRef.current);
+        delayTimerRef.current = null;
+      }
+      if (debugIntervalRef.current) {
+        clearInterval(debugIntervalRef.current);
+        debugIntervalRef.current = null;
+      }
+    } else if (feedback) {
+      // Reset stop flag when new feedback is set (new selection made)
+      shouldStopAnimationRef.current = false;
+    }
+  }, [feedback]);
 
   // Timer color based on remaining time
   const getTimerColor = () => {
