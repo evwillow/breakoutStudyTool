@@ -829,24 +829,90 @@ function ChartSection({
                   {onChartClick && !disabled && score === null && (
                     <ChartMagnifier
                       onSelection={(syntheticEvent) => {
+                        console.log('[ChartSection] onSelection called with:', syntheticEvent);
                         // The syntheticEvent has viewport coordinates (clientX/clientY)
-                        // Create a proper MouseEvent that the StockChart can handle
+                        // We need to trigger React's onClick handler
                         if (chartRef.current) {
                           const svgElement = chartRef.current.querySelector('svg');
                           if (svgElement) {
-                            // Create and dispatch a proper click event at the viewport coordinates
-                            // The StockChart's handleChartClick will use getBoundingClientRect to convert
-                            const clickEvent = new MouseEvent('click', {
-                              clientX: syntheticEvent.clientX,
-                              clientY: syntheticEvent.clientY,
-                              bubbles: true,
-                              cancelable: true,
-                              view: window,
-                              button: 0,
-                              buttons: 1,
-                            });
-                            svgElement.dispatchEvent(clickEvent);
+                            console.log('[ChartSection] SVG element found, attempting to trigger React onClick');
+                            
+                            // Try to access React's event handler directly via React Fiber
+                            const reactFiberKey = Object.keys(svgElement).find(key => 
+                              key.startsWith('__reactFiber') || key.startsWith('__reactInternalInstance')
+                            );
+                            
+                            if (reactFiberKey) {
+                              const fiber = svgElement[reactFiberKey];
+                              // Navigate React Fiber tree to find the onClick handler
+                              let currentFiber = fiber;
+                              while (currentFiber) {
+                                // Check if this fiber has the onClick prop
+                                if (currentFiber.memoizedProps && currentFiber.memoizedProps.onClick) {
+                                  console.log('[ChartSection] Found onClick handler in React Fiber, calling directly');
+                                  // Create a mock event object that matches what handleChartClick expects
+                                  const mockEvent = {
+                                    clientX: syntheticEvent.clientX,
+                                    clientY: syntheticEvent.clientY,
+                                    preventDefault: () => {},
+                                    stopPropagation: () => {},
+                                  };
+                                  try {
+                                    currentFiber.memoizedProps.onClick(mockEvent);
+                                    console.log('[ChartSection] onClick handler called successfully');
+                                    return;
+                                  } catch (error) {
+                                    console.error('[ChartSection] Error calling onClick handler:', error);
+                                  }
+                                }
+                                // Try alternate props locations
+                                if (currentFiber.pendingProps && currentFiber.pendingProps.onClick) {
+                                  console.log('[ChartSection] Found onClick in pendingProps');
+                                  const mockEvent = {
+                                    clientX: syntheticEvent.clientX,
+                                    clientY: syntheticEvent.clientY,
+                                    preventDefault: () => {},
+                                    stopPropagation: () => {},
+                                  };
+                                  try {
+                                    currentFiber.pendingProps.onClick(mockEvent);
+                                    console.log('[ChartSection] onClick handler called successfully');
+                                    return;
+                                  } catch (error) {
+                                    console.error('[ChartSection] Error calling onClick handler:', error);
+                                  }
+                                }
+                                currentFiber = currentFiber.return; // Move up the tree
+                              }
+                            }
+                            
+                            // Fallback: Try creating and dispatching a proper event
+                            console.log('[ChartSection] Trying fallback event dispatch method');
+                            const clickEvent = document.createEvent('MouseEvents');
+                            clickEvent.initMouseEvent(
+                              'click',
+                              true, // bubbles
+                              true, // cancelable
+                              window,
+                              0, // detail
+                              syntheticEvent.clientX,
+                              syntheticEvent.clientY,
+                              syntheticEvent.clientX,
+                              syntheticEvent.clientY,
+                              false, // ctrlKey
+                              false, // altKey
+                              false, // shiftKey
+                              false, // metaKey
+                              0, // button
+                              null // relatedTarget
+                            );
+                            const dispatched = svgElement.dispatchEvent(clickEvent);
+                            console.log('[ChartSection] Fallback event dispatched:', dispatched);
+                          } else {
+                            console.warn('[ChartSection] SVG element not found in chartRef');
                           }
+                        } else {
+                          console.warn('[ChartSection] chartRef.current is null');
                         }
                       }}
                       enabled={!disabled && score === null}
