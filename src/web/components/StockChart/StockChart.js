@@ -760,6 +760,8 @@ const StockChart = React.memo(({
     // Adjust padding for mobile - reduce padding to move data visualization further right
     // Reduced padding so data takes up more of the chart width, moving the divider line further right
     const xScalePadding = isMobile ? 0.05 : 0.1;
+    // On mobile, use a smaller range multiplier to make d.json data end further to the left
+    const xScaleRangeMultiplier = isMobile ? 1.05 : 1.2; // Mobile: 105%, Desktop: 120%
     
     return {
       priceScale: scaleLinear()
@@ -770,8 +772,8 @@ const StockChart = React.memo(({
         .range([volumeHeight, 0]),
       xScale: scalePoint()
         .domain(extendedIndices)
-        // Extend range to push data visualization further right
-        .range([0, dimensions.innerWidth * 1.2]) // Use 120% of innerWidth to move data right
+        // Extend range to push data visualization further right (less on mobile to end data further left)
+        .range([0, dimensions.innerWidth * xScaleRangeMultiplier])
         .padding(xScalePadding),
       priceHeight,
       volumeHeight,
@@ -1364,7 +1366,8 @@ const StockChart = React.memo(({
   let dividerLineX, darkBackgroundWidth;
   
   // Offset to move border line further to the right (in step units)
-  const borderLineOffset = 1.5; // Move border line 1.5 steps further to the right
+  // On mobile, use a smaller offset to position the divider line further left
+  const borderLineOffset = isMobile ? 1.0 : 1.5; // Mobile: 1.0 steps, Desktop: 1.5 steps
   
   if (scales?.isZoomedOut && afterStockData.length > 0) {
     // ZOOM OUT MODE: Position divider at the exact boundary between main and after data
@@ -1453,9 +1456,9 @@ const StockChart = React.memo(({
             const lastDataIndex = stockData.length - 1;
             const lastDataCenterX = scales.xScale(lastDataIndex);
             const step = scales.xScale.step();
-            // Match the border line offset (1.5 steps) for consistent cursor behavior
-            const borderLineOffset = 1.5;
-            const lastDataRightEdge = lastDataCenterX + (step / 2) + (step * borderLineOffset);
+            // Match the border line offset for consistent cursor behavior (mobile: 1.0, desktop: 1.5)
+            const borderLineOffsetForCursor = isMobile ? 1.0 : 1.5;
+            const lastDataRightEdge = lastDataCenterX + (step / 2) + (step * borderLineOffsetForCursor);
             
             // Set cursor based on position: not-allowed in data area, crosshair (clickable) in selection area
             if (chartX <= lastDataRightEdge) {
