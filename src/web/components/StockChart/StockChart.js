@@ -473,6 +473,15 @@ const StockChart = React.memo(({
   const containerRef = useRef(null);
   const svgRef = useRef(null);
   const lastDimensionsRef = useRef({ width: 0, height: 0 });
+  const handleChartClickRef = useRef(null);
+  
+  // Expose handleChartClick via ref so parent can call it directly
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.handleChartClick = handleChartClick;
+      handleChartClickRef.current = handleChartClick;
+    }
+  }, [handleChartClick]);
   
   // Use either data or csvData prop
   const chartData = data || csvData;
