@@ -49,13 +49,17 @@ export function createErrorResponse(
     );
   }
 
+  // Extract validation errors from context if not explicitly provided
+  const finalValidationErrors = validationErrors || 
+    (appError.context?.validationErrors as Record<string, string> | undefined);
+
   const response: ApiResponse = {
     success: false,
     error: {
       code: appError.code,
       message: appError.userMessage,
       details: process.env.NODE_ENV === 'development' ? appError.message : undefined,
-      validationErrors
+      validationErrors: finalValidationErrors
     },
     meta: {
       timestamp: new Date().toISOString()

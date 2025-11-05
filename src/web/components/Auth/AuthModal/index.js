@@ -132,16 +132,21 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       }),
     });
     
-    if (!response.ok) {
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const errorData = await response.json();
-        handleSignUpError(errorData);
-      } else {
-        const errorText = await response.text();
-        console.error('Signup error response:', errorText);
-        throw new Error(ERROR_MESSAGES.SERVER_ERROR);
-      }
+    const contentType = response.headers.get('content-type');
+    let responseData;
+    
+    if (contentType && contentType.includes('application/json')) {
+      responseData = await response.json();
+    } else {
+      const errorText = await response.text();
+      console.error('Signup error response:', errorText);
+      setError(ERROR_MESSAGES.SERVER_ERROR);
+      return;
+    }
+    
+    // Check if response indicates an error (either !ok or success: false)
+    if (!response.ok || !responseData.success) {
+      handleSignUpError(responseData);
       return;
     }
 
@@ -165,6 +170,23 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     console.log('🐛 Debug errorData.error:', errorData.error);
     console.log('🐛 Debug typeof errorData.error:', typeof errorData.error);
     
+    // Check for validation errors first
+    const validationErrors = errorData.error?.validationErrors || errorData.validationErrors;
+    if (validationErrors && typeof validationErrors === 'object') {
+      // Format validation errors into a readable message
+      const errorMessages = Object.entries(validationErrors)
+        .map(([field, message]) => {
+          // Capitalize field name and format message
+          const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
+          return `${fieldName}: ${message}`;
+        });
+      
+      if (errorMessages.length > 0) {
+        setError(errorMessages.join('\n'));
+        return;
+      }
+    }
+    
     if (errorData.error === 'Invalid CAPTCHA') {
       setError(ERROR_MESSAGES.CAPTCHA_FAILED);
       handleCaptchaReset();
@@ -176,19 +198,16 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     )) {
       setDatabaseError(true);
       setError(errorData.error + (errorData.details ? `: ${errorData.details}` : ''));
-    } else if (errorData.details === 'Validation failed' || errorData.message === 'Please check your input and try again.') {
-      // Handle password validation errors with clear requirements
-      setError(`Password must meet these requirements:
-• At least 8 characters long
-• At least one uppercase letter (A-Z)
-• At least one lowercase letter (a-z)
-• At least one number (0-9)
-• At least one special character (!@#$%^&*)`);
+    } else if (errorData.error?.code === 4000 || errorData.error?.message === 'Please check your input and try again.' || errorData.message === 'Please check your input and try again.') {
+      // Handle generic validation errors with clear requirements
+      setError(`Please check your input:\n• Email must be valid\n• Password must meet these requirements:\n  - At least 8 characters long\n  - At least one uppercase letter (A-Z)\n  - At least one lowercase letter (a-z)\n  - At least one number (0-9)\n  - At least one special character (!@#$%^&*)`);
     } else {
       // Convert error to string if it's not already
-      const errorMessage = typeof errorData.error === 'string' 
-        ? errorData.error 
-        : errorData.message || JSON.stringify(errorData.error) || ERROR_MESSAGES.SIGNUP_FAILED;
+      const errorMessage = errorData.error?.message || 
+        (typeof errorData.error === 'string' ? errorData.error : null) ||
+        errorData.message || 
+        JSON.stringify(errorData.error) || 
+        ERROR_MESSAGES.SIGNUP_FAILED;
       setError(errorMessage);
     }
   };
