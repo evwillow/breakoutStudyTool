@@ -88,10 +88,7 @@ export const getServerSupabaseClient = () => {
       }
     });
 
-    // Add connection validation
-    if (process.env.NODE_ENV === 'development') {
-      console.log('✅ Server Supabase client initialized');
-    }
+    // Connection validation happens silently
   }
 
   return serverClient;

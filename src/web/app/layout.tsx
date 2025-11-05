@@ -71,7 +71,7 @@ export default function RootLayout({
               </div>
             </div>
             {/* Global Footer */}
-            <footer className="bg-transparent py-8 mt-auto">
+            <footer className="bg-transparent py-8 mt-auto relative z-50">
               <div className="w-full flex justify-center">
                 <div className="w-full sm:w-[90%] md:w-[85%] lg:w-[75%] max-w-[1400px] px-4">
                   <div className="flex flex-col md:flex-row justify-between items-center">

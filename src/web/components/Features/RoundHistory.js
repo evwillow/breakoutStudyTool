@@ -388,12 +388,21 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
           {showConfirmDialog && <ConfirmDialog />}
           
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <svg className="animate-spin h-10 w-10 text-turquoise-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p className="text-white text-lg">Loading your round history...</p>
+            <div className="flex items-center justify-center w-full min-h-[400px] py-8">
+              <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
+                  </div>
+                </div>
+                <div className="text-center space-y-3">
+                  <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
+                    Loading History
+                  </h2>
+                  <p className="text-turquoise-300 text-lg font-medium">Loading your round history...</p>
+                </div>
+              </div>
             </div>
           ) : error ? (
             <div className="bg-red-900/50 border border-red-700/50 rounded-md p-4 flex items-start backdrop-blur-sm">

@@ -30,15 +30,11 @@ try {
   console.log('Installing web app dependencies...');
   execSync('cd src/web && npm install --legacy-peer-deps', { stdio: 'inherit' });
   
-  // Install API dependencies
-  console.log('Installing API dependencies...');
-  execSync('cd src/api && npm install --legacy-peer-deps', { stdio: 'inherit' });
-  
   // Install shared library dependencies
   console.log('Installing shared library dependencies...');
-  execSync('cd lib/packages/shared && npm install --legacy-peer-deps', { stdio: 'inherit' });
-  execSync('cd lib/packages/ui && npm install --legacy-peer-deps', { stdio: 'inherit' });
-  execSync('cd lib/packages/database && npm install --legacy-peer-deps', { stdio: 'inherit' });
+  execSync('cd lib/shared && npm install --legacy-peer-deps', { stdio: 'inherit' });
+  execSync('cd lib/ui && npm install --legacy-peer-deps', { stdio: 'inherit' });
+  execSync('cd lib/database && npm install --legacy-peer-deps', { stdio: 'inherit' });
   
   console.log('All dependencies installed successfully');
 } catch (error) {

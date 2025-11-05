@@ -81,35 +81,20 @@ export default function FlashcardsContainer() {
     const currentRefreshCount = refreshCount + 1;
     setRefreshCount(currentRefreshCount);
     
-    console.log('=== TRIGGERING ROUND HISTORY REFRESH ===');
-    console.log('Refresh count:', currentRefreshCount);
-    console.log('Current time:', Date.now());
-    console.log('Last match log time:', lastMatchLogTime);
-    console.log('Time since last match:', Date.now() - lastMatchLogTime);
-    console.log('Total match logs:', matchLogCount);
-    
     // Capture the refresh function to ensure it's available when setTimeout callback runs
     const refreshFn = roundHistoryRefresh;
     
     if (refreshFn && typeof refreshFn === 'function') {
-      console.log('Calling round history refresh function');
       // Add a longer delay to ensure database has time to commit
       // Also add a random delay to avoid race conditions
       const delay = 1000 + Math.random() * 500; // 1-1.5 seconds
-      console.log('Scheduling refresh with delay:', delay, 'ms');
       
       setTimeout(() => {
-        console.log('Executing delayed refresh at time:', Date.now());
-        console.log('Executing refresh #', currentRefreshCount);
         // Double-check the function is still valid before calling
         if (refreshFn && typeof refreshFn === 'function') {
           refreshFn();
-        } else {
-          console.warn('Refresh function is no longer valid in setTimeout callback');
         }
       }, delay);
-    } else {
-      console.log('No refresh function available');
     }
   }, [roundHistoryRefresh, lastMatchLogTime, matchLogCount, refreshCount]);
 
@@ -117,13 +102,12 @@ export default function FlashcardsContainer() {
   const gameState = useGameState({
     flashcardsLength: flashcards.length,
     onCorrectAnswer: useCallback(() => {
-      console.log("Correct answer!");
+      // Answer logged
     }, []),
     onIncorrectAnswer: useCallback(() => {
-      console.log("Incorrect answer!");
+      // Answer logged
     }, []),
     onGameComplete: useCallback(async () => {
-      console.log("Game completed!");
       
       // Mark round as completed if we have a round ID
       if (currentRoundId) {
@@ -192,7 +176,6 @@ export default function FlashcardsContainer() {
               roundId: currentRoundId,
             });
           } else {
-            console.log('Round marked as completed:', result.data);
             // Use the new refresh mechanism
             triggerRoundHistoryRefresh();
           }
@@ -227,13 +210,6 @@ export default function FlashcardsContainer() {
   // Process current flashcard data
   const processedData = useMemo(() => {
     const result = processFlashcardData(currentFlashcard);
-    console.log("🔄 Processed data updated:", {
-      orderedFiles: result.orderedFiles.length,
-      hasAfterData: !!result.afterJsonData,
-      pointsTextArray: result.pointsTextArray,
-      pointsCount: result.pointsTextArray?.length || 0,
-      currentIndex: gameState.currentIndex
-    });
     return result;
   }, [currentFlashcard, gameState.currentIndex]);
 
@@ -262,7 +238,6 @@ export default function FlashcardsContainer() {
     }
 
     setIsCreatingRound(true);
-    console.log('Creating new round for:', { userId: session.user.id, selectedFolder });
     
     try {
       const requestData = {
@@ -270,8 +245,6 @@ export default function FlashcardsContainer() {
         user_id: session.user.id,
         completed: false,
       };
-
-      console.log('Sending round creation request:', requestData);
 
       const response = await fetch('/api/game/rounds', {
         method: 'POST',
@@ -338,9 +311,6 @@ export default function FlashcardsContainer() {
         return null;
       }
 
-      console.log('Created new round successfully:', result.data);
-      console.log('New round ID:', result.data?.id);
-      
       return result.data?.id || null;
     } catch (error) {
       console.error('Error creating round:', {
@@ -358,25 +328,16 @@ export default function FlashcardsContainer() {
 
   // Load recent rounds for the current dataset
   const loadRecentRounds = useCallback(async (datasetName: string) => {
-    console.log('=== LOADING RECENT ROUNDS ===');
-    console.log('Dataset name:', datasetName);
-    console.log('User ID:', session?.user?.id);
-    
     if (!session?.user?.id || !datasetName) {
-      console.log('Cannot load rounds: missing user ID or dataset name');
       return;
     }
 
     setIsLoadingRounds(true);
     try {
       const url = `/api/game/rounds?userId=${session.user.id}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
-      console.log('Fetching rounds from:', url);
       
       const response = await fetch(url);
       const result = await response.json();
-
-      console.log('Rounds API response status:', response.status);
-      console.log('Rounds API response:', result);
 
       if (!response.ok) {
         console.error('Failed to load rounds:', result.error);
@@ -385,17 +346,13 @@ export default function FlashcardsContainer() {
       }
 
       const rounds = result.data || [];
-      console.log('Loaded rounds:', rounds);
-      console.log('Number of rounds:', rounds.length);
       
       setAvailableRounds(rounds);
-      
+
       // Auto-load the most recent incomplete round
       const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
-      console.log('Most recent incomplete round:', mostRecentIncomplete);
       
       if (mostRecentIncomplete) {
-        console.log('Auto-loading most recent incomplete round:', mostRecentIncomplete.id);
         setCurrentRoundId(mostRecentIncomplete.id);
         // Load matches for this round to initialize game state
         try {
@@ -411,17 +368,13 @@ export default function FlashcardsContainer() {
           console.error('Error loading matches for auto-loaded round:', error);
         }
       } else if (rounds.length > 0) {
-        console.log('All recent rounds are completed. User can start a new round.');
         setShowRoundSelector(true);
       } else {
-        console.log('No previous rounds found. Auto-creating new round.');
         // Automatically create a new round when none exist
         const newRoundId = await createNewRound();
         if (newRoundId) {
-          console.log('Auto-created new round:', newRoundId);
           setCurrentRoundId(newRoundId);
         } else {
-          console.log('Failed to auto-create round, showing selector');
           setShowRoundSelector(true);
         }
       }
@@ -429,18 +382,14 @@ export default function FlashcardsContainer() {
       console.error('Error loading rounds:', error);
       setAvailableRounds([]);
       // Try to create a new round even if loading fails
-      console.log('Attempting to create new round after error');
       const newRoundId = await createNewRound();
       if (newRoundId) {
-        console.log('Auto-created new round after error:', newRoundId);
         setCurrentRoundId(newRoundId);
       } else {
-        console.log('Failed to auto-create round after error, showing selector');
         setShowRoundSelector(true);
       }
     } finally {
       setIsLoadingRounds(false);
-      console.log('=== END LOADING ROUNDS ===');
     }
   }, [session?.user?.id, createNewRound, gameState]);
 
@@ -469,41 +418,28 @@ export default function FlashcardsContainer() {
 
   // Handle creating a new round
   const handleNewRound = useCallback(async () => {
-    console.log('=== CREATING NEW ROUND ===');
     if (!selectedFolder) {
-      console.warn('Cannot create round: no folder selected');
       return;
     }
 
-    console.log('Creating round for folder:', selectedFolder);
     const roundId = await createNewRound();
-    console.log('Create round returned:', roundId);
-    console.log('Round ID type:', typeof roundId);
     
     // Reset game and timer regardless of round creation result
     gameState.resetGame();
     timer.reset(timerDuration);
     
     if (roundId) {
-      console.log('Setting current round ID to:', roundId);
       setCurrentRoundId(roundId);
       setShowRoundSelector(false);
-      console.log('New round setup complete');
     } else {
       console.error('Failed to create round - no round ID returned');
       // Still allow the game to start even if round creation fails
       setShowRoundSelector(false);
     }
-    console.log('=== END NEW ROUND CREATION ===');
   }, [selectedFolder, createNewRound, gameState, timer, timerDuration]);
 
   // Handle selecting an existing round
   const handleSelectRound = useCallback(async (roundId: string) => {
-    console.log('=== SELECTING EXISTING ROUND ===');
-    console.log('Round ID:', roundId);
-    console.log('Round ID type:', typeof roundId);
-    console.log('Round ID length:', roundId?.length);
-    
     setCurrentRoundId(roundId);
     setShowRoundSelector(false);
     
@@ -513,18 +449,11 @@ export default function FlashcardsContainer() {
     
     // Fetch existing matches for this round and initialize game state
     try {
-      console.log('Fetching matches for round:', roundId);
       const response = await fetch(`/api/game/matches?roundId=${roundId}`);
       
       if (response.ok) {
         const result = await response.json();
         const matches = result.data || [];
-        
-        console.log('Loaded matches for round:', {
-          roundId,
-          matchCount: matches.length,
-          matches
-        });
         
         // Initialize game state with existing matches
         if (matches.length > 0) {
@@ -536,9 +465,6 @@ export default function FlashcardsContainer() {
     } catch (error) {
       console.error('Error fetching matches for round:', error);
     }
-    
-    console.log('Round selected and game initialized');
-    console.log('=== END ROUND SELECTION ===');
   }, [gameState, timer, timerDuration]);
 
   // Handle next card with smooth transition
@@ -737,21 +663,16 @@ export default function FlashcardsContainer() {
   // Handle chart coordinate selection
   const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
     if (!targetPoint || !priceRange || !timeRange) {
-      console.log("Cannot process selection - missing targetPoint, priceRange, or timeRange");
       return;
     }
     
     // Verify selection is after the last data point
     const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
-    console.log("Selection attempt - Index:", coordinates.x, "Main data length:", mainDataLength);
     
     if (coordinates.x <= mainDataLength - 1) {
       // Selection is not in the future - don't process
-      console.log("Selection rejected - must be after last data point");
       return;
     }
-    
-    console.log("Selection accepted - processing...");
     
     gameState.handleCoordinateSelection(
       coordinates,
@@ -846,10 +767,7 @@ export default function FlashcardsContainer() {
   useEffect(() => {
     // Only trigger if feedback is set (user made a selection)
     if (gameState.feedback && gameState.score !== null && gameState.score !== undefined) {
-      console.log('Selection made - starting 8-second auto-advance timer');
-      
       const autoAdvanceTimer = setTimeout(() => {
-        console.log('8 seconds elapsed after selection - auto-advancing to next stock');
         if (handleNextCardRef.current) {
           handleNextCardRef.current();
         }
@@ -877,10 +795,8 @@ export default function FlashcardsContainer() {
   // Ensure currentIndex stays within bounds when flashcards array changes
   useEffect(() => {
     if (flashcards.length > 0 && gameState.currentIndex >= flashcards.length) {
-      console.log(`⚠️ Adjusting currentIndex from ${gameState.currentIndex} to ${flashcards.length - 1} (flashcards array changed)`);
       gameState.setCurrentIndex(flashcards.length - 1);
     } else if (flashcards.length > 0 && gameState.currentIndex < 0) {
-      console.log(`⚠️ Adjusting currentIndex from ${gameState.currentIndex} to 0 (flashcards array changed)`);
       gameState.setCurrentIndex(0);
     }
   }, [flashcards.length, gameState]);
@@ -893,20 +809,10 @@ export default function FlashcardsContainer() {
       !isLoadingRounds &&
       (lastLoadedRef.current.folder !== selectedFolder || lastLoadedRef.current.userId !== session.user.id)
     ) {
-      console.log('Loading rounds for folder:', selectedFolder);
       loadRecentRounds(selectedFolder);
       lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
     }
   }, [selectedFolder, session?.user?.id, loadRecentRounds, isLoadingRounds]);
-
-  // Debug: Track currentRoundId changes
-  useEffect(() => {
-    console.log('=== CURRENT ROUND ID CHANGED ===');
-    console.log('New currentRoundId:', currentRoundId);
-    console.log('Type:', typeof currentRoundId);
-    console.log('Is valid UUID:', currentRoundId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(currentRoundId) : false);
-    console.log('=== END ROUND ID DEBUG ===');
-  }, [currentRoundId]);
 
   // Handle after effect completion - show after data but don't auto-advance
   // Auto-advance is now handled by score overlay after user selection
@@ -930,14 +836,40 @@ export default function FlashcardsContainer() {
     );
   }
 
-  // Show data loading state
-  if (loading) {
+  // Show data loading state - keep showing if loading OR if we have a folder selected but no data ready yet
+  // Check that we have actual usable data: flashcards exist, current flashcard exists, and it has data files with actual data
+  // Also verify the data is actually an array/object with content, not just an empty object
+  const hasValidData = flashcards.length > 0 && 
+                       currentFlashcard && 
+                       currentFlashcard.jsonFiles && 
+                       currentFlashcard.jsonFiles.length > 0 &&
+                       processedData.orderedFiles.length > 0 && 
+                       processedData.orderedFiles[0]?.data &&
+                       Array.isArray(processedData.orderedFiles[0].data) &&
+                       processedData.orderedFiles[0].data.length > 0;
+  
+  // Show loading screen if:
+  // 1. Actively loading, OR
+  // 2. We have a folder selected but no valid data ready yet, OR
+  // 3. We're initializing (no folder selected yet - this includes when folders are being fetched)
+  // This ensures seamless transition from study page loading screen with no gaps
+  const hasNoDataReady = selectedFolder && !hasValidData;
+  const isInitializing = !selectedFolder && !error; // Initializing if no folder selected and no error yet
+  
+  // Always show loading screen if we're loading OR if data isn't ready OR if we're initializing
+  if (loading || hasNoDataReady || isInitializing) {
     return (
-      <LoadingStates.DataLoading
-        progress={loadingProgress}
-        step={loadingStep}
-        folder={selectedFolder}
-      />
+      <>
+        {/* Black background overlay covering entire page including header/footer */}
+        <div className="fixed inset-0 bg-black z-40" />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden">
+          <LoadingStates.DataLoading
+            progress={loadingProgress}
+            step={loadingStep || (hasNoDataReady ? "Preparing data..." : isInitializing ? "Initializing..." : "")}
+            folder={selectedFolder}
+          />
+        </div>
+      </>
     );
   }
 
@@ -973,7 +905,7 @@ export default function FlashcardsContainer() {
   }
   
   // If no data but no error, continue to render the main interface (will show folder selector)
-
+  
   // Show round selection prompt when no round is selected
 
   // Main game interface
@@ -1122,9 +1054,21 @@ export default function FlashcardsContainer() {
               Choose Round
             </h3>
             {isLoadingRounds ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-r-2 border-b-2 border-turquoise-500 border-t-transparent mx-auto"></div>
-                <p className="text-turquoise-600 mt-2 font-medium">Loading rounds...</p>
+              <div className="flex items-center justify-center w-full py-8">
+                <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
+                  <div className="relative">
+                    <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-3">
+                    <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
+                      Loading Rounds
+                    </h2>
+                    <p className="text-turquoise-300 text-lg font-medium">Loading rounds...</p>
+                  </div>
+                </div>
               </div>
             ) : (
               <>

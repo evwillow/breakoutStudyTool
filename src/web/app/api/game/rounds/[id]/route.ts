@@ -60,14 +60,11 @@ async function getRound(req: NextRequest, { params }: { params: Promise<{ id: st
  * Update a specific round
  */
 async function updateRound(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  console.log('=== ROUND UPDATE API ENDPOINT CALLED ===');
   const { id: roundId } = await params;
   
   let body;
   try {
     body = await req.json();
-    console.log('Request body received:', body);
-    console.log('Round ID:', roundId);
   } catch (parseError) {
     console.error('Failed to parse request body:', parseError);
     throw new AppError(
@@ -89,7 +86,6 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  console.log('Getting Supabase client...');
   const supabase = getAdminSupabaseClient();
 
   // Only allow updating specific fields
@@ -103,7 +99,6 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (Object.keys(updateData).length === 0) {
-    console.error('No valid fields to update');
     throw new ValidationError(
       'No valid fields to update',
       ErrorCodes.VALIDATION_ERROR,
@@ -113,19 +108,12 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  console.log('Attempting to update round:', {
-    roundId,
-    updateData
-  });
-
   const { data, error } = await supabase
     .from('rounds')
     .update(updateData)
     .eq('id', roundId)
     .select()
     .single();
-
-  console.log('Supabase update result:', { data, error });
 
   if (error) {
     console.error('Supabase error details:', {
@@ -162,9 +150,6 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
       'Failed to update round. Please try again.'
     );
   }
-
-  console.log('Round updated successfully:', data);
-  console.log('=== ROUND UPDATE API ENDPOINT COMPLETED ===');
 
   return createSuccessResponse<Round>(data);
 }

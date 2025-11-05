@@ -16,12 +16,50 @@ interface ErrorStateProps {
   onRetry: () => void;
 }
 
+interface StandardLoadingProps {
+  title?: string;
+  message?: string;
+  inline?: boolean;
+}
+
+// Standardized loading component - matches DataLoading style
+export const StandardLoading: React.FC<StandardLoadingProps> = ({ 
+  title = "Loading...",
+  message,
+  inline = false
+}) => {
+  const containerClass = inline 
+    ? "flex items-center justify-center w-full h-full"
+    : "w-full min-h-[calc(100vh-14rem)] flex items-center justify-center p-4";
+  
+  return (
+    <div className={containerClass}>
+      <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
+          </div>
+        </div>
+        <div className="text-center space-y-3">
+          <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
+            {title}
+          </h2>
+          {message && (
+            <p className="text-turquoise-300 text-lg font-medium">{message}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Authentication loading state
 export const AuthLoading: React.FC = () => (
-  <div className="flex justify-center items-center h-screen">
-    <p className="text-white">Loading...</p>
-  </div>
+  <StandardLoading 
+    title="Loading Authentication"
+    message="Verifying your session..."
+  />
 );
 
 // Data loading state with progress
@@ -30,8 +68,8 @@ export const DataLoading: React.FC<DataLoadingProps> = ({
   step, 
   folder 
 }) => (
-  <div className="min-h-screen flex items-center justify-center p-4">
-    <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
+  <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black overflow-hidden">
+    <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl w-[28rem] border border-white mx-auto box-border">
     <div className="relative">
       <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
       <div className="absolute inset-0 flex items-center justify-center">
@@ -43,14 +81,19 @@ export const DataLoading: React.FC<DataLoadingProps> = ({
         Loading Dataset
       </h2>
       <p className="text-turquoise-300 text-lg font-medium">{step}</p>
-      {folder && (
-        <div className="flex items-center justify-center gap-2 pt-2">
-          <span className="text-gray-400 text-sm">Folder:</span>
-          <span className="text-turquoise-400 text-sm font-semibold bg-gray-900 px-3 py-1 rounded-md border border-turquoise-500/30">
-            {folder}
-          </span>
-        </div>
-      )}
+      {/* Always reserve space for folder section to maintain consistent box height */}
+      <div className="flex items-center justify-center gap-2 pt-2 min-h-[2.5rem]">
+        {folder ? (
+          <>
+            <span className="text-gray-400 text-sm">Folder:</span>
+            <span className="text-turquoise-400 text-sm font-semibold bg-gray-900 px-3 py-1 rounded-md border border-turquoise-500/30">
+              {folder}
+            </span>
+          </>
+        ) : (
+          <span className="opacity-0 pointer-events-none" aria-hidden="true">&nbsp;</span>
+        )}
+      </div>
     </div>
     <div className="w-full bg-gray-900 rounded-full h-3 border border-gray-700">
       <div 
@@ -155,4 +198,5 @@ export const LoadingStates = {
   AuthLoading,
   DataLoading,
   ErrorState,
+  StandardLoading,
 }; 

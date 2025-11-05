@@ -34,21 +34,14 @@ export async function GET(req: NextRequest) {
     ];
     
     let dataPath = null;
-    let foundPath = null;
-    
-    console.log('Current working directory:', process.cwd());
-    console.log('__dirname:', __dirname);
     
     // Try each possible path
     for (const testPath of possiblePaths) {
       try {
         await fs.access(testPath);
         dataPath = testPath;
-        foundPath = testPath;
-        console.log('Data directory found at:', testPath);
         break;
       } catch (error) {
-        console.log('Path not found:', testPath);
         continue;
       }
     }
@@ -90,7 +83,6 @@ export async function GET(req: NextRequest) {
         
         // Skip directories with no JSON files
         if (jsonFiles.length === 0) {
-          console.log(`Skipping directory ${stockDir} - no JSON files found`);
           continue;
         }
         
@@ -119,8 +111,6 @@ export async function GET(req: NextRequest) {
 
     // Return single folder
     const folders = [qualityBreakoutsFolder];
-
-    console.log(`Found quality_breakouts dataset with ${stockDirectories.length} stock breakouts and ${qualityBreakoutsFolder.files.length} total files`);
 
     return NextResponse.json({
       success: true,

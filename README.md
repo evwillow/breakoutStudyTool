@@ -128,19 +128,6 @@ src/web/
 └── hooks/                    # Custom hooks
 ```
 
-#### `src/api` - Backend API
-```
-src/api/
-├── routers/                  # tRPC routers
-│   ├── auth.ts              # Authentication
-│   ├── subscription.ts      # Subscription management
-│   ├── game.ts              # Game logic
-│   └── stock.ts             # Stock data
-├── services/                # Business logic
-├── db/                      # Database layer
-└── middleware/              # Auth, rate limiting
-```
-
 #### `src/data-processing` - Python Data System
 ```
 src/data-processing/
@@ -262,13 +249,6 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID="G-XXXXXXXXXX"
 ```bash
 npm run build
 # Deploy to Vercel
-```
-
-### Backend (Railway/Render)
-```bash
-cd src/api
-npm run build
-# Deploy with Docker
 ```
 
 ### Data Processing (Python)

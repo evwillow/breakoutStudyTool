@@ -10,8 +10,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@breakout-study-tool/shared": "file:../../lib/packages/shared",
-    "@breakout-study-tool/ui": "file:../../lib/packages/ui",
+    "@breakout-study-tool/shared": "file:../../lib/shared",
+    "@breakout-study-tool/ui": "file:../../lib/ui",
     "@hcaptcha/react-hcaptcha": "^1.12.0",
     "@supabase/supabase-js": "^2.49.1",
     "@upstash/ratelimit": "^2.0.5",

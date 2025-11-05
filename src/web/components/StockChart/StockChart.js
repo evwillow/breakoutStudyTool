@@ -538,11 +538,8 @@ const StockChart = React.memo(({
   const CHART_CONFIG = useMemo(() => getChartConfig(isMobile, chartType), [isMobile, chartType]);
 
   if (!chartData) {
-    return (
-      <div className="h-40 sm:h-60 flex items-center justify-center bg-black text-white text-sm sm:text-base">
-        Loading chart data...
-      </div>
-    );
+    // Return empty div to maintain layout - parent will handle loading state
+    return <div ref={containerRef} className="w-full h-full min-h-[400px] bg-black" />;
   }
 
   // Parse JSON data into an array of stock objects - memoized for performance
@@ -1310,13 +1307,8 @@ const StockChart = React.memo(({
 
   // Early return check AFTER all hooks
   if (!dimensions || !scales || !stockData.length) {
-    return (
-      <div ref={containerRef} className="w-full h-full min-h-[400px]">
-        <div className="h-full flex items-center justify-center bg-black text-white">
-          Loading chart data...
-        </div>
-      </div>
-    );
+    // Return empty div to maintain layout - parent will handle loading state
+    return <div ref={containerRef} className="w-full h-full min-h-[400px] bg-black" />;
   }
 
   // Show a progress indicator during animation

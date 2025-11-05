@@ -485,7 +485,7 @@ function ChartSection({
               </h2>
             </div>
           </div>
-          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ height: '100%', minHeight: '500px', maxHeight: '800px' }}>
+          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white p-0.5 sm:p-1 transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', margin: 0, padding: 0, boxSizing: 'border-box' }}>
             {/* D Label - positioned in the top left, above magnifying glass */}
             <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
               D
@@ -550,7 +550,7 @@ function ChartSection({
                 </>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-black rounded-lg">
-                  <p className="text-gray-400 text-lg">No chart data available. Please select a dataset.</p>
+                  {/* Empty state - parent will handle loading */}
                 </div>
               )}
             </div>

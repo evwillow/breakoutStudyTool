@@ -15,12 +15,9 @@ import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
  * Log a new match result
  */
 async function logMatch(req: NextRequest) {
-  console.log('=== MATCH API ENDPOINT CALLED ===');
-  
   let body;
   try {
     body = await req.json();
-    console.log('Request body received:', body);
   } catch (parseError) {
     console.error('Failed to parse request body:', parseError);
     throw new AppError(
@@ -31,28 +28,17 @@ async function logMatch(req: NextRequest) {
       'Invalid request format. Please check your data and try again.'
     );
   }
-
-  console.log('Attempting to validate request data...');
   
   // Validate input using schema
   let validatedData;
   try {
     validatedData = validateOrThrow<LogMatchRequest>(body, commonSchemas.logMatch);
-    console.log('Validation successful:', validatedData);
   } catch (validationError) {
     console.error('Validation failed:', validationError);
     throw validationError; // Re-throw validation errors as-is
   }
 
-  console.log('Getting Supabase client...');
   const supabase = getAdminSupabaseClient();
-
-  console.log('Attempting to insert match record:', {
-    round_id: validatedData.round_id,
-    stock_symbol: validatedData.stock_symbol,
-    user_selection: validatedData.user_selection,
-    correct: validatedData.correct
-  });
 
   // Insert new match (support both old and new formats)
   const insertData: any = {
@@ -114,8 +100,6 @@ async function logMatch(req: NextRequest) {
     .select()
     .single();
 
-  console.log('Supabase insert result:', { data, error });
-
   if (error) {
     console.error('Supabase error details:', {
       message: error.message,
@@ -141,9 +125,6 @@ async function logMatch(req: NextRequest) {
       'Failed to log match result. Please try again.'
     );
   }
-
-  console.log('Match logged successfully:', data);
-  console.log('=== MATCH API ENDPOINT COMPLETED ===');
 
   return createSuccessResponse<Match>(data);
 }

@@ -22,11 +22,10 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/web/*": ["./src/web/*"],
-      "@/api/*": ["./src/api/*"],
       "@/lib/*": ["./lib/*"],
-      "@/shared/*": ["./lib/packages/shared/*"],
-      "@/ui/*": ["./lib/packages/ui/*"],
-      "@/database/*": ["./lib/packages/database/*"]
+      "@/shared/*": ["./lib/shared/*"],
+      "@/ui/*": ["./lib/ui/*"],
+      "@/database/*": ["./lib/database/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -69,6 +69,10 @@ const nextConfig = {
     // Remove console logs in production
     removeConsole: process.env.NODE_ENV === 'production',
   },
+  // Disable request logging in development
+  logging: {
+    incomingRequests: false,
+  },
 };
 
 module.exports = nextConfig;
