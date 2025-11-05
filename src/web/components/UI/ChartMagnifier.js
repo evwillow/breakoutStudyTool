@@ -154,12 +154,12 @@ const ChartMagnifier = ({
     let maxX = selectionBounds.width;
     
     if (separatorX) {
-      // Separator marks the last D.json data point
-      // Center point can go all the way to the separator (inclusive) - this is the right border
+      // Separator marks the boundary between historical data (left) and prediction area (right)
+      // Predictions are made AFTER the separator, so allow positions in the full selection area
+      // Minimum X should be at or after the separator (prediction area only, not historical data)
       const separatorXInSelection = separatorX - selectionBounds.left;
-      // Center can reach exactly the separator position (right border) - allow up to separator
-      minX = 0; // Can go to left edge
-      maxX = separatorXInSelection; // Can reach exactly the separator position (right border)
+      minX = separatorXInSelection; // Can only go from separator onwards (prediction area)
+      maxX = selectionBounds.width; // Can reach the right edge of the selection area
     }
     
     const minY = 0;
@@ -190,44 +190,18 @@ const ChartMagnifier = ({
   };
 
   // Calculate where the magnifier should be rendered (can move freely)
+  // The center of the magnifier must be within selection area, but widget can extend beyond
   const getMagnifierRenderPosition = (targetPos, selectionBounds) => {
     if (!selectionBounds) return { x: 0, y: 0 };
     
-    // Default: position at bottom center of selection area
-    const padding = 8;
-    const defaultY = selectionBounds.bottom - magnifierSize / 2 - padding;
-    const defaultYRelative = defaultY - selectionBounds.top;
-    
-    // When dragging the magnifier itself, allow free movement
-    // Otherwise, follow the target position horizontally
+    // targetPos is the center point, constrained to be within selection area
+    // Calculate render position (top-left corner) from center: center - size/2
+    // The widget can extend beyond selection area as long as center is within bounds
     let renderX = targetPos.x - magnifierSize / 2;
-    let renderY = defaultYRelative;
+    let renderY = targetPos.y - magnifierSize / 2;
     
-    // Constrain render position to keep magnifier within selection bounds
-    // Also respect separator - allow center to reach exactly the separator position
-    const separatorX = getSeparatorX();
-    let minRenderX = 0;
-    let maxRenderX = selectionBounds.width - magnifierSize;
-    
-    if (separatorX) {
-      // Separator marks the last D.json data point
-      const separatorXInSelection = separatorX - selectionBounds.left;
-      // Allow center to reach exactly the separator (right border)
-      // If center is at separator, renderX = separatorXInSelection - magnifierSize/2
-      minRenderX = 0; // Can go to left edge
-      // Maximum allows center to reach separator: when center = separator, renderX = separator - size/2
-      maxRenderX = Math.min(separatorXInSelection - magnifierSize / 2, selectionBounds.width - magnifierSize);
-      // Ensure we don't go below 0
-      if (maxRenderX < 0) maxRenderX = 0;
-    }
-    
-    // Ensure magnifier doesn't go above the chart area (stays below header)
-    // The selectionBounds already excludes volume and respects chart boundaries
-    const minRenderY = 0;
-    const maxRenderY = selectionBounds.height - magnifierSize;
-    
-    renderX = Math.max(minRenderX, Math.min(maxRenderX, renderX));
-    renderY = Math.max(minRenderY, Math.min(maxRenderY, renderY));
+    // No constraints on render position - widget can overlap with volume area, etc.
+    // as long as the center (targetPos) is within the selection area
     
     return { x: renderX, y: renderY };
   };
@@ -249,13 +223,27 @@ const ChartMagnifier = ({
     };
   }, []);
 
-  // Initialize position to center when component mounts
+  // Initialize position to prediction area (right side) when component mounts
   useEffect(() => {
     if (!chartElement || !isMobile) return;
     const selectionBounds = getSelectionAreaBounds();
     if (selectionBounds) {
+      // Position in the prediction area (right side, where selections are made)
+      // The separator line marks the boundary between historical data (left) and prediction area (right)
+      const separatorX = getSeparatorX();
+      let initialX = selectionBounds.width * 0.9; // Default to 90% from left (far right side)
+      
+      if (separatorX) {
+        // Position in the prediction area - after the separator
+        // The separator marks the end of historical data, so predictions are made to the right
+        const separatorXInSelection = separatorX - selectionBounds.left;
+        const predictionAreaWidth = selectionBounds.width - separatorXInSelection;
+        // Position in the middle-right of the prediction area (after separator)
+        initialX = separatorXInSelection + (predictionAreaWidth * 0.7); // 70% into the prediction area
+      }
+      
       const initialPos = constrainPosition(
-        selectionBounds.width / 2,
+        initialX,
         selectionBounds.height / 2,
         selectionBounds
       );
@@ -415,35 +403,37 @@ const ChartMagnifier = ({
         setIsDraggingMagnifierWidget(true);
         const selectionBounds = getSelectionAreaBounds();
         if (selectionBounds) {
-          // Calculate new magnifier render position
+          // magnifierStartPos is in selection-area-relative coordinates
+          // dx/dy are in viewport coordinates, but since we're moving within the same scale,
+          // we can use them directly (dx in viewport = dx in selection-area for 1:1 scale)
+          // Calculate new magnifier render position (top-left corner) in selection-area-relative coords
           const newMagnifierX = magnifierStartPos.x + dx;
           const newMagnifierY = magnifierStartPos.y + dy;
           
-          // Constrain magnifier render position to stay within bounds
-          const minRenderX = 0;
-          const maxRenderX = selectionBounds.width - magnifierSize;
-          const minRenderY = 0;
-          const maxRenderY = selectionBounds.height - magnifierSize;
+          // Calculate the center position from the new render position (in selection-area-relative coords)
+          const newCenterX = newMagnifierX + magnifierSize / 2;
+          const newCenterY = newMagnifierY + magnifierSize / 2;
           
-          const constrainedMagnifierX = Math.max(minRenderX, Math.min(maxRenderX, newMagnifierX));
-          const constrainedMagnifierY = Math.max(minRenderY, Math.min(maxRenderY, newMagnifierY));
+          // Constrain the CENTER to stay within selection area (widget can extend beyond)
+          const constrainedTarget = constrainPosition(newCenterX, newCenterY, selectionBounds);
+          
+          // Calculate render position from constrained center (in selection-area-relative coords)
+          const constrainedRenderX = constrainedTarget.x - magnifierSize / 2;
+          const constrainedRenderY = constrainedTarget.y - magnifierSize / 2;
           
           console.log('[Magnifier] TouchMove (dragging):', {
             dx, dy, distance,
-            newPos: { x: newMagnifierX, y: newMagnifierY },
-            constrainedPos: { x: constrainedMagnifierX, y: constrainedMagnifierY },
+            newCenter: { x: newCenterX, y: newCenterY },
+            constrainedCenter: constrainedTarget,
+            renderPos: { x: constrainedRenderX, y: constrainedRenderY },
             bounds: { width: selectionBounds.width, height: selectionBounds.height }
           });
           
-          // Update render position directly when dragging the magnifier
-          setMagnifierRenderPos({ x: constrainedMagnifierX, y: constrainedMagnifierY });
+          // Update render position (can extend beyond selection area, in selection-area-relative coords)
+          setMagnifierRenderPos({ x: constrainedRenderX, y: constrainedRenderY });
           isDraggingMagnifierWidgetRef.current = true;
           
-          // Update target position: center of magnifier becomes new target
-          const newTargetX = constrainedMagnifierX + magnifierSize / 2;
-          const newTargetY = constrainedMagnifierY + magnifierSize / 2;
-          
-          const constrainedTarget = constrainPosition(newTargetX, newTargetY, selectionBounds);
+          // Update target position (center, constrained to selection area)
           setTargetPosition(constrainedTarget);
           lastTapPositionRef.current = constrainedTarget;
         } else {
@@ -826,10 +816,10 @@ const ChartMagnifier = ({
       {chartElement && (
         <div
           ref={magnifierRef}
-          className={`absolute z-30 transition-all duration-200 ease-out pointer-events-auto`}
+          className={`fixed z-30 transition-all duration-200 ease-out pointer-events-auto`}
           style={{
-            left: `${renderPos.x}px`,
-            top: `${renderPos.y}px`,
+            left: `${selectionBounds.left + renderPos.x}px`,
+            top: `${selectionBounds.top + renderPos.y}px`,
             width: `${magnifierSize}px`,
             height: `${magnifierSize}px`,
             transform: isDragging ? 'scale(1.05)' : 'scale(1)',
