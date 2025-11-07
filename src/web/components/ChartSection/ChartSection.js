@@ -818,7 +818,7 @@ function ChartSection({
       <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
         <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0 mt-4 sm:mt-6">
-          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? 'auto' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
+          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
             {/* D Label and Timer - positioned in the top left */}
             <div className="absolute top-2 left-2 z-30 flex items-center gap-3 sm:gap-4">
               <div className="text-white font-bold bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">

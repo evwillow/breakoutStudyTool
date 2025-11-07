@@ -486,41 +486,52 @@ const StockChart = React.memo(({
     const updateDimensions = () => {
       if (containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
-        const isMobileView = window.innerWidth < 768;
+        const isMobileView = window.innerWidth < 1024 || 'ontouchstart' in window; // Match ChartSection's mobile detection
         
-        // On mobile, calculate height based on width to maintain aspect ratio, but cap at maxHeight
-        // This prevents vertical growth while maintaining the original size
-        let containerHeight;
-        if (isMobileView) {
+        // Use the container's actual height (set by parent's aspect ratio)
+        // This respects the parent container's aspect ratio on both mobile and desktop
+        let containerHeight = containerRef.current.clientHeight;
+        
+        // If height is not available yet (container not fully rendered), try parent
+        if (!containerHeight || containerHeight < 400) {
           const parent = containerRef.current.parentElement;
-          let maxHeight = 800; // Default max height for mobile
+          containerHeight = parent?.clientHeight || parent?.offsetHeight;
           
-          // Get maxHeight from parent if it's set
-          if (parent) {
+          // If still no height, try to get it from the parent's computed style (aspect ratio)
+          if ((!containerHeight || containerHeight < 400) && parent) {
             const computedStyle = window.getComputedStyle(parent);
-            const parentMaxHeight = computedStyle.maxHeight;
-            
-            if (parentMaxHeight && parentMaxHeight !== 'none' && parentMaxHeight !== 'auto') {
-              const parsed = parseFloat(parentMaxHeight);
-              if (!isNaN(parsed)) {
-                maxHeight = parsed;
+            const parentHeight = computedStyle.height;
+            if (parentHeight && parentHeight !== 'auto' && parentHeight !== 'none') {
+              const parsed = parseFloat(parentHeight);
+              if (!isNaN(parsed) && parsed > 0) {
+                containerHeight = parsed;
               }
             }
           }
           
-          // Calculate height based on width to maintain square aspect ratio (like desktop)
-          // But cap it at maxHeight to prevent growth
-          const calculatedHeight = Math.min(containerWidth, maxHeight);
-          
-          // Use the calculated height, but ensure it's at least 500px
-          containerHeight = Math.max(calculatedHeight, 500);
-        } else {
-          // Desktop: use full available height
-          containerHeight = containerRef.current.clientHeight;
+          // Final fallback: calculate based on width
+          // On mobile, use 4/5 aspect ratio (taller rectangle)
+          // On desktop, use 1/1 aspect ratio (square)
           if (!containerHeight || containerHeight < 400) {
-            // Try parent height
-            const parent = containerRef.current.parentElement;
-            containerHeight = parent?.clientHeight || parent?.offsetHeight || 600;
+            if (isMobileView) {
+              // Calculate height based on 4/5 aspect ratio (taller rectangle for mobile)
+              containerHeight = containerWidth * 1.25; // 4/5 = 0.8, so height = width / 0.8 = width * 1.25
+              
+              // Cap at maxHeight if set
+              if (parent) {
+                const computedStyle = window.getComputedStyle(parent);
+                const parentMaxHeight = computedStyle.maxHeight;
+                if (parentMaxHeight && parentMaxHeight !== 'none' && parentMaxHeight !== 'auto') {
+                  const parsed = parseFloat(parentMaxHeight);
+                  if (!isNaN(parsed)) {
+                    containerHeight = Math.min(containerHeight, parsed);
+                  }
+                }
+              }
+            } else {
+              // Desktop: square aspect ratio
+              containerHeight = containerWidth;
+            }
           }
         }
         
