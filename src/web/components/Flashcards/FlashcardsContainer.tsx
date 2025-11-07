@@ -76,6 +76,14 @@ export default function FlashcardsContainer() {
   
   // Ref to store handleNextCard for timer callback
   const handleNextCardRef = React.useRef<(() => void) | null>(null);
+  const timeUpAdvanceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const clearTimeUpAdvanceTimeout = React.useCallback(() => {
+    if (timeUpAdvanceTimeoutRef.current) {
+      clearTimeout(timeUpAdvanceTimeoutRef.current);
+      timeUpAdvanceTimeoutRef.current = null;
+    }
+  }, []);
   
   // Ref to store pending round ID and dataset to load after folder switch
   const pendingRoundRef = React.useRef<{ roundId: string; datasetName: string } | null>(null);
@@ -325,16 +333,43 @@ export default function FlashcardsContainer() {
   // Timer management - normal timer behavior, force selection on time up
   // Note: forceSelection will be defined after targetPoint, priceRange, and timeRange
   const forceSelectionRef = React.useRef<(() => void) | null>(null);
-  const timerRef = React.useRef<{ reset: (duration: number) => void; start: () => void } | null>(null);
+  const timerRef = React.useRef<{ reset: (duration: number) => void; start: () => void; pause?: () => void } | null>(null);
+  
+  // Ref to access gameState in timer callback
+  const gameStateRef = React.useRef(gameState);
+  React.useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  React.useEffect(() => {
+    if (gameState.score !== null && gameState.score !== undefined) {
+      clearTimeUpAdvanceTimeout();
+    }
+  }, [gameState.score, clearTimeUpAdvanceTimeout]);
   
   const timer = useTimer({
     initialDuration: TIMER_CONFIG.INITIAL_DURATION,
     onTimeUp: useCallback(() => {
-      // Automatically move to next stock when timer expires
-      if (handleNextCardRef.current) {
+      const currentGameState = gameStateRef.current;
+
+      if (currentGameState.score === null || currentGameState.score === undefined) {
+        currentGameState.setShowTimeUpOverlay(true);
+        clearTimeUpAdvanceTimeout();
+
+        timerRef.current?.pause?.();
+        if (timerDuration > 0 && timerRef.current?.reset) {
+          timerRef.current.reset(timerDuration);
+        }
+
+        timeUpAdvanceTimeoutRef.current = setTimeout(() => {
+          if (handleNextCardRef.current) {
+            handleNextCardRef.current();
+          }
+        }, 5000);
+      } else if (handleNextCardRef.current) {
         handleNextCardRef.current();
       }
-    }, []),
+    }, [clearTimeUpAdvanceTimeout, timerDuration]),
     autoStart: false,
   });
 
@@ -343,8 +378,23 @@ export default function FlashcardsContainer() {
     timerRef.current = {
       reset: timer.reset,
       start: timer.start,
+      pause: timer.pause,
     };
-  }, [timer.reset, timer.start]);
+  }, [timer.reset, timer.start, timer.pause]);
+
+  const handleTooltipDismiss = React.useCallback((event?: { reason?: string }) => {
+    gameState.setShowTimeUpOverlay(false);
+
+    if (event?.reason === 'manual-chart') {
+      clearTimeUpAdvanceTimeout();
+      if (timerDuration > 0) {
+        if (timerRef.current?.reset) {
+          timerRef.current.reset(timerDuration);
+        }
+        timerRef.current?.start?.();
+      }
+    }
+  }, [gameState, clearTimeUpAdvanceTimeout, timerDuration]);
 
   // Track last loaded folder/userId to prevent repeated calls
   const lastLoadedRef = React.useRef<{folder: string|null, userId: string|null}>({folder: null, userId: null});
@@ -974,7 +1024,8 @@ export default function FlashcardsContainer() {
       selectedFolder && 
       timerDuration > 0 &&
       timer.isReady &&
-      !timer.isRunning
+      !timer.isRunning &&
+      !gameState.showTimeUpOverlay
     ) {
       // Reset and start timer when round is selected
       timer.reset(timerDuration);
@@ -985,7 +1036,7 @@ export default function FlashcardsContainer() {
         });
       });
     }
-  }, [currentRoundId, loading, selectedFolder, timerDuration, timer]);
+  }, [currentRoundId, loading, selectedFolder, timerDuration, timer, gameState.showTimeUpOverlay]);
 
   // Start timer when flashcard changes (new stock displayed)
   // This ensures the timer starts when moving to a new stock
@@ -999,7 +1050,8 @@ export default function FlashcardsContainer() {
       timer.isReady &&
       !timer.isRunning &&
       currentRoundId && // Only auto-start if we have a round selected
-      !gameState.feedback // Don't start if there's feedback (handleNextCard will handle it)
+      !gameState.feedback &&
+      !gameState.showTimeUpOverlay
     ) {
       // Reset timer to the current duration and start it for new stock
       timer.reset(timerDuration);
@@ -1010,7 +1062,7 @@ export default function FlashcardsContainer() {
         });
       });
     }
-  }, [currentFlashcard, loading, selectedFolder, timerDuration, timer, currentRoundId, gameState.feedback]);
+  }, [currentFlashcard, loading, selectedFolder, timerDuration, timer, currentRoundId, gameState.feedback, gameState.showTimeUpOverlay]);
   
   // Auto-advance 10 seconds after a selection is made (only if not paused)
   // This works in sync with the countdown timer in ChartScoreOverlay
@@ -1241,6 +1293,7 @@ export default function FlashcardsContainer() {
             onPauseStateChange={(paused: boolean) => {
               isChartPausedRef.current = paused;
             }}
+            onDismissTooltip={handleTooltipDismiss}
           />
 
 

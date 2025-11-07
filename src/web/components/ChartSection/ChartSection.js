@@ -17,6 +17,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import StockChart from "../StockChart";
 import { AuthModal } from "../Auth";
 import ChartMagnifier from "../UI/ChartMagnifier";
+import SelectionTooltip from "../UI/SelectionTooltip";
 import { getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
 
 // ChartScoreOverlay component - inlined to fix import issues
@@ -218,6 +219,7 @@ function ChartSection({
   timerDuration = null, // Timer duration to check if always paused (0 = always pause)
   onTimerDurationChange = null, // Callback to change timer duration
   onPauseStateChange = null, // Callback to notify parent of pause state changes
+  onDismissTooltip = null, // Callback to dismiss the selection tooltip
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -236,6 +238,16 @@ function ChartSection({
       onPauseStateChange(paused);
     }
   }, [onPauseStateChange]);
+
+  const handleChartAreaClickCapture = useCallback((event) => {
+    if (isTimeUp && score === null) {
+      event.stopPropagation();
+      event.preventDefault();
+      if (onDismissTooltip) {
+        onDismissTooltip({ reason: 'manual-chart' });
+      }
+    }
+  }, [isTimeUp, score, onDismissTooltip]);
   const [completionDelay, setCompletionDelay] = useState(false);
   const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -812,13 +824,19 @@ function ChartSection({
     return "text-turquoise-600";
   };
 
+  const chartContainerClasses = `w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300`;
+
   return (
     <>
       {/* Main content with Daily and Hourly charts */}
       <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
         {/* Daily chart section - primary chart */}
         <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-lg shadow-md p-0 mt-4 sm:mt-6">
-          <div className="w-full relative rounded-xl overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}>
+          <div
+            className={chartContainerClasses}
+            style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}
+            onClickCapture={handleChartAreaClickCapture}
+          >
             {/* D Label and Timer - positioned in the top left */}
             <div className="absolute top-2 left-2 z-30 flex items-center gap-3 sm:gap-4">
               <div className="text-white font-bold bg-gradient-turquoise px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
@@ -833,7 +851,7 @@ function ChartSection({
                 </span>
               </div>
             </div>
-            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} relative transition-opacity duration-300`} style={{ height: '100%', width: '100%' }}>
+            <div className={`absolute inset-0 rounded-lg overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} relative transition-opacity duration-300`} style={{ height: '100%', width: '100%' }}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               {orderedFiles && orderedFiles.length > 0 && orderedFiles[0]?.data ? (
                 <>
@@ -921,9 +939,21 @@ function ChartSection({
                 </div>
               )}
             </div>
+            {isTimeUp && score === null && (
+              <SelectionTooltip
+                show={true}
+                onDismiss={(event) => onDismissTooltip?.(event)}
+                style={{
+                  top: isMobile ? '12px' : '18px',
+                  right: isMobile ? '12px' : '18px',
+                  maxWidth: isMobile ? '200px' : '240px',
+                }}
+                durationSeconds={timerDuration}
+              />
+            )}
           </div>
         </div>
-
+ 
         {/* Right Column: H Chart + Points Grid - Now visible on mobile */}
         <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4 mt-4 sm:mt-6">
           {/* H Chart */}
@@ -932,7 +962,7 @@ function ChartSection({
             <div className="absolute top-2 left-2 text-white font-bold z-30 bg-gradient-to-r from-turquoise-700 to-turquoise-600 px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base shadow-lg">
               H
             </div>
-            <div className={`absolute inset-0 overflow-hidden ${isTimeUp ? 'filter blur-xl' : ''} transition-opacity duration-300`} style={{ height: '100%', width: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+            <div className={`absolute inset-0 overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} transition-opacity duration-300`} style={{ height: '100%', width: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
               <StockChart 
                 data={orderedFiles[1]?.data}
                 backgroundColor="black" 
@@ -944,7 +974,7 @@ function ChartSection({
           </div>
           
           {/* Points Labels - Flexible flow layout that only wraps when necessary */}
-          <div className={`flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+          <div className={`flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-sm' : ''}`}>
             {(() => {
               // Ensure we have a valid array - handle undefined/null gracefully
               const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
@@ -978,6 +1008,7 @@ function ChartSection({
           </div>
         </div>
       </div>
+      
     </>
   );
 }

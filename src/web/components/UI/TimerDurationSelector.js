@@ -155,8 +155,8 @@ const TimerDurationSelector = ({ duration, onChange }) => {
         className="w-full h-12 border border-turquoise-300 rounded-lg text-turquoise-900 bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium text-center text-lg sm:text-base md:text-lg px-4 flex items-center justify-center"
       >
         {getCurrentDurationText()}
-        <svg className="ml-2 h-5 w-5 text-turquoise-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        <svg className={`ml-2 h-5 w-5 text-turquoise-500 transition-transform ${showPopup ? '' : 'rotate-180'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
         </svg>
       </button>
 
@@ -164,7 +164,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
       {showPopup && (
         <div
           id="timer-popup"
-          className="absolute top-full left-0 right-0 mt-2 z-[100] bg-soft-white rounded-lg shadow-lg border border-turquoise-300 overflow-hidden"
+          className="absolute bottom-full left-0 right-0 mb-2 z-[100] bg-soft-white rounded-lg shadow-lg border border-turquoise-300 overflow-hidden"
         >
           {/* Title section - compact for dropdown */}
           <div className="p-3 sm:p-4 border-b border-turquoise-300">
