@@ -16,12 +16,15 @@ export default function CommunityPage() {
   
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-turquoise-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading community...</p>
+      <>
+        <div className="fixed inset-0 bg-black z-40" />
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="flex flex-col items-center space-y-6">
+            <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+            <p className="text-white text-lg">Loading...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
   

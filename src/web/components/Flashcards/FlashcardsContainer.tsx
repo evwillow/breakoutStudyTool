@@ -1166,8 +1166,8 @@ export default function FlashcardsContainer() {
     return (
       <>
         {/* Black background overlay covering entire page including header/footer */}
-        <div className="fixed inset-0 bg-black z-40" />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden">
+        <div className="fixed inset-0 bg-black z-40 pointer-events-none" style={{ pointerEvents: 'none' }} />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none" style={{ pointerEvents: 'none' }}>
           <LoadingStates.DataLoading
             progress={loadingProgress}
             step={loadingStep || (hasNoDataReady ? "Preparing data..." : isInitializing ? "Initializing..." : "")}

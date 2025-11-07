@@ -22,8 +22,8 @@ export default function Study() {
     return (
       <>
         {/* Black background overlay covering entire page including header/footer */}
-        <div className="fixed inset-0 bg-black z-40" />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden">
+        <div className="fixed inset-0 bg-black z-40 pointer-events-none" style={{ pointerEvents: 'none' }} />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none" style={{ pointerEvents: 'none' }}>
           {/* Match exact DataLoading structure - wrapper div then box, exactly as DataLoading renders */}
           <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black overflow-hidden">
             <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl w-[28rem] border border-white mx-auto box-border">
