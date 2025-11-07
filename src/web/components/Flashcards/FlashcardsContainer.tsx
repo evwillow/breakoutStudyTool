@@ -1265,14 +1265,14 @@ export default function FlashcardsContainer() {
               flashcards={flashcards as FlashcardData[]}
               currentFlashcard={currentFlashcard}
               onChartExpanded={() => {
-                // Stop any running timer first, then reset and start counting down
+                // Only restart timer if it's not already running
+                // This prevents the timer from restarting when scrolling causes charts to re-enter view
+                if (timer.isRunning) {
+                  return; // Timer is already running, don't restart it
+                }
                 // Ensure we have a valid duration
                 if (timerDuration <= 0) {
                   return;
-                }
-                // Pause if running
-                if (timer.isRunning) {
-                  timer.pause();
                 }
                 // Reset to the configured duration - this immediately sets state and ref
                 timer.reset(timerDuration);
