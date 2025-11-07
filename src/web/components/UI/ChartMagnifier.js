@@ -145,6 +145,17 @@ const ChartMagnifier = ({
     return chartRect.left + estimatedSeparatorX;
   };
 
+  // Check if a touch position is in the selectable area (after the separator)
+  const isInSelectableArea = (clientX) => {
+    const separatorX = getSeparatorX();
+    if (!separatorX) {
+      // If we can't find separator, assume it's selectable (fallback to old behavior)
+      return true;
+    }
+    // Selectable area is to the right of the separator
+    return clientX > separatorX;
+  };
+
   // Constrain a position within valid bounds
   // This constrains the CENTER POINT (target position) of the magnifier
   const constrainPosition = (x, y, selectionBounds) => {
@@ -624,19 +635,31 @@ const ChartMagnifier = ({
     };
   }, [enabled, isMobile, chartElement]);
 
-  // Block all chart touch events on mobile
+  // Block chart touch events on mobile only in selectable area
   useEffect(() => {
     if (!enabled || !chartElement || !isMobile) return;
 
     const handleChartClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+      // Only prevent default if in selectable area
+      const inSelectableArea = isInSelectableArea(e.clientX);
+      if (inSelectableArea) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     };
 
     const handleChartTouch = (e) => {
-      // Always allow chart touches when magnifier is active
-      safePreventDefault(e);
-      e.stopPropagation();
+      if (!e.touches || e.touches.length === 0) return;
+      
+      const touch = e.touches[0];
+      const inSelectableArea = isInSelectableArea(touch.clientX);
+      
+      // Only prevent default if in selectable area
+      if (inSelectableArea) {
+        safePreventDefault(e);
+        e.stopPropagation();
+      }
+      // Otherwise allow default scrolling
     };
 
     chartElement.addEventListener('click', handleChartClick, { passive: false });
@@ -660,10 +683,21 @@ const ChartMagnifier = ({
     const handleChartTouchStart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
       
+      const touch = e.touches[0];
+      
+      // Check if touch is in selectable area
+      const inSelectableArea = isInSelectableArea(touch.clientX);
+      
+      // If not in selectable area, allow default behavior (scrolling)
+      if (!inSelectableArea) {
+        // Don't prevent default - allow scrolling
+        return;
+      }
+      
+      // Only prevent default if in selectable area
       safePreventDefault(e);
       e.stopPropagation();
       
-      const touch = e.touches[0];
       const selectionBounds = getSelectionAreaBounds();
       if (!selectionBounds) {
         console.warn('[Chart] TouchStart - no selectionBounds');
@@ -677,7 +711,8 @@ const ChartMagnifier = ({
       
       console.log('[Chart] TouchStart:', {
         clientPos: { x: touch.clientX, y: touch.clientY },
-        isDraggingWidget: isDraggingMagnifierWidgetRef.current
+        isDraggingWidget: isDraggingMagnifierWidgetRef.current,
+        inSelectableArea
       });
       
       touchStartTimeRef.current = Date.now();
@@ -709,6 +744,12 @@ const ChartMagnifier = ({
 
     const handleChartTouchMove = (e) => {
       if (!e.touches || e.touches.length === 0) return;
+      
+      // Only handle if we have an active touch (started in selectable area)
+      if (activeTouchIdRef.current === null) {
+        // No active touch - allow default scrolling
+        return;
+      }
       
       safePreventDefault(e);
       e.stopPropagation();
@@ -755,6 +796,12 @@ const ChartMagnifier = ({
 
     const handleChartTouchEnd = (e) => {
       if (!e.changedTouches || e.changedTouches.length === 0) return;
+      
+      // Only handle if we have an active touch (started in selectable area)
+      if (activeTouchIdRef.current === null) {
+        // No active touch - allow default scrolling
+        return;
+      }
       
       safePreventDefault(e);
       e.stopPropagation();

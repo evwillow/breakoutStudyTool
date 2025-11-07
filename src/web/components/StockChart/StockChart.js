@@ -474,6 +474,9 @@ const StockChart = React.memo(({
   const svgRef = useRef(null);
   const lastDimensionsRef = useRef({ width: 0, height: 0 });
   const handleChartClickRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
+  const isInSelectableAreaRef = useRef(false);
   
   // Use either data or csvData prop
   const chartData = data || csvData;
@@ -1383,6 +1386,151 @@ const StockChart = React.memo(({
     }
   }, [handleChartClick]);
 
+  // Helper function to check if a position is in the selectable area
+  const isInSelectableArea = useCallback((chartX) => {
+    if (!scales || !stockData || stockData.length === 0) return false;
+    
+    const lastDataIndex = stockData.length - 1;
+    const lastDataCenterX = scales.xScale(lastDataIndex);
+    const step = scales.xScale.step();
+    const borderLineOffsetForCursor = isMobile ? 1.0 : 1.5;
+    const lastDataRightEdge = lastDataCenterX + (step / 2) + (step * borderLineOffsetForCursor);
+    
+    return chartX > lastDataRightEdge;
+  }, [scales, stockData, isMobile]);
+
+  // Handle mouse down to track dragging
+  const handleMouseDown = useCallback((event) => {
+    if (!onChartClick || disabled || !scales || !stockData || stockData.length === 0 || !svgRef.current) {
+      return;
+    }
+
+    try {
+      const point = svgRef.current.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+      const chartX = svgPoint.x - (dimensions.margin.left || 0);
+      
+      isInSelectableAreaRef.current = isInSelectableArea(chartX);
+      isDraggingRef.current = true;
+      dragStartPosRef.current = { x: event.clientX, y: event.clientY };
+      
+      // If not in selectable area, allow default behavior (scrolling)
+      if (!isInSelectableAreaRef.current) {
+        // Don't prevent default - allow scrolling
+        return;
+      }
+    } catch (err) {
+      console.error('Error in handleMouseDown:', err);
+    }
+  }, [onChartClick, disabled, scales, stockData, dimensions, isInSelectableArea]);
+
+  // Handle mouse move during drag
+  const handleMouseMove = useCallback((event) => {
+    if (!isDraggingRef.current) {
+      // Update cursor based on position - only if chart is selectable
+      if (!onChartClick || disabled || !scales || !stockData || stockData.length === 0 || !svgRef.current) {
+        if (svgRef.current) svgRef.current.style.cursor = 'default';
+        return;
+      }
+      
+      try {
+        const point = svgRef.current.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+        
+        const chartX = svgPoint.x - (dimensions.margin.left || 0);
+        const lastDataIndex = stockData.length - 1;
+        const lastDataCenterX = scales.xScale(lastDataIndex);
+        const step = scales.xScale.step();
+        const borderLineOffsetForCursor = isMobile ? 1.0 : 1.5;
+        const lastDataRightEdge = lastDataCenterX + (step / 2) + (step * borderLineOffsetForCursor);
+        
+        // Set cursor based on position: not-allowed in data area, crosshair (clickable) in selection area
+        if (chartX <= lastDataRightEdge) {
+          svgRef.current.style.cursor = 'not-allowed';
+        } else {
+          svgRef.current.style.cursor = 'crosshair';
+        }
+      } catch (err) {
+        // Fallback to default cursor on error
+        if (svgRef.current) svgRef.current.style.cursor = 'default';
+      }
+      return;
+    }
+
+    // If dragging in non-selectable area, allow scrolling (don't prevent default)
+    if (!isInSelectableAreaRef.current) {
+      return;
+    }
+
+    // If dragging in selectable area, we could add selection preview here if needed
+  }, [onChartClick, disabled, scales, stockData, dimensions, isMobile]);
+
+  // Handle mouse up to end dragging
+  const handleMouseUp = useCallback((event) => {
+    if (!isDraggingRef.current) return;
+    
+    isDraggingRef.current = false;
+    isInSelectableAreaRef.current = false;
+  }, []);
+
+  // Add global mouse up listener to handle mouse up outside the chart
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      isDraggingRef.current = false;
+      isInSelectableAreaRef.current = false;
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, []);
+
+  // Handle touch events for mobile scrolling
+  const handleTouchStart = useCallback((event) => {
+    if (!onChartClick || disabled || !scales || !stockData || stockData.length === 0 || !svgRef.current) {
+      return;
+    }
+
+    try {
+      const touch = event.touches[0];
+      const point = svgRef.current.createSVGPoint();
+      point.x = touch.clientX;
+      point.y = touch.clientY;
+      const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
+      const chartX = svgPoint.x - (dimensions.margin.left || 0);
+      
+      isInSelectableAreaRef.current = isInSelectableArea(chartX);
+      isDraggingRef.current = true;
+      dragStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+      
+      // If not in selectable area, allow default behavior (scrolling)
+      if (!isInSelectableAreaRef.current) {
+        // Don't prevent default - allow scrolling
+        return;
+      }
+    } catch (err) {
+      console.error('Error in handleTouchStart:', err);
+    }
+  }, [onChartClick, disabled, scales, stockData, dimensions, isInSelectableArea]);
+
+  const handleTouchMove = useCallback((event) => {
+    // If dragging in non-selectable area, allow scrolling (don't prevent default)
+    if (!isDraggingRef.current || !isInSelectableAreaRef.current) {
+      return;
+    }
+    // If in selectable area, we could prevent default here if needed for selection
+  }, []);
+
+  const handleTouchEnd = useCallback((event) => {
+    isDraggingRef.current = false;
+    isInSelectableAreaRef.current = false;
+  }, []);
+
   // Early return check AFTER all hooks
   if (!dimensions || !scales || !stockData.length) {
     // Return empty div to maintain layout - parent will handle loading state
@@ -1465,43 +1613,19 @@ const StockChart = React.memo(({
         className={`w-full h-full ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
         preserveAspectRatio={chartType === 'hourly' ? 'xMidYMid slice' : 'xMidYMid meet'}
         onClick={handleChartClick}
-        onMouseMove={(e) => {
-          // Update cursor based on position - only if chart is selectable
-          if (!onChartClick || disabled || !scales || !stockData || stockData.length === 0 || !svgRef.current) {
-            if (svgRef.current) svgRef.current.style.cursor = 'default';
-            return;
-          }
-          
-          try {
-            const point = svgRef.current.createSVGPoint();
-            point.x = e.clientX;
-            point.y = e.clientY;
-            const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM().inverse());
-            
-            const chartX = svgPoint.x - (dimensions.margin.left || 0);
-            const lastDataIndex = stockData.length - 1;
-            const lastDataCenterX = scales.xScale(lastDataIndex);
-            const step = scales.xScale.step();
-            // Match the border line offset for consistent cursor behavior (mobile: 1.0, desktop: 1.5)
-            const borderLineOffsetForCursor = isMobile ? 1.0 : 1.5;
-            const lastDataRightEdge = lastDataCenterX + (step / 2) + (step * borderLineOffsetForCursor);
-            
-            // Set cursor based on position: not-allowed in data area, crosshair (clickable) in selection area
-            if (chartX <= lastDataRightEdge) {
-              svgRef.current.style.cursor = 'not-allowed';
-            } else {
-              svgRef.current.style.cursor = 'crosshair';
-            }
-          } catch (err) {
-            // Fallback to default cursor on error
-            if (svgRef.current) svgRef.current.style.cursor = 'default';
-          }
-        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onMouseLeave={() => {
           // Reset to default when leaving chart
           if (svgRef.current) svgRef.current.style.cursor = 'default';
+          isDraggingRef.current = false;
+          isInSelectableAreaRef.current = false;
         }}
-        style={{ display: 'block', width: '100%', height: '100%', cursor: (onChartClick && !disabled) ? 'crosshair' : 'default', pointerEvents: 'auto' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ display: 'block', width: '100%', height: '100%', cursor: (onChartClick && !disabled) ? 'crosshair' : 'default', pointerEvents: 'auto', touchAction: 'pan-y pan-x' }}
       >
         {/* Add CSS to ensure proper sizing */}
         <defs>
