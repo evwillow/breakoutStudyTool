@@ -5,7 +5,9 @@
  * 
  * Component for selecting the timer duration for each match.
  * Features:
- * - Dropdown menu with preset timer durations
+ * - Popup modal that opens on click
+ * - Button-based selection matching popup theme
+ * - Reduced preset timer durations
  * - Custom time option with input field
  * - Visual feedback for the current selection
  * - Responsive design that adapts to different screen sizes
@@ -13,109 +15,55 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 
 const TimerDurationSelector = ({ duration, onChange }) => {
+  const [showPopup, setShowPopup] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customValue, setCustomValue] = useState("");
-  const [customOption, setCustomOption] = useState(null);
   const customInputRef = useRef(null);
-  const isInitialMount = useRef(true);
-  const lastProcessedDuration = useRef(duration);
 
-  // Preset timer durations in seconds - memoize to prevent recreation
+  // Reduced preset timer durations in seconds - memoize to prevent recreation
   const durations = useMemo(() => [
     { value: 30, label: "30 seconds" },
-    { value: 45, label: "45 seconds" },
-    { value: 60, label: "60 seconds" },
-    { value: 90, label: "90 seconds" },
+    { value: 60, label: "1 minute" },
     { value: 120, label: "2 minutes" },
     { value: 180, label: "3 minutes" },
-    { value: "custom", label: "Custom time..." },
   ], []);
   
   // Get preset option values for quick comparison - memoize to prevent recreation
   const presetValues = useMemo(() => 
-    durations
-      .filter(option => option.value !== "custom")
-      .map(option => Number(option.value)),
+    durations.map(option => Number(option.value)),
     [durations]
   );
   
-  // Check if always pause is selected
-  const isAlwaysPaused = duration === 0;
-  
-  // Check if the current duration is a preset or custom value
-  useEffect(() => {
-    // Skip if duration hasn't changed to prevent infinite loops
-    if (lastProcessedDuration.current === duration) {
-      return;
-    }
-    
-    // Update last processed duration
-    lastProcessedDuration.current = duration;
-    
-    // Skip on initial mount to prevent overriding parent state
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      
-      // If we already have a custom value at mount time, set up the custom option
-      if (!presetValues.includes(duration) && duration > 0) {
-        setCustomOption({ 
-          value: duration, 
-          label: `${duration} seconds (custom)` 
-        });
-      }
-      return;
-    }
-    
-    // Check if the current duration matches any preset
-    const isPreset = presetValues.includes(duration);
-    
-    if (!isPreset && duration > 0) {
-      // It's a custom value - set the custom option
-      setCustomOption({ 
-        value: duration, 
-        label: `${duration} seconds (custom)` 
-      });
-    }
+  // Check if the current duration is a preset value
+  const isPreset = useMemo(() => {
+    if (duration === 0) return false; // Always pause is not a preset
+    return presetValues.includes(duration);
   }, [duration, presetValues]);
 
-  // Setup click outside handler for custom input
-  useEffect(() => {
-    if (!showCustomInput) return;
-
-    function handleClickOutside(event) {
-      if (customInputRef.current && !customInputRef.current.contains(event.target)) {
-        handleCustomSubmit();
-      }
+  // Format duration for display
+  const formatDuration = (seconds) => {
+    if (seconds < 60) {
+      return `${seconds} seconds`;
     }
-
-    // Add event listener
-    document.addEventListener("mousedown", handleClickOutside);
-    
-    // Clean up
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showCustomInput]);
-
-  // Get all options including any custom option
-  const getAllOptions = () => {
-    if (customOption) {
-      // Insert custom option before the "Custom time..." option
-      return [...durations.slice(0, -1), customOption, durations[durations.length - 1]];
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (remainingSeconds === 0) {
+      return `${minutes} minute${minutes > 1 ? 's' : ''}`;
     }
-    return durations;
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds > 1 ? 's' : ''}`;
   };
 
-  // Handle dropdown change
-  const handleSelectChange = (e) => {
-    const value = e.target.value;
-    if (value === "custom") {
-      setShowCustomInput(true);
-      setCustomValue("");
-    } else {
-      setShowCustomInput(false);
-      onChange(Number(value));
-    }
+  // Handle preset button click
+  const handlePresetClick = (value) => {
+    onChange(Number(value));
+    setShowPopup(false);
+    setShowCustomInput(false);
+  };
+
+  // Handle custom button click
+  const handleCustomClick = () => {
+    setShowCustomInput(true);
+    setCustomValue("");
   };
 
   // Handle custom input change
@@ -133,21 +81,15 @@ const TimerDurationSelector = ({ duration, onChange }) => {
       // Convert to number and enforce minimum value of 1
       numValue = Math.max(1, Math.round(Number(customValue)));
       console.log(`Custom timer value submitted: ${numValue}`);
-      
-      // Only create a custom option if it's not a preset value
-      if (!presetValues.includes(numValue)) {
-        setCustomOption({ 
-          value: numValue, 
-          label: `${numValue} seconds (custom)` 
-        });
-      }
     } else {
       console.log(`Invalid custom timer value: "${customValue}", using ${numValue} instead`);
     }
     
     // Always call onChange with the validated value
     onChange(numValue);
+    setShowPopup(false);
     setShowCustomInput(false);
+    setCustomValue("");
   };
 
   // Handle key press in custom input
@@ -155,89 +97,139 @@ const TimerDurationSelector = ({ duration, onChange }) => {
     if (e.key === 'Enter') {
       handleCustomSubmit();
     } else if (e.key === 'Escape') {
-      console.log('Timer customization canceled, reverting to previous value');
+      console.log('Timer customization canceled');
       setShowCustomInput(false);
-      // No need to call onChange since we're not changing the value
+      setCustomValue("");
     }
   };
 
-  // Determine the correct value to display in the dropdown - memoize to prevent recalculation
-  const selectValue = useMemo(() => {
-    if (showCustomInput) {
-      return "custom";
+  // Focus input when custom input is shown
+  useEffect(() => {
+    if (showCustomInput && customInputRef.current) {
+      customInputRef.current.focus();
     }
-    
-    // If duration is 0 (always pause), default to 60 seconds (always pause is handled by slider in overlay)
-    if (duration === 0) {
-      return 60;
+  }, [showCustomInput]);
+
+  // Close popup when clicking outside
+  useEffect(() => {
+    if (!showPopup) return;
+
+    function handleClickOutside(event) {
+      const popup = document.getElementById('timer-popup');
+      const trigger = document.getElementById('timer-trigger');
+      if (popup && trigger && !popup.contains(event.target) && !trigger.contains(event.target)) {
+        setShowPopup(false);
+        setShowCustomInput(false);
+        setCustomValue("");
+      }
     }
+
+    // Add event listener with a small delay to avoid immediate closing
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 0);
     
-    // If the current duration is a preset value, use that
-    if (presetValues.includes(duration)) {
-      return duration;
+    // Clean up
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showPopup]);
+
+  // Get current duration display text
+  const getCurrentDurationText = () => {
+    if (duration === 0) return "Always Paused";
+    if (isPreset) {
+      const option = durations.find(opt => opt.value === duration);
+      return option ? option.label : formatDuration(duration);
     }
-    
-    // Otherwise, use the custom option value if we have one
-    return customOption ? customOption.value : duration;
-  }, [showCustomInput, duration, presetValues, customOption]);
+    return formatDuration(duration);
+  };
 
   return (
-    <div className="relative w-full flex items-center justify-center h-12">
-      <select
-        id="timer-duration"
-        value={selectValue}
-        onChange={handleSelectChange}
-        className="border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-lg sm:text-base md:text-lg h-12 appearance-none bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium text-center"
-        style={{ 
-          textAlign: 'center', 
-          textAlignLast: 'center',
-          paddingLeft: '1rem',
-          paddingRight: '2.5rem',
-          paddingTop: 0,
-          paddingBottom: 0,
-          lineHeight: '3rem'
-        }}
+    <div className="relative w-full">
+      {/* Trigger button */}
+      <button
+        id="timer-trigger"
+        onClick={() => setShowPopup(!showPopup)}
+        className="w-full h-12 border border-turquoise-300 rounded-lg text-turquoise-900 bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium text-center text-lg sm:text-base md:text-lg px-4 flex items-center justify-center"
       >
-        {getAllOptions().map((option) => (
-          <option key={option.value} value={option.value} className="text-turquoise-900 font-medium text-lg">
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-        <svg className="h-5 w-5 text-turquoise-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+        {getCurrentDurationText()}
+        <svg className="ml-2 h-5 w-5 text-turquoise-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
         </svg>
-      </div>
-      
-      {/* Custom duration input */}
-      {showCustomInput && (
-        <div 
-          ref={customInputRef}
-          className="absolute top-full left-0 w-full mt-2 z-[100]"
+      </button>
+
+      {/* Dropdown Popup - positioned near button */}
+      {showPopup && (
+        <div
+          id="timer-popup"
+          className="absolute top-full left-0 right-0 mt-2 z-[100] bg-soft-white rounded-lg shadow-lg border border-turquoise-300 overflow-hidden"
         >
-          <div className="p-3 border border-turquoise-300 rounded-lg bg-soft-white shadow-md">
-            <div className="flex items-center">
+          {/* Title section - compact for dropdown */}
+          <div className="p-3 sm:p-4 border-b border-turquoise-300">
+            <h3 className="text-base sm:text-lg text-turquoise-700 font-bold">
+              Select Duration
+            </h3>
+          </div>
+          
+          {/* Custom input section */}
+          {showCustomInput ? (
+            <div className="p-3 sm:p-4">
               <input
+                ref={customInputRef}
                 type="number"
                 value={customValue}
                 onChange={handleCustomInputChange}
                 onKeyDown={handleKeyPress}
-                autoFocus
                 min="1"
                 max="1800"
                 placeholder="Enter seconds..."
-                className="p-2 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base appearance-none focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500"
+                className="w-full px-3 py-2 border-2 border-turquoise-300 rounded-lg text-turquoise-900 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 mb-3"
               />
-              <button
-                onClick={handleCustomSubmit}
-                className="ml-2 px-3 py-2 bg-turquoise-500 text-white rounded-lg hover:bg-turquoise-600 transition-colors"
-              >
-                Set
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCustomSubmit}
+                  className="flex-1 px-3 py-2 bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white rounded-md hover:from-turquoise-600 hover:to-turquoise-700 transition text-sm sm:text-base font-medium shadow-sm"
+                >
+                  Set
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCustomInput(false);
+                    setCustomValue("");
+                  }}
+                  className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all font-medium text-sm sm:text-base"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Press Enter or Esc
+              </p>
             </div>
-            <div className="text-xs text-gray-500 mt-1">Press Enter to confirm or Esc to cancel</div>
-          </div>
+          ) : (
+            <div className="p-2 sm:p-3">
+              {/* Selection options - matching popup button style */}
+              <div className="flex flex-col gap-2">
+                {durations.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handlePresetClick(option.value)}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white rounded-md hover:from-turquoise-600 hover:to-turquoise-700 transition text-sm sm:text-base font-medium shadow-sm"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <button
+                  onClick={handleCustomClick}
+                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-turquoise-500 to-turquoise-600 text-white rounded-md hover:from-turquoise-600 hover:to-turquoise-700 transition text-sm sm:text-base font-medium shadow-sm"
+                >
+                  Custom time...
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
