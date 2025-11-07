@@ -37,7 +37,6 @@ const FormInput = ({
         className="block text-sm font-medium text-turquoise-400 mb-1"
       >
         {label}
-        {required && <span className="text-red-400 ml-1" aria-label="required">*</span>}
       </label>
       <input
         type={type}

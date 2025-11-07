@@ -54,6 +54,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [databaseError, setDatabaseError] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const { signIn, update } = useAuth();
 
@@ -64,6 +65,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       setError(null);
       setDatabaseError(false);
       setCaptchaToken(null);
+      setFieldErrors({});
     }
   }, [mode, open]);
 
@@ -83,6 +85,11 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (error) setError(null); // Clear error when user starts typing
+    setFieldErrors(prev => {
+      if (!prev || !prev[field]) return prev;
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
   const handleCaptchaVerify = (token) => {
@@ -98,6 +105,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     setError(null);
     setDatabaseError(false);
     setIsLoading(true);
+    setFieldErrors({});
 
     // Validate form data
     const validation = validateAuthForm(formData, mode, captchaToken);
@@ -146,7 +154,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     
     // Check if response indicates an error (either !ok or success: false)
     if (!response.ok || !responseData.success) {
-      handleSignUpError(responseData);
+      await handleSignUpError(responseData);
       return;
     }
 
@@ -165,11 +173,13 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     }
   };
 
-  const handleSignUpError = (errorData) => {
+  const handleSignUpError = async (errorData) => {
     console.log('🐛 Debug errorData:', errorData);
     console.log('🐛 Debug errorData.error:', errorData.error);
     console.log('🐛 Debug typeof errorData.error:', typeof errorData.error);
     
+    setFieldErrors({});
+
     // Check for validation errors first
     const validationErrors = errorData.error?.validationErrors || errorData.validationErrors;
     if (validationErrors && typeof validationErrors === 'object') {
@@ -180,7 +190,23 @@ const AuthModal = ({ open, onClose, initialMode }) => {
           const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
           return `${fieldName}: ${message}`;
         });
+      setFieldErrors(validationErrors);
       
+      const emailValidationMessage = validationErrors.email;
+      if (emailValidationMessage && emailValidationMessage.includes('already exists')) {
+        const autoSignInResult = await signIn({
+          email: formData.email,
+          password: formData.password
+        });
+
+        if (autoSignInResult?.error) {
+          setError('Looks like you already have an account. Try signing in with this password or reset it if you forgot.');
+        } else {
+          onClose();
+        }
+        return;
+      }
+
       if (errorMessages.length > 0) {
         setError(errorMessages.join('\n'));
         return;
@@ -200,7 +226,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       setError(errorData.error + (errorData.details ? `: ${errorData.details}` : ''));
     } else if (errorData.error?.code === 4000 || errorData.error?.message === 'Please check your input and try again.' || errorData.message === 'Please check your input and try again.') {
       // Handle generic validation errors with clear requirements
-      setError(`Please check your input:\n• Email must be valid\n• Password must meet these requirements:\n  - At least 8 characters long\n  - At least one uppercase letter (A-Z)\n  - At least one lowercase letter (a-z)\n  - At least one number (0-9)\n  - At least one special character (!@#$%^&*)`);
+      setError('Please check your input. Email must be valid and your password needs at least 8 characters.');
     } else {
       // Convert error to string if it's not already
       const errorMessage = errorData.error?.message || 
@@ -292,6 +318,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
             isLoading={isLoading}
             error={error}
             databaseError={databaseError}
+            fieldErrors={fieldErrors}
             captchaToken={captchaToken}
             onCaptchaVerify={handleCaptchaVerify}
             onCaptchaReset={handleCaptchaReset}

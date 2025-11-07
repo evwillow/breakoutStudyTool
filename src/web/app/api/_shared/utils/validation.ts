@@ -216,13 +216,7 @@ export const commonSchemas = {
       required: true, 
       type: 'string' as const, 
       minLength: 8,
-      custom: (password: string) => {
-        if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
-        if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
-        if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
-        if (!/[^A-Za-z0-9]/.test(password)) return 'Password must contain at least one special character';
-        return true;
-      }
+      custom: () => true
     },
     captchaToken: { type: 'string' as const }
   },

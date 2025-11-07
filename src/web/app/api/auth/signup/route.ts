@@ -91,7 +91,7 @@ async function handleSignup(req: NextRequest): Promise<NextResponse> {
           passwordValidation.reason!,
           ErrorCodes.VALIDATION_INVALID_FORMAT,
           400,
-          { field: 'password' },
+          { validationErrors: { password: passwordValidation.reason } },
           passwordValidation.reason!
         );
       }
@@ -132,7 +132,7 @@ async function handleSignup(req: NextRequest): Promise<NextResponse> {
           'Email already registered',
           ErrorCodes.VALIDATION_ERROR,
           400,
-          { field: 'email' },
+          { validationErrors: { email: 'An account with this email address already exists.' } },
           'An account with this email address already exists.'
         );
       }

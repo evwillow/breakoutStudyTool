@@ -27,12 +27,15 @@ const SignUpForm = ({
   isLoading,
   error,
   databaseError,
+  fieldErrors = {},
   captchaToken,
   onCaptchaVerify,
   onCaptchaReset,
   onToggleMode,
   HCaptchaComponent
 }) => {
+  const passwordFeedback = fieldErrors?.password;
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <FormInput
@@ -55,17 +58,11 @@ const SignUpForm = ({
         autoComplete="new-password"
       />
 
-      {/* Password Requirements Hint */}
-      <div className="text-xs text-turquoise-400 mt-1 ml-1">
-        <p className="font-medium mb-1">Password must include:</p>
-        <ul className="space-y-0.5">
-          <li>• At least 8 characters</li>
-          <li>• One uppercase letter (A-Z)</li>
-          <li>• One lowercase letter (a-z)</li>
-          <li>• One number (0-9)</li>
-          <li>• One special character (!@#$%^&*)</li>
-        </ul>
-      </div>
+      {passwordFeedback && (
+        <div className="text-xs text-red-300 mt-1 ml-1" role="alert">
+          {passwordFeedback}
+        </div>
+      )}
 
       {/* Terms of Service */}
       <div className="flex flex-col items-center">

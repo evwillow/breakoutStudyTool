@@ -10,10 +10,6 @@ import { PasswordValidationResult } from '../types/auth';
  */
 const PASSWORD_REQUIREMENTS = {
   minLength: 8,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireNumbers: true,
-  requireSpecialChars: true,
 } as const;
 
 /**
@@ -24,34 +20,6 @@ export function validatePassword(password: string): PasswordValidationResult {
     return { 
       isValid: false, 
       reason: `Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters long` 
-    };
-  }
-  
-  if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
-    return { 
-      isValid: false, 
-      reason: "Password must contain at least one uppercase letter" 
-    };
-  }
-  
-  if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
-    return { 
-      isValid: false, 
-      reason: "Password must contain at least one lowercase letter" 
-    };
-  }
-  
-  if (PASSWORD_REQUIREMENTS.requireNumbers && !/[0-9]/.test(password)) {
-    return { 
-      isValid: false, 
-      reason: "Password must contain at least one number" 
-    };
-  }
-  
-  if (PASSWORD_REQUIREMENTS.requireSpecialChars && !/[^A-Za-z0-9]/.test(password)) {
-    return { 
-      isValid: false, 
-      reason: "Password must contain at least one special character" 
     };
   }
   
