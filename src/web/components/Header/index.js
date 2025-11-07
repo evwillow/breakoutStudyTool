@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { signOut, useSession } from "next-auth/react"
 import Link from "next/link"
 import Logo from "./Logo"
-import { SignInButton, AuthModal } from "../Auth"
+import { AuthModal } from "../Auth"
 
 /**
  * Header Component
@@ -329,13 +329,34 @@ const Header = () => {
                 )}
               </div>
             ) : (
-              <SignInButton 
-                className="hidden min-[800px]:inline-flex items-center" 
-                onClick={() => {
-                  setAuthModalMode('signin')
-                  setShowAuthModal(true)
-                }}
-              />
+              <div className="hidden min-[800px]:flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setAuthModalMode('signin')
+                    setShowAuthModal(true)
+                  }}
+                  className={`px-5 py-2.5 font-semibold rounded-lg transition-colors ${
+                    scrolled
+                      ? "bg-turquoise-600 text-white hover:bg-turquoise-500"
+                      : "bg-turquoise-600 text-white hover:bg-turquoise-500"
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthModalMode('signup')
+                    setShowAuthModal(true)
+                  }}
+                  className={`px-5 py-2.5 font-semibold rounded-lg transition-colors ${
+                    scrolled
+                      ? "bg-white text-turquoise-600 border border-turquoise-100 hover:bg-gray-50"
+                      : "bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
             )}
             
             {/* Mobile menu button - Shown only when navigation is hidden */}
