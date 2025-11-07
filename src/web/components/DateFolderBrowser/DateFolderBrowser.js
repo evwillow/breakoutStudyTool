@@ -1183,7 +1183,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                 style={{ transitionDelay: `${index * 150}ms` }}
               >
                 <button 
-                  className={`w-full p-4 text-left text-white bg-transparent hover:bg-transparent flex justify-between items-center setup-item-interactive transition-transform duration-150 border-0 ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
+                  className={`w-full p-4 text-left text-white bg-black hover:bg-black flex justify-between items-center setup-item-interactive transition-all duration-700 ease-out border-0 ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
                   onClick={() => handleFileToggle(file.id)}
                   style={{ borderBottom: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
                 >
@@ -1206,7 +1206,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                 
                 {expandedFiles.includes(file.id) && (
                   <div 
-                    className="bg-transparent transition-all duration-700 ease-in-out origin-top border-0"
+                    className="bg-transparent transition-all duration-700 ease-in-out origin-top border-0 overflow-hidden"
                     style={{
                       animation: `expandContent 700ms ease-out forwards`,
                       borderTop: 'none'
@@ -1263,22 +1263,29 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: translateY(10px);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
           }
         }
         
         @keyframes fadeOut {
           from {
             opacity: 1;
-            transform: translateY(0);
           }
           to {
             opacity: 0;
-            transform: translateY(10px);
+          }
+        }
+        
+        @keyframes collapseContent {
+          from {
+            max-height: calc(100vw + 3rem);
+            opacity: 1;
+          }
+          to {
+            max-height: 0;
+            opacity: 0;
           }
         }
         

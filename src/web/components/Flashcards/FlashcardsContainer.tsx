@@ -1217,7 +1217,7 @@ export default function FlashcardsContainer() {
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
       <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-4 md:p-6">
-        <div className="w-full max-w-[1000px] bg-black rounded-2xl sm:rounded-3xl overflow-hidden border border-white shadow-2xl transition-all duration-300">
+        <div className="w-full sm:max-w-[1000px] bg-transparent rounded-2xl sm:rounded-3xl overflow-hidden border border-transparent transition-all duration-300">
           
           {/* Chart Section */}
           <TypedChartSection

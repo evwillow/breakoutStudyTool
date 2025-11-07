@@ -944,7 +944,7 @@ function ChartSection({
           </div>
           
           {/* Points Labels - Flexible flow layout that only wraps when necessary */}
-          <div className={`flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg shadow-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-xl' : ''}`}>
+          <div className={`flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-lg p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-xl' : ''}`}>
             {(() => {
               // Ensure we have a valid array - handle undefined/null gracefully
               const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
