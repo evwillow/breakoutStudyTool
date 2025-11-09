@@ -76,9 +76,10 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     const fetchAllStockFiles = async () => {
       try {
         // First, try to use files from flashcards that are already loaded
-        // Extract date-formatted files and after.json files from all flashcards
+        // Extract date-formatted files from the current stock's directory only
         const preloadedFiles = [];
         if (flashcards && flashcards.length > 0 && currentStock) {
+          const currentStockLower = currentStock.toLowerCase();
           flashcards.forEach(flashcard => {
             if (flashcard.jsonFiles && flashcard.jsonFiles.length > 0) {
               flashcard.jsonFiles.forEach(file => {
@@ -87,64 +88,20 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   const fileNameParts = fileName.split(/[/\\]/);
                   const lastPart = fileNameParts[fileNameParts.length - 1];
                   
-                  // Only include date-formatted files (e.g., "Sep_7_2021.json")
-                  // NOT after.json or any other files
+                  // Only include date-formatted files (e.g., "Dec_23_2020.json")
                   const isDateFile = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i.test(lastPart);
                   
                   if (isDateFile) {
-                    // Check if this file is relevant to current stock
-                    const stockSymbol = currentStock.toLowerCase().split('_')[0] || '';
+                    // Only include if from the current stock's directory
                     const fileDir = file.fileName.split('/')[0]?.toLowerCase() || '';
-                    const fileStockSymbol = fileDir.split('_')[0] || '';
-                    
-                    // Only include if same stock symbol and different directory (not the current breakout)
-                    if (stockSymbol && fileStockSymbol === stockSymbol && fileDir !== currentStock.toLowerCase()) {
-                      // Parse date from filename to check if it's before the current breakout
-                      const fileNameParts = file.fileName.split('/');
-                      const fileName = fileNameParts[fileNameParts.length - 1] || '';
-                      const nameWithoutExtension = fileName.replace('.json', '');
-                      const dateParts = nameWithoutExtension.split('_');
-                      
-                      if (dateParts.length === 3) {
-                        const monthStr = dateParts[0];
-                        const day = parseInt(dateParts[1], 10);
-                        const year = parseInt(dateParts[2], 10);
-                        
-                        const monthMap = {
-                          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
-                          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
-                        };
-                        const monthIndex = monthMap[monthStr.toLowerCase()];
-                        
-                        if (monthIndex !== undefined && !isNaN(day) && !isNaN(year)) {
-                          const fileDate = new Date(year, monthIndex, day);
-                          
-                          // Parse current stock breakout date
-                          const stockParts = currentStock.split('_');
-                          if (stockParts.length >= 4) {
-                            const currentMonthStr = stockParts[1];
-                            const currentDay = parseInt(stockParts[2], 10);
-                            const currentYear = parseInt(stockParts[3], 10);
-                            
-                            const currentMonthIndex = monthMap[currentMonthStr.toLowerCase()];
-                            
-                            if (currentMonthIndex !== undefined && !isNaN(currentDay) && !isNaN(currentYear)) {
-                              const currentBreakoutDate = new Date(currentYear, currentMonthIndex, currentDay);
-                              
-                              // Only include if file date is BEFORE current breakout date
-                              if (fileDate.getTime() < currentBreakoutDate.getTime()) {
-                                preloadedFiles.push({
-                                  id: file.fileName,
-                                  subfolder: file.fileName.split('/')[0],
-                                  fileName: file.fileName,
-                                  data: file.data, // Already loaded!
-                                  path: file.fileName
-                                });
-                              }
-                            }
-                          }
-                        }
-                      }
+                    if (fileDir === currentStockLower) {
+                      preloadedFiles.push({
+                        id: file.fileName,
+                        subfolder: file.fileName.split('/')[0],
+                        fileName: file.fileName,
+                        data: file.data, // Already loaded!
+                        path: file.fileName
+                      });
                     }
                   }
                 }
@@ -201,148 +158,43 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         }
         
         const allFiles = qualityBreakoutsFolder.files;
-        let relevantFiles = [];
-        let totalFilesFound = allFiles.length;
         
-        // Process all files to find relevant ones
-        // Files are in format: "STOCK_DIR/FILENAME.json" (e.g., "AAL_Dec_11_2006/Feb_22_2016.json")
-        const { relevantFiles: filteredFiles } = processAndFilterFiles(allFiles, 'quality_breakouts', currentStock);
-        relevantFiles = filteredFiles;
-        
-        // If we're looking for a specific stock and found no files, try a fallback approach
-        if (relevantFiles.length === 0 && currentStock) {
-          console.log(`No files found for ${currentStock}, trying fallback approaches...`);
-          
-          // First fallback: Try to fetch files directly from a folder with the same name as the stock
-          try {
-            const stockFolderRes = await fetch(`/api/files/local-folders`);
-            if (stockFolderRes.ok) {
-              const stockFolderData = await stockFolderRes.json();
-              
-              if (stockFolderData.success && stockFolderData.folders) {
-                // Find the folder with the stock name
-                const stockFolder = stockFolderData.folders.find(f => f.name === currentStock);
-                if (stockFolder && stockFolder.files && stockFolder.files.length > 0) {
-                  console.log(`Found files in folder ${currentStock}:`, stockFolder.files);
-                  
-                  const { relevantFiles: stockFiles, totalFilesBeforeFiltering: stockTotalFiles } = processAndFilterFiles(stockFolder.files, currentStock, null); // Pass null to include all files
-                  totalFilesFound += stockTotalFiles;
-                  relevantFiles = [...relevantFiles, ...stockFiles];
-                }
-              }
-            }
-          } catch (error) {
-            console.error(`Error in first fallback approach:`, error);
-          }
-          
-          // Note: searchFiles API not available in local setup
-          // This fallback is disabled for local data loading
-          
-          // Note: getStockFiles API not available in local setup
-          // This fallback is disabled for local data loading
-          
-          // Special case for specific stock symbols
-          if (relevantFiles.length === 0) {
-            const lowerStock = currentStock.toLowerCase();
-            
-            if (lowerStock === "poo_jan_4_2019") {
-              console.log("Special case for POO_Jan_4_2019: Creating a sample file");
-              
-              // Create a sample file for demonstration purposes
-              const sampleData = [
-                { Date: "2019-01-04", Open: 100, High: 105, Low: 98, Close: 103, Volume: 1000 },
-                { Date: "2019-01-03", Open: 98, High: 102, Low: 97, Close: 100, Volume: 950 },
-                { Date: "2019-01-02", Open: 95, High: 99, Low: 94, Close: 98, Volume: 900 }
-              ];
-              
-              relevantFiles.push({
-                id: "POO_Jan_4_2019/sample.json",
-                subfolder: "POO_Jan_4_2019",
-                fileName: "sample.json",
-                data: sampleData
-              });
-              
-              totalFilesFound += 1;
-            } 
-            else if (lowerStock === "ski_mar_9_2011") {
-              console.log("Special case for SKI_Mar_9_2011: Creating a sample file");
-              
-              // Create a sample file for demonstration purposes
-              const sampleData = [
-                { Date: "2011-03-09", Open: 45.20, High: 46.75, Low: 44.80, Close: 46.25, Volume: 2500 },
-                { Date: "2011-03-08", Open: 44.90, High: 45.50, Low: 44.25, Close: 45.10, Volume: 2200 },
-                { Date: "2011-03-07", Open: 45.30, High: 45.80, Low: 44.50, Close: 44.85, Volume: 2100 }
-              ];
-              
-              relevantFiles.push({
-                id: "SKI_Mar_9_2011/sample.json",
-                subfolder: "SKI_Mar_9_2011",
-                fileName: "sample.json",
-                data: sampleData
-              });
-              
-              totalFilesFound += 1;
-            }
-            // Add more special cases as needed
-          }
+        if (!currentStock) {
+          setAllFiles([]);
+          setDebugInfo('No stock selected');
+          return;
         }
         
-        // For Previous Setups, we ONLY want date-formatted files, NOT after.json
-        // Filter out after.json and any other non-date files
-        // Also filter out files where the date is AFTER the current breakout date
-        const dateFormattedFiles = relevantFiles.filter(file => {
-          const fileNameLower = file.fileName.toLowerCase();
-          const fileNameParts = fileNameLower.split(/[/\\]/);
-          const lastPart = fileNameParts[fileNameParts.length - 1];
+        // Extract stock symbol from current stock (e.g., "ADPT" from "ADPT_Dec_7_2020")
+        const currentStockLower = currentStock.toLowerCase();
+        
+        // Simple filter: Get date-formatted files from the current stock's directory only
+        const previousBreakoutFiles = allFiles.filter(file => {
+          // File format: "STOCK_DIR/FILENAME.json" (e.g., "ADPT_Dec_7_2020/Dec_23_2020.json")
+          const fileName = file.fileName || file.name || '';
+          const fileNameParts = fileName.split(/[/\\]/);
           
-          // Only include date-formatted files (e.g., "Feb_22_2016.json")
+          if (fileNameParts.length < 2) return false;
+          
+          const directoryName = fileNameParts[0].toLowerCase();
+          const actualFileName = fileNameParts[fileNameParts.length - 1].toLowerCase();
+          
+          // Only include files from the current stock's directory
+          if (directoryName !== currentStockLower) return false;
+          
+          // Only include date-formatted files (e.g., "Dec_23_2020.json")
           const dateFormatRegex = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i;
-          if (!dateFormatRegex.test(lastPart)) {
-            return false;
-          }
-          
-          // Parse date from filename
-          const nameWithoutExtension = lastPart.replace('.json', '');
-          const parts = nameWithoutExtension.split('_');
-          const monthStr = parts[0];
-          const day = parseInt(parts[1], 10);
-          const year = parseInt(parts[2], 10);
-          
-          const monthMap = {
-            'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
-            'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
-          };
-          const monthIndex = monthMap[monthStr.toLowerCase()];
-          
-          if (monthIndex === undefined || isNaN(day) || isNaN(year)) {
-            return false;
-          }
-          
-          const fileDate = new Date(year, monthIndex, day);
-          
-          // Parse date from current stock directory (e.g., "AAL_Dec_11_2006")
-          if (currentStock) {
-            const stockParts = currentStock.split('_');
-            if (stockParts.length >= 4) {
-              const currentMonthStr = stockParts[1];
-              const currentDay = parseInt(stockParts[2], 10);
-              const currentYear = parseInt(stockParts[3], 10);
-              
-              const currentMonthIndex = monthMap[currentMonthStr.toLowerCase()];
-              
-              if (currentMonthIndex !== undefined && !isNaN(currentDay) && !isNaN(currentYear)) {
-                const currentBreakoutDate = new Date(currentYear, currentMonthIndex, currentDay);
-                
-                // Only include files where the date is BEFORE the current breakout date
-                // Exclude files that are on the same day or after
-                return fileDate.getTime() < currentBreakoutDate.getTime();
-              }
-            }
-          }
-          
-          // If we can't parse the current stock date, include the file (better to show than hide)
-          return true;
+          return dateFormatRegex.test(actualFileName);
         });
+        
+        // Format files for display
+        const dateFormattedFiles = previousBreakoutFiles.map(file => ({
+          id: file.fileName || file.name,
+          subfolder: (file.fileName || file.name).split('/')[0],
+          fileName: file.fileName || file.name,
+          data: file.data || null,
+          path: file.fileName || file.name
+        }));
         
         // Load date-formatted files in parallel
         const dateFileLoadPromises = dateFormattedFiles.map(async (file) => {
@@ -425,7 +277,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         // Only update files if we found some, otherwise keep existing files to prevent flicker
         if (finalFiles.length > 0) {
           setAllFiles(finalFiles);
-          setDebugInfo(`Found ${finalFiles.length} previous setups for ${currentStock || "all stocks"} (total files before filtering: ${totalFilesFound})`);
+          setDebugInfo(`Found ${finalFiles.length} previous setups for ${currentStock || "all stocks"}`);
         } else if (currentStock) {
           // If we have a currentStock but found no files, still update to show empty state
           setAllFiles([]);
@@ -833,14 +685,12 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     const directoryName = fileNameParts.length > 1 ? fileNameParts[0] : null;
     const actualFileName = fileNameParts.length > 1 ? fileNameParts[fileNameParts.length - 1] : fileNameLower;
     
-    // Exclude files from the current stock's directory to avoid showing the same breakout
-    // If the directory matches the current stock exactly, exclude it
-    if (directoryName && directoryName === stockLower) {
-      return false;
-    }
+    // Check if it's a date-formatted file (e.g., "Mar_21_1994.json")
+    // Use case-insensitive matching for date files
+    const isDateFile = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i.test(actualFileName);
     
-    // For "Previous Setups", we ONLY want to show files from the SAME STOCK SYMBOL
-    // Check if the directory name starts with the current stock symbol
+    // For "Previous Setups", we want to show date-formatted files from the SAME STOCK SYMBOL
+    // This includes files from the same directory if they're date-formatted (date filtering happens later)
     if (!directoryName) {
       // If no directory path, can't determine stock - exclude it
       return false;
@@ -855,19 +705,14 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
       return false;
     }
     
-    // Now check if it's a date-formatted file (e.g., "Sep_7_2021.json")
-    // Use case-insensitive matching for date files
-    const isDateFile = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i.test(actualFileName);
-    
-    // If it's a date-formatted file from the same stock (different directory), include it
-    // Note: All files are previous breakouts (none occur after the current one)
-    if (isDateFile) {
-      return true;
+    // For "Previous Setups", we ONLY want date-formatted files from the SAME DIRECTORY as the current stock
+    // Exclude files from other directories (even if same stock symbol) and non-date files
+    if (directoryName !== stockLower) {
+      return false; // Only show files from the current stock's directory
     }
     
-    // Default: exclude files that don't match our criteria
-    // We only show date-formatted files from the same stock symbol
-    return false;
+    // Only include date-formatted files
+    return isDateFile;
   };
 
   /**
