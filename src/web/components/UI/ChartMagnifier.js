@@ -41,6 +41,7 @@ const ChartMagnifier = ({
   const isDraggingMagnifierWidgetRef = useRef(false);
   const targetPositionRef = useRef({ x: 0, y: 0 });
   const recentDragEndTimeRef = useRef(0); // Track when a drag ended to allow tap-after-drag selection
+  const makeSelectionRef = useRef(null); // Ref to store makeSelection function for cross-scope access
   
   // Helper to safely prevent default only if event is cancelable
   const safePreventDefault = (e) => {
@@ -320,58 +321,134 @@ const ChartMagnifier = ({
     let hasDragged = false; // Track if user has dragged the magnifier (moved beyond threshold)
     
     // Helper function to make a selection at the current magnifier position
+    // This function is bulletproof and will always try to make a selection if possible
     const makeSelection = () => {
-      // Always get fresh bounds to ensure accuracy
-      const selectionBounds = getSelectionAreaBounds();
-      if (!selectionBounds) {
-        console.warn('[ChartMagnifier] No selection bounds available');
-        return false;
-      }
-      
-      if (!onSelectionRef.current) {
-        console.warn('[ChartMagnifier] onSelection callback not available');
-        return false;
-      }
-      
-      // Use targetPositionRef.current (center point of magnifying glass) for selection
-      const selectionPos = targetPositionRef.current;
-      const clientCoords = selectionToClientCoords(selectionPos.x, selectionPos.y, selectionBounds);
-      
-      console.log('[ChartMagnifier] Making selection at:', {
-        selectionPos,
-        clientCoords,
-        targetPosition: targetPositionRef.current
-      });
-      
-      const syntheticEvent = {
-        clientX: clientCoords.x,
-        clientY: clientCoords.y,
-        preventDefault: () => {},
-        stopPropagation: () => {},
-      };
-      
-      // Call the selection callback
       try {
-        if (typeof onSelectionRef.current === 'function') {
-          console.log('[ChartMagnifier] Calling onSelection callback with:', syntheticEvent);
-          onSelectionRef.current(syntheticEvent);
-          console.log('[ChartMagnifier] Selection callback called successfully');
-        } else {
-          console.error('[ChartMagnifier] onSelection is not a function:', typeof onSelectionRef.current);
+        // Always get fresh bounds to ensure accuracy
+        let selectionBounds = getSelectionAreaBounds();
+        
+        // If bounds are not available, try to get them from cache or recalculate
+        if (!selectionBounds) {
+          selectionBounds = selectionBoundsCache || getSelectionAreaBounds();
+        }
+        
+        // Final fallback: if still no bounds, try to get from chart element directly
+        if (!selectionBounds && chartElement) {
+          const rect = chartElement.getBoundingClientRect();
+          const volumePercentage = 0.25;
+          const selectionAreaHeight = rect.height * (1 - volumePercentage);
+          selectionBounds = {
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+            bottom: rect.top + selectionAreaHeight,
+            width: rect.width,
+            height: selectionAreaHeight,
+          };
+        }
+        
+        if (!selectionBounds) {
+          console.error('[ChartMagnifier] Cannot get selection bounds - selection failed');
           return false;
         }
+        
+        if (!onSelectionRef.current) {
+          console.error('[ChartMagnifier] onSelection callback not available - selection failed');
+          return false;
+        }
+        
+        // Get selection position - use ref first (most up-to-date), then state, then fallback
+        let selectionPos = targetPositionRef.current;
+        if (!selectionPos || typeof selectionPos.x !== 'number' || typeof selectionPos.y !== 'number') {
+          selectionPos = targetPosition;
+        }
+        if (!selectionPos || typeof selectionPos.x !== 'number' || typeof selectionPos.y !== 'number') {
+          selectionPos = lastTapPositionRef.current;
+        }
+        if (!selectionPos || typeof selectionPos.x !== 'number' || typeof selectionPos.y !== 'number') {
+          // Final fallback: use center of selection area
+          selectionPos = {
+            x: selectionBounds.width * 0.85, // Right side of chart (prediction area)
+            y: selectionBounds.height * 0.5, // Middle vertically
+          };
+        }
+        
+        // Ensure position is within bounds
+        const constrainedPos = constrainPosition(selectionPos.x, selectionPos.y, selectionBounds);
+        const clientCoords = selectionToClientCoords(constrainedPos.x, constrainedPos.y, selectionBounds);
+        
+        // Validate coordinates are valid numbers
+        if (typeof clientCoords.x !== 'number' || typeof clientCoords.y !== 'number' || 
+            isNaN(clientCoords.x) || isNaN(clientCoords.y)) {
+          console.error('[ChartMagnifier] Invalid coordinates calculated:', clientCoords);
+          return false;
+        }
+        
+        console.log('[ChartMagnifier] Making selection at:', {
+          selectionPos: constrainedPos,
+          clientCoords,
+          targetPosition: targetPositionRef.current
+        });
+        
+        const syntheticEvent = {
+          clientX: clientCoords.x,
+          clientY: clientCoords.y,
+          preventDefault: () => {},
+          stopPropagation: () => {},
+        };
+        
+        // Call the selection callback with error handling and validation
+        try {
+          if (typeof onSelectionRef.current === 'function') {
+            console.log('[ChartMagnifier] Calling onSelection callback:', syntheticEvent);
+            onSelectionRef.current(syntheticEvent);
+            console.log('[ChartMagnifier] Selection callback called successfully');
+          } else {
+            console.error('[ChartMagnifier] onSelection is not a function:', typeof onSelectionRef.current);
+            // Try one more time after a brief delay in case callback was just set
+            setTimeout(() => {
+              if (typeof onSelectionRef.current === 'function') {
+                console.log('[ChartMagnifier] Retrying selection callback after delay');
+                try {
+                  onSelectionRef.current(syntheticEvent);
+                } catch (retryError) {
+                  console.error('[ChartMagnifier] Retry also failed:', retryError);
+                }
+              }
+            }, 50);
+            return false;
+          }
+        } catch (error) {
+          console.error('[ChartMagnifier] Error calling selection callback:', error);
+          // Try one more time after a brief delay
+          setTimeout(() => {
+            if (typeof onSelectionRef.current === 'function') {
+              console.log('[ChartMagnifier] Retrying selection callback after error');
+              try {
+                onSelectionRef.current(syntheticEvent);
+              } catch (retryError) {
+                console.error('[ChartMagnifier] Retry after error also failed:', retryError);
+              }
+            }
+          }, 50);
+          // Still return true if we attempted the call (error might be in callback, not our code)
+          return true;
+        }
+        
+        // Reset after successful selection
+        lastTapPositionRef.current = null;
+        lastTapTimeRef.current = 0;
+        magnifierLastTapTimeRef.current = 0;
+        recentDragEndTimeRef.current = 0; // Clear recent drag flag after selection
+        return true;
       } catch (error) {
-        console.error('[ChartMagnifier] Error calling selection callback:', error);
+        console.error('[ChartMagnifier] Unexpected error in makeSelection:', error);
         return false;
       }
-      
-      // Reset after selection
-      lastTapPositionRef.current = null;
-      lastTapTimeRef.current = 0;
-      magnifierLastTapTimeRef.current = 0;
-      recentDragEndTimeRef.current = 0; // Clear recent drag flag after selection
-      return true;
     };
+    
+    // Store makeSelection in ref so it can be accessed from other useEffects
+    makeSelectionRef.current = makeSelection;
 
     const handleMagnifierTouchStart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
@@ -446,6 +523,7 @@ const ChartMagnifier = ({
       if (magnifierStartPos !== null) {
         isDraggingMagnifier = true;
         setIsDraggingMagnifierWidget(true);
+        isDraggingMagnifierWidgetRef.current = true; // Update ref immediately for synchronous access
         
         // Mark as dragged if there's any movement (even small)
         if (distance > 0) {
@@ -476,10 +554,10 @@ const ChartMagnifier = ({
           
           // Update render position (can extend beyond selection area, in selection-area-relative coords)
           setMagnifierRenderPos({ x: constrainedRenderX, y: constrainedRenderY });
-          isDraggingMagnifierWidgetRef.current = true;
           
           // Update target position (center, constrained to selection area)
           setTargetPosition(constrainedTarget);
+          targetPositionRef.current = constrainedTarget; // Keep ref in sync
           lastTapPositionRef.current = constrainedTarget;
           
           rafId = null;
@@ -532,35 +610,40 @@ const ChartMagnifier = ({
         isDraggingMagnifier
       });
       
+      // Selection logic - multiple ways to trigger selection for maximum reliability
+      // Priority: 1. Quick tap after a recent drag, 2. Double tap, 3. Single tap, 4. Any tap (fallback)
+      
+      const isTapAfterDrag = timeSinceDragEnd < TAP_AFTER_DRAG_TIME && recentDragEndTimeRef.current > 0;
+      const isDoubleTap = timeSinceLastTap < DOUBLE_TAP_TIME && magnifierLastTapTimeRef.current > 0;
+      
       // If user dragged the magnifier, mark that a drag just ended
-      // User must tap once more to confirm selection
+      // User can tap once more to confirm selection
       if (hasDragged) {
         console.log('[ChartMagnifier] Drag ended, marking for tap-after-drag');
-        // Mark that a drag just ended - don't make selection immediately
-        // User can tap once more to confirm selection
         recentDragEndTimeRef.current = Date.now();
+        // Don't make selection immediately after drag - wait for confirmation tap
       } else if (isQuickTap && !isDraggingMagnifier) {
-        // Handle tap scenarios (no drag detected in this touch):
-        // Priority: 1. Quick tap after a recent drag, 2. Double tap, 3. Single tap
-        
+        // Handle tap scenarios (no drag detected in this touch)
         console.log('[ChartMagnifier] Quick tap detected, checking conditions...', {
           timeSinceDragEnd,
           TAP_AFTER_DRAG_TIME,
           recentDragEndTime: recentDragEndTimeRef.current,
           timeSinceLastTap,
           DOUBLE_TAP_TIME,
-          lastTapTime: magnifierLastTapTimeRef.current
+          lastTapTime: magnifierLastTapTimeRef.current,
+          isTapAfterDrag,
+          isDoubleTap
         });
-        
-        // Check for tap-after-drag FIRST (highest priority)
-        const isTapAfterDrag = timeSinceDragEnd < TAP_AFTER_DRAG_TIME && recentDragEndTimeRef.current > 0;
-        const isDoubleTap = timeSinceLastTap < DOUBLE_TAP_TIME && magnifierLastTapTimeRef.current > 0;
         
         if (isTapAfterDrag) {
           // Single tap after dragging - make selection
           console.log('[ChartMagnifier] Single tap after drag - making selection');
           setTimeout(() => {
-            makeSelection();
+            const result = makeSelection();
+            if (!result) {
+              console.warn('[ChartMagnifier] Selection failed, retrying...');
+              setTimeout(() => makeSelection(), 100);
+            }
           }, 50);
           // Clear the drag marker after handling
           recentDragEndTimeRef.current = 0;
@@ -568,7 +651,11 @@ const ChartMagnifier = ({
           // Double tap detected - make selection at the center of the magnifying glass
           console.log('[ChartMagnifier] Double tap detected - making selection');
           setTimeout(() => {
-            makeSelection();
+            const result = makeSelection();
+            if (!result) {
+              console.warn('[ChartMagnifier] Selection failed, retrying...');
+              setTimeout(() => makeSelection(), 100);
+            }
           }, 50);
           magnifierDoubleTapTimeRef.current = Date.now();
           magnifierLastTapTimeRef.current = 0;
@@ -577,10 +664,25 @@ const ChartMagnifier = ({
           // This allows single tap to work without requiring double tap or drag
           console.log('[ChartMagnifier] Quick single tap - making selection immediately');
           setTimeout(() => {
-            makeSelection();
+            const result = makeSelection();
+            if (!result) {
+              console.warn('[ChartMagnifier] Selection failed, retrying...');
+              setTimeout(() => makeSelection(), 100);
+            }
           }, 50);
           magnifierLastTapTimeRef.current = Date.now();
         }
+      } else if (!hasDragged && !isDraggingMagnifier) {
+        // Fallback: If it's not a quick tap but also not a drag, still try to make selection
+        // This ensures selection works even if timing detection fails
+        console.log('[ChartMagnifier] Fallback selection trigger - making selection');
+        setTimeout(() => {
+          const result = makeSelection();
+          if (!result) {
+            console.warn('[ChartMagnifier] Fallback selection failed, retrying...');
+            setTimeout(() => makeSelection(), 100);
+          }
+        }, 100);
       }
       
       activeTouchId = null;
@@ -679,11 +781,18 @@ const ChartMagnifier = ({
     let initialTouch = null;
     let totalMovement = 0;
     const MOVEMENT_THRESHOLD = 15;
+    let longPressTimer = null;
+    const LONG_PRESS_DURATION = 500; // 500ms for long press to trigger selection
 
     const handleChartTouchStart = (e) => {
       if (!e.touches || e.touches.length === 0) return;
       
       const touch = e.touches[0];
+      
+      // Don't handle if user is currently dragging the magnifier widget
+      if (isDraggingMagnifierWidgetRef.current) {
+        return;
+      }
       
       // Check if touch is in selectable area
       const inSelectableArea = isInSelectableArea(touch.clientX);
@@ -731,6 +840,7 @@ const ChartMagnifier = ({
       });
       
       setTargetPosition(constrained);
+      targetPositionRef.current = constrained; // Keep ref in sync
       // Update render position to follow target (unless we're dragging magnifier widget)
       if (!isDraggingMagnifierWidgetRef.current) {
         const newRenderPos = getMagnifierRenderPosition(constrained, selectionBounds);
@@ -740,10 +850,31 @@ const ChartMagnifier = ({
         console.log('[Chart] TouchStart - skipping render pos update (dragging widget)');
       }
       lastTapPositionRef.current = constrained;
+      
+      // Start long-press timer for selection fallback
+      longPressTimer = setTimeout(() => {
+        console.log('[Chart] Long press detected - making selection');
+        if (makeSelectionRef.current) {
+          makeSelectionRef.current();
+        } else {
+          console.warn('[Chart] makeSelection not available, retrying...');
+          setTimeout(() => {
+            if (makeSelectionRef.current) {
+              makeSelectionRef.current();
+            }
+          }, 50);
+        }
+        longPressTimer = null;
+      }, LONG_PRESS_DURATION);
     };
 
     const handleChartTouchMove = (e) => {
       if (!e.touches || e.touches.length === 0) return;
+      
+      // Don't handle if user is currently dragging the magnifier widget
+      if (isDraggingMagnifierWidgetRef.current) {
+        return;
+      }
       
       // Only handle if we have an active touch (started in selectable area)
       if (activeTouchIdRef.current === null) {
@@ -773,6 +904,12 @@ const ChartMagnifier = ({
         touchMoved = totalMovement > MOVEMENT_THRESHOLD;
       }
       
+      // Cancel long-press timer if user moves (it's a drag, not a long press)
+      if (touchMoved && longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      
       const coords = clientToSelectionCoords(touch.clientX, touch.clientY, selectionBounds);
       const constrained = constrainPosition(coords.x, coords.y, selectionBounds);
       
@@ -785,6 +922,7 @@ const ChartMagnifier = ({
       });
       
       setTargetPosition(constrained);
+      targetPositionRef.current = constrained; // Keep ref in sync
       // Update render position to follow target (unless we're dragging magnifier widget)
       if (!isDraggingMagnifierWidgetRef.current) {
         const newRenderPos = getMagnifierRenderPosition(constrained, selectionBounds);
@@ -839,6 +977,7 @@ const ChartMagnifier = ({
       const constrained = constrainPosition(coords.x, coords.y, selectionBounds);
       
       setTargetPosition(constrained);
+      targetPositionRef.current = constrained; // Keep ref in sync
       // Update render position to follow target (unless we're dragging magnifier widget)
       if (!isDraggingMagnifierWidgetRef.current) {
         const newRenderPos = getMagnifierRenderPosition(constrained, selectionBounds);
@@ -848,6 +987,38 @@ const ChartMagnifier = ({
       lastTapTimeRef.current = Date.now();
       hasPositionedRef.current = true;
       setHasBeenPositioned(true);
+      
+      // Cancel long-press timer
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      
+      // If it was a quick tap without much movement, trigger selection immediately
+      const touchDuration = Date.now() - touchStartTimeRef.current;
+      if (!touchMoved && touchDuration < 300 && totalMovement < MOVEMENT_THRESHOLD) {
+        console.log('[Chart] Quick tap on chart - making selection');
+        setTimeout(() => {
+          if (makeSelectionRef.current) {
+            const result = makeSelectionRef.current();
+            if (!result) {
+              console.warn('[Chart] Chart tap selection failed, retrying...');
+              setTimeout(() => {
+                if (makeSelectionRef.current) {
+                  makeSelectionRef.current();
+                }
+              }, 100);
+            }
+          } else {
+            console.warn('[Chart] makeSelection not available, retrying...');
+            setTimeout(() => {
+              if (makeSelectionRef.current) {
+                makeSelectionRef.current();
+              }
+            }, 100);
+          }
+        }, 50);
+      }
       
       setIsDragging(false);
       touchMoved = false;
@@ -875,6 +1046,7 @@ const ChartMagnifier = ({
       const constrained = constrainPosition(coords.x, coords.y, selectionBounds);
       
       setTargetPosition(constrained);
+      targetPositionRef.current = constrained; // Keep ref in sync
       // Update render position to follow target (unless we're dragging magnifier widget)
       if (!isDraggingMagnifierWidgetRef.current) {
         const newRenderPos = getMagnifierRenderPosition(constrained, selectionBounds);
@@ -885,6 +1057,12 @@ const ChartMagnifier = ({
     };
 
     const handleChartTouchCancel = (e) => {
+      // Cancel long-press timer
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      
       setIsDragging(false);
       touchMoved = false;
       totalMovement = 0;
@@ -899,6 +1077,12 @@ const ChartMagnifier = ({
     document.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
 
     return () => {
+      // Clean up long-press timer
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      
       chartElement.removeEventListener('touchstart', handleChartTouchStart);
       chartElement.removeEventListener('touchmove', handleChartTouchMove);
       chartElement.removeEventListener('touchend', handleChartTouchEnd);
