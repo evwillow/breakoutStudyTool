@@ -121,7 +121,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
         event.stopPropagation();
       }}
     >
-      <div className="relative rounded-xl shadow-2xl border border-turquoise-400/70 px-5 sm:px-6 py-4 sm:py-5" style={{ background: 'var(--soft-white)' }}>
+      <div className="relative rounded-md shadow-2xl border border-turquoise-400/70 px-5 sm:px-6 py-4 sm:py-5" style={{ background: 'var(--soft-white)' }}>
         <div
           className="absolute"
           style={{

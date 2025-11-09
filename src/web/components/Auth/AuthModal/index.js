@@ -272,7 +272,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="fixed inset-0 bg-turquoise-950 bg-opacity-70 backdrop-blur-sm"></div>
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-soft-white rounded-xl p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-300 shadow-2xl border border-turquoise-700/50">
+        <div className="bg-soft-white rounded-md p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-300 shadow-2xl border border-turquoise-700/50">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -286,7 +286,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
         
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="inline-block p-3 bg-turquoise-900/50 rounded-full mb-2 border border-turquoise-700/50">
+          <div className="inline-block p-3 bg-turquoise-900/50 rounded-md mb-2 border border-turquoise-700/50">
             <svg className="w-8 h-8 text-turquoise-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>

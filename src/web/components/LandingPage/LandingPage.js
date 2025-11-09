@@ -31,7 +31,7 @@ const LandingPage = ({ onSignIn }) => {
         <div className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center">
           <div className="lg:w-7/12 lg:pr-12 mb-10 lg:mb-0">
             <div className="mb-8">
-              <span className="inline-block px-3 py-1 bg-turquoise-500 bg-opacity-20 text-turquoise-400 rounded-full text-sm font-semibold tracking-wide uppercase mb-2">In Development</span>
+              <span className="inline-block px-3 py-1 bg-turquoise-500 bg-opacity-20 text-turquoise-400 rounded-md text-sm font-semibold tracking-wide uppercase mb-2">In Development</span>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight bg-gradient-to-r from-turquoise-200 via-white to-turquoise-200 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(56,178,172,0.25)]">
                 <span className="text-white/0">Breakout</span> Study Tool
               </h1>
@@ -45,7 +45,7 @@ const LandingPage = ({ onSignIn }) => {
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
               <button 
                 onClick={() => setShowAuth(true)}
-                className="px-10 py-4 bg-turquoise-500 text-white rounded-xl font-bold text-lg shadow-[0_10px_30px_rgba(56,178,172,0.35)] hover:shadow-[0_14px_40px_rgba(56,178,172,0.45)] ring-1 ring-turquoise-300/50 hover:bg-turquoise-600 transition transform hover:-translate-y-0.5"
+                className="px-10 py-4 bg-turquoise-500 text-white rounded-md font-bold text-lg shadow-[0_10px_30px_rgba(56,178,172,0.35)] hover:shadow-[0_14px_40px_rgba(56,178,172,0.45)] ring-1 ring-turquoise-300/50 hover:bg-turquoise-600 transition transform hover:-translate-y-0.5"
               >
                 Sign Up
               </button>
@@ -56,7 +56,7 @@ const LandingPage = ({ onSignIn }) => {
           <div className="lg:w-5/12 lg:pl-6">
             <div className="relative">
               {/* Chart visualization */}
-              <div className="bg-transparent rounded-xl p-4 transform -rotate-1 z-10 relative">
+              <div className="bg-transparent rounded-md p-4 transform -rotate-1 z-10 relative">
                 <div className="rounded-lg overflow-hidden bg-transparent">
                   <div className="aspect-w-16 aspect-h-9 w-full relative">
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
@@ -110,25 +110,25 @@ const LandingPage = ({ onSignIn }) => {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-8 xl:space-y-12">
             <div className="flex justify-end">
-              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 mr-8 xl:mr-16">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-md backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 mr-8 xl:mr-16">
                 <div className="text-3xl font-semibold tracking-wide">Performance and Accuracy Analytics</div>
                 <div className="text-lg text-white/90 mt-3">Track accuracy and improvement</div>
               </div>
             </div>
             <div className="flex justify-start">
-              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-md backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
                 <div className="text-3xl font-semibold tracking-wide">Personal Progress Dashboard</div>
                 <div className="text-lg text-white/90 mt-3">Sessions, streaks, milestones</div>
               </div>
             </div>
             <div className="flex justify-end">
-              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 mr-20 xl:mr-40">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-md backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 mr-20 xl:mr-40">
                 <div className="text-3xl font-semibold tracking-wide">Interactive Breakout Practice</div>
                 <div className="text-lg text-white/90 mt-3">Rapid drills on real historical charts</div>
               </div>
             </div>
             <div className="flex justify-start">
-              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
+              <div className="inline-block bg-white/10 text-white px-10 py-8 rounded-md backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30">
                 <div className="text-3xl font-semibold tracking-wide">Instant After Chart Reveal</div>
                 <div className="text-lg text-white/90 mt-3">See the outcome and ideal entry</div>
               </div>
@@ -141,7 +141,7 @@ const LandingPage = ({ onSignIn }) => {
       <section className="bg-transparent py-12 sm:py-16">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white/10 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 overflow-hidden aspect-video flex items-center justify-center">
+            <div className="bg-white/10 rounded-md backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.30)] ring-1 ring-turquoise-300/30 overflow-hidden aspect-video flex items-center justify-center">
               <div className="text-center text-white/60">
                 <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -161,7 +161,7 @@ const LandingPage = ({ onSignIn }) => {
             <h2 className="text-3xl sm:text-4xl font-bold text-center text-white mb-12">Simple, transparent pricing</h2>
             <div className="grid md:grid-cols-2 gap-6 lg:gap-8">
               {/* Free Tier */}
-              <div className="bg-white/10 text-white px-8 py-10 rounded-2xl backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.20)] ring-1 ring-turquoise-300/20">
+              <div className="bg-white/10 text-white px-8 py-10 rounded-md backdrop-blur-md border border-white/15 shadow-[0_18px_56px_rgba(56,178,172,0.20)] ring-1 ring-turquoise-300/20">
                 <div className="text-2xl font-semibold mb-2">Free</div>
                 <div className="text-4xl font-bold mb-6">$0<span className="text-lg font-normal text-white/70">/month</span></div>
                 <ul className="space-y-3 mb-8 text-white/90">
@@ -186,16 +186,16 @@ const LandingPage = ({ onSignIn }) => {
                 </ul>
                 <button 
                   onClick={() => setShowAuth(true)}
-                  className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold transition border border-white/20"
+                  className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-md font-semibold transition border border-white/20"
                 >
                   Get Started
                 </button>
               </div>
 
               {/* Paid Tier */}
-              <div className="bg-white/10 text-white px-8 py-10 rounded-2xl backdrop-blur-md border-2 border-turquoise-400/50 shadow-[0_18px_56px_rgba(56,178,172,0.40)] ring-1 ring-turquoise-300/40 relative">
+              <div className="bg-white/10 text-white px-8 py-10 rounded-md backdrop-blur-md border-2 border-turquoise-400/50 shadow-[0_18px_56px_rgba(56,178,172,0.40)] ring-1 ring-turquoise-300/40 relative">
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-turquoise-500 text-white px-4 py-1 rounded-full text-sm font-semibold">Full Access</span>
+                  <span className="bg-turquoise-500 text-white px-4 py-1 rounded-md text-sm font-semibold">Full Access</span>
                 </div>
                 <div className="text-2xl font-semibold mb-2">Premium</div>
                 <div className="text-4xl font-bold mb-6">$35<span className="text-lg font-normal text-white/70">/month</span></div>
@@ -227,7 +227,7 @@ const LandingPage = ({ onSignIn }) => {
                 </ul>
                 <button 
                   onClick={() => setShowAuth(true)}
-                  className="w-full px-6 py-3 bg-turquoise-500 hover:bg-turquoise-600 text-white rounded-xl font-semibold transition shadow-[0_10px_30px_rgba(56,178,172,0.35)]"
+                  className="w-full px-6 py-3 bg-turquoise-500 hover:bg-turquoise-600 text-white rounded-md font-semibold transition shadow-[0_10px_30px_rgba(56,178,172,0.35)]"
                 >
                   Sign Up
                 </button>

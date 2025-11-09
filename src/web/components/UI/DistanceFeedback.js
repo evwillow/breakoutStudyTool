@@ -15,7 +15,7 @@ const DistanceFeedback = ({ distance, score, accuracyTier }) => {
   }
 
   return (
-    <div className="bg-black bg-opacity-90 rounded-xl p-4 sm:p-6 border-2 border-turquoise-400 shadow-2xl backdrop-blur-sm">
+    <div className="bg-black bg-opacity-90 rounded-md p-4 sm:p-6 border-2 border-turquoise-400 shadow-2xl backdrop-blur-sm">
       <div className="text-center">
         {/* Main score display */}
         <div className="mb-4">

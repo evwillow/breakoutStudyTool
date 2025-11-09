@@ -23,7 +23,7 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
   isTimeUp = false
 }) {
   // Base styling for all buttons
-  const baseClasses = "border-0 rounded-lg shadow-lg flex items-center justify-center font-medium transition-all duration-200";
+  const baseClasses = "border-0 rounded-md shadow-lg flex items-center justify-center font-medium transition-all duration-200";
   
   // Color scheme for the different action buttons with improved gradients
   const desktopColorClasses = [
@@ -113,7 +113,7 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
       ${isCompact ? 'my-0 px-0' : 'my-2 sm:my-4 md:my-8 px-4 sm:px-4 md:px-8 lg:px-16'} 
       flex flex-col sm:flex-row justify-between 
       ${isCompact ? 'gap-1' : isTimeUp ? 'gap-3 sm:gap-3 md:gap-4' : 'gap-2 sm:gap-3'} 
-      ${isTimeUp ? 'relative z-[40] p-2 sm:p-0 bg-black bg-opacity-20 sm:bg-opacity-0 rounded-lg sm:rounded-none' : ''}
+      ${isTimeUp ? 'relative z-[40] p-2 sm:p-0 bg-black bg-opacity-20 sm:bg-opacity-0 rounded-md sm:rounded-none' : ''}
     `}>
       {actionButtons.map((action, index) => (
         <button

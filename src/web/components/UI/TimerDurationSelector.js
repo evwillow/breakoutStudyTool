@@ -152,7 +152,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
       <button
         id="timer-trigger"
         onClick={() => setShowPopup(!showPopup)}
-        className="w-full h-12 border border-turquoise-300 rounded-lg text-turquoise-900 bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium text-center text-lg sm:text-base md:text-lg px-4 flex items-center justify-center"
+        className="w-full h-12 border border-turquoise-300 rounded-md text-turquoise-900 bg-soft-white shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium text-center text-lg sm:text-base md:text-lg px-4 flex items-center justify-center"
       >
         {getCurrentDurationText()}
         <svg className={`ml-2 h-5 w-5 text-turquoise-500 transition-transform ${showPopup ? '' : 'rotate-180'}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -164,7 +164,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
       {showPopup && (
         <div
           id="timer-popup"
-          className="absolute bottom-full left-0 right-0 mb-2 z-[100] bg-soft-white rounded-lg shadow-lg border border-turquoise-300 overflow-hidden"
+          className="absolute bottom-full left-0 right-0 mb-2 z-[100] bg-soft-white rounded-md shadow-lg border border-turquoise-300 overflow-hidden"
         >
           {/* Title section - compact for dropdown */}
           <div className="p-3 sm:p-4 border-b border-turquoise-300">
@@ -185,7 +185,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
                 min="1"
                 max="1800"
                 placeholder="Enter seconds..."
-                className="w-full px-3 py-2 border-2 border-turquoise-300 rounded-lg text-turquoise-900 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 mb-3"
+                className="w-full px-3 py-2 border-2 border-turquoise-300 rounded-md text-turquoise-900 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 mb-3"
               />
               <div className="flex gap-2">
                 <button

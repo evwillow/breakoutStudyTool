@@ -11,7 +11,6 @@
  * - Clean, borderless design with soft backgrounds for reduced eye strain
  */
 import React from "react";
-import TimerDurationSelector from "../UI/TimerDurationSelector";
 
 /**
  * FolderSection displays folder selection and round management controls
@@ -58,7 +57,7 @@ const FolderSection = React.memo(function FolderSection({
                 id="dataset-selector"
                 value={selectedFolder || ""}
                 onChange={onFolderChange}
-                className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-lg text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
+                className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-md text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
               >
                 {folderOptions.map(({ key, value, label }) => (
                   <option key={key} value={value} className="text-turquoise-900 font-medium">
@@ -77,29 +76,11 @@ const FolderSection = React.memo(function FolderSection({
       </div>
       */}
 
-      {/* Compact layout: Timer, Accuracy, New Round, and Round History - one line on desktop, two lines on mobile */}
+      {/* Compact layout: Accuracy, New Round, and Round History - one line on desktop, two lines on mobile */}
       <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-4 mt-3">
-        {/* First row on mobile: Timer and Accuracy */}
+        {/* First row on mobile: Accuracy */}
         <div className="flex flex-row gap-3 md:contents">
-          {/* Timer Duration - first item */}
-          <div className="flex flex-col flex-1 md:flex-1">
-            <label htmlFor="timer-duration" className="mb-1 text-sm font-medium text-turquoise-700">
-              <svg className="w-4 h-4 inline-block mr-1 text-turquoise-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              Timer:
-            </label>
-            <div className="h-12 flex items-center justify-center">
-              <div className="h-full w-full flex items-center justify-center">
-                <TimerDurationSelector 
-                  duration={timerDuration} 
-                  onChange={onTimerDurationChange} 
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Accuracy display - second item */}
+          {/* Accuracy display - first item */}
           <div className="flex flex-col flex-1 md:flex-1">
             <label className="mb-1 text-sm font-medium text-turquoise-700">
               <svg className="w-4 h-4 inline-block mr-1 text-turquoise-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -108,7 +89,7 @@ const FolderSection = React.memo(function FolderSection({
               Accuracy:
             </label>
             <div className="relative w-full h-12">
-              <div className="p-3 border border-turquoise-300 rounded-lg bg-turquoise-600 text-white w-full h-full text-base shadow-sm font-medium flex items-center justify-center">
+              <div className="p-3 border border-turquoise-300 rounded-md bg-turquoise-600 text-white w-full h-full text-base shadow-sm font-medium flex items-center justify-center">
                 <span className="font-bold">{accuracy}%</span>
               </div>
             </div>
@@ -130,7 +111,7 @@ const FolderSection = React.memo(function FolderSection({
                 isCreatingRound 
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-gradient-turquoise hover-gradient-turquoise'
-              } text-white text-base rounded-lg shadow-md transition font-medium flex items-center justify-center border border-turquoise-300`}
+              } text-white text-base rounded-md shadow-md transition font-medium flex items-center justify-center border border-turquoise-300`}
             >
               {isCreatingRound ? (
                 <>
@@ -158,7 +139,7 @@ const FolderSection = React.memo(function FolderSection({
             </label>
             <button 
               onClick={onRoundHistory}
-              className="w-full h-12 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-base rounded-lg shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition font-medium flex items-center justify-center border border-turquoise-300"
+              className="w-full h-12 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-base rounded-md shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition font-medium flex items-center justify-center border border-turquoise-300"
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>

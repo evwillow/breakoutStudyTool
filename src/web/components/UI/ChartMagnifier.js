@@ -1056,7 +1056,7 @@ const ChartMagnifier = ({
           }}
         >
           <div
-            className="absolute inset-0 rounded-full overflow-hidden pointer-events-none"
+            className="absolute inset-0 rounded-md overflow-hidden pointer-events-none"
             style={{
               background: 'transparent',
               border: 'none',
@@ -1081,7 +1081,7 @@ const ChartMagnifier = ({
                 }}
               />
               <div 
-                className="absolute top-1/2 left-1/2 bg-turquoise-400 rounded-full transition-all"
+                className="absolute top-1/2 left-1/2 bg-turquoise-400 rounded-md transition-all"
                 style={{ 
                   transform: 'translate(-50%, -50%)',
                   width: isDragging ? '4px' : '2px',

@@ -1269,7 +1269,7 @@ export default function FlashcardsContainer() {
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
       <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-4 md:p-6">
-        <div className="w-full sm:max-w-[1000px] bg-transparent rounded-2xl sm:rounded-3xl overflow-hidden border border-transparent transition-all duration-300">
+        <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md sm:rounded-md overflow-hidden border border-transparent transition-all duration-300">
           
           {/* Chart Section */}
           <TypedChartSection
@@ -1412,7 +1412,7 @@ export default function FlashcardsContainer() {
       {/* Round Selector Modal (rendered over the main interface) */}
       {showRoundSelector && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm pointer-events-none">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 pointer-events-auto border-2 border-turquoise-400">
+          <div className="bg-white rounded-md shadow-2xl max-w-md w-full p-6 pointer-events-auto border-2 border-turquoise-400">
             <h3 className="text-xl font-bold text-gray-900 mb-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 bg-clip-text text-transparent">
               Choose Round
             </h3>
@@ -1433,11 +1433,11 @@ export default function FlashcardsContainer() {
                   }}
                   placeholder="Auto-generated if left blank"
                   maxLength={100}
-                  className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-turquoise-500 focus:outline-none text-gray-900 text-sm"
+                  className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-md focus:border-turquoise-500 focus:outline-none text-gray-900 text-sm"
                 />
                 <button
                   onClick={() => setRoundNameInput(generateRoundName())}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors border border-gray-300"
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors border border-gray-300"
                   title="Generate name"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -1448,11 +1448,11 @@ export default function FlashcardsContainer() {
             </div>
             {isLoadingRounds ? (
               <div className="flex items-center justify-center w-full py-8">
-                <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
+                <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-md shadow-2xl max-w-md w-full border border-white">
                   <div className="relative">
-                    <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+                    <div className="animate-spin rounded-md h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
+                      <div className="w-3 h-3 bg-turquoise-400 rounded-md"></div>
                     </div>
                   </div>
                   <div className="text-center space-y-3">
@@ -1472,7 +1472,7 @@ export default function FlashcardsContainer() {
                       {availableRounds.map((round: any) => (
                         <div
                           key={round.id}
-                          className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg hover:bg-turquoise-50 hover:border-turquoise-400 cursor-pointer transition-all"
+                          className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-md hover:bg-turquoise-50 hover:border-turquoise-400 cursor-pointer transition-all"
                           onClick={() => handleSelectRound(round.id, round.dataset_name)}
                         >
                           <div className="flex-1">
@@ -1489,7 +1489,7 @@ export default function FlashcardsContainer() {
                   <button
                     onClick={handleConfirmNewRound}
                     disabled={isCreatingRound}
-                    className="flex-1 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white px-4 py-2 rounded-lg hover:from-turquoise-700 hover:to-turquoise-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-lg shadow-turquoise-500/50"
+                    className="flex-1 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white px-4 py-2 rounded-md hover:from-turquoise-700 hover:to-turquoise-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-lg shadow-turquoise-500/50"
                   >
                     {isCreatingRound ? 'Creating...' : 'Start New Round'}
                   </button>
@@ -1498,7 +1498,7 @@ export default function FlashcardsContainer() {
                       setShowRoundSelector(false);
                       setRoundNameInput(''); // Clear input when canceling
                     }}
-                    className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all font-medium"
+                    className="px-4 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all font-medium"
                   >
                     Cancel
                   </button>

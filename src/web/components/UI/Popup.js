@@ -50,7 +50,7 @@ const Popup = ({ onSelect }) => {
       {/* Modal container with no background */}
       <div className="fixed inset-0 flex items-center justify-center z-40 p-1 sm:p-3 md:p-4">
         {/* Modal content container - positioned lower on mobile */}
-        <div className="bg-soft-white p-3 sm:p-4 md:p-6 rounded-lg shadow-lg text-center w-[95%] sm:w-auto sm:max-w-sm mt-[70px] sm:mt-0 max-h-[90vh] overflow-hidden z-[41]">
+        <div className="bg-soft-white p-3 sm:p-4 md:p-6 rounded-md shadow-lg text-center w-[95%] sm:w-auto sm:max-w-sm mt-[70px] sm:mt-0 max-h-[90vh] overflow-hidden z-[41]">
           {/* Title section - reduced spacing on mobile */}
           <div className="mb-2 sm:mb-4">
             <h2 className="text-xl sm:text-lg md:text-xl text-turquoise-700 font-bold">

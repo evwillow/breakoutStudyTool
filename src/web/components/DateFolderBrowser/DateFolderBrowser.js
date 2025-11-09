@@ -1063,7 +1063,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
   return (
     <div className="w-full pt-0 px-2 sm:px-6 md:px-10 pb-2">
       <div className="w-full">
-        <h3 className="text-xl font-bold mb-4 text-white bg-turquoise-600 px-4 py-2 rounded-lg shadow-md flex items-center">
+        <h3 className="text-xl font-bold mb-4 text-white bg-turquoise-600 px-4 py-2 rounded-md shadow-md flex items-center">
         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
@@ -1092,7 +1092,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
       )}
       
       {allFiles.length === 0 && (
-        <div className="bg-transparent border border-gray-200 rounded-lg p-6 text-center">
+        <div className="bg-transparent border border-gray-200 rounded-md p-6 text-center">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
@@ -1175,7 +1175,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   if (el) fileRefs.current[file.id] = { current: el };
                 }}
                 data-file-id={file.id}
-                className={`border border-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
+                className={`border border-white rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
                   visibleItems.includes(file.id) 
                     ? 'opacity-100 translate-y-0' 
                     : 'opacity-0 translate-y-16'

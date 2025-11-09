@@ -465,7 +465,11 @@ const StockChart = React.memo(({
   onChartClick = null,
   userSelection = null,
   targetPoint = null,
-  disabled = false
+  disabled = false,
+  timerRightEdge = null,
+  timerLeftEdge = null,
+  dLabelRightEdge = null,
+  dLabelCenterY = null
 }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -1672,10 +1676,46 @@ const StockChart = React.memo(({
           />
         )}
         
-        {/* SMA Legend - Show for daily and default charts (not hourly) */}
-        {(showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && chartType !== 'hourly' && chartType !== 'H' && dimensions && (
+        {/* SMA Legend - Removed: Now rendered as HTML in ChartSection for D chart */}
+        {false && (showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && chartType !== 'hourly' && chartType !== 'H' && dimensions && (() => {
+          // Calculate SMA label position
+          // Position just to the right of the D label, at the top
+          const labelWidth = 110;
+          const defaultX = Math.max((dimensions.margin?.left || 0) + 50, 50);
+          
+          let smaLabelX = defaultX;
+          // Position just to the right of D label if we have the edge
+          if (dLabelRightEdge !== null && dLabelRightEdge > 0) {
+            // Position just to the right of D label with small padding
+            smaLabelX = dLabelRightEdge + 8;
+            // Ensure it's not too far left
+            if (smaLabelX < defaultX) {
+              smaLabelX = defaultX;
+            }
+          } else if (timerRightEdge !== null && timerRightEdge > 0) {
+            // Fallback: align right edge of label with timer's right edge
+            smaLabelX = Math.max(timerRightEdge - labelWidth, defaultX);
+          }
+          
+          // Position at the top, aligned with D label and timer (same Y center as they are)
+          // Use the D label's center Y if available, otherwise use default top position
+          let smaLabelY;
+          if (dLabelCenterY !== null && dLabelCenterY > 0) {
+            // Position SMA labels to align with D label's vertical center
+            // For daily charts, SMA labels have 3 lines (10, 20, 50) with height 56px
+            // The center of the label group is approximately at y="28" from the group origin
+            // (rect starts at y="-6" with height 56, center is at y="22", but text center is around y="27")
+            // We want the center of the SMA label (around y="27") to align with D label center
+            const smaLabelCenterOffset = 27; // Approximate center of the 3-line SMA label
+            smaLabelY = dLabelCenterY - smaLabelCenterOffset;
+          } else {
+            // Fallback: position at top
+            smaLabelY = Math.max((dimensions.margin?.top || 0) + 8, 8);
+          }
+          
+          return (
           <g 
-            transform={`translate(${Math.max((dimensions.margin?.left || 0) + 50, 50)}, ${(chartType === 'hourly' || chartType === 'H') ? Math.max((dimensions.margin?.top || 0) + 45, 45) : Math.max((dimensions.margin?.top || 0) + 65, 65)})`} 
+            transform={`translate(${smaLabelX}, ${smaLabelY})`} 
             style={{ pointerEvents: 'none' }}
           >
             {/* Background rectangle for better readability - adjust height based on whether SMA50 is shown */}
@@ -1690,9 +1730,9 @@ const StockChart = React.memo(({
                   y="-6" 
                   width="110" 
                   height={legendHeight} 
-                  fill="rgba(0, 0, 0, 0.75)" 
+                  fill="rgba(0, 0, 0, 0.95)" 
                   rx="4" 
-                  stroke="rgba(255, 255, 255, 0.15)" 
+                  stroke="rgba(255, 255, 255, 0.3)" 
                   strokeWidth="1"
                 />
               );
@@ -1706,10 +1746,9 @@ const StockChart = React.memo(({
                   x="24" 
                   y="9" 
                   fontSize={isMobile ? "11" : "12"} 
-                  fill="#ffffff" 
-                  fontWeight="600"
+                  fill="rgba(255, 255, 255, 0.9)" 
+                  fontWeight="500"
                   fontFamily="system-ui, -apple-system, sans-serif"
-                  style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' }}
                 >
                   10 SMA
                 </text>
@@ -1724,10 +1763,9 @@ const StockChart = React.memo(({
                   x="24" 
                   y="9" 
                   fontSize={isMobile ? "11" : "12"} 
-                  fill="#ffffff" 
-                  fontWeight="600"
+                  fill="rgba(255, 255, 255, 0.9)" 
+                  fontWeight="500"
                   fontFamily="system-ui, -apple-system, sans-serif"
-                  style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' }}
                 >
                   20 SMA
                 </text>
@@ -1742,17 +1780,17 @@ const StockChart = React.memo(({
                   x="24" 
                   y="9" 
                   fontSize={isMobile ? "11" : "12"} 
-                  fill="#ffffff" 
-                  fontWeight="600"
+                  fill="rgba(255, 255, 255, 0.9)" 
+                  fontWeight="500"
                   fontFamily="system-ui, -apple-system, sans-serif"
-                  style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)' }}
                 >
                   50 SMA
                 </text>
               </g>
             )}
           </g>
-        )}
+          );
+        })()}
         
         {/* Dark background for after data area only - only applies to the main chart (D) */}
         {shouldShowDividerAndBackground && !backgroundColor && chartType !== 'previous' && (

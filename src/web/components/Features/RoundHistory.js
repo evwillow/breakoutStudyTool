@@ -198,7 +198,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
     console.log('RoundCard - Total Matches:', round.totalMatches, 'Type:', typeof round.totalMatches);
     
     return (
-      <div className="border border-turquoise-500/30 rounded-lg p-2.5 mb-2 bg-black/40 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-turquoise-500/50 transition-all duration-300">
+      <div className="border border-turquoise-500/30 rounded-md p-2.5 mb-2 bg-black/40 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-turquoise-500/50 transition-all duration-300">
         <div className="flex items-start justify-between gap-2 mb-1.5">
           <div className="flex-1 min-w-0">
             {round.name ? (
@@ -323,7 +323,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
       <div className="flex items-center justify-center min-h-screen px-4 py-8 sm:py-12">
         <div className="fixed inset-0 bg-black bg-opacity-70 transition-opacity"></div>
         
-        <div className="relative bg-black/90 backdrop-blur-md rounded-lg shadow-xl max-w-4xl w-full mx-auto p-4 sm:p-6 border-2 border-turquoise-500/50">
+        <div className="relative bg-black/90 backdrop-blur-md rounded-md shadow-xl max-w-4xl w-full mx-auto p-4 sm:p-6 border-2 border-turquoise-500/50">
           <div className="flex justify-between items-center border-b border-turquoise-500/30 pb-4 mb-6">
             <h2 className="text-xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">Round History</h2>
             <button
@@ -338,7 +338,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
           
           {loading ? (
             <div className="flex items-center justify-center w-full min-h-[400px] py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-turquoise-400 border-t-transparent"></div>
+              <div className="animate-spin rounded-md h-8 w-8 border-2 border-turquoise-400 border-t-transparent"></div>
             </div>
           ) : error ? (
             <div className="bg-red-900/50 border border-red-700/50 rounded-md p-4 flex items-start backdrop-blur-sm">
@@ -357,7 +357,7 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
               </div>
             </div>
           ) : rounds.length === 0 ? (
-            <div className="text-center py-10 bg-black/40 rounded-lg border border-turquoise-500/20 backdrop-blur-sm">
+            <div className="text-center py-10 bg-black/40 rounded-md border border-turquoise-500/20 backdrop-blur-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-turquoise-400 mb-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
               </svg>

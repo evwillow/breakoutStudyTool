@@ -311,7 +311,7 @@ const Header = () => {
                   </svg>
                 </button>
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl border bg-white shadow-lg overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-56 rounded-md border bg-white shadow-lg overflow-hidden">
                     <div className="px-4 py-3">
                       <p className="text-sm text-gray-500">Signed in as</p>
                       <p className="text-sm font-medium text-gray-900 truncate">
@@ -335,7 +335,7 @@ const Header = () => {
                     setAuthModalMode('signin')
                     setShowAuthModal(true)
                   }}
-                  className={`px-5 py-2.5 font-semibold rounded-lg transition-colors ${
+                  className={`px-5 py-2.5 font-semibold rounded-md transition-colors ${
                     scrolled
                       ? "bg-turquoise-600 text-white hover:bg-turquoise-500"
                       : "bg-turquoise-600 text-white hover:bg-turquoise-500"
@@ -348,7 +348,7 @@ const Header = () => {
                     setAuthModalMode('signup')
                     setShowAuthModal(true)
                   }}
-                  className={`px-5 py-2.5 font-semibold rounded-lg transition-colors ${
+                  className={`px-5 py-2.5 font-semibold rounded-md transition-colors ${
                     scrolled
                       ? "bg-white text-turquoise-600 border border-turquoise-100 hover:bg-gray-50"
                       : "bg-white/10 text-white hover:bg-white/20"
@@ -480,7 +480,7 @@ const Header = () => {
                     <a 
                       key={link.name}
                       href={link.href}
-                      className="px-5 py-4 text-white hover:text-turquoise-300 hover:bg-turquoise-500/10 rounded-lg font-semibold text-lg transition-all duration-200 active:scale-[0.98]"
+                      className="px-5 py-4 text-white hover:text-turquoise-300 hover:bg-turquoise-500/10 rounded-md font-semibold text-lg transition-all duration-200 active:scale-[0.98]"
                       onClick={(e) => {
                         handleScrollTo(e, link.href.split('#')[1])
                         setMobileMenuOpen(false)
@@ -492,7 +492,7 @@ const Header = () => {
                     <Link 
                       key={link.name} 
                       href={link.href}
-                      className="px-5 py-4 text-white hover:text-turquoise-300 hover:bg-turquoise-500/10 rounded-lg font-semibold text-lg transition-all duration-200 active:scale-[0.98]"
+                      className="px-5 py-4 text-white hover:text-turquoise-300 hover:bg-turquoise-500/10 rounded-md font-semibold text-lg transition-all duration-200 active:scale-[0.98]"
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       {link.name}
@@ -509,7 +509,7 @@ const Header = () => {
                     signOut({ redirect: false })
                     setMobileMenuOpen(false)
                   }}
-                  className="w-full px-5 py-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-base font-semibold rounded-lg shadow-lg hover:from-turquoise-500 hover:to-turquoise-400 transition-all duration-200 active:scale-[0.98]"
+                  className="w-full px-5 py-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-base font-semibold rounded-md shadow-lg hover:from-turquoise-500 hover:to-turquoise-400 transition-all duration-200 active:scale-[0.98]"
                 >
                   Sign Out
                 </button>
@@ -521,7 +521,7 @@ const Header = () => {
                       setShowAuthModal(true)
                       setMobileMenuOpen(false)
                     }}
-                    className="w-full px-5 py-3 bg-turquoise-600 text-white font-semibold rounded-lg hover:bg-turquoise-500 transition-colors"
+                    className="w-full px-5 py-3 bg-turquoise-600 text-white font-semibold rounded-md hover:bg-turquoise-500 transition-colors"
                   >
                     Sign In
                   </button>
@@ -531,7 +531,7 @@ const Header = () => {
                       setShowAuthModal(true)
                       setMobileMenuOpen(false)
                     }}
-                    className="w-full px-5 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors"
+                    className="w-full px-5 py-3 bg-white/10 text-white font-semibold rounded-md hover:bg-white/20 transition-colors"
                   >
                     Sign Up
                   </button>

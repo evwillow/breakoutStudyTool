@@ -26,11 +26,11 @@ export default function Study() {
         <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none" style={{ pointerEvents: 'none' }}>
           {/* Match exact DataLoading structure - wrapper div then box, exactly as DataLoading renders */}
           <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black overflow-hidden">
-            <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl w-[28rem] border border-white mx-auto box-border">
+            <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-md shadow-2xl w-[28rem] border border-white mx-auto box-border">
               <div className="relative">
-                <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+                <div className="animate-spin rounded-md h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
+                  <div className="w-3 h-3 bg-turquoise-400 rounded-md"></div>
                 </div>
               </div>
               <div className="text-center space-y-3">
@@ -50,8 +50,8 @@ export default function Study() {
                 </div>
               </div>
               {/* Progress bar container to maintain same box height - always empty for this screen */}
-              <div className="w-full bg-gray-900 rounded-full h-3 border border-gray-700">
-                <div className="bg-transparent h-3 rounded-full" style={{ width: '0%' }}></div>
+              <div className="w-full bg-gray-900 rounded-md h-3 border border-gray-700">
+                <div className="bg-transparent h-3 rounded-md" style={{ width: '0%' }}></div>
               </div>
             </div>
           </div>
