@@ -1310,10 +1310,10 @@ function ChartSection({
 
   return (
     <>
-      {/* Main content with Daily and Hourly charts */}
-      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:flex-row gap-4 items-center lg:items-start">
+      {/* Main content with Daily chart */}
+      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 gap-4 items-center">
         {/* Daily chart section - primary chart */}
-        <div className="w-full lg:w-3/5 flex flex-col items-center bg-transparent rounded-md shadow-md p-0 mt-4 sm:mt-6">
+        <div className="w-full flex flex-col items-center bg-transparent rounded-md shadow-md p-0 mt-4 sm:mt-6">
           <div
             className={chartContainerClasses}
             style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}
@@ -1589,59 +1589,39 @@ function ChartSection({
             )}
           </div>
         </div>
- 
-        {/* Right Column: H Chart + Points Grid - Now visible on mobile */}
-        <div className="flex w-full lg:w-2/5 flex-col gap-3 sm:gap-4 mt-4 sm:mt-6">
-          {/* H Chart */}
-          <div className="relative w-full rounded-md overflow-hidden shadow-lg bg-black border border-white transition-all duration-300" style={{ width: '100%', aspectRatio: '1 / 1', margin: 0, padding: 0, boxSizing: 'border-box' }}>
-            {/* H Label - positioned in the top left */}
-            <div className="absolute top-2 left-2 text-white font-semibold z-30 bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg">
-              H
-            </div>
-            <div className={`absolute inset-0 overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} transition-opacity duration-300`} style={{ height: '100%', width: '100%', margin: 0, padding: 0, boxSizing: 'border-box' }}>
-              <StockChart 
-                data={orderedFiles[1]?.data}
-                backgroundColor="black" 
-                showSMA={true} 
-                chartType="hourly"
-                forceShowSMA={true}
-              />
-            </div>
-          </div>
-          
-          {/* Points Labels - Flexible flow layout that only wraps when necessary */}
-          <div className={`flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-sm' : ''}`}>
-            {(() => {
-              // Ensure we have a valid array - handle undefined/null gracefully
-              const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
-              
-              if (safePointsArray.length > 0) {
-                return safePointsArray.map((text, index) => {
-                  const displayText = text && typeof text === 'string' ? text.trim() : '';
-                  return (
-                    <div
-                      key={`point-${index}-${displayText || index}`}
-                      className={`inline-flex items-center rounded-md shadow-md px-4 py-2.5 text-sm sm:text-base font-semibold transition-all duration-300 whitespace-nowrap ${
-                        displayText ? "bg-gradient-to-br from-turquoise-600 to-turquoise-500 text-white hover:from-turquoise-700 hover:to-turquoise-600 hover:shadow-lg hover:scale-105 cursor-default" : "invisible"
-                      }`}
-                    >
-                      {displayText || "\u00A0"}
-                    </div>
-                  );
-                });
-              } else {
-                // Show placeholder boxes when no points data is available
-                return Array.from({ length: 6 }).map((_, index) => (
+        
+        {/* Points Labels - Flexible flow layout that only wraps when necessary */}
+        <div className={`w-full flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-sm' : ''}`}>
+          {(() => {
+            // Ensure we have a valid array - handle undefined/null gracefully
+            const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
+            
+            if (safePointsArray.length > 0) {
+              return safePointsArray.map((text, index) => {
+                const displayText = text && typeof text === 'string' ? text.trim() : '';
+                return (
                   <div
-                    key={`placeholder-${index}`}
-                    className="rounded-md shadow-md px-4 py-2.5 text-sm sm:text-base flex items-center justify-center h-auto transition-all duration-300 invisible whitespace-nowrap"
+                    key={`point-${index}-${displayText || index}`}
+                    className={`inline-flex items-center rounded-md shadow-md px-4 py-2.5 text-sm sm:text-base font-semibold transition-all duration-300 whitespace-nowrap ${
+                      displayText ? "bg-gradient-to-br from-turquoise-600 to-turquoise-500 text-white hover:from-turquoise-700 hover:to-turquoise-600 hover:shadow-lg hover:scale-105 cursor-default" : "invisible"
+                    }`}
                   >
-                    {"\u00A0"}
+                    {displayText || "\u00A0"}
                   </div>
-                ));
-              }
-            })()}
-          </div>
+                );
+              });
+            } else {
+              // Show placeholder boxes when no points data is available
+              return Array.from({ length: 6 }).map((_, index) => (
+                <div
+                  key={`placeholder-${index}`}
+                  className="rounded-md shadow-md px-4 py-2.5 text-sm sm:text-base flex items-center justify-center h-auto transition-all duration-300 invisible whitespace-nowrap"
+                >
+                  {"\u00A0"}
+                </div>
+              ));
+            }
+          })()}
         </div>
       </div>
       

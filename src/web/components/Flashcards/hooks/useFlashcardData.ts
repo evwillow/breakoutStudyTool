@@ -237,8 +237,8 @@ export function useFlashcardData({
           }
         };
         
-        // Prioritize files: Essential files (D/H/M) first, then after.json, then points.json, then date-formatted files
-        const essentialFileNames = ['D.json', 'H.json', 'M.json'];
+        // Prioritize files: Essential files (D/M) first, then after.json, then points.json, then date-formatted files
+        const essentialFileNames = ['D.json', 'M.json'];
         // Pattern to match date-formatted files like "Feb_22_2016.json"
         const dateFilePattern = /^[A-Za-z]{3}_\d{1,2}_\d{4}\.json$/;
         
@@ -391,7 +391,7 @@ export function useFlashcardData({
                         const uniqueNewFiles = newFiles.filter(f => !existingFileNames.has(f.fileName));
                         
                         // Check if this card now has essential files
-                        const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+                        const essentialFiles = new Set(['D.json', 'M.json']);
                         const hasEssentialFile = [...card.jsonFiles, ...uniqueNewFiles].some(f => {
                           const fileName = f.fileName.split('/').pop() || f.fileName;
                           return essentialFiles.has(fileName);
@@ -472,8 +472,8 @@ export function useFlashcardData({
         });
         
         // Convert to flashcard format - each stock directory becomes a flashcard
-        // Start with flashcards that have essential files (D.json, H.json, or M.json) loaded
-        const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+        // Start with flashcards that have essential files (D.json or M.json) loaded
+        const essentialFiles = new Set(['D.json', 'M.json']);
         
         const flashcardData = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
           // Check if this flashcard has at least one essential file loaded

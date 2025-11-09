@@ -13,7 +13,7 @@ export const TIMER_CONFIG = {
 // Game Configuration
 export const GAME_CONFIG = {
   ACTION_BUTTONS: ["-5%", "0%", "20%", "50%"],
-  REQUIRED_FILES: ["D.json", "H.json", "M.json"],
+  REQUIRED_FILES: ["D.json", "M.json"],
   OPTIONAL_FILES: ["after.json", "points.json"],
   MOBILE_BREAKPOINT: 1024,
 } as const;
@@ -48,7 +48,6 @@ export const UI_CONFIG = {
 // File Processing
 export const FILE_PATTERNS = {
   DAILY: /D\.json$/i,
-  HOURLY: /H\.json$/i,
   MINUTE: /M\.json$/i,
   AFTER: /after\.json$/i,
   POINTS: /points\.json$/i,

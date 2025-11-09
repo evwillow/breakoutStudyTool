@@ -33,7 +33,7 @@ export function isValidUUID(uuid: string): boolean {
 }
 
 /**
- * Extracts and orders chart files (D.json, H.json, M.json)
+ * Extracts and orders chart files (D.json, M.json)
  */
 export function extractOrderedFiles(flashcardData: FlashcardData | null): FlashcardFile[] {
   if (!flashcardData?.jsonFiles) {
@@ -53,14 +53,13 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
       
       if (FILE_PATTERNS.DAILY.test(baseFileName)) {
         files.set("D", file);
-      } else if (FILE_PATTERNS.HOURLY.test(baseFileName)) {
-        files.set("H", file);
       } else if (FILE_PATTERNS.MINUTE.test(baseFileName)) {
         files.set("M", file);
       }
+      // H (hourly) files are no longer used - skip them
     }
     
-    return ["D", "H", "M"].map(key => files.get(key)).filter(Boolean) as FlashcardFile[];
+    return ["D", "M"].map(key => files.get(key)).filter(Boolean) as FlashcardFile[];
   } catch (error) {
     console.error("Error processing ordered files:", error);
     return [];
@@ -296,7 +295,7 @@ export function validateFlashcardData(flashcardData: FlashcardData | null): bool
   // More lenient validation - require at least one chart file instead of all three
   // This matches the behavior before the refactoring
   return (
-    processed.orderedFiles.length > 0  // At least one of D.json, H.json, or M.json
+    processed.orderedFiles.length > 0  // At least one of D.json or M.json
   );
 }
 

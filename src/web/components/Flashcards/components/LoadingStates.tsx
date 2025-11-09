@@ -116,7 +116,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({ error, onRetry }) => {
         troubleshooting: [
           'Try selecting a different folder from the dropdown',
           'Check if the selected folder contains stock chart data',
-          'Ensure JSON files (D.json, H.json, M.json) exist in subfolders',
+          'Ensure JSON files (D.json, M.json) exist in subfolders',
           'Verify the data files are correctly structured'
         ]
       };
