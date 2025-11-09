@@ -119,24 +119,14 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
         ? 'bottom-0 left-2 right-2' 
         : 'bottom-0 left-2 right-2'
     }`}>
-      <div className={`bg-black/95 backdrop-blur-sm border border-white/30 rounded-md shadow-lg pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full flex flex-col ${
+      <div className={`bg-black/95 backdrop-blur-sm border border-white/30 rounded-md shadow-lg pointer-events-auto relative overflow-hidden w-full flex flex-col ${
         isMobile 
           ? 'px-3 py-3' 
           : 'px-3 py-3'
       }`}>
-        {/* Decorative gradient overlay - faint turquoise */}
-        <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/5 via-transparent to-transparent pointer-events-none"></div>
-        
         <div className={`relative z-10 ${isMobile ? 'flex items-center justify-between gap-2' : 'flex items-center justify-between gap-3'}`}>
-          {/* Left side: Badge icon and score */}
+          {/* Left side: Score */}
           <div className={`flex items-center gap-2 ${isMobile ? '' : ''}`}>
-            <div className={`rounded-md bg-turquoise-500/20 border border-turquoise-500/30 flex items-center justify-center flex-shrink-0 ${
-              isMobile ? 'w-8 h-8' : 'w-9 h-9'
-            }`}>
-              <svg className={`text-turquoise-400 ${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-            </div>
             <div className="flex flex-col">
               {!isMobile && <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Score</p>}
               <h3 className={`font-semibold text-white tracking-tight ${isMobile ? 'text-xl' : 'text-xl'}`}>
@@ -1517,7 +1507,7 @@ function ChartSection({
                     dLabelCenterY={dLabelCenterY}
                   />
                   {/* Magnifying glass tool - properly integrated */}
-                  {onChartClick && !disabled && score === null && (
+                  {onChartClick && !disabled && score === null && !isTimeUp && (
                     <ChartMagnifier
                       onSelection={(syntheticEvent) => {
                         console.log('[ChartSection] onSelection called with:', syntheticEvent);
@@ -1562,7 +1552,7 @@ function ChartSection({
                           }
                         }
                       }}
-                      enabled={!disabled && score === null}
+                      enabled={!disabled && score === null && !isTimeUp}
                       chartElement={chartRef.current || null}
                       mainDataLength={orderedFiles && orderedFiles[0]?.data ? orderedFiles[0].data.length : 0}
                     />

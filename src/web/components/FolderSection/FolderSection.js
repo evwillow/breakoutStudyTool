@@ -115,12 +115,9 @@ const FolderSection = React.memo(function FolderSection({
         {/* Right column on mobile: Accuracy and Rounds */}
         <div className="flex flex-col items-start gap-3 flex-1 lg:flex-none lg:w-full min-w-0 basis-1/2 lg:basis-auto">
           {/* Accuracy display */}
-          <div className="flex flex-wrap items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
-            <svg className="w-4 h-4 text-white/70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
+          <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
             <span className="text-sm font-medium text-white/90">Avg. Accuracy:</span>
-            <span className="text-base font-bold text-white">{accuracy}%</span>
+            <span className="text-base font-semibold text-white">{accuracy}%</span>
           </div>
 
           {/* Round History button with plus button */}
