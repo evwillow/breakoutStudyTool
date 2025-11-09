@@ -29,6 +29,8 @@ const Header = () => {
   const userMenuRef = useRef(null)
   const headerRef = useRef(null)
   const hamburgerButtonRef = useRef(null)
+  const mobileMenuPanelRef = useRef(null)
+  const mobileMenuButtonsRef = useRef(null)
 
   // Measure header height and update on resize/menu toggle
   useEffect(() => {
@@ -87,6 +89,87 @@ const Header = () => {
       if (t2) clearTimeout(t2)
     }
   }, [mobileMenuOpen])
+
+  // Ensure buttons are always visible in mobile menu - bulletproof safeguard
+  useEffect(() => {
+    if (!mobileMenuOpen || !mobileMenuPanelRef.current || !mobileMenuButtonsRef.current) return
+
+    const ensureButtonsVisible = () => {
+      const panel = mobileMenuPanelRef.current
+      const buttons = mobileMenuButtonsRef.current
+      if (!panel || !buttons) return
+
+      const panelRect = panel.getBoundingClientRect()
+      const buttonsRect = buttons.getBoundingClientRect()
+      // Use actual viewport height (accounts for mobile browser UI)
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+      const availableHeight = viewportHeight - panelRect.top
+
+      // Always ensure buttons fit within viewport
+      const buttonsHeight = buttonsRect.height
+      const padding = 16 // Total padding (top + bottom)
+      const navMaxHeight = Math.max(0, availableHeight - buttonsHeight - padding)
+      
+      // Constrain nav section to prevent buttons from being pushed off screen
+      const nav = panel.querySelector('nav')
+      if (nav) {
+        nav.style.maxHeight = `${navMaxHeight}px`
+        nav.style.overflowY = 'auto'
+        nav.style.overflowX = 'hidden'
+      }
+
+      // Also ensure panel itself doesn't exceed viewport
+      const currentPanelHeight = panelRect.height
+      const maxPanelHeight = availableHeight
+      if (currentPanelHeight > maxPanelHeight) {
+        panel.style.height = `${maxPanelHeight}px`
+        panel.style.maxHeight = `${maxPanelHeight}px`
+      }
+
+      // Double-check buttons are visible
+      const buttonsBottom = buttonsRect.bottom
+      if (buttonsBottom > viewportHeight) {
+        // Emergency fallback: adjust panel position
+        const adjustment = buttonsBottom - viewportHeight + 8 // 8px safety margin
+        const newHeight = Math.max(buttonsHeight + padding, maxPanelHeight - adjustment)
+        panel.style.height = `${newHeight}px`
+        panel.style.maxHeight = `${newHeight}px`
+        if (nav) {
+          nav.style.maxHeight = `${Math.max(0, newHeight - buttonsHeight - padding)}px`
+        }
+      }
+    }
+
+    // Check immediately and after delays to catch all render phases
+    ensureButtonsVisible()
+    const timeout1 = setTimeout(ensureButtonsVisible, 0)
+    const timeout2 = setTimeout(ensureButtonsVisible, 50)
+    const timeout3 = setTimeout(ensureButtonsVisible, 100)
+    const timeout4 = setTimeout(ensureButtonsVisible, 300)
+    const timeout5 = setTimeout(ensureButtonsVisible, 500)
+
+    // Also check on resize, orientation change, and visual viewport changes (mobile browsers)
+    window.addEventListener('resize', ensureButtonsVisible)
+    window.addEventListener('orientationchange', ensureButtonsVisible)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', ensureButtonsVisible)
+      window.visualViewport.addEventListener('scroll', ensureButtonsVisible)
+    }
+
+    return () => {
+      clearTimeout(timeout1)
+      clearTimeout(timeout2)
+      clearTimeout(timeout3)
+      clearTimeout(timeout4)
+      clearTimeout(timeout5)
+      window.removeEventListener('resize', ensureButtonsVisible)
+      window.removeEventListener('orientationchange', ensureButtonsVisible)
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', ensureButtonsVisible)
+        window.visualViewport.removeEventListener('scroll', ensureButtonsVisible)
+      }
+    }
+  }, [mobileMenuOpen, headerHeight])
 
   // Handle scroll effect for header
   useEffect(() => {
@@ -604,11 +687,14 @@ const Header = () => {
         
         {/* Menu Panel - bulletproof for mobile */}
         <div 
+          ref={mobileMenuPanelRef}
           className={`fixed right-0 w-72 bg-black/80 backdrop-blur-sm shadow-2xl z-[99] min-[800px]:hidden flex flex-col transform transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
           style={{ 
             top: `${headerHeight}px`,
             height: `calc(100vh - ${headerHeight}px)`,
             maxHeight: `calc(100vh - ${headerHeight}px)`,
+            minHeight: 0,
+            overflow: 'hidden',
             pointerEvents: mobileMenuOpen ? 'auto' : 'none',
             touchAction: 'pan-y', // Allow vertical scrolling in menu
             WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
@@ -623,7 +709,7 @@ const Header = () => {
             // Prevent touch events from bubbling to backdrop
           }}
         >
-            <nav className="flex-1 overflow-y-auto p-4 min-h-0 pb-2">
+            <nav className="flex-1 overflow-y-auto overflow-x-hidden p-4 min-h-0 pb-2" style={{ minHeight: 0 }}>
               <div className="flex flex-col space-y-2">
                 {displayedLinks.map((link) => (
                   link.isScroll ? (
@@ -652,7 +738,17 @@ const Header = () => {
               </div>
             </nav>
             
-            <div className="flex-shrink-0 px-4 pb-6 pt-4">
+            <div 
+              ref={mobileMenuButtonsRef}
+              className="flex-shrink-0 px-4 pb-4 pt-4 border-t border-white/10"
+              style={{ 
+                flexShrink: 0,
+                minHeight: 'fit-content',
+                position: 'relative',
+                zIndex: 10,
+                backgroundColor: 'rgba(0, 0, 0, 0.8)' // Ensure buttons have background
+              }}
+            >
               {session ? (
                 <button
                   onClick={() => {

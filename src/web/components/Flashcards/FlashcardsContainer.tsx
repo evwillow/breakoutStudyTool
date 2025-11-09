@@ -1275,7 +1275,7 @@ export default function FlashcardsContainer() {
   // Main game interface
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
-      <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-4 md:p-6">
+      <div className="min-h-screen w-full flex justify-center items-center p-0 sm:p-4 md:p-6">
         <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md sm:rounded-md overflow-hidden border border-transparent transition-all duration-300">
           
           {/* Chart Section and Folder Section - Side by side layout */}

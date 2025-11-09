@@ -79,41 +79,43 @@ const FolderSection = React.memo(function FolderSection({
       */}
 
       {/* Right column: Points, Accuracy, and Rounds */}
-      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 md:pr-10 lg:pl-2 gap-3 items-start w-full relative z-50">
+      <div className="flex flex-col pt-1 sm:pt-2 px-1 sm:px-6 md:px-10 md:pr-10 lg:pl-2 gap-3 items-start w-full relative z-50">
         {/* Mobile: 2 columns, Desktop: single column */}
         <div className="w-full flex flex-row lg:flex-col items-start gap-3">
           {/* Left column on mobile: Points Display - Box with bullet points */}
-          <div className="flex-1 lg:flex-none lg:w-full">
-          {(() => {
-            // Ensure we have a valid array - handle undefined/null gracefully
-            const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
-            
-            if (safePointsArray.length > 0) {
+          <div className="flex-1 lg:flex-none lg:w-full min-w-0 basis-1/2 lg:basis-auto">
+            {(() => {
+              // Ensure we have a valid array - handle undefined/null gracefully
+              const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
+              
+              // Always render the container to maintain consistent layout timing
               return (
-                <div className="bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full">
-                  <ul className="list-none space-y-1">
-                    {safePointsArray.map((text, index) => {
-                      const displayText = text && typeof text === 'string' ? text.trim() : '';
-                      if (!displayText) return null;
-                      return (
-                        <li key={`point-${index}-${displayText || index}`} className="flex items-start gap-2">
-                          <span className="text-white/70 text-sm flex-shrink-0 mt-0.5">•</span>
-                          <span className="text-sm text-white/90 font-medium break-words flex-1">{displayText}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                <div className="bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
+                  {safePointsArray.length > 0 ? (
+                    <ul className="list-none space-y-1">
+                      {safePointsArray.map((text, index) => {
+                        const displayText = text && typeof text === 'string' ? text.trim() : '';
+                        if (!displayText) return null;
+                        return (
+                          <li key={`point-${index}-${displayText || index}`} className="flex items-start gap-2">
+                            <span className="text-white/70 text-sm flex-shrink-0 mt-0.5">•</span>
+                            <span className="text-sm text-white/90 font-medium break-words flex-1">{displayText}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="min-h-[20px]"></div>
+                  )}
                 </div>
               );
-            }
-            return null;
-          })()}
-        </div>
+            })()}
+          </div>
 
         {/* Right column on mobile: Accuracy and Rounds */}
-        <div className="flex flex-col items-start gap-3 flex-1 lg:flex-none lg:w-full">
+        <div className="flex flex-col items-start gap-3 flex-1 lg:flex-none lg:w-full min-w-0 basis-1/2 lg:basis-auto">
           {/* Accuracy display */}
-          <div className="flex flex-wrap items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full">
+          <div className="flex flex-wrap items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
             <svg className="w-4 h-4 text-white/70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
@@ -122,7 +124,7 @@ const FolderSection = React.memo(function FolderSection({
           </div>
 
           {/* Round History button with plus button */}
-          <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full">
+          <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
             <button 
               onClick={onRoundHistory}
               className="flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white transition-colors flex-1"
