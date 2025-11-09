@@ -248,7 +248,18 @@ export function useFlashcardData({
               };
             });
             
-            setFlashcards(flashcardData);
+            // Shuffle flashcards to randomize order (Fisher-Yates shuffle)
+            const shuffleArray = <T,>(array: T[]): T[] => {
+              const shuffled = [...array];
+              for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              }
+              return shuffled;
+            };
+            
+            const shuffledFlashcardData = shuffleArray(flashcardData);
+            setFlashcards(shuffledFlashcardData);
             setLoading(false);
             setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
             setLoadingStep('');
@@ -516,17 +527,29 @@ export function useFlashcardData({
         // Check if we have at least one ready flashcard
         const readyFlashcards = flashcardData.filter(f => f.isReady);
         
+        // Shuffle flashcards to randomize order (Fisher-Yates shuffle)
+        const shuffleArray = <T,>(array: T[]): T[] => {
+          const shuffled = [...array];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          return shuffled;
+        };
+        
+        const shuffledFlashcardData = shuffleArray(flashcardData);
+        
         console.log("=== FLASHCARD DATA CREATED ===");
-        console.log("Number of flashcards:", flashcardData.length);
+        console.log("Number of flashcards:", shuffledFlashcardData.length);
         console.log("Ready flashcards:", readyFlashcards.length);
-        console.log("First flashcard:", flashcardData[0]);
-        console.log("First flashcard files:", flashcardData[0]?.jsonFiles?.map(f => f.fileName.split('/').pop()));
+        console.log("First flashcard:", shuffledFlashcardData[0]);
+        console.log("First flashcard files:", shuffledFlashcardData[0]?.jsonFiles?.map(f => f.fileName.split('/').pop()));
         console.log("Total files loaded so far:", loadedFiles.length);
         console.log("=== END FLASHCARD DATA ===");
         
-        // Set flashcards immediately with whatever files we have loaded
+        // Set flashcards immediately with whatever files we have loaded (now shuffled)
         // This allows the game to start while files are still loading in background
-        setFlashcards(flashcardData);
+        setFlashcards(shuffledFlashcardData);
         
         // If we have at least one ready flashcard, we can stop blocking the UI
         if (readyFlashcards.length > 0) {

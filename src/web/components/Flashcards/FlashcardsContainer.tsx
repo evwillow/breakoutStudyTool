@@ -313,13 +313,19 @@ export default function FlashcardsContainer() {
           console.error('[MATCHES CLIENT] Failed to read response text:', textError);
         }
         
-        console.error('[MATCHES CLIENT] Failed to log match:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-          responseText: responseText || 'No response text',
-          matchData: matchData // Log the data we tried to send for debugging
-        });
+        // Only log error if there's meaningful error data
+        if (Object.keys(errorData).length > 0 || responseText) {
+          console.error('[MATCHES CLIENT] Failed to log match:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData,
+            responseText: responseText || 'No response text',
+            matchData: matchData // Log the data we tried to send for debugging
+          });
+        } else {
+          // Silent fail for empty errors to reduce console noise
+          console.warn('[MATCHES CLIENT] Match logging failed with status:', response.status);
+        }
       } else {
         setLastMatchLogTime(Date.now());
         setMatchLogCount(prev => prev + 1);
@@ -1319,7 +1325,7 @@ export default function FlashcardsContainer() {
           </div>
           
           {/* Date Folder Browser Section */}
-          <div className="mt-8 sm:mt-1 mb-20">
+          <div className="mt-4 lg:mt-2 mb-20">
             <DateFolderBrowser 
               session={session} 
               currentStock={currentStock}
