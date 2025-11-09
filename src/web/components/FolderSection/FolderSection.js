@@ -76,76 +76,59 @@ const FolderSection = React.memo(function FolderSection({
       </div>
       */}
 
-      {/* Compact layout: Accuracy, New Round, and Round History - one line on desktop, two lines on mobile */}
-      <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-4 mt-3">
+      {/* Compact layout: Accuracy, and Round History - one line on desktop, two lines on mobile */}
+      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mt-3">
         {/* First row on mobile: Accuracy */}
         <div className="flex flex-row gap-3 md:contents">
           {/* Accuracy display - first item */}
-          <div className="flex flex-col flex-1 md:flex-1">
-            <label className="mb-1 text-sm font-medium text-turquoise-700">
-              <svg className="w-4 h-4 inline-block mr-1 text-turquoise-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              Accuracy:
-            </label>
-            <div className="relative w-full h-12">
-              <div className="p-3 border border-turquoise-300 rounded-md bg-turquoise-600 text-white w-full h-full text-base shadow-sm font-medium flex items-center justify-center">
-                <span className="font-bold">{accuracy}%</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
+            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span className="text-sm font-medium text-white/90">Average Accuracy:</span>
+            <span className="text-base font-bold text-white">{accuracy}%</span>
           </div>
         </div>
 
-        {/* Second row on mobile: New Round and Round History */}
+        {/* Second row on mobile: Round History with plus button */}
         <div className="flex flex-row gap-3 md:contents">
-          {/* New Round button - third item */}
+          {/* Round History button with plus button on the right */}
           <div className="flex flex-col flex-1 md:flex-1">
             <label className="mb-1 text-sm font-medium text-turquoise-700 invisible">
               {/* Invisible label for alignment */}
               Button:
             </label>
-            <button 
-              onClick={onNewRound}
-              disabled={isCreatingRound}
-              className={`w-full h-12 ${
-                isCreatingRound 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-gradient-turquoise hover-gradient-turquoise'
-              } text-white text-base rounded-md shadow-md transition font-medium flex items-center justify-center border border-turquoise-300`}
-            >
-              {isCreatingRound ? (
-                <>
-                  <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <div className="w-full h-12 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-base rounded-md shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition font-medium flex items-center border border-turquoise-300">
+              <button 
+                onClick={onRoundHistory}
+                className="flex-1 flex items-center justify-center h-full"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Rounds
+              </button>
+              <button
+                onClick={onNewRound}
+                disabled={isCreatingRound}
+                className={`ml-2 mr-1 h-10 w-10 flex items-center justify-center rounded-md border border-turquoise-400/50 bg-turquoise-500/30 ${
+                  isCreatingRound 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:bg-turquoise-500/50 hover:border-turquoise-400 active:bg-turquoise-500/60'
+                } transition-all`}
+                title="New Round"
+              >
+                {isCreatingRound ? (
+                  <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                   </svg>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                ) : (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                   </svg>
-                  New Round
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Round History button - fourth item */}
-          <div className="flex flex-col flex-1 md:flex-1">
-            <label className="mb-1 text-sm font-medium text-turquoise-700 invisible">
-              {/* Invisible label for alignment */}
-              Button:
-            </label>
-            <button 
-              onClick={onRoundHistory}
-              className="w-full h-12 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-base rounded-md shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition font-medium flex items-center justify-center border border-turquoise-300"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              Rounds
-            </button>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -24,14 +24,11 @@ export default function Study() {
         {/* Black background overlay covering entire page including header/footer */}
         <div className="fixed inset-0 bg-black z-40 pointer-events-none" style={{ pointerEvents: 'none' }} />
         <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none" style={{ pointerEvents: 'none' }}>
-          {/* Match exact DataLoading structure - wrapper div then box, exactly as DataLoading renders */}
+          {/* Match DataLoading structure - no square container, just spinner with percentage */}
           <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black overflow-hidden">
             <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-md shadow-2xl w-[28rem] border border-white mx-auto box-border">
               <div className="relative">
-                <div className="animate-spin rounded-md h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-3 h-3 bg-turquoise-400 rounded-md"></div>
-                </div>
+                <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
               </div>
               <div className="text-center space-y-3">
                 <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
