@@ -121,8 +121,8 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
     }`}>
       <div className={`bg-black/95 backdrop-blur-sm border border-white/30 rounded-md shadow-lg pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full flex flex-col ${
         isMobile 
-          ? 'px-3 py-1.5' 
-          : 'px-3 py-1.5'
+          ? 'px-3 py-3' 
+          : 'px-3 py-3'
       }`}>
         {/* Decorative gradient overlay - faint turquoise */}
         <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/5 via-transparent to-transparent pointer-events-none"></div>

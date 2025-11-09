@@ -205,6 +205,7 @@ export function useFlashcardData({
         const BATCH_SIZE = 25; // Larger batches for faster background loading
         const loadedFiles: any[] = [];
         let uiReady = false;
+        let initialShuffleSeed: number | null = null; // Store shuffle seed to maintain consistent order
         
         // Helper function to check if we have ready flashcards and show UI
         const checkAndShowUI = (currentFiles: any[]) => {
@@ -232,8 +233,41 @@ export function useFlashcardData({
           });
           
           if (hasReadyFlashcard && currentFiles.length >= 3) {
-            // Create initial flashcard data
-            const flashcardData = Array.from(tempStockGroups.entries()).map(([stockDir, files]) => {
+            // Only shuffle once when first showing UI - use a seeded random for consistency
+            // This prevents the order from changing as more files load
+            if (initialShuffleSeed === null) {
+              // Generate a seed based on folder name for consistent shuffling
+              let seed = 0;
+              for (let i = 0; i < selectedFolder.length; i++) {
+                seed = ((seed << 5) - seed) + selectedFolder.charCodeAt(i);
+                seed = seed & seed; // Convert to 32bit integer
+              }
+              initialShuffleSeed = Math.abs(seed);
+            }
+            
+            // Seeded random number generator for consistent shuffling
+            let seedValue = initialShuffleSeed;
+            const seededRandom = () => {
+              seedValue = (seedValue * 9301 + 49297) % 233280;
+              return seedValue / 233280;
+            };
+            
+            // Shuffle the Map entries BEFORE creating flashcards
+            const shuffleArray = <T,>(array: T[]): T[] => {
+              const shuffled = [...array];
+              for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(seededRandom() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+              }
+              return shuffled;
+            };
+            
+            // Convert Map entries to array and shuffle them BEFORE mapping to flashcards
+            const stockEntries = Array.from(tempStockGroups.entries());
+            const shuffledStockEntries = shuffleArray(stockEntries);
+            
+            // Create initial flashcard data from shuffled entries
+            const flashcardData = shuffledStockEntries.map(([stockDir, files]) => {
               const hasEssentialFile = files.some((f: any) => {
                 const fileName = f.fileName.split('/').pop() || f.fileName;
                 return essentialFiles.has(fileName);
@@ -248,16 +282,7 @@ export function useFlashcardData({
               };
             });
             
-            // Shuffle flashcards to randomize order (Fisher-Yates shuffle)
-            const shuffleArray = <T,>(array: T[]): T[] => {
-              const shuffled = [...array];
-              for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-              }
-              return shuffled;
-            };
-            
+            // Shuffle again to ensure complete randomization
             const shuffledFlashcardData = shuffleArray(flashcardData);
             setFlashcards(shuffledFlashcardData);
             setLoading(false);
@@ -460,7 +485,7 @@ export function useFlashcardData({
                   });
                   
                   // Add new flashcards for stock directories we just discovered
-                  const essentialFiles = new Set(['D.json', 'H.json', 'M.json']);
+                  const essentialFiles = new Set(['D.json', 'M.json']);
                   const newCards = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
                     const hasEssentialFile = files.some((f: any) => {
                       const fileName = f.fileName.split('/').pop() || f.fileName;
@@ -475,7 +500,16 @@ export function useFlashcardData({
                     };
                   });
                   
-                  return [...updatedCards, ...newCards];
+                  // Insert new cards at random positions in the existing array to maintain visual stability
+                  // This prevents the order from jumping around as new cards are discovered
+                  const combinedCards = [...updatedCards];
+                  newCards.forEach(newCard => {
+                    // Insert at a random position in the existing array
+                    const randomIndex = Math.floor(Math.random() * (combinedCards.length + 1));
+                    combinedCards.splice(randomIndex, 0, newCard);
+                  });
+                  
+                  return combinedCards;
                 });
               }
               
@@ -508,7 +542,21 @@ export function useFlashcardData({
         // Start with flashcards that have essential files (D.json or M.json) loaded
         const essentialFiles = new Set(['D.json', 'M.json']);
         
-        const flashcardData = Array.from(stockGroups.entries()).map(([stockDir, files]) => {
+        // Shuffle the Map entries BEFORE creating flashcards to ensure random order
+        const shuffleArray = <T,>(array: T[]): T[] => {
+          const shuffled = [...array];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          return shuffled;
+        };
+        
+        // Convert Map entries to array and shuffle them BEFORE mapping to flashcards
+        const stockEntries = Array.from(stockGroups.entries());
+        const shuffledStockEntries = shuffleArray(stockEntries);
+        
+        const flashcardData = shuffledStockEntries.map(([stockDir, files]) => {
           // Check if this flashcard has at least one essential file loaded
           const hasEssentialFile = files.some((f: any) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
@@ -527,16 +575,7 @@ export function useFlashcardData({
         // Check if we have at least one ready flashcard
         const readyFlashcards = flashcardData.filter(f => f.isReady);
         
-        // Shuffle flashcards to randomize order (Fisher-Yates shuffle)
-        const shuffleArray = <T,>(array: T[]): T[] => {
-          const shuffled = [...array];
-          for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-          }
-          return shuffled;
-        };
-        
+        // Shuffle again to ensure complete randomization
         const shuffledFlashcardData = shuffleArray(flashcardData);
         
         console.log("=== FLASHCARD DATA CREATED ===");
