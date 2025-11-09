@@ -84,6 +84,12 @@ const getChartConfig = (isMobile, chartType = 'default') => {
     config.PADDING.top = isMobile ? 20 : 30; // Increased from 10/20 to 20/30
   }
   
+  // For previous charts, minimize padding to fill space
+  if (chartType === 'previous') {
+    config.PADDING.top = 0;
+    config.PADDING.bottom = 0;
+  }
+  
   // Special adjustments for small screens/charts
   if (isMobile) {
     // Make SMAs slightly more visible on small screens
@@ -620,7 +626,7 @@ const StockChart = React.memo(({
 
   if (!chartData) {
     // Return empty div to maintain layout - parent will handle loading state
-    return <div ref={containerRef} className="w-full h-full min-h-[400px] bg-black" />;
+    return <div ref={containerRef} className="w-full h-full min-h-[400px] bg-black transition-opacity duration-500 ease-in-out" />;
   }
 
   // Parse JSON data into an array of stock objects - memoized for performance
@@ -789,18 +795,37 @@ const StockChart = React.memo(({
 
     // Add consistent padding - extend more for clickable selection area
     const priceRange = currentMax - currentMin;
-    const pricePadding = priceRange * 0.2; // 20% padding to allow selecting beyond chart
+    // For previous charts, use no padding to fill the space completely
+    // For other charts, use 20% padding to allow selecting beyond chart
+    const pricePadding = chartType === 'previous' ? 0 : priceRange * 0.2;
 
     // Calculate volume range
-    const volumeMax = Math.max(...stockData.map(d => d.volume));
-    const volumePadding = volumeMax * 0.1;
+    const volumeValues = stockData.map(d => {
+      // Handle different volume property names
+      const vol = d.volume || d.Volume || d.VOLUME;
+      return vol !== undefined && vol !== null && !isNaN(vol) ? parseFloat(vol) : 0;
+    }).filter(v => v > 0);
+    
+    const volumeMax = volumeValues.length > 0 ? Math.max(...volumeValues) : 1; // Default to 1 if no volume data
+    // For previous charts, use no padding so volume bars reach the bottom
+    // For other charts, use 10% padding
+    const volumePadding = chartType === 'previous' ? 0 : volumeMax * 0.1;
 
     // Calculate heights for price and volume sections
     // On mobile, give volume a bit more space for better visibility
+    // For previous charts, use more space for price section (smaller volume section)
     const totalHeight = dimensions.innerHeight;
-    const volumePercentage = isMobile ? 0.25 : 0.2; // 25% on mobile, 20% on desktop
-    const volumeHeight = totalHeight * volumePercentage;
-    const priceHeight = totalHeight - volumeHeight;
+    let volumePercentage, volumeHeight, priceHeight;
+    if (chartType === 'previous') {
+      // Previous charts: use minimal volume space to maximize price area
+      volumePercentage = isMobile ? 0.15 : 0.1; // 15% on mobile, 10% on desktop
+      volumeHeight = totalHeight * volumePercentage;
+      priceHeight = totalHeight - volumeHeight;
+    } else {
+      volumePercentage = isMobile ? 0.25 : 0.2; // 25% on mobile, 20% on desktop
+      volumeHeight = totalHeight * volumePercentage;
+      priceHeight = totalHeight - volumeHeight;
+    }
 
     // Get the last valid price for labels
     const lastValidDataPoint = stockData[stockData.length - 1];
@@ -828,8 +853,126 @@ const StockChart = React.memo(({
     // Adjust padding for mobile - reduce padding to move data visualization further right
     // Reduced padding so data takes up more of the chart width, moving the divider line further right
     const xScalePadding = isMobile ? 0.05 : 0.1;
-    // On mobile, use a smaller range multiplier to make d.json data end further to the left
-    const xScaleRangeMultiplier = isMobile ? 1.05 : 1.2; // Mobile: 105%, Desktop: 120%
+    
+    // Calculate x-scale range so that the last D.json data point ends at the divider line
+    // Divider line position: Mobile 70%, Desktop 75% of innerWidth
+    const DIVIDER_POSITION_PERCENT = isMobile ? 0.70 : 0.75;
+    const dividerPositionInChart = dimensions.innerWidth * DIVIDER_POSITION_PERCENT;
+    
+    // For previous charts, add a tiny bit of space on the right to make stock information easier to read
+    let xScaleRangeMultiplier = isMobile ? 1.05 : 1.2; // Mobile: 105%, Desktop: 120%
+    if (chartType === 'previous') {
+      xScaleRangeMultiplier = isMobile ? 1.1 : 1.25; // Mobile: 110%, Desktop: 125% - adds just a tiny bit of space on right
+    }
+    
+    // Calculate x-scale range so last D.json data point ends exactly at divider line
+    // For non-previous charts, adjust range so last data point aligns with divider
+    let xScaleRangeEnd = dimensions.innerWidth * xScaleRangeMultiplier;
+    
+    if (chartType !== 'previous' && stockData.length > 0) {
+      const numMainDataPoints = stockData.length;
+      const lastMainDataIndex = numMainDataPoints - 1;
+      
+      // Calculate range so last D.json data point ends exactly at divider line
+      // Use only main data indices for calculation (not extended), but result applies to extended scale
+      const mainDataIndices = [...Array(numMainDataPoints).keys()];
+      
+      // Iteratively find the correct range
+      let currentRange = dividerPositionInChart * 1.15; // Start with estimate
+      let iterations = 0;
+      const maxIterations = 50; // More iterations for precision
+      let bestRange = currentRange;
+      let bestDifference = Infinity;
+      
+      while (iterations < maxIterations) {
+        // Create test scale with main data indices only for calculation
+        const testScale = scalePoint()
+          .domain(mainDataIndices)
+          .range([0, currentRange])
+          .padding(xScalePadding);
+        
+        // Get the actual position of the last main data point
+        const lastCenterX = testScale(lastMainDataIndex);
+        if (lastCenterX === undefined || isNaN(lastCenterX)) {
+          currentRange = bestRange;
+          break;
+        }
+        
+        const step = testScale.step();
+        // Candlestick rect: x = center - width/2, so right edge = center + width/2
+        // width = step * 0.8, so right edge = center + (step * 0.8) / 2 = center + step * 0.4
+        const lastRightEdge = lastCenterX + (step * 0.4);
+        
+        // Check precision
+        const difference = Math.abs(lastRightEdge - dividerPositionInChart);
+        if (difference < bestDifference) {
+          bestDifference = difference;
+          bestRange = currentRange;
+        }
+        
+        // If very close, we're done
+        if (difference < 0.01) {
+          xScaleRangeEnd = currentRange;
+          break;
+        }
+        
+        // Adjust range proportionally
+        const adjustment = dividerPositionInChart / lastRightEdge;
+        const newRange = currentRange * adjustment;
+        
+        // Safety checks
+        if (newRange <= 0 || newRange > dimensions.innerWidth * 5 || !isFinite(newRange)) {
+          currentRange = bestRange;
+          break;
+        }
+        
+        currentRange = newRange;
+        iterations++;
+      }
+      
+      // Now verify and adjust for extendedIndices (which has more points for selection area)
+      // The extendedIndices will change the step size, so we need to recalculate
+      if (extendedIndices.length > mainDataIndices.length) {
+        // Recalculate with extendedIndices to get the correct range
+        let extendedRange = bestRange;
+        let extendedIterations = 0;
+        const maxExtendedIterations = 30;
+        
+        while (extendedIterations < maxExtendedIterations) {
+          const verifyScale = scalePoint()
+            .domain(extendedIndices)
+            .range([0, extendedRange])
+            .padding(xScalePadding);
+          
+          const verifyLastX = verifyScale(lastMainDataIndex);
+          if (verifyLastX === undefined || isNaN(verifyLastX)) {
+            break;
+          }
+          
+          const verifyStep = verifyScale.step();
+          const verifyRightEdge = verifyLastX + (verifyStep * 0.4);
+          const verifyDiff = Math.abs(verifyRightEdge - dividerPositionInChart);
+          
+          if (verifyDiff < 0.01) {
+            bestRange = extendedRange;
+            break;
+          }
+          
+          const verifyAdjustment = dividerPositionInChart / verifyRightEdge;
+          extendedRange = extendedRange * verifyAdjustment;
+          
+          if (extendedRange <= 0 || extendedRange > dimensions.innerWidth * 5 || !isFinite(extendedRange)) {
+            break;
+          }
+          
+          extendedIterations++;
+        }
+        
+        bestRange = extendedRange;
+      }
+      
+      xScaleRangeEnd = bestRange;
+    }
     
     return {
       priceScale: scaleLinear()
@@ -840,8 +983,8 @@ const StockChart = React.memo(({
         .range([volumeHeight, 0]),
       xScale: scalePoint()
         .domain(extendedIndices)
-        // Extend range to push data visualization further right (less on mobile to end data further left)
-        .range([0, dimensions.innerWidth * xScaleRangeMultiplier])
+        // Range calculated so last D.json data point ends exactly at divider line position
+        .range([0, xScaleRangeEnd])
         .padding(xScalePadding),
       priceHeight,
       volumeHeight,
@@ -850,7 +993,7 @@ const StockChart = React.memo(({
       isZoomedOut: zoomPercentage > 0,
       extendedDomain: extendedIndices.length > combinedIndices.length
     };
-  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage, isMobile]);
+  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage, isMobile, chartType]);
 
   // Create line generators for SMA
   const sma10Line = useMemo(() => {
@@ -1161,18 +1304,25 @@ const StockChart = React.memo(({
           : x;
           
         const width = scales.xScale.step() * 0.8;
-        const height = scales.volumeScale(volume);
+        // volumeScale maps volume to y position: [0, volumeMax] -> [volumeHeight, 0]
+        // So volumeScale(volume) gives the y position from the top
+        const topY = scales.volumeScale(volume);
       
         // Skip if any positions are invalid
-        if (isNaN(height)) {
+        if (isNaN(topY)) {
           return null;
         }
       
+        // For previous charts, ensure bars reach the bottom (no gap)
+        // Bar should go from topY to volumeHeight (bottom)
+        const barHeight = scales.volumeHeight - topY;
+        const barY = topY;
+      
         return {
           x: finalX - (width / 2),
-          y: scales.volumeHeight - height,
+          y: barY,
           width: width || 6, // Fallback width if calculation fails
-          height
+          height: barHeight
         };
       } catch (err) {
         console.error(`Error generating volume bar for index ${i}:`, err);
@@ -1561,41 +1711,21 @@ const StockChart = React.memo(({
   const isDChart = chartType === 'default' || chartType === 'D';
   const shouldShowDividerAndBackground = (zoomPercentage > 0 && afterStockData.length > 0) || shouldShowBackground;
   
-  // Calculate divider line position based on zoom state
+  // Calculate divider line position - FIXED POSITION on screen (always same position)
+  // Use a fixed percentage of container width to ensure divider stays in same screen position
+  // This matches the dashed separator line position for consistency
   let dividerLineX, darkBackgroundWidth;
   
-  // Offset to move border line further to the right (in step units)
-  // On mobile, use a smaller offset to position the divider line further left
-  const borderLineOffset = isMobile ? 1.0 : 1.5; // Mobile: 1.0 steps, Desktop: 1.5 steps
+  // Fixed position: matches the dashed separator line position
+  // Mobile: 70% to give more space for selection, Desktop: 75%
+  const DIVIDER_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
   
-  if (scales?.isZoomedOut && afterStockData.length > 0) {
-    // ZOOM OUT MODE: Position divider at the exact boundary between main and after data
-    const lastMainDataIndex = stockData.length - 1;
-    const firstAfterDataIndex = stockData.length;
-    
-    // Get the x-coordinate of the last main data point
-    const lastMainX = scales.xScale(lastMainDataIndex);
-    const step = scales.xScale.step();
-    
-    // For D charts, the X scale doesn't include after data indices, so position divider at end of main data
-    // For non-D charts, try to get the first after data index position
-    let firstAfterX = scales.xScale(firstAfterDataIndex);
-    if (firstAfterX === undefined || isNaN(firstAfterX)) {
-      // If index doesn't exist in scale (e.g., D charts), use estimated position
-      firstAfterX = lastMainX + step;
-    }
-    
-    // Position the divider exactly at the midpoint between datasets, then offset further right
-    dividerLineX = lastMainX + (step / 2) + (step * borderLineOffset) + (dimensions?.margin?.left || 0);
+  if (scales && dimensions && stockData.length > 0 && afterStockData.length > 0) {
+    // Calculate fixed position based on container width
+    // Position is relative to the inner area (after left margin)
+    dividerLineX = dimensions.margin.left + (dimensions.innerWidth * DIVIDER_POSITION_PERCENT);
     
     // Background covers from divider to end of chart
-    darkBackgroundWidth = (dimensions?.width || 0) - dividerLineX;
-    
-  } else if (scales && dimensions && stockData.length > 0) {
-    // NORMAL MODE: Use the original logic, then offset further right
-    const lastMainDataX = scales.xScale(stockData.length - 1);
-    const step = scales.xScale.step();
-    dividerLineX = lastMainDataX + scales.xScale.step() + (step * borderLineOffset) + dimensions.margin.left;
     darkBackgroundWidth = dimensions.width - dividerLineX;
   } else {
     dividerLineX = 0;
@@ -1624,9 +1754,16 @@ const StockChart = React.memo(({
         ref={svgRef}
         width="100%"
         height="100%"
-        viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-        className={`w-full h-full ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
-        preserveAspectRatio={chartType === 'hourly' ? 'xMidYMid slice' : 'xMidYMid meet'}
+        viewBox={`0 0 ${(() => {
+          if (chartType === 'previous') {
+            // Calculate extended width to match xScale range multiplier
+            const xScaleRangeMultiplier = isMobile ? 1.1 : 1.25;
+            return dimensions.margin.left + dimensions.innerWidth * xScaleRangeMultiplier + dimensions.margin.right;
+          }
+          return dimensions.width;
+        })()} ${dimensions.height}`}
+        className={`w-full h-full transition-opacity duration-500 ease-in-out ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
+        preserveAspectRatio={chartType === 'hourly' ? 'xMidYMid slice' : chartType === 'previous' ? 'xMinYMid meet' : 'xMidYMid meet'}
         onClick={handleChartClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -2095,11 +2232,11 @@ const StockChart = React.memo(({
             
             {/* Visual divider line between historical data and future selection area */}
             {onChartClick && !disabled && scales && stockData.length > 0 && (() => {
-              const lastDataIndex = stockData.length - 1;
-              const lastDataCenterX = scales.xScale(lastDataIndex);
-              const step = scales.xScale.step();
-              // Position divider at the right edge of the last data bar (center + half step) + 2px
-              const dividerX = lastDataCenterX + (step / 2) + dimensions.margin.left + 2;
+              // Fixed position: divider stays in same screen position
+              // Mobile: lower percentage to give more space for selection
+              // Desktop: slightly higher but still leaves good selection area
+              const SEPARATOR_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
+              const dividerX = dimensions.margin.left + (dimensions.innerWidth * SEPARATOR_POSITION_PERCENT);
               
               return (
                 <g>

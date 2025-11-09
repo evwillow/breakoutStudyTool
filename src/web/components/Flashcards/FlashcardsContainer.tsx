@@ -359,6 +359,7 @@ export default function FlashcardsContainer() {
       const currentGameState = gameStateRef.current;
 
       if (currentGameState.score === null || currentGameState.score === undefined) {
+        // Show time-up overlay when timer runs out
         currentGameState.setShowTimeUpOverlay(true);
         clearTimeUpAdvanceTimeout();
 
@@ -367,12 +368,17 @@ export default function FlashcardsContainer() {
           timerRef.current.reset(timerDuration);
         }
 
+        // After 5 seconds, advance to next stock
         timeUpAdvanceTimeoutRef.current = setTimeout(() => {
           if (handleNextCardRef.current) {
+            console.log('Time up: Advancing to next stock after 5 second delay');
             handleNextCardRef.current();
+          } else {
+            console.warn('Time up: handleNextCardRef.current is null, cannot advance');
           }
-        }, 5000);
+        }, 5000); // 5 second delay before advancing
       } else if (handleNextCardRef.current) {
+        // If user already made a selection, advance immediately
         handleNextCardRef.current();
       }
     }, [clearTimeUpAdvanceTimeout, timerDuration]),
@@ -1302,6 +1308,9 @@ export default function FlashcardsContainer() {
                 onTimerDurationChange={handleTimerDurationChange}
                 onPauseStateChange={(paused: boolean) => {
                   isChartPausedRef.current = paused;
+                }}
+                onTimerPause={() => {
+                  timer.pause();
                 }}
                 onDismissTooltip={handleTooltipDismiss}
               />

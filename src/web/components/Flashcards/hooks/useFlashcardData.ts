@@ -293,26 +293,23 @@ export function useFlashcardData({
           }
         };
         
-        // Prioritize files: Essential files (D/M) first, then after.json, then points.json, then date-formatted files
+        // Prioritize files: Essential files (D/M) and points.json together first, then after.json, then date-formatted files
         const essentialFileNames = ['D.json', 'M.json'];
         // Pattern to match date-formatted files like "Feb_22_2016.json"
         const dateFilePattern = /^[A-Za-z]{3}_\d{1,2}_\d{4}\.json$/;
         
         const prioritizedFiles = [
-          // First: Essential files
+          // First: Essential files (D.json, M.json) and points.json together - load at same time
           ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.split('/').pop() || f.fileName;
-            return essentialFileNames.includes(fileName);
+            const lowerFileName = fileName.toLowerCase();
+            return essentialFileNames.includes(fileName) || 
+                   (lowerFileName.includes('points') && lowerFileName.endsWith('.json'));
           }),
           // Second: after.json files for the same stocks
           ...files.filter((f: { fileName: string }) => {
             const fileName = f.fileName.toLowerCase();
             return fileName.includes('after') && fileName.endsWith('.json');
-          }),
-          // Third: points.json files
-          ...files.filter((f: { fileName: string }) => {
-            const fileName = f.fileName.toLowerCase();
-            return fileName.includes('points') && fileName.endsWith('.json');
           }),
           // Fourth: Date-formatted files (previous breakouts) - important for DateFolderBrowser
           ...files.filter((f: { fileName: string }) => {
@@ -331,8 +328,9 @@ export function useFlashcardData({
         ];
         
         // Load first quick batch to get UI ready ASAP (now with prioritization)
-        // Load enough files to get essential files + after.json + points.json + date-formatted files for at least one flashcard
+        // Load enough files to get essential files + points.json + after.json + date-formatted files for at least one flashcard
         // Include date-formatted files in initial batch so DateFolderBrowser can display them immediately
+        // Points.json is now loaded together with D.json in the same priority batch
         const quickBatch = prioritizedFiles.slice(0, QUICK_BATCH_SIZE * 3); // Load more files in parallel for faster initial load
         const quickPromises = quickBatch.map(async (file: any) => {
           try {

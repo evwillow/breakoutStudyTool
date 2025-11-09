@@ -38,6 +38,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
   const [visibleItems, setVisibleItems] = useState([]);
   const [autoExpandedItems, setAutoExpandedItems] = useState([]);
   const [manuallyControlledItems, setManuallyControlledItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const fileRefs = useRef({});
   const lastScrollY = useRef(0);
   const scrollingDirection = useRef('down');
@@ -57,29 +58,37 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
   useEffect(() => {
     if (!session) return;
     
-    // Clear existing files immediately when stock changes
-    setAllFiles([]);
-    setFileData({});
-    setExpandedFiles([]);
-    setError(null);
-    setDebugInfo('');
-    setVisibleItems([]);
-    setAutoExpandedItems([]);
-    setManuallyControlledItems([]);
-    
     // Don't fetch if no current stock
     if (!currentStock) {
-      setDebugInfo('No stock selected');
+      // Smoothly clear when no stock selected
+      setTimeout(() => {
+        setAllFiles([]);
+        setFileData({});
+        setExpandedFiles([]);
+        setError(null);
+        setDebugInfo('No stock selected');
+        setVisibleItems([]);
+        setAutoExpandedItems([]);
+        setManuallyControlledItems([]);
+      }, 100);
       return;
     }
+    
+    // Clear error and debug info immediately, but keep files visible during transition
+    setError(null);
+    setDebugInfo('');
+    setIsLoading(true);
     
     const fetchAllStockFiles = async () => {
       try {
         // First, try to use files from flashcards that are already loaded
-        // Extract date-formatted files from the current stock's directory only
+        // Extract date-formatted files from OTHER directories of the same stock symbol
         const preloadedFiles = [];
         if (flashcards && flashcards.length > 0 && currentStock) {
           const currentStockLower = currentStock.toLowerCase();
+          const currentStockParts = currentStockLower.split('_');
+          const currentStockSymbol = currentStockParts[0]; // e.g., "adpt"
+          
           flashcards.forEach(flashcard => {
             if (flashcard.jsonFiles && flashcard.jsonFiles.length > 0) {
               flashcard.jsonFiles.forEach(file => {
@@ -92,8 +101,10 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   const isDateFile = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i.test(lastPart);
                   
                   if (isDateFile) {
-                    // Only include if from the current stock's directory
+                    // Extract directory name
                     const fileDir = file.fileName.split('/')[0]?.toLowerCase() || '';
+                    
+                    // Only include if from the SAME folder as d.json (current stock's directory)
                     if (fileDir === currentStockLower) {
                       preloadedFiles.push({
                         id: file.fileName,
@@ -165,10 +176,11 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           return;
         }
         
-        // Extract stock symbol from current stock (e.g., "ADPT" from "ADPT_Dec_7_2020")
+        // Extract current stock folder name (e.g., "ADPT_Dec_7_2020")
         const currentStockLower = currentStock.toLowerCase();
         
-        // Simple filter: Get date-formatted files from the current stock's directory only
+        // Filter: Get date-formatted files ONLY from the SAME folder as d.json
+        // Only include files from the current stock's directory
         const previousBreakoutFiles = allFiles.filter(file => {
           // File format: "STOCK_DIR/FILENAME.json" (e.g., "ADPT_Dec_7_2020/Dec_23_2020.json")
           const fileName = file.fileName || file.name || '';
@@ -179,7 +191,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           const directoryName = fileNameParts[0].toLowerCase();
           const actualFileName = fileNameParts[fileNameParts.length - 1].toLowerCase();
           
-          // Only include files from the current stock's directory
+          // Only include files from the SAME folder as d.json (current stock's directory)
           if (directoryName !== currentStockLower) return false;
           
           // Only include date-formatted files (e.g., "Dec_23_2020.json")
@@ -261,7 +273,38 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           }
         });
         
-        const finalFiles = Array.from(mergedFilesMap.values());
+        // Remove duplicates based on full file path (id) - ensure no duplicates ever
+        // Use a Map to ensure each unique file path appears only once
+        const uniqueFilesMap = new Map();
+        Array.from(mergedFilesMap.values()).forEach(file => {
+          // Use the full path as the key to ensure uniqueness
+          const key = file.id || file.fileName || file.path;
+          if (key) {
+            // If file already exists, prefer the one with data
+            const existing = uniqueFilesMap.get(key);
+            if (!existing || (!existing.data && file.data)) {
+              uniqueFilesMap.set(key, file);
+            }
+          }
+        });
+        
+        // Additional deduplication pass: also check by actual filename to catch any duplicates
+        const finalUniqueMap = new Map();
+        Array.from(uniqueFilesMap.values()).forEach(file => {
+          // Extract just the filename (last part of path) for comparison
+          const fileName = file.fileName || file.id || file.path || '';
+          const fileNameParts = fileName.split(/[/\\]/);
+          const actualFileName = fileNameParts.length > 1 ? fileNameParts[fileNameParts.length - 1] : fileName;
+          const fileKey = actualFileName.toLowerCase();
+          
+          // Use filename as key to catch duplicates even if paths differ slightly
+          const existing = finalUniqueMap.get(fileKey);
+          if (!existing || (!existing.data && file.data)) {
+            finalUniqueMap.set(fileKey, file);
+          }
+        });
+        
+        const finalFiles = Array.from(finalUniqueMap.values());
         
         // Set fileData for files that have data loaded (for date-formatted files)
         const fileDataToSet = {};
@@ -274,22 +317,33 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           setFileData(prev => ({ ...prev, ...fileDataToSet }));
         }
         
-        // Only update files if we found some, otherwise keep existing files to prevent flicker
-        if (finalFiles.length > 0) {
-          setAllFiles(finalFiles);
-          setDebugInfo(`Found ${finalFiles.length} previous setups for ${currentStock || "all stocks"}`);
-        } else if (currentStock) {
-          // If we have a currentStock but found no files, still update to show empty state
-          setAllFiles([]);
-          setDebugInfo('');
-          console.warn(`No previous setups found for current stock: ${currentStock}`);
-        } else {
-          // If no currentStock, clear files
-          setAllFiles([]);
-          setDebugInfo(`No stock selected`);
-        }
+        // Smoothly update files - use requestAnimationFrame for smooth transition
+        requestAnimationFrame(() => {
+          if (finalFiles.length > 0) {
+            setAllFiles(finalFiles);
+            setDebugInfo(`Found ${finalFiles.length} previous setups for ${currentStock || "all stocks"}`);
+          } else if (currentStock) {
+            // If we have a currentStock but found no files, still update to show empty state
+            // Delay slightly to allow smooth fade
+            setTimeout(() => {
+              setAllFiles([]);
+              setDebugInfo('');
+            }, 200);
+            console.warn(`No previous setups found for current stock: ${currentStock}`);
+          } else {
+            // If no currentStock, clear files
+            setTimeout(() => {
+              setAllFiles([]);
+              setDebugInfo(`No stock selected`);
+            }, 200);
+          }
+          // Mark loading as complete after a brief delay for smooth transition
+          setTimeout(() => setIsLoading(false), 100);
+        });
       } catch (error) {
-        setError(`Failed to load files: ${error.message}`);
+        // Silently handle errors - just log to console
+        console.error('Failed to load files:', error);
+        setIsLoading(false);
       }
     };
     
@@ -367,8 +421,8 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         throw new Error(result.message || 'No data returned from API');
       }
     } catch (err) {
+      // Silently handle errors - just log to console
       console.error(`Error loading file data for ${fileId}:`, err);
-      setError(`Failed to load chart data: ${err.message}`);
     }
   }, [allFiles, fileData]);
 
@@ -705,10 +759,10 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
       return false;
     }
     
-    // For "Previous Setups", we ONLY want date-formatted files from the SAME DIRECTORY as the current stock
-    // Exclude files from other directories (even if same stock symbol) and non-date files
+    // For "Previous Setups", we want date-formatted files from the SAME folder as d.json
+    // Only include files from the current stock's directory
     if (directoryName !== stockLower) {
-      return false; // Only show files from the current stock's directory
+      return false; // Only include files from the current stock's directory
     }
     
     // Only include date-formatted files
@@ -940,27 +994,6 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           <span className="text-base font-semibold text-white/90">Previous Setups</span>
         </div>
       
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-white p-4 rounded-md mb-4 shadow-sm">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-white">{error}</p>
-              <button 
-                onClick={() => setError(null)}
-                className="mt-2 text-xs text-red-700 hover:text-red-900 font-medium"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {allFiles.length === 0 && (
         <div className="text-center py-6 sm:py-8 px-4 bg-black/95 backdrop-blur-sm rounded-md border border-white/30">
           <p className="text-white/80 text-sm sm:text-base">
@@ -1036,7 +1069,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className="bg-black overflow-hidden w-full h-full shadow-inner chart-container border border-white/30"
+                        className="bg-black overflow-visible w-full h-full shadow-inner chart-container border border-white/30"
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,

@@ -688,7 +688,7 @@ const Header = () => {
         {/* Menu Panel - bulletproof for mobile */}
         <div 
           ref={mobileMenuPanelRef}
-          className={`fixed right-0 w-72 bg-black/80 backdrop-blur-sm shadow-2xl z-[99] min-[800px]:hidden flex flex-col transform transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
+          className={`fixed right-0 w-56 bg-black/95 backdrop-blur-sm border-l border-white/30 shadow-2xl z-[99] min-[800px]:hidden flex flex-col transform transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
           style={{ 
             top: `${headerHeight}px`,
             height: `calc(100vh - ${headerHeight}px)`,

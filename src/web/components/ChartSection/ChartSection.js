@@ -210,6 +210,7 @@ function ChartSection({
   onTimerDurationChange = null, // Callback to change timer duration
   onPauseStateChange = null, // Callback to notify parent of pause state changes
   onDismissTooltip = null, // Callback to dismiss the selection tooltip
+  onTimerPause = null, // Callback to pause the timer
 }) {
   const [showAuthModal, setShowAuthModal] = React.useState(false);
   const [showAfterAnimation, setShowAfterAnimation] = useState(false);
@@ -242,6 +243,13 @@ function ChartSection({
   const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [animationInProgress, setAnimationInProgress] = useState(false);
+  
+  // Pause timer when animation is in progress
+  useEffect(() => {
+    if (animationInProgress && onTimerPause) {
+      onTimerPause();
+    }
+  }, [animationInProgress, onTimerPause]);
   const [showTimerPopup, setShowTimerPopup] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customValue, setCustomValue] = useState("");
@@ -559,6 +567,10 @@ function ChartSection({
           
           // Step 2: Reveal animation
           setShowAfterAnimation(true);
+          // Pause the timer when animation starts
+          if (onTimerPause) {
+            onTimerPause();
+          }
           await new Promise(resolve => {
             let startTime = performance.now();
             const revealDuration = 1800; // 1.8 seconds
@@ -1312,12 +1324,21 @@ function ChartSection({
   return (
     <>
       {/* Main content with Daily chart */}
-      <div className="flex flex-col pt-1 sm:pt-2 px-1 sm:px-6 md:px-10 lg:pr-2 gap-4 items-start w-full">
+      <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-6 md:px-10 lg:pr-2 gap-4 items-start w-full">
         {/* Daily chart section - primary chart */}
-        <div className="w-full flex flex-col items-start bg-transparent rounded-md shadow-md p-0 py-1">
+        <div className="w-full flex flex-col items-start bg-transparent rounded-md shadow-md p-0 py-1 lg:py-0">
           <div
             className={chartContainerClasses}
-            style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '5 / 4', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}
+            style={{ 
+              width: '100%', 
+              height: isMobile ? '500px' : '600px', // Fixed height - never changes between stocks
+              minHeight: isMobile ? '500px' : '600px',
+              maxHeight: isMobile ? '500px' : '600px',
+              margin: 0, 
+              padding: 0, 
+              boxSizing: 'border-box', 
+              overflow: 'hidden' 
+            }}
             onClickCapture={handleChartAreaClickCapture}
           >
             {/* D Label, SMA Labels, and Timer - positioned in the top left, same row */}
@@ -1484,10 +1505,10 @@ function ChartSection({
                 </div>
               </div>
             )}
-            <div className={`absolute inset-0 rounded-md overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} relative transition-opacity duration-300`} style={{ height: '100%', width: '100%' }}>
+            <div className={`absolute inset-0 rounded-md overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} relative transition-opacity duration-500 ease-in-out`} style={{ height: '100%', width: '100%' }}>
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               {orderedFiles && orderedFiles.length > 0 && orderedFiles[0]?.data ? (
-                <>
+                <div className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
                   <StockChart 
                     data={orderedFiles[0].data} 
                     afterData={afterData}
@@ -1569,10 +1590,13 @@ function ChartSection({
                       onPauseChange={handlePauseChange}
                     />
                   )}
-                </>
+                </div>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-black rounded-md">
-                  {/* Empty state - parent will handle loading */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black rounded-md transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
+                  {/* Loading skeleton - smooth fade */}
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-white/50 text-sm">Loading chart...</div>
+                  </div>
                 </div>
               )}
             </div>

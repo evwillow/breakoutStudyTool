@@ -79,7 +79,7 @@ const FolderSection = React.memo(function FolderSection({
       */}
 
       {/* Right column: Points, Accuracy, and Rounds */}
-      <div className="flex flex-col pt-1 sm:pt-2 px-1 sm:px-6 md:px-10 md:pr-10 lg:pl-2 gap-3 items-start w-full relative z-50">
+      <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-6 md:px-10 md:pr-10 lg:pl-2 gap-3 items-start w-full relative z-50">
         {/* Mobile: 2 columns, Desktop: single column */}
         <div className="w-full flex flex-row lg:flex-col items-start gap-3">
           {/* Left column on mobile: Points Display - Box with bullet points */}
