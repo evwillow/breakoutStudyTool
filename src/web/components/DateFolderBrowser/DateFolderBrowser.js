@@ -860,7 +860,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     const lastPart = fileNameParts[fileNameParts.length - 1];
     
     if (lastPart === 'after.json') {
-      return <span className="text-turquoise-600">After Breakout</span>;
+      return <span className="text-white">After Breakout</span>;
     }
     
     // Remove .json extension and get just the filename part
@@ -936,19 +936,19 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
             
             if (yearsDiff >= 1) {
               // Use years if at least 1 year
-              return <span className="text-turquoise-600">{yearsDiff === 1 ? '1 year before' : `${yearsDiff} years before`}</span>;
+              return <span className="text-white">{yearsDiff === 1 ? '1 year before' : `${yearsDiff} years before`}</span>;
             } else if (monthsDiff >= 1) {
               // Use months if at least 1 month
-              return <span className="text-turquoise-600">{monthsDiff === 1 ? '1 month before' : `${monthsDiff} months before`}</span>;
+              return <span className="text-white">{monthsDiff === 1 ? '1 month before' : `${monthsDiff} months before`}</span>;
             } else if (weeksDiff >= 1) {
               // Use weeks if at least 1 week
-              return <span className="text-turquoise-600">{weeksDiff === 1 ? '1 week before' : `${weeksDiff} weeks before`}</span>;
+              return <span className="text-white">{weeksDiff === 1 ? '1 week before' : `${weeksDiff} weeks before`}</span>;
             } else {
               // Use days for less than a week
-              return <span className="text-turquoise-600">{daysDiff === 1 ? '1 day before' : `${daysDiff} days before`}</span>;
+              return <span className="text-white">{daysDiff === 1 ? '1 day before' : `${daysDiff} days before`}</span>;
             }
           } else if (daysDiff === 0) {
-            return <span className="text-turquoise-600">Day of</span>;
+              return <span className="text-white">Day of</span>;
           } else {
             // For dates after the breakout
             const absDaysDiff = Math.abs(daysDiff);
@@ -957,13 +957,13 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
             const yearsAfter = Math.floor(absDaysDiff / 365); // Approximate
             
             if (yearsAfter >= 1) {
-              return <span className="text-turquoise-600">{yearsAfter === 1 ? '1 year after' : `${yearsAfter} years after`}</span>;
+              return <span className="text-white">{yearsAfter === 1 ? '1 year after' : `${yearsAfter} years after`}</span>;
             } else if (monthsAfter >= 1) {
-              return <span className="text-turquoise-600">{monthsAfter === 1 ? '1 month after' : `${monthsAfter} months after`}</span>;
+              return <span className="text-white">{monthsAfter === 1 ? '1 month after' : `${monthsAfter} months after`}</span>;
             } else if (weeksAfter >= 1) {
-              return <span className="text-turquoise-600">{weeksAfter === 1 ? '1 week after' : `${weeksAfter} weeks after`}</span>;
+              return <span className="text-white">{weeksAfter === 1 ? '1 week after' : `${weeksAfter} weeks after`}</span>;
             } else {
-              return <span className="text-turquoise-600">{absDaysDiff === 1 ? '1 day after' : `${absDaysDiff} days after`}</span>;
+              return <span className="text-white">{absDaysDiff === 1 ? '1 day after' : `${absDaysDiff} days after`}</span>;
             }
           }
         }
@@ -1063,12 +1063,12 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
   return (
     <div className="w-full pt-0 px-2 sm:px-6 md:px-10 pb-2">
       <div className="w-full">
-        <h3 className="text-xl font-bold mb-4 text-white bg-turquoise-600 px-4 py-2 rounded-md shadow-md flex items-center">
-        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        Previous Setups
-      </h3>
+        <div className="inline-flex items-center gap-3 bg-black/95 backdrop-blur-sm px-4 py-2.5 rounded-md border border-white/50 mb-6">
+          <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span className="text-base font-semibold text-white/90">Previous Setups</span>
+        </div>
       
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 text-white p-4 rounded-md mb-4 shadow-sm">
@@ -1187,10 +1187,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   onClick={() => handleFileToggle(file.id)}
                   style={{ borderBottom: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
                 >
-                  <span className="font-medium flex items-center">
-                    <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
+                  <span className="text-white font-semibold bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg inline-block">
                     {displayFileName(file.fileName)}
                   </span>
                   <svg 

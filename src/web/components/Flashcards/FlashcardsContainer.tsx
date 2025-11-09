@@ -1271,44 +1271,52 @@ export default function FlashcardsContainer() {
       <div className="min-h-screen w-full flex justify-center items-center p-2 sm:p-4 md:p-6">
         <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md sm:rounded-md overflow-hidden border border-transparent transition-all duration-300">
           
-          {/* Chart Section */}
-          <TypedChartSection
-            orderedFiles={processedData.orderedFiles}
-            afterData={processedData.afterJsonData}
-            timer={timer.displayValue}
-            pointsTextArray={processedData.pointsTextArray}
-            feedback={gameState.feedback}
-            disabled={gameState.disableButtons}
-            isTimeUp={gameState.showTimeUpOverlay}
-            onAfterEffectComplete={handleAfterEffectComplete}
-            // Coordinate-based selection props
-            onChartClick={handleChartClick}
-            userSelection={gameState.userSelection}
-            targetPoint={targetPoint}
-            distance={gameState.distance}
-            score={gameState.score}
-            onNextCard={handleNextCard}
-            timerDuration={timerDuration}
-            onTimerDurationChange={handleTimerDurationChange}
-            onPauseStateChange={(paused: boolean) => {
-              isChartPausedRef.current = paused;
-            }}
-            onDismissTooltip={handleTooltipDismiss}
-          />
+          {/* Chart Section and Folder Section - Side by side layout */}
+          <div className="flex flex-col lg:flex-row gap-4 items-start">
+            {/* Chart Section - Left side */}
+            <div className="w-full lg:w-2/3">
+              <TypedChartSection
+                orderedFiles={processedData.orderedFiles}
+                afterData={processedData.afterJsonData}
+                timer={timer.displayValue}
+                pointsTextArray={[]}
+                feedback={gameState.feedback}
+                disabled={gameState.disableButtons}
+                isTimeUp={gameState.showTimeUpOverlay}
+                onAfterEffectComplete={handleAfterEffectComplete}
+                // Coordinate-based selection props
+                onChartClick={handleChartClick}
+                userSelection={gameState.userSelection}
+                targetPoint={targetPoint}
+                distance={gameState.distance}
+                score={gameState.score}
+                onNextCard={handleNextCard}
+                timerDuration={timerDuration}
+                onTimerDurationChange={handleTimerDurationChange}
+                onPauseStateChange={(paused: boolean) => {
+                  isChartPausedRef.current = paused;
+                }}
+                onDismissTooltip={handleTooltipDismiss}
+              />
+            </div>
 
-
-          {/* Folder Section */}
-          <TypedFolderSection
-            selectedFolder={selectedFolder}
-            folderOptions={folders}
-            onFolderChange={handleFolderChange}
-            accuracy={gameState.metrics.accuracy}
-            onNewRound={handleNewRound}
-            onRoundHistory={() => setShowRoundHistory(true)}
-            timerDuration={timerDuration}
-            onTimerDurationChange={handleTimerDurationChange}
-            isCreatingRound={isCreatingRound}
-          />
+            {/* Folder Section - Right column with Points, Accuracy, and Rounds */}
+            <div className="w-full lg:w-2/5 px-2 sm:px-6 md:px-10">
+              <TypedFolderSection
+                selectedFolder={selectedFolder}
+                folderOptions={folders}
+                onFolderChange={handleFolderChange}
+                accuracy={gameState.metrics.accuracy}
+                onNewRound={handleNewRound}
+                onRoundHistory={() => setShowRoundHistory(true)}
+                timerDuration={timerDuration}
+                onTimerDurationChange={handleTimerDurationChange}
+                isCreatingRound={isCreatingRound}
+                pointsTextArray={processedData.pointsTextArray}
+                isTimeUp={gameState.showTimeUpOverlay}
+              />
+            </div>
+          </div>
           
           {/* Date Folder Browser Section */}
           <div className="mt-8 sm:mt-1 mb-20">
@@ -1446,25 +1454,7 @@ export default function FlashcardsContainer() {
                 </button>
               </div>
             </div>
-            {isLoadingRounds ? (
-              <div className="flex items-center justify-center w-full py-8">
-                <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-md shadow-2xl max-w-md w-full border border-white">
-                  <div className="relative">
-                    <div className="animate-spin rounded-md h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-3 h-3 bg-turquoise-400 rounded-md"></div>
-                    </div>
-                  </div>
-                  <div className="text-center space-y-3">
-                    <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
-                      Loading Rounds
-                    </h2>
-                    <p className="text-turquoise-300 text-lg font-medium">Loading rounds...</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <>
+            <>
                 {availableRounds.length > 0 && (
                   <div className="mb-4">
                     <h4 className="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide">Recent Rounds:</h4>
@@ -1503,8 +1493,7 @@ export default function FlashcardsContainer() {
                     Cancel
                   </button>
                 </div>
-              </>
-            )}
+            </>
           </div>
         </div>
       )}

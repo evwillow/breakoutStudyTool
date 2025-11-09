@@ -1589,40 +1589,6 @@ function ChartSection({
             )}
           </div>
         </div>
-        
-        {/* Points Labels - Flexible flow layout that only wraps when necessary */}
-        <div className={`w-full flex flex-wrap gap-2 sm:gap-2.5 md:gap-3 bg-transparent rounded-md p-2 sm:p-3 md:p-4 ${isTimeUp ? 'filter blur-sm' : ''}`}>
-          {(() => {
-            // Ensure we have a valid array - handle undefined/null gracefully
-            const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
-            
-            if (safePointsArray.length > 0) {
-              return safePointsArray.map((text, index) => {
-                const displayText = text && typeof text === 'string' ? text.trim() : '';
-                return (
-                  <div
-                    key={`point-${index}-${displayText || index}`}
-                    className={`inline-flex items-center rounded-md shadow-md px-4 py-2.5 text-sm sm:text-base font-semibold transition-all duration-300 whitespace-nowrap ${
-                      displayText ? "bg-gradient-to-br from-turquoise-600 to-turquoise-500 text-white hover:from-turquoise-700 hover:to-turquoise-600 hover:shadow-lg hover:scale-105 cursor-default" : "invisible"
-                    }`}
-                  >
-                    {displayText || "\u00A0"}
-                  </div>
-                );
-              });
-            } else {
-              // Show placeholder boxes when no points data is available
-              return Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={`placeholder-${index}`}
-                  className="rounded-md shadow-md px-4 py-2.5 text-sm sm:text-base flex items-center justify-center h-auto transition-all duration-300 invisible whitespace-nowrap"
-                >
-                  {"\u00A0"}
-                </div>
-              ));
-            }
-          })()}
-        </div>
       </div>
       
     </>

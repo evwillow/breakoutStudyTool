@@ -35,9 +35,11 @@ const FolderSection = React.memo(function FolderSection({
   timerDuration,
   onTimerDurationChange,
   isCreatingRound = false,
+  pointsTextArray = [],
+  isTimeUp = false,
 }) {
   return (
-    <div className="px-2 sm:px-6 md:px-10 pb-2 sm:pb-6 md:pb-10 mt-5 sm:mt-6 bg-transparent">
+    <div className="bg-transparent">
       {/* ====================================================================
           DATASET SELECTOR - COMMENTED OUT BUT EASILY FINDABLE
           To re-enable: uncomment the section below (lines ~47-72)
@@ -76,60 +78,74 @@ const FolderSection = React.memo(function FolderSection({
       </div>
       */}
 
-      {/* Compact layout: Accuracy, and Round History - one line on desktop, two lines on mobile */}
-      <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mt-3">
-        {/* First row on mobile: Accuracy */}
-        <div className="flex flex-row gap-3 md:contents">
-          {/* Accuracy display - first item */}
-          <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
-            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span className="text-sm font-medium text-white/90">Average Accuracy:</span>
-            <span className="text-base font-bold text-white">{accuracy}%</span>
-          </div>
+      {/* Right column: Points, Accuracy, and Rounds */}
+      <div className="w-full lg:w-1/3 flex flex-col items-start gap-3 mt-4 sm:mt-6">
+        {/* Points Display - Box with bullet points */}
+        {(() => {
+          // Ensure we have a valid array - handle undefined/null gracefully
+          const safePointsArray = Array.isArray(pointsTextArray) ? pointsTextArray : (pointsTextArray ? [pointsTextArray] : []);
+          
+          if (safePointsArray.length > 0) {
+            return (
+              <div className={`bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 ${isTimeUp ? 'filter blur-sm' : ''}`}>
+                <ul className="list-none space-y-1">
+                  {safePointsArray.map((text, index) => {
+                    const displayText = text && typeof text === 'string' ? text.trim() : '';
+                    if (!displayText) return null;
+                    return (
+                      <li key={`point-${index}-${displayText || index}`} className="flex items-center gap-2 whitespace-nowrap">
+                        <span className="text-white/70 text-sm">•</span>
+                        <span className="text-sm text-white/90 font-medium">{displayText}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
+        {/* Accuracy display */}
+        <div className="inline-flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
+          <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span className="text-sm font-medium text-white/90">Average Accuracy:</span>
+          <span className="text-base font-bold text-white">{accuracy}%</span>
         </div>
 
-        {/* Second row on mobile: Round History with plus button */}
-        <div className="flex flex-row gap-3 md:contents">
-          {/* Round History button with plus button on the right */}
-          <div className="flex flex-col flex-1 md:flex-1">
-            <label className="mb-1 text-sm font-medium text-turquoise-700 invisible">
-              {/* Invisible label for alignment */}
-              Button:
-            </label>
-            <div className="w-full h-12 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-base rounded-md shadow-md hover:from-turquoise-800 hover:to-turquoise-700 transition font-medium flex items-center border border-turquoise-300">
-              <button 
-                onClick={onRoundHistory}
-                className="flex-1 flex items-center justify-center h-full"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Rounds
-              </button>
-              <button
-                onClick={onNewRound}
-                disabled={isCreatingRound}
-                className={`ml-2 mr-1 h-10 w-10 flex items-center justify-center rounded-md border border-turquoise-400/50 bg-turquoise-500/30 ${
-                  isCreatingRound 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:bg-turquoise-500/50 hover:border-turquoise-400 active:bg-turquoise-500/60'
-                } transition-all`}
-                title="New Round"
-              >
-                {isCreatingRound ? (
-                  <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
+        {/* Round History button with plus button */}
+        <div className="inline-flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
+          <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <button 
+            onClick={onRoundHistory}
+            className="text-sm font-medium text-white/90 hover:text-white transition-colors"
+          >
+            Rounds
+          </button>
+          <button
+            onClick={onNewRound}
+            disabled={isCreatingRound}
+            className={`ml-1 flex items-center justify-center rounded-md ${
+              isCreatingRound 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:opacity-80 active:opacity-60'
+            } transition-all`}
+            title="New Round"
+          >
+            {isCreatingRound ? (
+              <svg className="w-4 h-4 text-white/70 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+            ) : (
+              <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+            )}
+          </button>
         </div>
       </div>
     </div>
