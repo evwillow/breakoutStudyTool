@@ -119,27 +119,27 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
         ? 'bottom-0 left-2 right-2' 
         : 'bottom-0 left-2 right-2'
     }`}>
-      <div className={`bg-gradient-to-br from-gray-900 via-black to-gray-900 bg-opacity-98 backdrop-blur-lg border-2 border-turquoise-500/80 rounded-md shadow-2xl pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full flex flex-col ${
+      <div className={`bg-black/95 backdrop-blur-sm border border-white/30 rounded-md shadow-lg pointer-events-auto transform transition-all duration-300 animate-slide-in-up relative overflow-hidden w-full flex flex-col ${
         isMobile 
-          ? 'px-4 py-3' 
-          : 'px-5 py-3'
+          ? 'px-3 py-1.5' 
+          : 'px-3 py-1.5'
       }`}>
-        {/* Decorative gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/10 via-transparent to-transparent pointer-events-none"></div>
+        {/* Decorative gradient overlay - faint turquoise */}
+        <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/5 via-transparent to-transparent pointer-events-none"></div>
         
         <div className={`relative z-10 ${isMobile ? 'flex items-center justify-between gap-2' : 'flex items-center justify-between gap-3'}`}>
           {/* Left side: Badge icon and score */}
-          <div className={`flex items-center gap-2.5 ${isMobile ? '' : ''}`}>
-            <div className={`rounded-md bg-gradient-to-br from-turquoise-500 to-turquoise-600 flex items-center justify-center shadow-lg ring-2 ring-turquoise-500/30 flex-shrink-0 ${
-              isMobile ? 'w-8 h-8' : 'w-10 h-10'
+          <div className={`flex items-center gap-2 ${isMobile ? '' : ''}`}>
+            <div className={`rounded-md bg-turquoise-500/20 border border-turquoise-500/30 flex items-center justify-center flex-shrink-0 ${
+              isMobile ? 'w-8 h-8' : 'w-9 h-9'
             }`}>
-              <svg className={`text-white ${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <svg className={`text-turquoise-400 ${isMobile ? 'w-4 h-4' : 'w-5 h-5'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
               </svg>
             </div>
             <div className="flex flex-col">
-              {!isMobile && <p className="text-xs text-gray-400 uppercase tracking-widest mb-0.5">Score</p>}
-              <h3 className={`font-bold text-white tracking-tight ${isMobile ? 'text-2xl' : 'text-2xl'}`}>
+              {!isMobile && <p className="text-xs text-white/70 uppercase tracking-widest mb-0.5">Score</p>}
+              <h3 className={`font-semibold text-white tracking-tight ${isMobile ? 'text-xl' : 'text-xl'}`}>
                 {Math.round(score)}%
               </h3>
             </div>
@@ -150,13 +150,13 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
             {/* Countdown (when not paused and not always paused) */}
             {!alwaysPaused && !isPaused && (
               <div className="flex items-center gap-1">
-                <p className={`text-gray-400 whitespace-nowrap ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{isMobile ? 'Next' : 'Next in'}</p>
-                <div className={`flex items-center justify-center rounded-md bg-turquoise-500/20 border border-turquoise-500/40 ${
+                <p className={`text-white/70 whitespace-nowrap ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{isMobile ? 'Next' : 'Next in'}</p>
+                <div className={`flex items-center justify-center rounded-md bg-turquoise-500/20 border border-turquoise-500/30 ${
                   isMobile ? 'w-5 h-5' : 'w-7 h-7'
                 }`}>
-                  <span className={`font-bold text-turquoise-400 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{countdown}</span>
+                  <span className={`font-semibold text-turquoise-400 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>{countdown}</span>
                 </div>
-                <p className={`text-gray-400 whitespace-nowrap ${isMobile ? 'text-[10px]' : 'text-xs'}`}>s</p>
+                <p className={`text-white/70 whitespace-nowrap ${isMobile ? 'text-[10px]' : 'text-xs'}`}>s</p>
               </div>
             )}
             {/* Pause/Resume button (when not always paused) */}
@@ -167,7 +167,7 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
                   e.stopPropagation();
                   handlePauseToggle();
                 }}
-                className={`bg-gray-700/50 hover:bg-gray-700/70 text-white rounded-md font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 border border-gray-600/50 relative z-20 ${
+                className={`bg-black/95 backdrop-blur-sm hover:bg-black/80 text-white/90 hover:text-white rounded-md font-medium transition-all border border-white/30 relative z-20 ${
                   isMobile 
                     ? 'px-3 py-1.5 text-xs' 
                     : 'px-2.5 py-1 text-xs whitespace-nowrap'
@@ -181,7 +181,7 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
             {onNext && (
               <button
                 onClick={onNext}
-                className={`bg-gradient-to-r from-turquoise-600 to-turquoise-500 hover:from-turquoise-700 hover:to-turquoise-600 text-white rounded-md font-semibold transition-all shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 border border-turquoise-400/30 ${
+                className={`bg-turquoise-500/20 hover:bg-turquoise-500/30 text-turquoise-400 hover:text-turquoise-300 rounded-md font-medium transition-all border border-turquoise-500/30 ${
                   isMobile 
                     ? 'px-3 py-1.5 text-xs' 
                     : 'px-3 py-1 text-xs whitespace-nowrap'
@@ -1306,12 +1306,12 @@ function ChartSection({
     return { ticker, breakoutDate: datePart.replace(/_/g, ' ') };
   }, [orderedFiles]);
 
-  const chartContainerClasses = `w-full relative rounded-md overflow-hidden shadow-lg bg-black border border-white transition-all duration-300`;
+  const chartContainerClasses = `w-full relative rounded-md overflow-hidden shadow-lg bg-black border border-white/30 transition-all duration-300`;
 
   return (
     <>
       {/* Main content with Daily chart */}
-      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 gap-4 items-center">
+      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 gap-4 items-center w-full">
         {/* Daily chart section - primary chart */}
         <div className="w-full flex flex-col items-center bg-transparent rounded-md shadow-md p-0 mt-4 sm:mt-6">
           <div

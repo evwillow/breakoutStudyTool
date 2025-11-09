@@ -1175,7 +1175,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   if (el) fileRefs.current[file.id] = { current: el };
                 }}
                 data-file-id={file.id}
-                className={`border border-white rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
+                className={`border border-white/30 rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
                   visibleItems.includes(file.id) 
                     ? 'opacity-100 translate-y-0' 
                     : 'opacity-0 translate-y-16'
@@ -1211,7 +1211,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   >
                     {fileData[file.id] ? (
                       <div 
-                        className="bg-black overflow-hidden w-full h-full shadow-inner chart-container border-0"
+                        className="bg-black overflow-hidden w-full h-full shadow-inner chart-container border border-white/30"
                         style={{
                           animation: `fadeIn 500ms ease-out forwards 200ms`,
                           opacity: 0,

@@ -1301,7 +1301,7 @@ export default function FlashcardsContainer() {
             </div>
 
             {/* Folder Section - Right column with Points, Accuracy, and Rounds */}
-            <div className="w-full lg:w-1/5 px-2 sm:px-6 md:px-10">
+            <div className="w-full lg:w-1/5">
               <TypedFolderSection
                 selectedFolder={selectedFolder}
                 folderOptions={folders}

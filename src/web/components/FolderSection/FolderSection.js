@@ -111,19 +111,19 @@ const FolderSection = React.memo(function FolderSection({
           <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span className="text-sm font-medium text-white/90">Average Accuracy:</span>
+          <span className="text-sm font-medium text-white/90">Avg. Accuracy:</span>
           <span className="text-base font-bold text-white">{accuracy}%</span>
         </div>
 
         {/* Round History button with plus button */}
         <div className="inline-flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
-          <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
           <button 
             onClick={onRoundHistory}
-            className="text-sm font-medium text-white/90 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white transition-colors"
           >
+            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
             Rounds
           </button>
           <button
