@@ -98,64 +98,136 @@ const Header = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // Close menus when clicking outside
+  // Close menus when clicking outside - bulletproof for mobile
   useEffect(() => {
+    if (!mobileMenuOpen && !userMenuOpen) return // No menus open, no need to listen
+    
     const handleClickOutside = (event) => {
+      const target = event.target
+      
       // Don't close if clicking on the hamburger button itself
-      if (hamburgerButtonRef.current && hamburgerButtonRef.current.contains(event.target)) {
+      if (hamburgerButtonRef.current && (
+        hamburgerButtonRef.current === target || 
+        hamburgerButtonRef.current.contains(target)
+      )) {
         return
       }
-      // Don't close if clicking anywhere in the header
-      if (headerRef.current && headerRef.current.contains(event.target)) {
+      
+      // Don't close if clicking anywhere in the header (except backdrop)
+      if (headerRef.current && (
+        headerRef.current === target || 
+        headerRef.current.contains(target)
+      )) {
         // Only close if clicking outside the menu AND outside the hamburger button
-        if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target) && mobileMenuOpen) {
+        if (mobileMenuRef.current && !mobileMenuRef.current.contains(target) && mobileMenuOpen) {
           // Allow the hamburger button click to handle it instead
           return
         }
         return
       }
-      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target) && mobileMenuOpen) {
+      
+      // Close mobile menu if clicking outside
+      if (mobileMenuOpen && mobileMenuRef.current && !mobileMenuRef.current.contains(target)) {
+        // Double-check we're not clicking on the backdrop (which should close it)
+        const backdrop = document.querySelector('.mobile-menu-backdrop')
+        if (backdrop && (backdrop === target || backdrop.contains(target))) {
+          setMobileMenuOpen(false)
+          return
+        }
+        // If clicking outside both menu and backdrop, close menu
         setMobileMenuOpen(false)
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target) && userMenuOpen) {
+      
+      // Close user menu if clicking outside
+      if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(target)) {
         setUserMenuOpen(false)
       }
     }
 
     // Use capture phase to ensure we check before other handlers
+    // Add both mouse and touch events for maximum compatibility
     document.addEventListener('mousedown', handleClickOutside, true)
     document.addEventListener('touchstart', handleClickOutside, true)
+    document.addEventListener('click', handleClickOutside, true)
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside, true)
       document.removeEventListener('touchstart', handleClickOutside, true)
+      document.removeEventListener('click', handleClickOutside, true)
     }
   }, [mobileMenuOpen, userMenuOpen])
 
-  // Prevent body scroll when mobile menu is open
+  // Prevent body scroll when mobile menu is open - bulletproof for mobile
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (mobileMenuOpen) {
-        document.body.style.overflow = 'hidden'
-      } else {
+    if (typeof document === 'undefined') return
+    
+    let scrollY = 0
+    
+    if (mobileMenuOpen) {
+      // Store scroll position before locking
+      scrollY = window.scrollY
+      
+      // Prevent scrolling using fixed positioning
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+      document.body.style.left = '0'
+      document.body.style.right = '0'
+      
+      return () => {
+        // Restore scroll position and styles
         document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.width = ''
+        document.body.style.left = ''
+        document.body.style.right = ''
+        // Restore scroll position
+        window.scrollTo(0, scrollY)
       }
     }
     
+    // Cleanup when menu closes
     return () => {
-      if (typeof document !== 'undefined') {
+      if (!mobileMenuOpen) {
         document.body.style.overflow = ''
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.width = ''
+        document.body.style.left = ''
+        document.body.style.right = ''
       }
     }
   }, [mobileMenuOpen])
 
-  // Direct event listener on hamburger button as ultimate safeguard
+  // Direct event listener on hamburger button as ultimate safeguard - bulletproof for mobile
   useEffect(() => {
     const button = hamburgerButtonRef.current
     if (!button) return
 
+    let touchStartTime = 0
+    let touchStartPos = { x: 0, y: 0 }
+    const TOUCH_MOVEMENT_THRESHOLD = 10 // pixels
+    const MAX_TAP_DURATION = 300 // ms
+
     const forceColor = () => {
       button.style.color = 'rgb(75, 85, 99)' // text-gray-600
       button.style.backgroundColor = 'transparent'
+    }
+
+    const toggleMenu = () => {
+      setMobileMenuOpen(prev => {
+        const newState = !prev
+        // Force a re-render to ensure state is updated
+        setTimeout(() => {
+          if (headerRef.current) {
+            const rect = headerRef.current.getBoundingClientRect()
+            setHeaderHeight(Math.ceil(rect.bottom))
+          }
+        }, 0)
+        return newState
+      })
     }
 
     const handleButtonClick = (e) => {
@@ -163,7 +235,7 @@ const Header = () => {
       e.preventDefault()
       e.stopPropagation()
       e.stopImmediatePropagation()
-      setMobileMenuOpen(prev => !prev)
+      toggleMenu()
     }
 
     const handleMouseDown = (e) => {
@@ -176,27 +248,66 @@ const Header = () => {
       forceColor()
       e.stopPropagation()
       e.stopImmediatePropagation()
+      
+      // Track touch start for tap detection
+      if (e.touches && e.touches.length > 0) {
+        touchStartTime = Date.now()
+        touchStartPos = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY
+        }
+      }
+    }
+
+    const handleTouchMove = (e) => {
+      // If user moves finger too much, cancel the tap
+      if (e.touches && e.touches.length > 0) {
+        const dx = Math.abs(e.touches[0].clientX - touchStartPos.x)
+        const dy = Math.abs(e.touches[0].clientY - touchStartPos.y)
+        if (dx > TOUCH_MOVEMENT_THRESHOLD || dy > TOUCH_MOVEMENT_THRESHOLD) {
+          touchStartTime = 0 // Cancel tap
+        }
+      }
     }
 
     const handleTouchEnd = (e) => {
       forceColor()
-      e.preventDefault()
       e.stopPropagation()
       e.stopImmediatePropagation()
-      setMobileMenuOpen(prev => !prev)
+      
+      // Only toggle if it was a quick tap (not a drag)
+      const touchDuration = Date.now() - touchStartTime
+      if (touchStartTime > 0 && touchDuration < MAX_TAP_DURATION) {
+        e.preventDefault()
+        toggleMenu()
+      }
+      
+      // Reset touch tracking
+      touchStartTime = 0
+      touchStartPos = { x: 0, y: 0 }
+    }
+
+    const handleTouchCancel = () => {
+      forceColor()
+      touchStartTime = 0
+      touchStartPos = { x: 0, y: 0 }
     }
 
     // Use capture phase and direct DOM event for maximum priority
-    button.addEventListener('click', handleButtonClick, { capture: true })
-    button.addEventListener('mousedown', handleMouseDown, { capture: true })
-    button.addEventListener('touchstart', handleTouchStart, { capture: true })
-    button.addEventListener('touchend', handleTouchEnd, { capture: true })
+    button.addEventListener('click', handleButtonClick, { capture: true, passive: false })
+    button.addEventListener('mousedown', handleMouseDown, { capture: true, passive: false })
+    button.addEventListener('touchstart', handleTouchStart, { capture: true, passive: false })
+    button.addEventListener('touchmove', handleTouchMove, { capture: true, passive: false })
+    button.addEventListener('touchend', handleTouchEnd, { capture: true, passive: false })
+    button.addEventListener('touchcancel', handleTouchCancel, { capture: true, passive: false })
 
     return () => {
       button.removeEventListener('click', handleButtonClick, { capture: true })
       button.removeEventListener('mousedown', handleMouseDown, { capture: true })
       button.removeEventListener('touchstart', handleTouchStart, { capture: true })
+      button.removeEventListener('touchmove', handleTouchMove, { capture: true })
       button.removeEventListener('touchend', handleTouchEnd, { capture: true })
+      button.removeEventListener('touchcancel', handleTouchCancel, { capture: true })
     }
   }, [])
 
@@ -245,10 +356,15 @@ const Header = () => {
         borderBottom: mobileMenuOpen ? '1px solid rgba(255, 255, 255, 1)' : '1px solid rgba(255, 255, 255, 0)',
         transition: 'border-bottom-color 0.3s ease-out',
         pointerEvents: 'auto',
-        isolation: 'isolate'
+        isolation: 'isolate',
+        WebkitTapHighlightColor: 'transparent'
       }}
       onMouseDown={(e) => {
         // Prevent header clicks from bubbling to backdrop
+        e.stopPropagation()
+      }}
+      onTouchStart={(e) => {
+        // Prevent touch events from bubbling
         e.stopPropagation()
       }}
     >
@@ -403,9 +519,9 @@ const Header = () => {
                   e.currentTarget.style.color = 'rgb(75, 85, 99)'
                   e.currentTarget.style.backgroundColor = 'transparent'
                 }
-                e.preventDefault()
+                // Only toggle if it's a quick tap (handled by direct event listener)
+                // This is a backup in case direct listener doesn't fire
                 e.stopPropagation()
-                setMobileMenuOpen(prev => !prev)
               }}
               aria-expanded={mobileMenuOpen}
             >
@@ -422,21 +538,26 @@ const Header = () => {
       
       {/* Mobile Navigation Menu */}
       <>
-        {/* Backdrop - positioned below header to not block it */}
+        {/* Backdrop - positioned below header to not block it - bulletproof for mobile */}
         {mobileMenuOpen && (
           <div 
             ref={mobileMenuRef}
-            className="fixed bg-black/60 backdrop-blur-sm min-[800px]:hidden transition-opacity duration-300 opacity-100 z-[99]"
+            className="mobile-menu-backdrop fixed bg-black/60 backdrop-blur-sm min-[800px]:hidden transition-opacity duration-300 opacity-100 z-[99]"
             style={{ 
               top: `${headerHeight}px`,
               left: 0,
               right: 0,
               bottom: 0,
-              pointerEvents: 'auto'
+              pointerEvents: 'auto',
+              touchAction: 'none', // Prevent scrolling when menu is open
+              WebkitTapHighlightColor: 'transparent'
             }}
             onMouseDown={(e) => {
               // Prevent backdrop from interfering with header clicks
-              if (headerRef.current && headerRef.current.contains(e.target)) {
+              if (headerRef.current && (
+                headerRef.current === e.target || 
+                headerRef.current.contains(e.target)
+              )) {
                 e.preventDefault()
                 e.stopPropagation()
                 return
@@ -446,9 +567,28 @@ const Header = () => {
                 setMobileMenuOpen(false)
               }
             }}
+            onTouchStart={(e) => {
+              // Prevent backdrop from interfering with header clicks
+              if (headerRef.current && (
+                headerRef.current === e.target || 
+                headerRef.current.contains(e.target)
+              )) {
+                e.preventDefault()
+                e.stopPropagation()
+                return
+              }
+              // Only close if touching the backdrop itself
+              if (e.target === e.currentTarget) {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+              }
+            }}
             onClick={(e) => {
               // Prevent backdrop from interfering with header clicks
-              if (headerRef.current && headerRef.current.contains(e.target)) {
+              if (headerRef.current && (
+                headerRef.current === e.target || 
+                headerRef.current.contains(e.target)
+              )) {
                 e.preventDefault()
                 e.stopPropagation()
                 return
@@ -462,16 +602,26 @@ const Header = () => {
           />
         )}
         
-        {/* Menu Panel */}
+        {/* Menu Panel - bulletproof for mobile */}
         <div 
           className={`fixed right-0 w-72 bg-black/80 backdrop-blur-sm shadow-2xl z-[99] min-[800px]:hidden flex flex-col transform transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
           style={{ 
             top: `${headerHeight}px`,
             height: `calc(100vh - ${headerHeight}px)`,
             maxHeight: `calc(100vh - ${headerHeight}px)`,
-            pointerEvents: mobileMenuOpen ? 'auto' : 'none'
+            pointerEvents: mobileMenuOpen ? 'auto' : 'none',
+            touchAction: 'pan-y', // Allow vertical scrolling in menu
+            WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+            overscrollBehavior: 'contain' // Prevent scroll chaining
           }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            // Prevent clicks from closing menu when clicking inside
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation()
+            // Prevent touch events from bubbling to backdrop
+          }}
         >
             <nav className="flex-1 overflow-y-auto p-4 min-h-0 pb-2">
               <div className="flex flex-col space-y-2">

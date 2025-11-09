@@ -658,7 +658,7 @@ export function useFlashcardData({
     
     for (let i = 0; i < missingFiles.length; i += BATCH_SIZE) {
       const batch = missingFiles.slice(i, i + BATCH_SIZE);
-      const batchPromises = batch.map(async (file: any) => {
+      const batchPromises = batch.map(async (file: any): Promise<FlashcardFile | null> => {
         try {
           const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(folder)}`;
           const fileResponse = await fetch(url);
@@ -673,13 +673,10 @@ export function useFlashcardData({
             return null;
           }
           
+          // Return only the properties that match FlashcardFile interface
           return {
             fileName: file.fileName,
-            data: fileData.data,
-            mimeType: file.mimeType,
-            size: file.size,
-            createdTime: file.createdTime,
-            modifiedTime: file.modifiedTime
+            data: fileData.data
           };
         } catch {
           return null;
@@ -689,10 +686,10 @@ export function useFlashcardData({
       // Use allSettled to avoid blocking on errors
       const batchResults = await Promise.allSettled(batchPromises);
       const loadedFiles = batchResults
-        .filter((result): result is PromiseFulfilledResult<FlashcardFile> => 
+        .filter((result): result is PromiseFulfilledResult<FlashcardFile | null> => 
           result.status === 'fulfilled' && result.value !== null
         )
-        .map(result => result.value);
+        .map(result => result.value as FlashcardFile);
       
       if (loadedFiles.length > 0) {
         // Update flashcards with newly loaded files
