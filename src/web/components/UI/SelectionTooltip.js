@@ -111,7 +111,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
 
   return (
     <div
-      className={`absolute z-[60] pointer-events-auto ${
+      className={`absolute z-[60] pointer-events-auto isolate ${
         isExiting
           ? 'transition-all duration-250 ease-in opacity-0 blur-sm translate-y-2 scale-95'
           : 'transition-all duration-150 ease-out opacity-100 blur-0 translate-y-0 scale-100'
@@ -121,35 +121,35 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
         event.stopPropagation();
       }}
     >
-      <div className="relative rounded-md shadow-2xl border border-turquoise-400/70 px-5 sm:px-6 py-4 sm:py-5" style={{ background: 'var(--soft-white)' }}>
+      <div className="relative text-white font-semibold bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg">
         <div
           className="absolute"
           style={{
-            bottom: '-14px',
+            bottom: '-8px',
             right: '26px',
-            width: '28px',
-            height: '14px',
-            background: 'rgba(45, 212, 191, 0.7)',
+            width: '16px',
+            height: '8px',
+            background: 'rgba(0, 0, 0, 0.95)',
+            backdropFilter: 'blur(4px)',
             clipPath: 'polygon(0 0, 100% 0, 50% 100%)'
           }}
         />
         <div
           className="absolute"
           style={{
-            bottom: '-12.5px',
+            bottom: '-7px',
             right: '26.5px',
-            width: '27px',
-            height: '12.5px',
-            background: 'var(--soft-white)',
+            width: '15px',
+            height: '7px',
+            background: 'rgba(255, 255, 255, 0.3)',
             clipPath: 'polygon(0 0, 100% 0, 50% 100%)'
           }}
         />
-
-        <p className="text-turquoise-300 font-semibold text-base sm:text-lg mb-1">
-          {isMobile ? 'Tap to drop your guess' : 'Click to drop your guess'}
+        <p className="text-white font-semibold text-base sm:text-lg mb-0.5">
+          {isMobile ? 'Tap to place your guess' : 'Click to place your guess'}
         </p>
-        <p className="text-gray-300 text-sm sm:text-base leading-relaxed">
-          {isMobile ? 'Touch & hold, drag to your spot, then lift your finger.' : 'Click in the prediction area on the right side of the chart.'}
+        <p className="text-white/90 text-sm sm:text-base leading-relaxed">
+          {isMobile ? 'Drag to adjust position' : 'Click on the right side of the chart'}
         </p>
       </div>
     </div>

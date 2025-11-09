@@ -79,7 +79,7 @@ const FolderSection = React.memo(function FolderSection({
       */}
 
       {/* Right column: Points, Accuracy, and Rounds */}
-      <div className="w-full lg:w-1/3 flex flex-col items-start gap-3 mt-4 sm:mt-6">
+      <div className="w-full lg:w-1/5 flex flex-col items-start gap-3 mt-4 sm:mt-6 relative z-50">
         {/* Points Display - Box with bullet points */}
         {(() => {
           // Ensure we have a valid array - handle undefined/null gracefully
@@ -87,7 +87,7 @@ const FolderSection = React.memo(function FolderSection({
           
           if (safePointsArray.length > 0) {
             return (
-              <div className={`bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 ${isTimeUp ? 'filter blur-sm' : ''}`}>
+              <div className="bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
                 <ul className="list-none space-y-1">
                   {safePointsArray.map((text, index) => {
                     const displayText = text && typeof text === 'string' ? text.trim() : '';

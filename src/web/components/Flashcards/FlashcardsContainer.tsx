@@ -1272,9 +1272,9 @@ export default function FlashcardsContainer() {
         <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md sm:rounded-md overflow-hidden border border-transparent transition-all duration-300">
           
           {/* Chart Section and Folder Section - Side by side layout */}
-          <div className="flex flex-col lg:flex-row gap-4 items-start">
+          <div className="flex flex-col lg:flex-row gap-0 items-start">
             {/* Chart Section - Left side */}
-            <div className="w-full lg:w-2/3">
+            <div className="w-full lg:w-4/5">
               <TypedChartSection
                 orderedFiles={processedData.orderedFiles}
                 afterData={processedData.afterJsonData}
@@ -1301,7 +1301,7 @@ export default function FlashcardsContainer() {
             </div>
 
             {/* Folder Section - Right column with Points, Accuracy, and Rounds */}
-            <div className="w-full lg:w-2/5 px-2 sm:px-6 md:px-10">
+            <div className="w-full lg:w-1/5 px-2 sm:px-6 md:px-10">
               <TypedFolderSection
                 selectedFolder={selectedFolder}
                 folderOptions={folders}
