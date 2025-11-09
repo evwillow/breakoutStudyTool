@@ -240,15 +240,8 @@ export function useGameState({
   
   // Move to next card
   const nextCard = useCallback(() => {
-    // Use tracked length instead of stale prop
-    if (trackedFlashcardsLength > 0 && currentIndex < trackedFlashcardsLength - 1) {
-      setCurrentIndex(prev => prev + 1);
-      setCurrentMatchIndex(prev => prev + 1);
-    } else if (isGameComplete) {
-      onGameComplete?.();
-    }
-    
-    // Reset card-specific state
+    // Reset card-specific state FIRST to clear the current card's state
+    // This ensures the UI updates immediately
     setFeedback(null);
     setDisableButtons(false);
     setShowTimeUpOverlay(false);
@@ -259,7 +252,27 @@ export function useGameState({
     setTargetPoint(null);
     setDistance(null);
     setScore(null);
-  }, [currentIndex, trackedFlashcardsLength, isGameComplete, onGameComplete]);
+    
+    // Then move to next card - use functional update to ensure we're using the latest index
+    if (trackedFlashcardsLength > 0) {
+      setCurrentIndex(prev => {
+        const nextIndex = prev + 1;
+        if (nextIndex < trackedFlashcardsLength) {
+          setCurrentMatchIndex(prevMatch => prevMatch + 1);
+          return nextIndex;
+        } else {
+          // At the end of the deck, trigger game complete
+          if (onGameComplete) {
+            onGameComplete();
+          }
+          return prev; // Stay at current index (last card)
+        }
+      });
+    } else if (onGameComplete) {
+      // No flashcards but game complete callback exists
+      onGameComplete();
+    }
+  }, [trackedFlashcardsLength, onGameComplete]);
   
   // Initialize game state from existing matches
   const initializeFromMatches = useCallback((matches: Array<{ correct: boolean }>) => {

@@ -728,24 +728,25 @@ export default function FlashcardsContainer() {
 
   // Handle next card with smooth transition
   const handleNextCard = useCallback(() => {
-    // Pause timer first
+    // Pause timer first to prevent any timer-related state updates
     timer.pause();
     
-    // Reset game state - this clears all selection state (including feedback)
+    // Reset game state - this clears all selection state (including feedback) and moves to next card
+    // State is reset first, then index is updated to ensure clean transition
     gameState.nextCard();
     
     // Reset timer to the current duration setting
     timer.reset(timerDuration);
     
-    // Start timer for the new card after a small delay to ensure state resets
-    // nextCard() clears feedback synchronously, so it should be null by now
+    // Start timer for the new card after a delay to ensure state has fully updated
+    // This gives React time to process the state updates and re-render with new data
     // Timer should work even without a round (for practice mode)
     // Don't start if timerDuration is 0 (always pause mode)
     setTimeout(() => {
       if (selectedFolder && timerDuration > 0) { // Only start if we have a folder selected (game is active) and duration > 0
         timer.start();
       }
-    }, 250);
+    }, 100); // Reduced delay since state updates are now properly sequenced
   }, [gameState, timer, timerDuration, selectedFolder]);
   
   // Store handleNextCard in ref for timer callback

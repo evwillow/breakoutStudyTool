@@ -824,47 +824,20 @@ function ChartSection({
   }, [afterData, feedback, isMobile, onAfterEffectComplete]);
 
   // Reset feedback tracking when moving to a new card
+  // This triggers when orderedFiles changes (new card loaded) OR when feedback is cleared
   useEffect(() => {
-    lastFeedbackRef.current = null;
-    setAnimationInProgress(false);
-    setShowAfterAnimation(false);
-    setProgressPercentage(0);
-    setZoomPercentage(0);
-    setCompletionDelay(false);
-    setAfterAnimationComplete(false);
-    isAnimationPausedRef.current = false;
-    shouldStopAnimationRef.current = false; // Reset stop flag when moving to new card
-    // Cancel any running animation frames
-    if (animationPauseRef.current) {
-      cancelAnimationFrame(animationPauseRef.current);
-      animationPauseRef.current = null;
-    }
-    // Clear any timers
-    if (delayTimerRef.current) {
-      clearTimeout(delayTimerRef.current);
-      delayTimerRef.current = null;
-    }
-    if (debugIntervalRef.current) {
-      clearInterval(debugIntervalRef.current);
-      debugIntervalRef.current = null;
-    }
-  }, [orderedFiles]);
-
-  // Handle feedback being cleared (which happens when Next Stock button is clicked)
-  // This stops any running animation immediately
-  useEffect(() => {
-    if (!feedback && lastFeedbackRef.current !== null) {
-      // Feedback was cleared (Next Stock button pressed), stop animation immediately
-      console.log("Feedback cleared - stopping animation immediately");
-      shouldStopAnimationRef.current = true;
-      
-      // Immediately stop and clean up any running animations
+    // Only reset if we don't have active feedback (to avoid resetting during animation)
+    if (!feedback) {
+      console.log("Resetting animation state - new card or feedback cleared");
+      lastFeedbackRef.current = null;
       setAnimationInProgress(false);
       setShowAfterAnimation(false);
       setProgressPercentage(0);
       setZoomPercentage(0);
       setCompletionDelay(false);
       setAfterAnimationComplete(false);
+      isAnimationPausedRef.current = false;
+      shouldStopAnimationRef.current = true; // Set stop flag to prevent any running animations
       
       // Cancel any running animation frames
       if (animationPauseRef.current) {
@@ -881,11 +854,49 @@ function ChartSection({
         clearInterval(debugIntervalRef.current);
         debugIntervalRef.current = null;
       }
+    }
+  }, [orderedFiles, feedback]);
+
+  // Handle feedback being cleared (which happens when Next Stock button is clicked)
+  // This stops any running animation immediately and ensures clean state
+  useEffect(() => {
+    if (!feedback) {
+      // Feedback was cleared (Next Stock button pressed or new card), stop animation immediately
+      if (lastFeedbackRef.current !== null || animationInProgress || showAfterAnimation) {
+        console.log("Feedback cleared - stopping animation immediately and resetting state");
+        shouldStopAnimationRef.current = true;
+        
+        // Immediately stop and clean up any running animations
+        setAnimationInProgress(false);
+        setShowAfterAnimation(false);
+        setProgressPercentage(0);
+        setZoomPercentage(0);
+        setCompletionDelay(false);
+        setAfterAnimationComplete(false);
+        lastFeedbackRef.current = null;
+        isAnimationPausedRef.current = false;
+        
+        // Cancel any running animation frames
+        if (animationPauseRef.current) {
+          cancelAnimationFrame(animationPauseRef.current);
+          animationPauseRef.current = null;
+        }
+        
+        // Clear any timers
+        if (delayTimerRef.current) {
+          clearTimeout(delayTimerRef.current);
+          delayTimerRef.current = null;
+        }
+        if (debugIntervalRef.current) {
+          clearInterval(debugIntervalRef.current);
+          debugIntervalRef.current = null;
+        }
+      }
     } else if (feedback) {
       // Reset stop flag when new feedback is set (new selection made)
       shouldStopAnimationRef.current = false;
     }
-  }, [feedback]);
+  }, [feedback, animationInProgress, showAfterAnimation]);
 
   // Timer duration selector logic
   const durations = useMemo(() => [
