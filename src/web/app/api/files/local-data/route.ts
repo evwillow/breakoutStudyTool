@@ -68,12 +68,17 @@ export async function GET(req: NextRequest) {
       const fileContent = await fs.readFile(filePath, 'utf-8');
       const jsonData = JSON.parse(fileContent);
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         data: jsonData,
         fileName: fileName,
         folder: folder
       });
+      
+      // Add caching headers for better performance
+      response.headers.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+      
+      return response;
 
     } catch (fileError: any) {
       console.error(`Error reading file ${fileName}:`, fileError);
