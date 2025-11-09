@@ -1311,12 +1311,12 @@ function ChartSection({
   return (
     <>
       {/* Main content with Daily chart */}
-      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 gap-4 items-center w-full">
+      <div className="flex flex-col pt-1 sm:pt-2 px-2 sm:px-6 md:px-10 lg:pr-2 gap-4 items-start w-full">
         {/* Daily chart section - primary chart */}
-        <div className="w-full flex flex-col items-center bg-transparent rounded-md shadow-md p-0 mt-4 sm:mt-6">
+        <div className="w-full flex flex-col items-start bg-transparent rounded-md shadow-md p-0">
           <div
             className={chartContainerClasses}
-            style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '1 / 1', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}
+            style={{ width: '100%', aspectRatio: isMobile ? '4 / 5' : '5 / 4', minHeight: isMobile ? '500px' : 'auto', maxHeight: isMobile ? '800px' : 'none', height: isMobile ? 'auto' : 'auto', margin: 0, padding: 0, boxSizing: 'border-box', overflow: 'hidden' }}
             onClickCapture={handleChartAreaClickCapture}
           >
             {/* D Label, SMA Labels, and Timer - positioned in the top left, same row */}

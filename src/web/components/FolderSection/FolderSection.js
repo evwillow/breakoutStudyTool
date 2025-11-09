@@ -79,7 +79,7 @@ const FolderSection = React.memo(function FolderSection({
       */}
 
       {/* Right column: Points, Accuracy, and Rounds */}
-      <div className="w-full lg:w-1/5 flex flex-col items-start gap-3 mt-4 sm:mt-6 relative z-50">
+      <div className="w-full lg:w-1/5 flex flex-col items-start gap-3 relative z-50">
         {/* Points Display - Box with bullet points */}
         {(() => {
           // Ensure we have a valid array - handle undefined/null gracefully
@@ -87,7 +87,7 @@ const FolderSection = React.memo(function FolderSection({
           
           if (safePointsArray.length > 0) {
             return (
-              <div className="bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30">
+              <div className="bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 mt-2">
                 <ul className="list-none space-y-1">
                   {safePointsArray.map((text, index) => {
                     const displayText = text && typeof text === 'string' ? text.trim() : '';
@@ -111,7 +111,7 @@ const FolderSection = React.memo(function FolderSection({
           <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <span className="text-sm font-medium text-white/90">Avg. Accuracy:</span>
+          <span className="text-sm font-medium text-white/90 whitespace-nowrap">Avg. Accuracy:</span>
           <span className="text-base font-bold text-white">{accuracy}%</span>
         </div>
 
