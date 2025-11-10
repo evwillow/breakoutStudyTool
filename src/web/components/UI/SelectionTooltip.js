@@ -109,18 +109,63 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
     ...style,
   };
 
+  // Handle click outside to dismiss
+  const handleBackdropClick = useCallback((event) => {
+    // Dismiss when clicking on the backdrop
+    event.stopPropagation();
+    startExit('click-outside');
+  }, [startExit]);
+
+  // Handle click on document to dismiss when clicking outside the tooltip
+  useEffect(() => {
+    if (!show || isExiting) return;
+
+    const handleDocumentClick = (event) => {
+      // Check if click is outside the tooltip
+      const tooltipElement = document.querySelector('[data-selection-tooltip]');
+      if (tooltipElement && !tooltipElement.contains(event.target)) {
+        // Don't dismiss if clicking on chart elements (let chart handle it)
+        const isChartClick = event.target.closest('svg') || event.target.closest('[data-chart-container]');
+        if (!isChartClick) {
+          startExit('click-outside');
+        }
+      }
+    };
+
+    // Add a small delay to prevent immediate dismissal when tooltip first appears
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleDocumentClick, true);
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleDocumentClick, true);
+    };
+  }, [show, isExiting, startExit]);
+
   return (
-    <div
-      className={`absolute z-[60] pointer-events-auto isolate ${
-        isExiting
-          ? 'transition-all duration-250 ease-in opacity-0 blur-sm translate-y-2 scale-95'
-          : 'transition-all duration-150 ease-out opacity-100 blur-0 translate-y-0 scale-100'
-      }`}
-      style={tooltipStyle}
-      onClick={(event) => {
-        event.stopPropagation();
-      }}
-    >
+    <>
+      {/* Backdrop overlay - click outside to dismiss */}
+      {/* Positioned absolutely to cover the parent container (chart area) */}
+      {show && !isExiting && (
+        <div
+          className="fixed inset-0 z-[58] bg-black/5 transition-opacity duration-250"
+          onClick={handleBackdropClick}
+          style={{ pointerEvents: 'auto' }}
+        />
+      )}
+      <div
+        data-selection-tooltip
+        className={`absolute z-[60] pointer-events-auto isolate ${
+          isExiting
+            ? 'transition-all duration-250 ease-in opacity-0 blur-sm translate-y-2 scale-95'
+            : 'transition-all duration-150 ease-out opacity-100 blur-0 translate-y-0 scale-100'
+        }`}
+        style={tooltipStyle}
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+      >
       <div className="relative text-white font-semibold bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg">
         <div
           className="absolute"
@@ -152,7 +197,8 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
           {isMobile ? 'Drag to adjust position' : 'Click on the right side of the chart'}
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

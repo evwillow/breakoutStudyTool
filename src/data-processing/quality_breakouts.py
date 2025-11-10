@@ -3,13 +3,12 @@
 Quality Breakouts Data Processing Script
 
 This script identifies and processes quality stock breakout patterns from daily stock data.
-It generates datasets with daily (D.json) and hourly (H.json) data for each breakout pattern.
+Optimized for speed and selectivity following Qullamaggie's breakout criteria.
 
 Key Features:
 - Identifies breakout patterns based on technical analysis criteria
-- Generates hourly data (H.json) for the same date range as daily data (D.json)
-- Optimized data loading with caching and parallel processing
-- Comprehensive logging and error handling
+- Optimized data loading with caching
+- Minimal logging for maximum performance
 """
 
 import argparse
@@ -21,22 +20,19 @@ import logging
 import os
 import random
 import shutil
+import tempfile
 import time
 import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 from tqdm.auto import tqdm
 
 # Get script directory for relative path resolution
 SCRIPT_DIR = Path(__file__).parent.resolve()
-
-# Hourly data cache to avoid redundant API calls
-_hourly_data_cache = {}
 
 def parse_args():
     """Parse command line arguments."""
@@ -54,27 +50,29 @@ CONFIG = {
     'dataset_name': 'quality_breakouts',
     'max_workers': 4,
     'batch_size': 20,
-    'min_daily_range_pct': 3.5,
-    'spacing_days': 30,
-    'min_days_from_high': 10,
-    'min_uptrend_days': 25,
-    'min_daily_uptrend_pct': 1.3,
-    'max_consolidation_drop': 0.25,
-    'exception_threshold': 0.3,
-    'max_exception_days': 3,
-    'min_pullback_pct': 0.05,
-    'min_pullback_days': 2,
-    'max_pullback_days': 10,
-    'max_lookback_days': 250,
-    'log_level': logging.ERROR,
-    'detailed_logging': False,
-    'verbosity': 0
+    'min_daily_range_pct': 3.0,  # Stricter: require 3% daily range
+    'spacing_days': 20,
+    'min_days_from_high': 14,  # Minimum 2 weeks consolidation
+    'max_days_from_high': 60,  # Maximum 2 months consolidation
+    'min_uptrend_days': 15,
+    'min_daily_uptrend_pct': 0.7,  # Stricter: require 0.7% avg daily gain
+    'max_consolidation_drop': 0.30,  # Stricter: max 30% drop (was 35%)
+    'exception_threshold': 0.35,
+    'max_exception_days': 2,  # Stricter: max 2 exception days
+    'min_pullback_pct': 0.04,  # Stricter: require 4% pullback
+    'min_pullback_days': 1,
+    'max_pullback_days': 15,
+    'max_lookback_days': 90,
+    'min_big_move_pct': 35.0,  # Stricter: require 35% big move (was 30%)
+    'max_big_move_pct': 100.0,
+    'min_date': pd.Timestamp('1990-01-01'),
+    'verbosity': 0  # Minimal logging for speed
 }
 
 logger = logging.getLogger(__name__)
 STATS = {'ticker_count': 0, 'success_count': 0, 'failed_count': 0}
 _data_cache = {}
-_hourly_data_cache = {}
+
 
 def read_stock_data(ticker: str) -> Optional[pd.DataFrame]:
     """
@@ -128,6 +126,18 @@ def read_stock_data(ticker: str) -> Optional[pd.DataFrame]:
         
         df.set_index('Date', inplace=True)
         df.columns = df.columns.str.lower()
+        
+        # Filter out data before 1990 (Qullamaggie's strategy is for modern markets)
+        min_date = CONFIG.get('min_date', pd.Timestamp('1990-01-01'))
+        if df.index.max() < min_date:
+            if CONFIG.get('verbosity', 0) > 1:
+                logger.debug(f"{ticker}: All data before {min_date.date()}")
+            return None
+        df = df[df.index >= min_date].copy()
+        if len(df) < 126:
+            if CONFIG.get('verbosity', 0) > 1:
+                logger.debug(f"{ticker}: Insufficient data after 1990 filter ({len(df)} rows)")
+            return None
         
         # Edge case: Check for malformed data (invalid price relationships)
         invalid_rows = (
@@ -193,6 +203,10 @@ def read_stock_data(ticker: str) -> Optional[pd.DataFrame]:
                 return None
         
         if check_data_quality(df):
+            try:
+                df.name = ticker
+            except Exception:
+                pass
             _data_cache[ticker] = df
             return df
         return None
@@ -201,173 +215,11 @@ def read_stock_data(ticker: str) -> Optional[pd.DataFrame]:
         return None
 
 
-def fetch_hourly_data(ticker: str, start_date: pd.Timestamp, end_date: pd.Timestamp) -> Optional[pd.DataFrame]:
-    """
-    Fetch hourly stock data for a specific date range using yfinance.
-    Results are cached to avoid redundant API calls.
-    
-    Args:
-        ticker: Stock ticker symbol
-        start_date: Start date (inclusive)
-        end_date: End date (inclusive)
-        
-    Returns:
-        DataFrame with hourly OHLCV data and SMAs, or None if fetch fails
-    """
-    cache_key = f"{ticker}_{start_date.date()}_{end_date.date()}"
-    if cache_key in _hourly_data_cache:
-        return _hourly_data_cache[cache_key].copy()
-    
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            stock = yf.Ticker(ticker)
-            # Fetch with buffer to ensure we get all hours, then filter to exact range
-            # Use period parameter for more reliable fetching
-            period_days = (end_date - start_date).days + 3
-            if period_days <= 60:
-                df = stock.history(start=start_date - timedelta(days=1), 
-                                  end=end_date + timedelta(days=2), 
-                                  interval='1h',
-                                  timeout=10)
-            else:
-                # For longer periods, fetch in chunks
-                df_list = []
-                current_start = start_date - timedelta(days=1)
-                while current_start < end_date + timedelta(days=2):
-                    current_end = min(current_start + timedelta(days=60), end_date + timedelta(days=2))
-                    chunk = stock.history(start=current_start, end=current_end, interval='1h', timeout=10)
-                    if not chunk.empty:
-                        df_list.append(chunk)
-                    current_start = current_end
-                    time.sleep(0.1)  # Small delay between chunks
-                
-                if df_list:
-                    df = pd.concat(df_list).sort_index()
-                    df = df[~df.index.duplicated(keep='first')]
-                else:
-                    df = pd.DataFrame()
-            
-            if df.empty or len(df) < 1:
-                if attempt < max_retries - 1:
-                    time.sleep(0.5 * (attempt + 1))  # Exponential backoff
-                    continue
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"No hourly data for {ticker} from {start_date.date()} to {end_date.date()}")
-                return None
-            
-            df.columns = df.columns.str.lower()
-            required_cols = ['open', 'high', 'low', 'close', 'volume']
-            if not all(col in df.columns for col in required_cols):
-                logger.warning(f"Missing required columns in hourly data for {ticker}")
-                return None
-            
-            df = df[required_cols].copy()
-            df = df.dropna(subset=['open', 'close'])
-            
-            # Filter to exact date range (inclusive of end_date)
-            df = df[(df.index >= start_date) & (df.index <= end_date + timedelta(days=1))]
-            
-            if len(df) < 10:
-                if attempt < max_retries - 1:
-                    time.sleep(0.5 * (attempt + 1))
-                    continue
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"Insufficient hourly data for {ticker}: {len(df)} rows")
-                return None
-            
-            # Additional validation: check for suspicious patterns
-            price_changes = df['close'].pct_change().abs()
-            if (price_changes > 0.3).any():  # More than 30% hourly move is suspicious
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"Suspicious hourly price movements for {ticker}")
-                return None
-            
-            df['10sma'] = df['close'].rolling(10).mean()
-            df['20sma'] = df['close'].rolling(20).mean()
-            df['50sma'] = df['close'].rolling(50).mean()
-            
-            _hourly_data_cache[cache_key] = df.copy()
-            return df
-            
-        except Exception as e:
-            if attempt < max_retries - 1:
-                time.sleep(0.5 * (attempt + 1))
-                continue
-            logger.error(f"Error fetching hourly data for {ticker} (attempt {attempt + 1}/{max_retries}): {e}")
-            return None
-    
-    return None
+# Removed: fetch_hourly_data and verify_h_json_integrity - H.json functionality no longer needed
 
 def check_data_quality(df):
     """Check if dataframe has minimum required data."""
     return df is not None and len(df) >= 126
-
-def verify_h_json_integrity(h_data: pd.DataFrame, d_data: pd.DataFrame, ticker: str) -> Tuple[bool, str]:
-    """
-    Verify H.json integrity and content accuracy.
-    
-    Args:
-        h_data: Hourly data DataFrame
-        d_data: Daily data DataFrame (for date range comparison)
-        ticker: Stock ticker symbol for logging
-        
-    Returns:
-        Tuple of (is_valid, error_message)
-    """
-    if h_data is None or len(h_data) == 0:
-        return False, "H.json is empty or None"
-    
-    # Check required columns
-    required_cols = ['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']
-    missing_cols = [col for col in required_cols if col not in h_data.columns]
-    if missing_cols:
-        return False, f"Missing required columns: {missing_cols}"
-    
-    # Check for null values in critical columns
-    critical_cols = ['open', 'high', 'low', 'close']
-    null_counts = h_data[critical_cols].isnull().sum()
-    if null_counts.any():
-        return False, f"Null values found in critical columns: {null_counts[null_counts > 0].to_dict()}"
-    
-    # Verify date range covers D.json range
-    if len(d_data) > 0:
-        d_start = d_data.index[0]
-        d_end = d_data.index[-1]
-        h_start = h_data.index[0]
-        h_end = h_data.index[-1]
-        
-        # H.json should start before or at D.json start, end after or at D.json end
-        if h_start > d_start:
-            return False, f"H.json starts after D.json: {h_start.date()} > {d_start.date()}"
-        if h_end < d_end:
-            return False, f"H.json ends before D.json: {h_end.date()} < {d_end.date()}"
-        
-        # Check approximate ratio (hourly should be ~7x daily, accounting for market hours)
-        expected_hours = len(d_data) * 6.5  # ~6.5 trading hours per day
-        actual_hours = len(h_data)
-        ratio = actual_hours / len(d_data) if len(d_data) > 0 else 0
-        
-        if ratio < 4.0:  # Minimum reasonable ratio
-            return False, f"H.json has insufficient data: {actual_hours} hours for {len(d_data)} days (ratio: {ratio:.2f})"
-    
-    # Check data consistency (high >= low, high >= close, low <= close, etc.)
-    invalid_rows = (
-        (h_data['high'] < h_data['low']) |
-        (h_data['high'] < h_data['close']) |
-        (h_data['high'] < h_data['open']) |
-        (h_data['low'] > h_data['close']) |
-        (h_data['low'] > h_data['open']) |
-        (h_data['volume'] < 0)
-    )
-    if invalid_rows.any():
-        return False, f"Data consistency errors: {invalid_rows.sum()} invalid rows found"
-    
-    # Check for reasonable price values (no zeros or negatives)
-    if (h_data[['open', 'high', 'low', 'close']] <= 0).any().any():
-        return False, "Invalid price values (zero or negative) found"
-    
-    return True, "H.json integrity verified"
 
 def check_average_daily_range(df, breakout_idx, min_range_pct=None):
     """Check if daily range on breakout day meets minimum requirement."""
@@ -385,39 +237,75 @@ def format_date(ts):
     ts = pd.to_datetime(ts)
     return f"{calendar.month_abbr[ts.month]}_{ts.day}_{ts.year}"
 
+def log_file_operation(*args, **kwargs):
+    """No-op stub for removed logging functionality - optimized for speed."""
+    pass
+
 def write_json(path, df):
     """Write data to JSON file with optimized formatting and immediate flush."""
     try:
         path_obj = Path(path)
-        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        log_file_operation('debug', f"Starting write_json", path=str(path_obj), 
+                          details={'parent_exists': path_obj.parent.exists(), 
+                                  'parent_path': str(path_obj.parent)})
+        
+        # Create parent directory
+        try:
+            path_obj.parent.mkdir(parents=True, exist_ok=True)
+            log_file_operation('debug', f"Created/verified parent directory", path=str(path_obj.parent))
+        except Exception as e:
+            log_file_operation('error', f"Failed to create parent directory", path=str(path_obj.parent), 
+                              details={'error': str(e)})
+            return False
         
         if path.endswith("points.json"):
             data_to_write = [{"points": indicator} for indicator in df] if isinstance(df, list) else [{"points": str(df)}]
         else:
             if hasattr(df, 'columns'):
-                df.columns = df.columns.str.lower()
+                # Reset index to include Date in the output
+                df_copy = df.reset_index() if df.index.name == 'Date' or isinstance(df.index, pd.DatetimeIndex) else df.copy()
+                df_copy.columns = df_copy.columns.str.lower()
+                
                 # Ensure we have the required columns
                 required_cols = ['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']
-                missing_cols = [col for col in required_cols if col not in df.columns]
+                # Include date column if it exists
+                if 'date' in df_copy.columns:
+                    required_cols = ['date'] + required_cols
+                
+                missing_cols = [col for col in required_cols if col not in df_copy.columns]
                 if missing_cols:
-                    logger.error(f"Missing columns in data for {path}: {missing_cols}")
+                    log_file_operation('error', f"Missing columns in data", path=str(path_obj), 
+                                      details={'missing_cols': missing_cols, 'available_cols': list(df_copy.columns)})
                     return False
                 
-                df_subset = df[required_cols].copy()
+                df_subset = df_copy[required_cols].copy()
+                log_file_operation('debug', f"Prepared dataframe subset", path=str(path_obj), 
+                                  details={'rows': len(df_subset), 'cols': list(df_subset.columns)})
                 
                 # Replace NaN values with None (which becomes null in JSON)
                 df_subset = df_subset.where(pd.notnull(df_subset), None)
                 
                 # Ensure we have data to write
                 if len(df_subset) == 0:
-                    logger.error(f"Empty dataframe for {path}")
+                    log_file_operation('error', f"Empty dataframe", path=str(path_obj))
                     return False
                 
                 records = df_subset.to_dict('records')
                 data_to_write = []
                 for r in records:
                     try:
-                        data_to_write.append({
+                        record = {}
+                        # Include Date if present
+                        if 'date' in r:
+                            date_val = r['date']
+                            if isinstance(date_val, pd.Timestamp):
+                                record["Date"] = date_val.strftime('%Y-%m-%d')
+                            elif date_val is not None:
+                                record["Date"] = str(date_val)
+                            else:
+                                record["Date"] = None
+                        
+                        record.update({
                             "Open": float(r['open']) if r['open'] is not None and not pd.isna(r['open']) else None,
                             "High": float(r['high']) if r['high'] is not None and not pd.isna(r['high']) else None,
                             "Low": float(r['low']) if r['low'] is not None and not pd.isna(r['low']) else None,
@@ -427,39 +315,133 @@ def write_json(path, df):
                             "20sma": float(r['20sma']) if r['20sma'] is not None and not pd.isna(r['20sma']) else None,
                             "50sma": float(r['50sma']) if r['50sma'] is not None and not pd.isna(r['50sma']) else None
                         })
+                        data_to_write.append(record)
                     except (ValueError, TypeError) as e:
                         logger.error(f"Error converting data for {path}: {e}")
                         return False
             else:
                 data_to_write = df
                 
-        # Write and immediately flush to disk
-        try:
-            with open(path_obj, 'w', encoding='utf-8') as f:
-                json.dump(data_to_write, f, indent=4, allow_nan=False)
-                f.flush()  # Force immediate write to disk
+        write_success = False
+        last_error = None
+        
+        log_file_operation('debug', f"Attempting atomic write", path=str(path_obj), 
+                          details={'records_count': len(data_to_write) if isinstance(data_to_write, list) else 'N/A'})
+        
+        for attempt in range(3):
+            tmp_path = None
+            try:
+                log_file_operation('debug', f"Write attempt {attempt + 1}/3", path=str(path_obj))
+                with tempfile.NamedTemporaryFile(
+                    mode='w',
+                    delete=False,
+                    dir=str(path_obj.parent),
+                    prefix=f".{path_obj.stem}_",
+                    suffix=path_obj.suffix,
+                    encoding='utf-8'
+                ) as tmp_file:
+                    json.dump(data_to_write, tmp_file, indent=4, allow_nan=False)
+                    tmp_file.flush()
+                    try:
+                        os.fsync(tmp_file.fileno())
+                    except (OSError, AttributeError):
+                        pass
+                    tmp_path = Path(tmp_file.name)
+                    log_file_operation('debug', f"Created temp file", path=str(tmp_path))
+                
                 try:
-                    os.fsync(f.fileno())  # Ensure OS writes to disk (may fail on some systems)
-                except (OSError, AttributeError):
-                    pass  # fsync not available on all systems, flush is usually sufficient
-        except Exception as e:
-            logger.error(f"Exception during file write for {path}: {e}", exc_info=True)
-            return False
+                    os.replace(tmp_path, path_obj)
+                    write_success = True
+                    log_file_operation('info', f"Successfully wrote file (atomic)", path=str(path_obj))
+                    break
+                except OSError as e:
+                    last_error = e
+                    log_file_operation('warning', f"Atomic replace failed, attempt {attempt + 1}", 
+                                      path=str(path_obj), details={'error': str(e)})
+                    if path_obj.exists():
+                        try:
+                            path_obj.unlink()
+                            os.replace(tmp_path, path_obj)
+                            write_success = True
+                            log_file_operation('info', f"Successfully wrote file (after unlink)", path=str(path_obj))
+                            break
+                        except OSError as inner:
+                            last_error = inner
+                            log_file_operation('warning', f"Unlink and replace failed", 
+                                              path=str(path_obj), details={'error': str(inner)})
+                    if tmp_path and tmp_path.exists():
+                        try:
+                            tmp_path.unlink()
+                        except OSError:
+                            pass
+                    time.sleep(0.1 * (attempt + 1))
+            except Exception as e:
+                last_error = e
+                log_file_operation('error', f"Exception during write attempt {attempt + 1}", 
+                                  path=str(path_obj), details={'error': str(e)})
+                if tmp_path and tmp_path.exists():
+                    try:
+                        tmp_path.unlink()
+                    except OSError:
+                        pass
+                time.sleep(0.1 * (attempt + 1))
+        
+        if not write_success:
+            if last_error is not None:
+                log_file_operation('warning', f"Atomic write failed, falling back to direct write", 
+                                  path=str(path_obj), details={'error': str(last_error)})
+            try:
+                log_file_operation('debug', f"Attempting direct write", path=str(path_obj))
+                with open(path_obj, 'w', encoding='utf-8') as f:
+                    json.dump(data_to_write, f, indent=4, allow_nan=False)
+                    f.flush()
+                    try:
+                        os.fsync(f.fileno())
+                    except (OSError, AttributeError):
+                        pass
+                write_success = True
+                log_file_operation('info', f"Successfully wrote file (direct)", path=str(path_obj))
+            except Exception as e:
+                log_file_operation('error', f"Direct write also failed", path=str(path_obj), 
+                                  details={'error': str(e)})
+                logger.error(f"Exception during file write for {path}: {e}", exc_info=True)
+                return False
         
         # Verify file was written and has content
         if not path_obj.exists():
-            logger.error(f"File was not created: {path_obj}")
+            log_file_operation('error', f"File verification failed: file does not exist", path=str(path_obj))
             return False
         
         # Verify file has content (at least 10 bytes for a minimal JSON file)
-        if path_obj.stat().st_size < 10:
-            logger.error(f"File is too small (likely empty): {path_obj}")
+        file_size = path_obj.stat().st_size
+        log_file_operation('debug', f"File verification: size check", path=str(path_obj), 
+                          details={'file_size': file_size})
+        if file_size < 10:
+            log_file_operation('error', f"File verification failed: file too small", path=str(path_obj), 
+                             details={'file_size': file_size})
             return False
         
+        # Verify JSON is valid by attempting to read it
+        try:
+            with open(path_obj, 'r', encoding='utf-8') as f:
+                json.load(f)
+            log_file_operation('info', f"File verification: JSON valid", path=str(path_obj), 
+                              details={'file_size': file_size})
+        except json.JSONDecodeError as e:
+            log_file_operation('error', f"File verification failed: invalid JSON", path=str(path_obj), 
+                             details={'error': str(e), 'file_size': file_size})
+            return False
+        
+        log_file_operation('info', f"Successfully completed write_json", path=str(path_obj), 
+                          details={'file_size': file_size})
         return True
     except Exception as e:
+        log_file_operation('error', f"Unexpected error in write_json", path=path if isinstance(path, str) else str(path), 
+                          details={'error': str(e)})
         logger.error(f"Error writing {path}: {e}", exc_info=True)
         return False
+
+
 
 def determine_performance_category(df, breakout_idx, cross_idx):
     """Determine performance category based on price movement."""
@@ -683,95 +665,31 @@ def generate_indicators(data, breakout_idx, category):
 
 def create_files(directory: str, data: pd.DataFrame, breakout_idx: int, cross_idx: int, 
                  ticker: str, d_data: pd.DataFrame) -> bool:
-    """
-    Create all necessary files for a breakout pattern.
-    
-    Args:
-        directory: Output directory path
-        data: Full daily dataframe
-        breakout_idx: Index of breakout date
-        cross_idx: Index where price crosses below 20SMA
-        ticker: Stock ticker symbol
-        d_data: Daily data for D.json (used to determine H.json date range)
-        
-    Returns:
-        True if successful, False otherwise
-    """
+    """Create all necessary files for a breakout pattern."""
     dir_path = Path(directory)
-    dir_path.mkdir(parents=True, exist_ok=True)
-    category = determine_performance_category(data, breakout_idx, cross_idx)
-    applied_indicators = generate_indicators(data, breakout_idx, category)
-    if not write_json(str(dir_path / "points.json"), applied_indicators):
-        logger.error(f"Failed to write points.json for {ticker}")
+    try:
+        dir_path.mkdir(parents=True, exist_ok=True)
+    except Exception:
         return False
     
-    # Generate H.json with hourly data for the same date range as D.json
-    if len(d_data) > 0:
-        start_date = d_data.index[0]
-        end_date = d_data.index[-1]
-        h_data = fetch_hourly_data(ticker, start_date, end_date)
-        
-        if h_data is not None and len(h_data) > 0:
-            h_data_subset = h_data[['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']].copy()
-            
-            # Verify integrity before writing
-            is_valid, error_msg = verify_h_json_integrity(h_data_subset, d_data, ticker)
-            if is_valid and check_candle_distribution(h_data_subset):
-                if not write_json(str(dir_path / "H.json"), h_data_subset):
-                    logger.warning(f"Failed to write H.json for {ticker}")
-                logger.debug(f"H.json created and verified for {ticker}")
-            else:
-                logger.warning(f"Skipping H.json for {ticker}: {error_msg if not is_valid else 'Poor candle distribution'}")
-        else:
-            logger.warning(f"Could not fetch hourly data for {ticker} from {start_date.date()} to {end_date.date()}")
+    category = determine_performance_category(data, breakout_idx, cross_idx)
+    applied_indicators = generate_indicators(data, breakout_idx, category)
     
-    return True
+    points_path = dir_path / "points.json"
+    return write_json(str(points_path), applied_indicators)
 
 def create_files_with_category(directory: str, data: pd.DataFrame, breakout_idx: int, cross_idx: int, 
                                forced_category: int, ticker: str, d_data: pd.DataFrame) -> bool:
-    """
-    Create files with a forced category.
-    
-    Args:
-        directory: Output directory path
-        data: Full daily dataframe
-        breakout_idx: Index of breakout date
-        cross_idx: Index where price crosses below 20SMA
-        forced_category: Category to use (1-4)
-        ticker: Stock ticker symbol
-        d_data: Daily data for D.json (used to determine H.json date range)
-        
-    Returns:
-        True if successful, False otherwise
-    """
+    """Create files with a forced category."""
     dir_path = Path(directory)
-    dir_path.mkdir(parents=True, exist_ok=True)
-    applied_indicators = generate_indicators(data, breakout_idx, forced_category)
-    if not write_json(str(dir_path / "points.json"), applied_indicators):
-        logger.error(f"Failed to write points.json for {ticker}")
+    try:
+        dir_path.mkdir(parents=True, exist_ok=True)
+    except Exception:
         return False
     
-    # Generate H.json with hourly data for the same date range as D.json
-    if len(d_data) > 0:
-        start_date = d_data.index[0]
-        end_date = d_data.index[-1]
-        h_data = fetch_hourly_data(ticker, start_date, end_date)
-        
-        if h_data is not None and len(h_data) > 0:
-            h_data_subset = h_data[['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']].copy()
-            
-            # Verify integrity before writing
-            is_valid, error_msg = verify_h_json_integrity(h_data_subset, d_data, ticker)
-            if is_valid and check_candle_distribution(h_data_subset):
-                if not write_json(str(dir_path / "H.json"), h_data_subset):
-                    logger.warning(f"Failed to write H.json for {ticker}")
-                logger.debug(f"H.json created and verified for {ticker}")
-            else:
-                logger.warning(f"Skipping H.json for {ticker}: {error_msg if not is_valid else 'Poor candle distribution'}")
-        else:
-            logger.warning(f"Could not fetch hourly data for {ticker} from {start_date.date()} to {end_date.date()}")
-    
-    return True
+    applied_indicators = generate_indicators(data, breakout_idx, forced_category)
+    points_path = dir_path / "points.json"
+    return write_json(str(points_path), applied_indicators)
 
 def find_first_cross_below_sma(df, focus_idx, sma_period=20):
     """Find the first index where price closes below the specified SMA."""
@@ -832,16 +750,32 @@ def find_big_move(df, end_date, min_days=30, min_daily_pct=1.5):
         
         window = df.iloc[start_idx:end_idx + 1]
         
+        if CONFIG.get('verbosity', 0) >= 2:
+            logger.debug(
+                f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: Initial setup | "
+                f"end_idx={end_idx} | start_idx={start_idx} | max_lookback={max_lookback} | "
+                f"window_size={len(window)} | min_days={min_days} | min_daily_pct={min_daily_pct}"
+            )
+        
         # If not enough data, return False
         if len(window) < min_days:
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {end_date.date()}: Not enough data - {len(window)} days, need {min_days}")
+            if CONFIG.get('verbosity', 0) >= 1:
+                logger.debug(
+                    f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: Not enough data - "
+                    f"{len(window)} days, need {min_days}"
+                )
             return False, None, None, 0
         
         # Find the high before the breakout
         high_price = window['high'].max()
         high_date = window['high'].idxmax()
         high_loc = window.index.get_loc(high_date)
+        
+        if CONFIG.get('verbosity', 0) >= 2:
+            logger.debug(
+                f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: Initial high found | "
+                f"high_date={high_date.date()} | high_price={high_price:.2f} | high_loc={high_loc}"
+            )
         
         # If high is at the end of the window (at the breakout date), find the previous high
         if high_loc >= len(window) - 3:
@@ -851,18 +785,71 @@ def find_big_move(df, end_date, min_days=30, min_daily_pct=1.5):
                 high_price = prev_window['high'].max()
                 high_date = prev_window['high'].idxmax()
                 high_loc = window.index.get_loc(high_date)
+                if CONFIG.get('verbosity', 0) >= 2:
+                    logger.debug(
+                        f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: High at end, using previous | "
+                        f"high_date={high_date.date()} | high_price={high_price:.2f} | high_loc={high_loc}"
+                    )
         
         # If high is at the beginning of the window, use a more relaxed check (only 3 days instead of 5)
         if high_loc <= 3:
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {end_date.date()}: High point too early (position {high_loc})")
+            if CONFIG.get('verbosity', 0) >= 1:
+                logger.debug(
+                    f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: High point too early "
+                    f"(position {high_loc} <= 3) | window_size={len(window)} | "
+                    f"high_date={high_date.date()} | end_date={end_date.date()}"
+                )
             return False, None, None, 0
         
-        check_indices = list(range(start_idx, high_loc))
+        # FIX: check_indices should be relative to window start (0-based), not absolute indices
+        # high_loc is already relative to window start, so we iterate from 0 to high_loc
+        check_indices = list(range(0, high_loc))
+        
+        if len(check_indices) == 0:
+            if CONFIG.get('verbosity', 0) >= 1:
+                logger.debug(
+                    f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: No check_indices (high_loc={high_loc} <= 0) | "
+                    f"window_size={len(window)} | high_date={high_date.date()}"
+                )
+            return False, None, None, 0
+        
+        if CONFIG.get('verbosity', 0) >= 2:
+            logger.debug(
+                f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: check_indices range | "
+                f"start_idx={start_idx} (absolute) | high_loc={high_loc} (relative) | "
+                f"check_indices_count={len(check_indices)} | "
+                f"check_indices={check_indices[:10]}..." if len(check_indices) > 10 else f"check_indices={check_indices}"
+            )
         
         # Try different starting points, looking for the earliest valid uptrend
         first_valid_idx = None
         valid_total_pct = 0
+        
+        # Enforce total gain within desired range (30% - 100% per Qullamaggie)
+        min_total_gain = CONFIG.get('min_big_move_pct', 30.0)
+        max_total_gain = CONFIG.get('max_big_move_pct', 100.0)
+        
+        # Track best candidate for logging
+        best_candidate = None
+        best_score = -1
+        
+        log_details = {
+            'ticker': ticker or 'unknown',
+            'end_date': str(end_date.date()),
+            'high_date': str(high_date.date()),
+            'high_price': high_price,
+            'high_loc': high_loc,
+            'window_size': len(window),
+            'check_indices_count': len(check_indices),
+            'min_total_gain': min_total_gain,
+            'max_total_gain': max_total_gain,
+            'min_daily_pct': min_daily_pct,
+            'min_daily_pct_threshold': min_daily_pct * 0.8,
+            'min_days': min_days
+        }
+        
+        if CONFIG.get('verbosity', 0) >= 2:
+            logger.debug(f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: Starting evaluation | {log_details}")
         
         for i in check_indices:
             segment = window.iloc[i:high_loc+1]
@@ -872,46 +859,91 @@ def find_big_move(df, end_date, min_days=30, min_daily_pct=1.5):
             # Get start and end prices - use CLOSE price for start and HIGH for end
             start_price = segment.iloc[0]['close']
             end_price = segment.iloc[-1]['high']
+            start_date_seg = segment.index[0]
             
             # Calculate total percentage gain
             total_pct = (end_price - start_price) / start_price * 100
             
-            # Minimum total gain requirement slightly reduced to allow more patterns
-            min_total_gain = 25.0  # 25% minimum total gain
-            
             # Calculate days and average daily percentage
             days = max(1, (segment.index[-1] - segment.index[0]).days)
-            simple_avg_daily_pct = total_pct / days
+            simple_avg_daily_pct = total_pct / days if days > 0 else 0
             
             # Basic quality checks
             price_increases = (segment['close'] > segment['close'].shift(1)).sum()
-            price_increase_ratio = price_increases / (len(segment) - 1)  # -1 because first day has no prior day
+            price_increase_ratio = price_increases / (len(segment) - 1) if len(segment) > 1 else 0
             
             # Check for single-day spikes
-            max_single_day_gain = segment['high'].pct_change().max() * 100
+            max_single_day_gain = segment['high'].pct_change().max() * 100 if len(segment) > 1 else 0
             max_day_contribution = max_single_day_gain / total_pct if total_pct > 0 else 1.0
             
             # Volume check
             avg_volume = segment['volume'].mean()
             high_volume_days = (segment['volume'] > avg_volume * 1.2).sum()
-            high_volume_ratio = high_volume_days / len(segment)
+            high_volume_ratio = high_volume_days / len(segment) if len(segment) > 0 else 0
             
             # Quality metrics - slightly relaxed to find more patterns
             consistent_uptrend = price_increase_ratio >= 0.4  # Changed from 0.5
             not_just_spike = max_day_contribution <= 0.6  # Changed from 0.5
             decent_volume = high_volume_ratio >= 0.25  # Changed from 0.3
             
-            # Simplified validation criteria - prioritize meeting the min_daily_pct requirement
-            valid_segment = (total_pct >= min_total_gain) or (
-                simple_avg_daily_pct >= min_daily_pct and 
-                days >= min_days and
-                # Relaxed quality requirements - only need 2 out of 3 to pass
-                (consistent_uptrend + not_just_spike + decent_volume >= 2)
+            # Check each validation criterion
+            # Qullamaggie: Big move should be 30-100%+ and last a few days to a few weeks
+            # Limit to max 3 months (90 days) for the big move itself
+            total_gain_ok = min_total_gain <= total_pct <= max_total_gain
+            avg_daily_ok = simple_avg_daily_pct >= min_daily_pct * 0.8
+            days_ok = min_days <= days <= 90  # Big move should be a few days to a few weeks (max ~3 months)
+            quality_ok = (consistent_uptrend + not_just_spike + decent_volume >= 1)
+            
+            # Simplified validation criteria - must meet total gain within range and average daily move
+            valid_segment = (
+                total_gain_ok and
+                avg_daily_ok and 
+                days_ok and
+                quality_ok
             )
+            
+            # Track best candidate (highest total_pct that meets some criteria)
+            candidate_score = total_pct if total_pct > 0 else -1
+            if candidate_score > best_score:
+                best_score = candidate_score
+                best_candidate = {
+                    'start_date': str(start_date_seg.date()),
+                    'start_price': start_price,
+                    'end_price': end_price,
+                    'total_pct': total_pct,
+                    'days': days,
+                    'simple_avg_daily_pct': simple_avg_daily_pct,
+                    'price_increase_ratio': price_increase_ratio,
+                    'max_day_contribution': max_day_contribution,
+                    'high_volume_ratio': high_volume_ratio,
+                    'total_gain_ok': total_gain_ok,
+                    'avg_daily_ok': avg_daily_ok,
+                    'days_ok': days_ok,
+                    'quality_ok': quality_ok,
+                    'consistent_uptrend': consistent_uptrend,
+                    'not_just_spike': not_just_spike,
+                    'decent_volume': decent_volume,
+                    'valid': valid_segment
+                }
+            
+            # Log detailed info for each segment if verbose
+            if CONFIG.get('verbosity', 0) >= 2:
+                logger.debug(
+                    f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: Segment {i}->{high_loc} "
+                    f"| start={start_date_seg.date()} | total_pct={total_pct:.2f}% | "
+                    f"avg_daily={simple_avg_daily_pct:.3f}% | days={days} | "
+                    f"gain_ok={total_gain_ok} | daily_ok={avg_daily_ok} | days_ok={days_ok} | "
+                    f"quality_ok={quality_ok} | valid={valid_segment}"
+                )
             
             if valid_segment:
                 first_valid_idx = i
                 valid_total_pct = total_pct
+                if CONFIG.get('verbosity', 0) >= 2:
+                    logger.debug(
+                        f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: VALID SEGMENT FOUND! "
+                        f"start_idx={i} | total_pct={total_pct:.2f}% | days={days}"
+                    )
                 break
         
         # If we found a valid starting point, look for the local minimum after it
@@ -947,8 +979,69 @@ def find_big_move(df, end_date, min_days=30, min_daily_pct=1.5):
                 logger.debug(f"{ticker} {end_date.date()}: Valid uptrend - {valid_total_pct:.2f}% over {days_in_uptrend} days")
             return True, start_date, high_date, valid_total_pct
         
-        if CONFIG.get('verbosity', 0) > 1:
-            logger.debug(f"{ticker} {end_date.date()}: No valid uptrend found")
+        # Log summary of evaluation
+        segments_evaluated = sum(1 for i in check_indices if len(window.iloc[i:high_loc+1]) >= min_days)
+        if CONFIG.get('verbosity', 0) >= 2:
+            logger.debug(
+                f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: Evaluation complete | "
+                f"segments_evaluated={segments_evaluated} | check_indices_count={len(check_indices)} | "
+                f"valid_found={first_valid_idx is not None}"
+            )
+        
+        # Log failure with best candidate details
+        if first_valid_idx is None:
+            failure_reasons = []
+            if best_candidate:
+                if not best_candidate['total_gain_ok']:
+                    if best_candidate['total_pct'] < min_total_gain:
+                        failure_reasons.append(f"total_pct too low ({best_candidate['total_pct']:.2f}% < {min_total_gain}%)")
+                    elif best_candidate['total_pct'] > max_total_gain:
+                        failure_reasons.append(f"total_pct too high ({best_candidate['total_pct']:.2f}% > {max_total_gain}%)")
+                
+                if not best_candidate['avg_daily_ok']:
+                    failure_reasons.append(
+                        f"avg_daily too low ({best_candidate['simple_avg_daily_pct']:.3f}% < {min_daily_pct * 0.8:.3f}%)"
+                    )
+                
+                if not best_candidate['days_ok']:
+                    if best_candidate['days'] < min_days:
+                        failure_reasons.append(f"days too few ({best_candidate['days']} < {min_days})")
+                    elif best_candidate['days'] > 90:
+                        failure_reasons.append(f"days too many ({best_candidate['days']} > 90)")
+                
+                if not best_candidate['quality_ok']:
+                    quality_failures = []
+                    if not best_candidate['consistent_uptrend']:
+                        quality_failures.append(f"uptrend_ratio={best_candidate['price_increase_ratio']:.2f} < 0.4")
+                    if not best_candidate['not_just_spike']:
+                        quality_failures.append(f"spike_contribution={best_candidate['max_day_contribution']:.2f} > 0.6")
+                    if not best_candidate['decent_volume']:
+                        quality_failures.append(f"volume_ratio={best_candidate['high_volume_ratio']:.2f} < 0.25")
+                    failure_reasons.append(f"quality failed ({', '.join(quality_failures)})")
+                
+                best_candidate_str = (
+                    f"Best candidate: start={best_candidate['start_date']} | "
+                    f"total_pct={best_candidate['total_pct']:.2f}% | "
+                    f"avg_daily={best_candidate['simple_avg_daily_pct']:.3f}% | "
+                    f"days={best_candidate['days']} | "
+                    f"failures=[{', '.join(failure_reasons)}]"
+                )
+                
+                if CONFIG.get('verbosity', 0) >= 2:
+                    logger.debug(f"[BIG_MOVE] {ticker or 'unknown'} {end_date.date()}: {best_candidate_str}")
+                elif CONFIG.get('verbosity', 0) == 1:
+                    logger.info(
+                        f"{ticker} {end_date.date()}: No valid big move found | "
+                        f"best: {best_candidate['total_pct']:.2f}% over {best_candidate['days']} days "
+                        f"(avg {best_candidate['simple_avg_daily_pct']:.3f}%/day) | "
+                        f"reasons: {', '.join(failure_reasons[:2])}"  # Show first 2 reasons
+                    )
+            else:
+                if CONFIG.get('verbosity', 0) >= 1:
+                    logger.info(
+                        f"{ticker} {end_date.date()}: No valid big move found "
+                        f"(no candidates evaluated - window too small or high too early)"
+                    )
         
         return False, None, None, 0
     
@@ -958,7 +1051,7 @@ def find_big_move(df, end_date, min_days=30, min_daily_pct=1.5):
 
 def check_pattern_quality(df, start_idx, end_idx):
     """Check if pattern has enough data points."""
-    return end_idx - start_idx >= 5
+    return end_idx - start_idx >= 4
 
 def check_price_within_range(df, high_date, breakout_date):
     """Check if price stays within allowed range from high to breakout."""
@@ -1060,6 +1153,172 @@ def check_consolidation_tightness(df, high_date, breakout_date, max_drop=None, e
         logger.error(f"Error in check_consolidation_tightness: {e}")
         return False, 0, 0
 
+
+def evaluate_candidate(
+    df: pd.DataFrame,
+    idx: int,
+    existing_breakouts: List[dict],
+    ticker: str,
+    stats: dict,
+    debug_enabled: bool
+) -> Optional[dict]:
+    """Evaluate a breakout candidate using all filters at once."""
+    focus_date = df.index[idx]
+    date_str = focus_date.strftime('%Y-%m-%d')
+    
+    def log_debug(message: str):
+        if debug_enabled or CONFIG.get('verbosity', 0) > 1:
+            logger.debug(message)
+    
+    def fail(reason_key: Optional[str], message: str):
+        if reason_key and reason_key in stats:
+            stats[reason_key] += 1
+        log_debug(f"{ticker} {date_str}: {message}")
+        return None
+    
+    # Recent candle distribution
+    window_start = max(0, idx - 20)
+    recent_window = df.iloc[window_start:idx+1]
+    green_ratio = (recent_window['close'] > recent_window['open']).sum() / len(recent_window)
+    if green_ratio > 0.85:
+        return fail('green_candle_filter', f"Rejected - green candle ratio {green_ratio:.2f} > 0.85")
+    
+    # Breakout day must be meaningfully above prior high
+    if idx > 0:
+        prev_high = df.iloc[idx-1]['high']
+        current_high = df.iloc[idx]['high']
+        if prev_high and current_high <= prev_high * 1.005:
+            return fail('initial_filter', f"Rejected - breakout high only {(current_high/prev_high-1)*100:.2f}% above previous")
+    
+    # Ensure recent trend has positive slope
+    if idx >= 10:
+        recent_10 = df.iloc[idx-9:idx+1]
+        price_trend = (recent_10['close'].iloc[-1] - recent_10['close'].iloc[0]) / recent_10['close'].iloc[0]
+        if price_trend < 0.03:
+            return fail('initial_filter', f"Rejected - 10 day trend {price_trend*100:.2f}% < 3%")
+    
+    # Confirm big move (step 1)
+    found_move, move_start_date, high_date, move_pct = find_big_move(
+        df,
+        focus_date,
+        min_days=CONFIG['min_uptrend_days'],
+        min_daily_pct=CONFIG['min_daily_uptrend_pct']
+    )
+    if not found_move or move_start_date is None or high_date is None:
+        return fail('big_move_filter', f"Rejected - no qualifying big move (move_pct={move_pct:.2f}%)")
+    
+    move_start_idx = df.index.get_loc(move_start_date)
+    segment = df.iloc[move_start_idx:idx+1]
+    high_point_idx = df.index.get_loc(high_date)
+    
+    # Time since high (ensure orderly consolidation)
+    # Qullamaggie: Consolidation phase is usually 2 weeks to 2 months
+    days_from_high = (focus_date - df.index[high_point_idx]).days
+    min_consolidation_days = CONFIG.get('min_days_from_high', 14)
+    max_consolidation_days = CONFIG.get('max_days_from_high', 60)
+    if days_from_high < min_consolidation_days:
+        return fail('time_filter', f"Rejected - only {days_from_high} days since high (need >= {min_consolidation_days})")
+    if days_from_high > max_consolidation_days:
+        return fail('time_filter', f"Rejected - {days_from_high} days since high (need <= {max_consolidation_days})")
+    
+    # Consolidation tightness
+    within_range = check_price_within_range(df, df.index[high_point_idx], focus_date)
+    if not within_range:
+        within_range = check_price_within_range_relaxed(
+            df,
+            df.index[high_point_idx],
+            focus_date,
+            max_drop=min(CONFIG['max_consolidation_drop'] + 0.05, 0.5)
+        )
+    if not within_range:
+        return fail('price_range_filter', "Rejected - consolidation drop exceeded threshold")
+    
+    # Pattern length (higher lows, tightening range)
+    if not check_pattern_quality(df, high_point_idx, idx):
+        return fail('pattern_quality_filter', "Rejected - consolidation too short")
+    
+    # Pullback quality (step 2)
+    pullback_result, low_date, pullback_pct = check_orderly_pullback(df, df.index[high_point_idx])
+    if not pullback_result or low_date is None:
+        return fail('pullback_filter', f"Rejected - pullback insufficient ({pullback_pct*100:.2f}%)")
+    
+    # Qullamaggie: Price should "surf" the rising 10-, 20-, and sometimes 50-day moving averages during consolidation
+    # Check that moving averages are rising and price stays near/above them
+    if idx >= 50 and '10sma' in df.columns and '20sma' in df.columns and '50sma' in df.columns:
+        # Check consolidation period (from high to breakout)
+        cons_start_idx = high_point_idx
+        cons_end_idx = idx
+        
+        if cons_end_idx > cons_start_idx:
+            # Get moving averages at start and end of consolidation
+            sma10_start = df.iloc[cons_start_idx]['10sma'] if not pd.isna(df.iloc[cons_start_idx]['10sma']) else None
+            sma20_start = df.iloc[cons_start_idx]['20sma'] if not pd.isna(df.iloc[cons_start_idx]['20sma']) else None
+            sma50_start = df.iloc[cons_start_idx]['50sma'] if not pd.isna(df.iloc[cons_start_idx]['50sma']) else None
+            sma10_end = df.iloc[cons_end_idx]['10sma'] if not pd.isna(df.iloc[cons_end_idx]['10sma']) else None
+            sma20_end = df.iloc[cons_end_idx]['20sma'] if not pd.isna(df.iloc[cons_end_idx]['20sma']) else None
+            sma50_end = df.iloc[cons_end_idx]['50sma'] if not pd.isna(df.iloc[cons_end_idx]['50sma']) else None
+            
+            # Check that moving averages are rising (at least 10SMA and 20SMA should be rising)
+            mas_rising = True
+            if sma10_start and sma10_end and sma10_end <= sma10_start * 0.98:  # Allow small tolerance
+                mas_rising = False
+            if sma20_start and sma20_end and sma20_end <= sma20_start * 0.98:
+                mas_rising = False
+            
+            # Check that price stays near/above moving averages during consolidation
+            # Price should touch or stay above at least one MA for most of the consolidation
+            consolidation_segment = df.iloc[cons_start_idx:cons_end_idx+1]
+            price_surfing = False
+            if len(consolidation_segment) >= 5:
+                touches_ma = 0
+                for i in range(len(consolidation_segment)):
+                    row = consolidation_segment.iloc[i]
+                    low_price = row['low']
+                    close_price = row['close']
+                    sma10 = row['10sma'] if not pd.isna(row['10sma']) else None
+                    sma20 = row['20sma'] if not pd.isna(row['20sma']) else None
+                    sma50 = row['50sma'] if not pd.isna(row['50sma']) else None
+                    
+                    # Check if price touches or stays above at least one MA
+                    if (sma10 and (low_price <= sma10 * 1.02 and close_price >= sma10 * 0.98)) or \
+                       (sma20 and (low_price <= sma20 * 1.02 and close_price >= sma20 * 0.98)) or \
+                       (sma50 and (low_price <= sma50 * 1.02 and close_price >= sma50 * 0.98)):
+                        touches_ma += 1
+                
+                # Price should "surf" MAs for at least 40% of consolidation period
+                if touches_ma / len(consolidation_segment) >= 0.4:
+                    price_surfing = True
+            
+            if not mas_rising or not price_surfing:
+                return fail('pattern_quality_filter', f"Rejected - price not surfing rising MAs (mas_rising={mas_rising}, price_surfing={price_surfing})")
+    
+    # Duplicate spacing
+    min_spacing_days = max(3, CONFIG.get('spacing_days', 20) // 2)
+    duplicate = any(
+        abs((valid_breakout['breakout_date'] - focus_date).days) < min_spacing_days
+        for valid_breakout in existing_breakouts
+    )
+    if duplicate:
+        return fail('duplicate_filter', f"Rejected - another breakout within {min_spacing_days} days")
+    
+    # Range expansion / breakout (step 3)
+    cross_idx = find_first_cross_below_sma(df, idx)
+    category = determine_performance_category(df, idx, cross_idx)
+    
+    log_debug(
+        f"{ticker} {date_str}: Candidate approved (Category {category}) "
+        f"move_pct={move_pct:.2f}% pullback={pullback_pct*100:.2f}% days_from_high={days_from_high}"
+    )
+    
+    return {
+        'focus_date': focus_date,
+        'move_start_date': move_start_date,
+        'high_date': df.index[high_point_idx],
+        'low_date': low_date,
+        'category': category,
+        'cross_idx': cross_idx
+    }
+
 def check_orderly_pullback(df, high_date, min_pullback_pct=None, min_days=None, max_days=None):
     """Check if there's an orderly pullback after the high point."""
     try:
@@ -1114,7 +1373,7 @@ def check_orderly_pullback(df, high_date, min_pullback_pct=None, min_days=None, 
         logger.error(f"Error in check_orderly_pullback: {e}")
         return False, None, 0
 
-def check_candle_distribution(df, max_green_pct=0.75):
+def check_candle_distribution(df, max_green_pct=0.9):
     """Check if candle distribution is reasonable."""
     if 'open' not in df.columns or 'close' not in df.columns or len(df) == 0:
         return True
@@ -1123,7 +1382,7 @@ def check_candle_distribution(df, max_green_pct=0.75):
 
 def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp, 
                     low_date: pd.Timestamp, cons_start: pd.Timestamp, 
-                    valid_breakouts: Optional[list] = None, forced_category: Optional[int] = None) -> Optional[dict]:
+                    forced_category: Optional[int] = None) -> Optional[dict]:
     """
     Process a single breakout pattern and create all necessary files.
     
@@ -1133,7 +1392,6 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         focus_date: Breakout date
         low_date: Start of uptrend date
         cons_start: High date before consolidation
-        valid_breakouts: List of previously validated breakouts
         forced_category: Optional category override (1-4)
         
     Returns:
@@ -1143,19 +1401,7 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         if CONFIG.get('verbosity', 0) > 0:
             logger.info(f"Processing breakout: {ticker} on {focus_date.date()}")
         
-        # Create directory FIRST so we can see it's being processed
-        date_str = format_date(focus_date)
-        directory = SCRIPT_DIR / 'ds' / CONFIG['dataset_name'] / f"{ticker}_{date_str}"
-        directory.mkdir(parents=True, exist_ok=True)
-        
-        # Create a marker file immediately to verify process_breakout was called
-        try:
-            marker_file = directory / ".processing"
-            marker_file.write_text(f"Processing {ticker} breakout on {focus_date.date()}")
-        except:
-            pass  # Ignore marker file errors
-        
-        # Get indices for slicing data
+        # Get indices for slicing data FIRST (before creating directory)
         all_dates = data.index
         focus_idx = all_dates.get_loc(focus_date)
         
@@ -1168,43 +1414,139 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         end_idx = min(len(data) - 1, cross_idx + 3)
         
         # Create D.json with data from beginning of upward movement to breakout
-        d_data = data.iloc[low_idx:focus_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']]
+        # Ensure Date index is preserved
+        d_data = data.iloc[low_idx:focus_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']].copy()
+        # Ensure index name is set for proper JSON serialization
+        if d_data.index.name is None:
+            d_data.index.name = 'Date'
         
-        # Check for null values in D.json data
+        # Handle null values in D.json data
         if d_data.isnull().any().any():
+            null_counts = d_data.isnull().sum()
+            log_file_operation('info', f"process_breakout: D.json contains nulls", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'null_counts': null_counts[null_counts > 0].to_dict(),
+                                      'd_data_rows_before': len(d_data)})
             if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {focus_date.date()}: Disqualified - null values in D.json")
-            return None
+                logger.debug(f"{ticker} {focus_date.date()}: D.json contains nulls - dropping affected rows")
+            d_data = d_data.dropna()
+            log_file_operation('info', f"process_breakout: D.json after dropping nulls", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'd_data_rows_after': len(d_data)})
+            if d_data.empty:
+                log_file_operation('error', f"process_breakout: D.json empty after dropping nulls", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date())})
+                logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - D.json empty after dropping nulls")
+                return None
             
         # Check if there are too many green candles in the data
+        green_candles = (d_data['close'] > d_data['open']).sum() if len(d_data) > 0 else 0
+        green_pct = green_candles / len(d_data) if len(d_data) > 0 else 0
         if not check_candle_distribution(d_data):
+            log_file_operation('info', f"process_breakout: Candle distribution check failed", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'green_candles': green_candles, 'total_candles': len(d_data),
+                                      'green_pct': green_pct*100, 'max_green_pct': 90.0})
             if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {focus_date.date()}: Disqualified - too many green candles")
+                logger.debug(
+                    f"{ticker} {focus_date.date()}: Disqualified - too many green candles in D.json | "
+                    f"green_pct={green_pct*100:.1f}% (max 90%)"
+                )
+            else:
+                logger.info(
+                    f"{ticker} {focus_date.date()}: Aborting breakout - D.json candle distribution out of range | "
+                    f"green_pct={green_pct*100:.1f}% (max 90%)"
+                )
             return None
+        else:
+            log_file_operation('debug', f"process_breakout: Candle distribution check passed", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'green_pct': green_pct*100})
         
         # Visual quality check: Ensure breakout shows clear upward movement
         if len(d_data) >= 10:
             start_price = d_data.iloc[0]['close']
             end_price = d_data.iloc[-1]['close']
             total_gain = (end_price - start_price) / start_price
-            if total_gain < 0.15:  # Less than 15% gain in uptrend is not a clear breakout
+            if total_gain < 0.07:
+                log_file_operation('info', f"process_breakout: Insufficient uptrend check failed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'total_gain_pct': total_gain*100, 'threshold': 7.0,
+                                          'start_price': start_price, 'end_price': end_price,
+                                          'd_data_rows': len(d_data)})
                 if CONFIG.get('verbosity', 0) > 1:
                     logger.debug(f"{ticker} {focus_date.date()}: Disqualified - insufficient uptrend ({total_gain*100:.1f}%)")
+                else:
+                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - gain {total_gain*100:.1f}% below threshold")
                 return None
         
         # Visual quality check: Ensure breakout day is clearly above recent highs
-        if len(d_data) >= 5:
-            recent_highs = d_data.iloc[-5:]['high'].max()
+        # Exclude the breakout day itself when calculating recent_highs
+        if len(d_data) >= 6:
+            # Get the 5 days BEFORE the breakout day (exclude the breakout day itself)
+            recent_highs = d_data.iloc[-6:-1]['high'].max()
             breakout_high = d_data.iloc[-1]['high']
-            if breakout_high <= recent_highs * 1.02:  # Less than 2% above recent highs
+            breakout_high_pct_above = (breakout_high / recent_highs - 1) * 100
+            threshold_pct = 1.0
+            if breakout_high <= recent_highs * 1.01:  # Less than 1% above recent highs
+                log_file_operation('info', f"process_breakout: Breakout high check failed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'breakout_high': breakout_high, 'recent_highs': recent_highs,
+                                          'breakout_high_pct_above': breakout_high_pct_above,
+                                          'threshold_pct': threshold_pct,
+                                          'recent_highs_dates': [str(d.date()) for d in d_data.iloc[-6:-1].index]})
                 if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - breakout not clear enough")
+                    logger.debug(
+                        f"{ticker} {focus_date.date()}: Disqualified - breakout not clear enough | "
+                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
+                        f"pct_above={breakout_high_pct_above:.2f}% (need > {threshold_pct}%)"
+                    )
+                else:
+                    logger.info(
+                        f"{ticker} {focus_date.date()}: Aborting breakout - breakout high not sufficiently above recent highs | "
+                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
+                        f"only {breakout_high_pct_above:.2f}% above (need > {threshold_pct}%)"
+                    )
                 return None
+            else:
+                log_file_operation('debug', f"process_breakout: Breakout high check passed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'breakout_high_pct_above': breakout_high_pct_above})
+        elif len(d_data) >= 2:
+            # If we have fewer than 6 days, use all days except the breakout day
+            recent_highs = d_data.iloc[:-1]['high'].max()
+            breakout_high = d_data.iloc[-1]['high']
+            breakout_high_pct_above = (breakout_high / recent_highs - 1) * 100
+            threshold_pct = 1.0
+            if breakout_high <= recent_highs * 1.01:  # Less than 1% above recent highs
+                log_file_operation('info', f"process_breakout: Breakout high check failed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'breakout_high': breakout_high, 'recent_highs': recent_highs,
+                                          'breakout_high_pct_above': breakout_high_pct_above,
+                                          'threshold_pct': threshold_pct,
+                                          'recent_highs_dates': [str(d.date()) for d in d_data.iloc[:-1].index]})
+                if CONFIG.get('verbosity', 0) > 1:
+                    logger.debug(
+                        f"{ticker} {focus_date.date()}: Disqualified - breakout not clear enough | "
+                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
+                        f"pct_above={breakout_high_pct_above:.2f}% (need > {threshold_pct}%)"
+                    )
+                else:
+                    logger.info(
+                        f"{ticker} {focus_date.date()}: Aborting breakout - breakout high not sufficiently above recent highs | "
+                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
+                        f"only {breakout_high_pct_above:.2f}% above (need > {threshold_pct}%)"
+                    )
+                return None
+            else:
+                log_file_operation('debug', f"process_breakout: Breakout high check passed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'breakout_high_pct_above': breakout_high_pct_above})
             
         # Create after.json with data starting from the day after the breakout (not the beginning of uptrend)
         # Ensure it includes at least 25 days of data regardless of when price crosses below 20SMA
         after_start_idx = focus_idx + 1  # Start the day after the breakout
-        min_after_days = 25  # Minimum days to include in after.json
+        min_after_days = 15  # Minimum days to include in after.json
         after_end_idx = max(min(len(data) - 1, after_start_idx + min_after_days), end_idx)
         
         # Ensure we have enough data
@@ -1213,19 +1555,53 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
             after_end_idx = min(len(data) - 1, after_start_idx + min_after_days)
         
         # Get the after data
-        after_data = data.iloc[after_start_idx:after_end_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']]
+        after_data = data.iloc[after_start_idx:after_end_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']].copy()
+        # Ensure index name is set for proper JSON serialization
+        if after_data.index.name is None:
+            after_data.index.name = 'Date'
         
-        # Check for null values in after.json data
+        # Handle null values in after.json data
         if after_data.isnull().any().any():
+            null_counts = after_data.isnull().sum()
+            log_file_operation('info', f"process_breakout: after.json contains nulls", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'null_counts': null_counts[null_counts > 0].to_dict(),
+                                      'after_data_rows_before': len(after_data)})
             if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {focus_date.date()}: Disqualified - null values in after.json")
-            return None
+                logger.debug(f"{ticker} {focus_date.date()}: after.json contains nulls - dropping affected rows")
+            after_data = after_data.dropna()
+            log_file_operation('info', f"process_breakout: after.json after dropping nulls", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'after_data_rows_after': len(after_data)})
+            if after_data.empty:
+                log_file_operation('error', f"process_breakout: after.json empty after dropping nulls", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date())})
+                logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - after.json empty after dropping nulls")
+                return None
             
         # Check if there are too many green candles in the after data
+        after_green_candles = (after_data['close'] > after_data['open']).sum() if len(after_data) > 0 else 0
+        after_green_pct = after_green_candles / len(after_data) if len(after_data) > 0 else 0
         if not check_candle_distribution(after_data):
+            log_file_operation('info', f"process_breakout: After data candle distribution check failed", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'green_candles': after_green_candles, 'total_candles': len(after_data),
+                                      'green_pct': after_green_pct*100, 'max_green_pct': 90.0})
             if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {focus_date.date()}: Disqualified - too many green candles in after data")
+                logger.debug(
+                    f"{ticker} {focus_date.date()}: Disqualified - too many green candles in after data | "
+                    f"green_pct={after_green_pct*100:.1f}% (max 90%)"
+                )
+            else:
+                logger.info(
+                    f"{ticker} {focus_date.date()}: Aborting breakout - after.json candle distribution out of range | "
+                    f"green_pct={after_green_pct*100:.1f}% (max 90%)"
+                )
             return None
+        else:
+            log_file_operation('debug', f"process_breakout: After data candle distribution check passed", 
+                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                      'green_pct': after_green_pct*100})
         
         # Determine category based on performance
         category = None
@@ -1234,58 +1610,159 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         else:
             category = determine_performance_category(data, focus_idx, cross_idx)
         
+        log_file_operation('info', f"process_breakout: Preparing to create directory", 
+                          details={'ticker': ticker, 'focus_date': str(focus_date.date()), 
+                                  'category': category, 'forced_category': forced_category})
+        
+        # Create directory and write files IMMEDIATELY - all at once
+        date_str = format_date(focus_date)
+        directory = SCRIPT_DIR / 'ds' / CONFIG['dataset_name'] / f"{ticker}_{date_str}"
+        
+        log_file_operation('info', f"process_breakout: Directory path constructed", path=str(directory), 
+                          details={'script_dir': str(SCRIPT_DIR), 'dataset_name': CONFIG['dataset_name'], 
+                                  'date_str': date_str, 'ticker': ticker})
+        
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            log_file_operation('info', f"process_breakout: Directory created/verified", path=str(directory), 
+                              details={'exists': directory.exists(), 'is_dir': directory.is_dir(), 
+                                      'absolute_path': str(directory.resolve())})
+        except Exception as e:
+            log_file_operation('error', f"process_breakout: Failed to create directory", path=str(directory), 
+                              details={'error': str(e), 'script_dir_exists': SCRIPT_DIR.exists(), 
+                                      'ds_dir_exists': (SCRIPT_DIR / 'ds').exists()})
+            return None
+        
+        # Write ALL files immediately - D.json, after.json, points.json, H.json
         # Create the data files (points.json and H.json)
+        log_file_operation('info', f"process_breakout: Calling create_files", path=str(directory), 
+                          details={'forced_category': forced_category})
         if forced_category is not None:
             create_files_with_category(str(directory), data, focus_idx, cross_idx, forced_category, ticker, d_data)
         else:
             create_files(str(directory), data, focus_idx, cross_idx, ticker, d_data)
         
-        # Write the data files after validation - write immediately and verify
+        # Write D.json and after.json immediately with verification
         d_json_path = directory / "D.json"
-        try:
-            if not write_json(str(d_json_path), d_data):
-                logger.error(f"Failed to write D.json for {ticker} at {d_json_path}")
-                return None
-            
-            # Verify D.json was written immediately
-            if not d_json_path.exists():
-                logger.error(f"D.json file not found after write: {d_json_path}")
-                return None
-        except Exception as e:
-            logger.error(f"Exception writing D.json for {ticker}: {e}", exc_info=True)
+        log_file_operation('info', f"process_breakout: Writing D.json", path=str(d_json_path), 
+                          details={'d_data_rows': len(d_data)})
+        if not write_json(str(d_json_path), d_data):
+            log_file_operation('error', f"process_breakout: Failed to write D.json", path=str(d_json_path), 
+                             details={'ticker': ticker})
             return None
+        # Verify D.json was written correctly
+        if not d_json_path.exists() or d_json_path.stat().st_size < 10:
+            log_file_operation('error', f"process_breakout: D.json verification failed", path=str(d_json_path), 
+                             details={'exists': d_json_path.exists(), 
+                                     'size': d_json_path.stat().st_size if d_json_path.exists() else 0})
+            return None
+        log_file_operation('info', f"process_breakout: D.json verified", path=str(d_json_path), 
+                          details={'size': d_json_path.stat().st_size})
         
         after_json_path = directory / "after.json"
-        try:
-            if not write_json(str(after_json_path), after_data):
-                logger.error(f"Failed to write after.json for {ticker} at {after_json_path}")
-                return None
-            
-            # Verify after.json was written immediately
-            if not after_json_path.exists():
-                logger.error(f"after.json file not found after write: {after_json_path}")
-                return None
-        except Exception as e:
-            logger.error(f"Exception writing after.json for {ticker}: {e}", exc_info=True)
+        log_file_operation('info', f"process_breakout: Writing after.json", path=str(after_json_path), 
+                          details={'after_data_rows': len(after_data)})
+        if not write_json(str(after_json_path), after_data):
+            log_file_operation('error', f"process_breakout: Failed to write after.json", path=str(after_json_path), 
+                             details={'ticker': ticker})
             return None
+        # Verify after.json was written correctly
+        if not after_json_path.exists() or after_json_path.stat().st_size < 10:
+            log_file_operation('error', f"process_breakout: after.json verification failed", path=str(after_json_path), 
+                             details={'exists': after_json_path.exists(), 
+                                     'size': after_json_path.stat().st_size if after_json_path.exists() else 0})
+            return None
+        log_file_operation('info', f"process_breakout: after.json verified", path=str(after_json_path), 
+                          details={'size': after_json_path.stat().st_size})
+        
+        # Quality check: Volume surge on breakout day
+        if focus_idx > 0 and focus_idx < len(data):
+            breakout_volume = data.iloc[focus_idx]['volume']
+            avg_volume_10d = data.iloc[max(0, focus_idx-10):focus_idx]['volume'].mean()
+            avg_volume_30d = data.iloc[max(0, focus_idx-30):focus_idx]['volume'].mean()
+            
+            volume_surge_10d = breakout_volume / avg_volume_10d if avg_volume_10d > 0 else 0
+            volume_surge_30d = breakout_volume / avg_volume_30d if avg_volume_30d > 0 else 0
+            
+            # Require at least 2.0x average volume on breakout day (stricter for Qullamaggie)
+            if volume_surge_10d < 2.0 and volume_surge_30d < 2.0:
+                log_file_operation('info', f"process_breakout: Volume surge check failed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'breakout_volume': breakout_volume, 'avg_volume_10d': avg_volume_10d,
+                                          'avg_volume_30d': avg_volume_30d, 'surge_10d': volume_surge_10d,
+                                          'surge_30d': volume_surge_30d})
+                if CONFIG.get('verbosity', 0) > 1:
+                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - insufficient volume surge ({volume_surge_10d:.2f}x 10d avg, {volume_surge_30d:.2f}x 30d avg)")
+                else:
+                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - insufficient volume surge")
+                return None
+            else:
+                log_file_operation('debug', f"process_breakout: Volume surge check passed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'surge_10d': volume_surge_10d, 'surge_30d': volume_surge_30d})
+        
+        # Quality check: Strong close on breakout day (close near high)
+        if focus_idx < len(data):
+            breakout_row = data.iloc[focus_idx]
+            breakout_high = breakout_row['high']
+            breakout_close = breakout_row['close']
+            close_to_high_pct = (breakout_high - breakout_close) / breakout_high * 100
+            
+            # Require close within 2% of high (strong close)
+            if close_to_high_pct > 2.0:
+                log_file_operation('info', f"process_breakout: Strong close check failed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'close_to_high_pct': close_to_high_pct, 'threshold': 2.0})
+                if CONFIG.get('verbosity', 0) > 1:
+                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - weak close ({close_to_high_pct:.2f}% below high)")
+                else:
+                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - weak close")
+                return None
+            else:
+                log_file_operation('debug', f"process_breakout: Strong close check passed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'close_to_high_pct': close_to_high_pct})
+        
+        # Quality check: Price above key moving averages on breakout day
+        if focus_idx < len(data) and '10sma' in data.columns and '20sma' in data.columns:
+            breakout_row = data.iloc[focus_idx]
+            breakout_close = breakout_row['close']
+            sma10 = breakout_row['10sma'] if not pd.isna(breakout_row['10sma']) else None
+            sma20 = breakout_row['20sma'] if not pd.isna(breakout_row['20sma']) else None
+            
+            # Require price above at least one key MA
+            above_mas = True
+            if sma10 and breakout_close <= sma10 * 1.01:  # Allow 1% tolerance
+                if sma20 and breakout_close <= sma20 * 1.01:
+                    above_mas = False
+            
+            if not above_mas:
+                log_file_operation('info', f"process_breakout: Price above MAs check failed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
+                                          'close': breakout_close, 'sma10': sma10, 'sma20': sma20})
+                if CONFIG.get('verbosity', 0) > 1:
+                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - price not above key MAs")
+                else:
+                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - price not above key MAs")
+                return None
+            else:
+                log_file_operation('debug', f"process_breakout: Price above MAs check passed", 
+                                  details={'ticker': ticker, 'focus_date': str(focus_date.date())})
         
         # Check if this was a successful breakout (30% rise before crossing below 20SMA)
         is_successful, peak_date = check_successful_breakout(data, focus_idx, cross_idx)
         if is_successful and peak_date is not None:
             # Create successful breakout file
             success_date_str = format_date(peak_date)
-            success_data = data.iloc[focus_idx:end_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']]
+            success_data = data.iloc[focus_idx:end_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']].copy()
+            # Ensure index name is set for proper JSON serialization
+            if success_data.index.name is None:
+                success_data.index.name = 'Date'
             
             # Check for null values in success data and candle distribution
             if not success_data.isnull().any().any() and check_candle_distribution(success_data):
                 if not write_json(str(directory / f"{success_date_str}.json"), success_data):
                     logger.warning(f"Failed to write {success_date_str}.json for {ticker}")
-        
-        # Add previous valid breakouts - only if we have valid breakouts to add
-        prev_count = 0
-        if valid_breakouts and len(valid_breakouts) > 0:
-            # Make sure to pass the current breakout data, not try to access local variables
-            prev_count = add_previous_breakouts(ticker, data, directory, focus_date, low_date, valid_breakouts)
         
         # Get pullback percentage for scoring
         _, _, pullback_pct = check_orderly_pullback(data, cons_start)
@@ -1298,300 +1775,27 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
             'high_date': cons_start,
             'category': category,
             'cross_idx': cross_idx,
-            'pullback_pct': pullback_pct
+            'pullback_pct': pullback_pct,
+            'output_path': str(directory)
         }
         
-        # Remove marker file after successful processing
-        try:
-            marker_file = directory / ".processing"
-            if marker_file.exists():
-                marker_file.unlink()
-        except:
-            pass  # Ignore marker file errors
-        
+        log_file_operation('info', f"process_breakout: Successfully completed", path=str(directory), 
+                          details={'ticker': ticker, 'category': category, 'focus_date': str(focus_date.date()),
+                                  'output_path': str(directory)})
         if CONFIG.get('verbosity', 0) > 0:
             logger.info(f"Successfully processed {ticker} {focus_date.date()} (Category {category})")
+            logger.info(f"Files written to: {directory}")
         return breakout_data
     except Exception as e:
+        log_file_operation('error', f"process_breakout: Exception occurred", 
+                          details={'ticker': ticker, 'focus_date': str(focus_date.date()) if 'focus_date' in locals() else 'unknown',
+                                  'error': str(e)})
         logger.error(f"Error processing {ticker} at {focus_date.date()}: {e}")
+        if CONFIG.get('verbosity', 0) > 0:
+            logger.warning(f"{ticker} {focus_date.date()}: Exception during processing")
         return None
 
-def add_previous_breakouts(ticker, data, directory, current_breakout_date, current_low_date, valid_breakouts):
-    """Add previous breakout examples to the current breakout's directory"""
-    # Filter breakouts that occurred before current pattern started
-    prev_breakouts = []
-    already_selected = set()  # Track already selected breakouts to avoid duplicates
-    
-    # Get minimum spacing required between breakouts from config
-    min_spacing_days = CONFIG.get('spacing_days', 30)  # Default to 30 days if not specified
-    
-    for breakout in valid_breakouts:
-        # Skip if it's not a proper dict or missing required keys
-        if not isinstance(breakout, dict) or not all(k in breakout for k in ['breakout_date', 'low_date', 'high_date']):
-            continue
-            
-        prev_breakout_date = breakout['breakout_date']
-        prev_low_date = breakout['low_date']
-        prev_high_date = breakout['high_date']
-    
-        # Only include breakouts that occurred BEFORE the current breakout date
-        # This ensures we only get true "previous" breakouts
-        if (prev_breakout_date < current_breakout_date and 
-            prev_breakout_date != current_breakout_date):
-            
-            # Get the index of the previous breakout
-            try:
-                prev_breakout_idx = data.index.get_loc(prev_breakout_date)
-            except KeyError:
-                # Skip if date not found in data
-                continue
-            
-            # First check if this breakout is too close to the current breakout
-            days_to_current = (current_breakout_date - prev_breakout_date).days
-            if days_to_current < min_spacing_days:
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {prev_breakout_date.date()}: Too close to current ({days_to_current} days, need {min_spacing_days})")
-                continue
-                
-            # Check for duplicates - avoid breakouts that are too close to already selected ones
-            duplicate = False
-            for selected_date in already_selected:
-                days_between = abs((prev_breakout_date - selected_date).days)
-                if days_between < min_spacing_days:
-                    duplicate = True
-                    if CONFIG.get('verbosity', 0) > 1:
-                        logger.debug(f"{ticker} {prev_breakout_date.date()}: Too close to selected ({days_between} days, need {min_spacing_days})")
-                    break
-            
-            if duplicate:
-                continue
-            
-            # Apply all the same filters as the main breakout identification process
-            
-            # 1. Check daily range requirement
-            if not check_average_daily_range(data, prev_breakout_idx):
-                continue
-                
-            # 2. Find any big moves leading up to this point
-            found_move, start_date, high_date, move_pct = find_big_move(data, prev_breakout_date, 
-                                                                      min_days=CONFIG['min_uptrend_days'], 
-                                                                      min_daily_pct=CONFIG['min_daily_uptrend_pct'])
-            if not found_move:
-                continue
-            
-            # Update the low_date to use the actual uptrend start date from find_big_move
-            # Create a copy of the breakout dict to avoid modifying the original
-            prev_breakout_data = breakout.copy()
-            prev_breakout_data['low_date'] = start_date
-                
-            # 3. Verify proper time window between high and breakout
-            days_since_high = (prev_breakout_date - prev_high_date).days
-            if days_since_high < CONFIG['min_days_from_high']:
-                continue
-                
-            # 4. Verify price stayed within range during consolidation
-            if not check_price_within_range(data, prev_high_date, prev_breakout_date):
-                continue
-                
-            # 5. Check pattern quality
-            try:
-                prev_high_idx = data.index.get_loc(prev_high_date)
-            except KeyError:
-                # Skip if high date not found in data
-                continue
-                
-            if not check_pattern_quality(data, prev_high_idx, prev_breakout_idx):
-                continue
-                
-            # 6. Verify there was a pullback after the high
-            if not check_orderly_pullback(data, prev_high_date):
-                continue
-                
-            # If all filters pass, include this breakout
-            prev_breakouts.append(prev_breakout_data)
-            already_selected.add(prev_breakout_date)
-    
-    # Sort by score (preferring category 3-4 over 1-2) then by recency
-    # Score 1 for category 1, 2 for category 2, etc., add 0.1 * days_from_current for tiebreakers
-    def score_breakout(b):
-        cat = b.get('category', 2)  # Default to 2 if missing
-        days_from_current = (current_breakout_date - b['breakout_date']).days
-        days_score = 0.1 * (1 - min(days_from_current, 365) / 365)  # Slight preference for more recent breakouts
-        return cat + days_score
-    
-    # Sort based on score in descending order
-    prev_breakouts.sort(key=score_breakout, reverse=True)
-    
-    # Now select breakouts with proper spacing, prioritizing higher scores
-    selected_prev_breakouts = []
-    selected_dates = set()  # For tracking dates to ensure spacing
-    
-    # Add current breakout date to the selected dates to prevent choosing nearby breakouts
-    selected_dates.add(current_breakout_date)
-    
-    # Consider all breakouts in order of score
-    for breakout in prev_breakouts:
-        date = breakout['breakout_date']
-        
-        # Check if this breakout date is too close to any already selected date
-        too_close = False
-        for selected_date in selected_dates:
-            days_apart = abs((date - selected_date).days)
-            if days_apart < min_spacing_days:
-                too_close = True
-                break
-        
-        if not too_close:
-            selected_prev_breakouts.append(breakout)
-            selected_dates.add(date)
-            if len(selected_prev_breakouts) >= 5:  # Limit to 5 previous examples
-                break
-    
-    # Process selected previous breakouts
-    processed_count = 0
-    for prev_breakout_data in selected_prev_breakouts:
-        try:
-            prev_breakout_date = prev_breakout_data['breakout_date']
-            prev_low_date = prev_breakout_data['low_date']
-            prev_high_date = prev_breakout_data['high_date']
-            
-            # Get indices for data slicing
-            try:
-                prev_breakout_idx = data.index.get_loc(prev_breakout_date)
-            except KeyError:
-                # Skip if date not found in data
-                continue
-                
-            prev_cross_idx = find_first_cross_below_sma(data, prev_breakout_idx, sma_period=20)
-            
-            # Validate cross index
-            if prev_cross_idx >= len(data):
-                prev_cross_idx = min(prev_breakout_idx + 20, len(data) - 1)
-            
-            # Ensure all data strictly ends before the current breakout - don't just adjust the cross_idx
-            # Find the index for the current breakout date (strictly before)
-            try:
-                current_breakout_idx = data.index.get_loc(current_breakout_date)
-            except KeyError:
-                # Skip if current breakout date not found in data
-                continue
-            
-            # Use the day before the current breakout as a hard limit
-            max_end_idx = current_breakout_idx - 1
-            
-            # If we don't have enough space between previous breakout and current breakout
-            if max_end_idx <= prev_breakout_idx:
-                continue  # Not enough space between patterns
-                
-            # Calculate end of after.json: max(cross_idx + 3, breakout_idx + 25) but before current breakout
-            min_after_days = 25
-            after_end_candidate = max(prev_cross_idx + 3, prev_breakout_idx + min_after_days)
-            prev_end_idx = min(min(len(data) - 1, after_end_candidate), max_end_idx)
-            
-            # Ensure we have enough data
-            if prev_end_idx <= prev_breakout_idx:
-                continue  # Not enough space for after.json
-            
-            # Ensure previous breakout data ends BEFORE current d.json starts
-            # Get current d.json start date to ensure no overlap
-            try:
-                current_low_idx = data.index.get_loc(current_low_date)
-                # Previous breakout must end at least 1 day before current d.json starts
-                max_prev_end_idx = min(prev_end_idx, current_low_idx - 1)
-                if max_prev_end_idx <= prev_breakout_idx:
-                    continue  # Not enough space
-                prev_end_idx = max_prev_end_idx
-            except KeyError:
-                pass  # If we can't find current_low_date, use original prev_end_idx
-            
-            # Start from beginning of chart (index 0) to get complete breakout range
-            # This ensures we capture the full pattern from start to end of after.json
-            try:
-                prev_low_idx = data.index.get_loc(prev_low_date)
-            except KeyError:
-                # Skip if low date not found in data
-                continue
-            
-            # Start from beginning of available data (index 0) to capture complete range
-            # This ensures previous breakouts show the full chart from start to end of after.json
-            # Requirement #7: "from the start of the breakout chart to the end of after.json"
-            chart_start_idx = 0
-            
-            # Create combined data: d.json (chart start to breakout) + after.json (day after breakout to end)
-            # This matches requirement #9: previous breakouts consist of d.json + after.json combined
-            # IMPORTANT: This must end before current d.json starts
-            prev_combined_data = data.iloc[chart_start_idx:prev_end_idx+1][['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']]
-            
-            # Validate combined data quality and edge cases
-            if len(prev_combined_data) < 25:  # Minimum: 5 days for d.json + 20 days for after.json
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {prev_breakout_date.date()}: Insufficient combined data ({len(prev_combined_data)} bars)")
-                continue
-            
-            # Check for null values
-            if prev_combined_data.isnull().any().any():
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {prev_breakout_date.date()}: Null values in combined data")
-                continue
-            
-            # Check for data consistency (malformed data)
-            invalid_data = (
-                (prev_combined_data['high'] < prev_combined_data['low']) |
-                (prev_combined_data['high'] < prev_combined_data['close']) |
-                (prev_combined_data['high'] < prev_combined_data['open']) |
-                (prev_combined_data['low'] > prev_combined_data['close']) |
-                (prev_combined_data['low'] > prev_combined_data['open']) |
-                (prev_combined_data['volume'] < 0) |
-                (prev_combined_data[['open', 'high', 'low', 'close']] <= 0).any(axis=1)
-            )
-            if invalid_data.any():
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {prev_breakout_date.date()}: Invalid/malformed data in combined data")
-                continue
-            
-            # Check candle distribution
-            if not check_candle_distribution(prev_combined_data):
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {prev_breakout_date.date()}: Too many green candles in combined data")
-                continue
-            
-            # Verify date range doesn't overlap with current breakout
-            prev_data_dates = set(prev_combined_data.index)
-            current_d_data_dates = set()
-            try:
-                current_low_idx = data.index.get_loc(current_low_date)
-                current_breakout_idx_check = data.index.get_loc(current_breakout_date)
-                current_d_data = data.iloc[current_low_idx:current_breakout_idx_check+1]
-                current_d_data_dates = set(current_d_data.index)
-                
-                # Check for overlap
-                if prev_data_dates & current_d_data_dates:
-                    if CONFIG.get('verbosity', 0) > 1:
-                        logger.debug(f"{ticker} {prev_breakout_date.date()}: Date range overlaps with current breakout")
-                    continue
-            except (KeyError, ValueError) as e:
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {prev_breakout_date.date()}: Error checking overlap: {e}")
-                # Continue anyway if we can't check overlap
-                
-            # Create date-stamped file for previous breakout using breakout_date (not peak_date)
-            # This file contains combined d.json + after.json data (requirement #9)
-            prev_date_str = format_date(prev_breakout_date)  # Use breakout_date, not peak_date
-            prev_file_path = Path(directory) / f"{prev_date_str}.json"
-            if not write_json(str(prev_file_path), prev_combined_data):
-                logger.warning(f"Failed to write previous breakout file {prev_file_path}")
-                continue
-            
-            processed_count += 1
-            
-        except Exception as e:
-            logger.error(f"Error adding previous breakout {prev_breakout_date}: {e}")
-            # Continue processing other breakouts even if one fails
-            continue
-    
-    return processed_count
-
-def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> list:
+def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> Tuple[list, dict, dict]:
     """
     Efficiently identify quality breakouts in the given ticker data.
     
@@ -1602,30 +1806,7 @@ def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> list:
     Returns:
         List of valid breakout dictionaries with all required metadata
     """
-    # Early validation
-    if df is None or len(df) < 252:
-        if CONFIG.get('verbosity', 0) > 0:
-            logger.debug(f"{ticker}: Insufficient data - need 252 days, got {0 if df is None else len(df)}")
-        return []
-    
-    green_candles = (df['close'] > df['open']).sum()
-    total_candles = len(df)
-    if total_candles > 0 and (green_candles / total_candles > 0.85):
-        if CONFIG.get('verbosity', 0) > 0:
-            logger.debug(f"{ticker}: Problematic data pattern - {green_candles/total_candles:.1%} green candles")
-        return []
-    
-    # Initialize tracking variables
-    all_valid_breakouts = []
-    setups = []
-    
-    # Pre-calculate commonly used signals to avoid redundant calculations
-    # Calculate price change rates for faster comparison
-    df['daily_range_pct'] = (df['high'] - df['low']) / df['open'] * 100
-    df['close_change'] = df['close'].pct_change() * 100
-    df['volume_ratio'] = df['volume'] / df['volume'].rolling(10).mean()
-    
-    # Track stats for filtering decisions
+    debug_enabled = CONFIG.get('verbosity', 0) >= 2
     stats = {
         'total_dates': 0,
         'initial_filter': 0,
@@ -1642,8 +1823,41 @@ def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> list:
         'category2_found': 0,
         'category3_found': 0,
         'category4_found': 0,
-        'green_candle_filter': 0
+        'green_candle_filter': 0,
+        'integrity_fail': 0
     }
+    initial_filter_counts = {
+        'not_higher_high': 0,
+        'close_not_above_prev_high': 0,
+        'insufficient_volume': 0,
+        'insufficient_daily_range': 0
+    }
+    # Early validation
+    if df is None or len(df) < 252:
+        if CONFIG.get('verbosity', 0) > 0:
+            logger.debug(f"{ticker}: Insufficient data - need 252 days, got {0 if df is None else len(df)}")
+        if debug_enabled:
+            logger.debug(f"{ticker}: Early exit because dataset length < 252")
+        return [], stats, initial_filter_counts
+    
+    green_candles = (df['close'] > df['open']).sum()
+    total_candles = len(df)
+    if total_candles > 0 and (green_candles / total_candles > 0.85):
+        if CONFIG.get('verbosity', 0) > 0:
+            logger.debug(f"{ticker}: Problematic data pattern - {green_candles/total_candles:.1%} green candles")
+        if debug_enabled:
+            logger.debug(f"{ticker}: Early exit because green candle ratio {green_candles/total_candles:.2f} exceeded 0.85")
+        return [], stats, initial_filter_counts
+    
+    # Initialize tracking variables
+    all_valid_breakouts = []
+    setups = []
+    
+    # Pre-calculate commonly used signals to avoid redundant calculations
+    # Calculate price change rates for faster comparison
+    df['daily_range_pct'] = (df['high'] - df['low']) / df['open'] * 100
+    df['close_change'] = df['close'].pct_change() * 100
+    df['volume_ratio'] = df['volume'] / df['volume'].rolling(10).mean()
     
     # Only examine dates within the valid range efficiently
     valid_range = slice(252, max(252, len(df) - 63))  # At least 1 year prior, 3 months after
@@ -1651,27 +1865,22 @@ def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> list:
     
     # Record total dates examined
     stats['total_dates'] = len(valid_indices)
+    if debug_enabled:
+        logger.debug(f"{ticker}: Total candidate dates to evaluate: {stats['total_dates']}")
     
     # Use vectorized operations where possible
     # Pre-filter potential breakout candidates to reduce processing
     breakout_candidates = []
-    initial_filter_counts = {
-        'not_higher_high': 0,
-        'close_not_above_prev_high': 0,
-        'insufficient_volume': 0,
-        'insufficient_daily_range': 0
-    }
-    
     for i in valid_indices:
         focus_date = df.index[i]
         if (i > 0 and i < len(df) - 1):  # Ensure we have surrounding data
             # Check each criterion separately for counting
             higher_high = df.iloc[i]['high'] > df.iloc[i-1]['high']
             close_above_prev_high = df.iloc[i]['close'] > df.iloc[i-1]['high']
-            # Stricter volume requirement: must be at least 1.5x previous volume AND above 20-day average
+            # Stricter volume requirement: must be at least 2.0x previous volume AND above 20-day average
             prev_volume = df.iloc[i-1]['volume']
             avg_volume_20 = df.iloc[max(0, i-20):i]['volume'].mean()
-            volume_increase = (df.iloc[i]['volume'] > prev_volume * 1.5) and (df.iloc[i]['volume'] > avg_volume_20 * 1.3)
+            volume_increase = (df.iloc[i]['volume'] > prev_volume * 2.0) and (df.iloc[i]['volume'] > avg_volume_20 * 1.5)
             daily_range_sufficient = df.iloc[i]['daily_range_pct'] >= CONFIG['min_daily_range_pct']
             
             # Additional quality filter: price should be above key moving averages
@@ -1717,149 +1926,49 @@ def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> list:
                         f"close_above={initial_filter_counts['close_not_above_prev_high']}, "
                         f"volume={initial_filter_counts['insufficient_volume']}, "
                         f"range={initial_filter_counts['insufficient_daily_range']}")
+    elif debug_enabled:
+        logger.debug(
+            f"{ticker}: No candidates passed initial filter "
+            f"(higher_high_fail={initial_filter_counts['not_higher_high']}, "
+            f"close_fail={initial_filter_counts['close_not_above_prev_high']}, "
+            f"volume_fail={initial_filter_counts['insufficient_volume']}, "
+            f"range_fail={initial_filter_counts['insufficient_daily_range']})"
+        )
     
-    # Process the filtered candidates
-    big_move_found = 0
+    # Process the filtered candidates using unified evaluation
     for i in breakout_candidates:
-        focus_date = df.index[i]
-        date_str = focus_date.strftime('%Y-%m-%d')
-        
-        # Check for problematic candle pattern in the recent data window
-        window_start = max(0, i - 20)
-        recent_window = df.iloc[window_start:i+1]
-        green_candles_recent = (recent_window['close'] > recent_window['open']).sum()
-        if green_candles_recent / len(recent_window) > 0.75:  # Stricter: was 0.8, now 0.75
-            stats['green_candle_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {date_str}: Failed green candle filter - {green_candles_recent/len(recent_window):.1%} green candles")
+        details = evaluate_candidate(df, i, all_valid_breakouts, ticker, stats, debug_enabled)
+        if details is None:
             continue
         
-        # Additional visual quality check: ensure breakout looks like a breakout
-        # Price should be making a clear higher high, not just barely above
-        if i > 0:
-            prev_high = df.iloc[i-1]['high']
-            current_high = df.iloc[i]['high']
-            if current_high <= prev_high * 1.01:  # Less than 1% higher is not a clear breakout
-                stats['initial_filter'] += 1
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {date_str}: Not a clear breakout (high only {((current_high/prev_high-1)*100):.2f}% above previous)")
-                continue
-        
-        # Additional quality filter: Check for consistent uptrend strength
-        if i >= 10:
-            recent_10_days = df.iloc[i-9:i+1]
-            price_trend = (recent_10_days['close'].iloc[-1] - recent_10_days['close'].iloc[0]) / recent_10_days['close'].iloc[0]
-            if price_trend < 0.05:  # Must have at least 5% gain in last 10 days
-                stats['initial_filter'] += 1
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {date_str}: Failed trend strength filter - {price_trend*100:.2f}% gain")
-                continue
-        
-        # Find any big moves leading up to this point - fast check
-        found_move, move_start_date, high_date, move_pct = find_big_move(df, focus_date, 
-                                                                        min_days=CONFIG['min_uptrend_days'], 
-                                                                        min_daily_pct=CONFIG['min_daily_uptrend_pct'])
-        if found_move:
-            big_move_found += 1
-        
-        if not found_move:
-            stats['big_move_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {date_str}: Failed big move filter")
-            continue
-            
-        if move_start_date is None:
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {date_str}: Failed move start date")
-            continue
-            
-        move_start_idx = df.index.get_loc(move_start_date)
-        segment = df.iloc[move_start_idx:i+1]
-        high_idx = segment['high'].idxmax()
-        high_point_idx = df.index.get_loc(high_idx)
-        
-        # Check time window constraint efficiently
-        days_from_high = (focus_date - df.index[high_point_idx]).days
-        if days_from_high < CONFIG['min_days_from_high']:
-            stats['time_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {date_str}: Failed time filter - {days_from_high} days from high, need {CONFIG['min_days_from_high']}+")
-            continue
-            
-        # Efficient batch checking of multiple criteria
-        # 1. Check price range during consolidation
-        if not check_price_within_range(df, df.index[high_point_idx], focus_date):
-            stats['price_range_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                high_price = df.iloc[high_point_idx]['high']
-                cons_low = df.iloc[high_point_idx:i+1]['low'].min()
-                drop_pct = (high_price - cons_low) / high_price * 100
-                logger.debug(f"{ticker} {date_str}: Failed price range filter - {drop_pct:.2f}% drop, max {CONFIG['max_consolidation_drop'] * 100}%")
-            continue
-            
-        # 2. Check pattern quality
-        if not check_pattern_quality(df, high_point_idx, i):
-            stats['pattern_quality_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                pattern_length = i - high_point_idx
-                logger.debug(f"{ticker} {date_str}: Failed pattern quality filter - {pattern_length} days insufficient")
-            continue
-            
-        # 3. Check for pullback after high
-        pullback_result, low_date, pullback_pct = check_orderly_pullback(df, df.index[high_point_idx])
-        if not pullback_result:
-            stats['pullback_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {date_str}: Failed pullback filter - {pullback_pct*100:.2f}% insufficient")
-            continue
-        
-        # Get the low point efficiently
-        low_point_idx = df.index.get_loc(low_date)
-        
-        # Check for duplicates efficiently
-        duplicate = any(abs((valid_breakout['breakout_date'] - focus_date).days) < 5 
-                       for valid_breakout in all_valid_breakouts)
-        
-        if duplicate:
-            stats['duplicate_filter'] += 1
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {date_str}: Failed duplicate filter")
-            continue
-            
-        # Find where price crosses below 20SMA after breakout
-        cross_idx = find_first_cross_below_sma(df, i)
-        
-        # Determine category based on performance
-        category = determine_performance_category(df, i, cross_idx)
-        
-        # Track category statistics
-        category_key = f'category{category}_found'
-        if category_key in stats:
-            stats[category_key] += 1
-            
-        if CONFIG.get('verbosity', 0) > 0:
-            logger.info(f"{ticker} {date_str}: Found valid breakout (Category {category})")
-            
-        # Process the breakout immediately - files will be written right away
         try:
-            # Use move_start_date (beginning of uptrend) for D.json rather than just the pullback low
-            # This ensures D.json captures the full uptrend rather than just a small segment
             breakout_data = process_breakout(
-                ticker, df, focus_date, move_start_date, 
-                df.index[high_point_idx], all_valid_breakouts
+                ticker,
+                df,
+                details['focus_date'],
+                details['move_start_date'],
+                details['high_date']
             )
-            
             if breakout_data is not None:
+                category_key = f"category{details['category']}_found"
+                if category_key in stats:
+                    stats[category_key] += 1
                 all_valid_breakouts.append(breakout_data)
-                # Files have been written at this point - they should be visible on disk
             else:
-                # process_breakout returned None - files were not written
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {date_str}: Failed to process breakout data (returned None)")
+                stats['integrity_fail'] += 1
+                message = (
+                    f"{ticker} {details['focus_date'].date()}: "
+                    "Breakout failed during final integrity checks"
+                )
+                if debug_enabled:
+                    logger.debug(message)
+                else:
+                    logger.info(message)
         except Exception as e:
-            logger.error(f"Error processing {ticker} at {focus_date.date()}: {e}")
+            stats['integrity_fail'] += 1
+            logger.error(f"Error processing {ticker} at {details['focus_date'].date()}: {e}", exc_info=True)
             if CONFIG.get('verbosity', 0) > 0:
-                logger.warning(f"{ticker} {date_str}: Exception during processing")
+                logger.warning(f"{ticker} {details['focus_date'].date()}: Exception during processing")
     
     if len(breakout_candidates) > 0 and CONFIG.get('verbosity', 0) > 0:
         logger.info(f"{ticker}: {len(all_valid_breakouts)} valid breakouts found from {len(breakout_candidates)} candidates")
@@ -1876,18 +1985,17 @@ def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> list:
         
         if CONFIG.get('verbosity', 0) > 0:
             logger.info(f"{ticker}: Selected {len(setups)} breakouts")
-            
-            if len(setups) > 0 and CONFIG.get('verbosity', 0) > 1:
-                for setup in setups:
-                    logger.debug(f"  {setup['breakout_date'].date()} (Category {setup['category']})")
+        if len(setups) > 0 and CONFIG.get('verbosity', 0) > 1:
+            for setup in setups:
+                logger.debug(f"  {setup['breakout_date'].date()} (Category {setup['category']})")
     
-    # Return all valid breakouts, not just the selected ones, to ensure previous breakouts are preserved
+    # Return all valid breakouts, not just the selected ones
     for setup in setups:
         # Ensure each selected setup is in all_valid_breakouts
         if not any(b['breakout_date'] == setup['breakout_date'] for b in all_valid_breakouts):
             all_valid_breakouts.append(setup)
     
-    return all_valid_breakouts
+    return all_valid_breakouts, stats, initial_filter_counts
 
 def score_breakouts(df, valid_breakouts):
     """Score breakouts by quality and return sorted list"""
@@ -2019,38 +2127,79 @@ def log_breakout_stats(ticker: str, stats: dict, total_valid: int):
         logger.debug(f"  Categories: Cat1={stats['category1_found']}, Cat2={stats['category2_found']}, "
                     f"Cat3={stats['category3_found']}, Cat4={stats['category4_found']}")
 
-def process_ticker(ticker: str, all_data: dict) -> bool:
+def process_ticker(ticker: str) -> Tuple[bool, List[str]]:
     """
     Process a single ticker to find breakout patterns.
+    Loads data, finds breakouts, and writes files immediately.
     
     Args:
         ticker: Stock ticker symbol
-        all_data: Dictionary of all loaded ticker data (may be modified)
         
     Returns:
-        True if breakouts were found, False otherwise
+        Tuple containing:
+            - True if breakouts were found, False otherwise
+            - List of directories where files were written
     """
+    created_dirs: List[str] = []
+    debug_enabled = CONFIG.get('verbosity', 0) >= 2
     try:
-        df = all_data.get(ticker)
-        if df is None:
-            df = read_stock_data(ticker)
-            if df is None or not check_data_quality(df):
-                return False
-            all_data[ticker] = df
+        # Load data for this ticker only
+        df = read_stock_data(ticker)
+        if debug_enabled:
+            logger.debug(f"{ticker}: Starting processing with data length {0 if df is None else len(df)}")
+        if df is None or not check_data_quality(df):
+            if debug_enabled:
+                logger.debug(f"{ticker}: Data failed quality checks")
+            return False, created_dirs
         
-        all_valid_breakouts = identify_quality_breakouts(df, ticker)
+        # Find and process breakouts (files are written during processing)
+        all_valid_breakouts, stats, initial_counts = identify_quality_breakouts(df, ticker)
+        if debug_enabled:
+            logger.debug(f"{ticker}: identify_quality_breakouts returned {len(all_valid_breakouts) if all_valid_breakouts else 0} breakouts")
         
-        seen_dates = set()
-        setups = []
-        for breakout in all_valid_breakouts:
-            if breakout['breakout_date'] not in seen_dates:
-                setups.append(breakout)
-                seen_dates.add(breakout['breakout_date'])
+        if all_valid_breakouts:
+            created_dirs = sorted({str(b.get('output_path')) for b in all_valid_breakouts if b.get('output_path')})
+            if created_dirs:
+                # Provide immediate feedback on where files were written
+                for path in created_dirs:
+                    if path:
+                        tqdm.write(f"[breakout] {ticker}: wrote files to {path}")
+        elif debug_enabled:
+            logger.debug(f"{ticker}: No breakouts produced output directories")
         
-        return len(setups) > 0
+        if not created_dirs and stats is not None:
+            summary = (
+                f"{ticker}: candidates={stats.get('total_dates', 0)}, "
+                f"initial_fail={stats.get('initial_filter', 0)}, "
+                f"big_move_fail={stats.get('big_move_filter', 0)}, "
+                f"time_fail={stats.get('time_filter', 0)}, "
+                f"price_fail={stats.get('price_range_filter', 0)}, "
+                f"pattern_fail={stats.get('pattern_quality_filter', 0)}, "
+                f"pullback_fail={stats.get('pullback_filter', 0)}, "
+                f"duplicate_fail={stats.get('duplicate_filter', 0)}"
+            )
+            if initial_counts is not None:
+                summary += (
+                    f"; initial_reasons: high={initial_counts.get('not_higher_high', 0)}, "
+                    f"close={initial_counts.get('close_not_above_prev_high', 0)}, "
+                    f"volume={initial_counts.get('insufficient_volume', 0)}, "
+                    f"range={initial_counts.get('insufficient_daily_range', 0)}"
+                )
+            tqdm.write(f"[summary] {summary}")
+        success = len(created_dirs) > 0
+        if debug_enabled:
+            if success:
+                logger.debug(f"{ticker}: Completed with {len(created_dirs)} output directories")
+            else:
+                logger.debug(f"{ticker}: Completed with no output directories created")
+        return success, created_dirs
     except Exception as e:
-        logger.error(f"Error processing ticker {ticker}: {e}")
-        return False
+        logger.error(f"Error processing ticker {ticker}: {e}", exc_info=True)
+        return False, created_dirs
+    finally:
+        # Clear cache for this ticker to free memory
+        if ticker in _data_cache:
+            del _data_cache[ticker]
 
 def get_tickers_to_process() -> list:
     """
@@ -2074,7 +2223,8 @@ def get_tickers_to_process() -> list:
 
 def process_tickers(tickers: list, dataset: str) -> int:
     """
-    Process all tickers to find and create breakout patterns with optimized batch processing.
+    Process all tickers iteratively: load -> find breakouts -> write files -> next.
+    This ensures files are written immediately and memory usage is minimized.
     
     Args:
         tickers: List of ticker symbols to process
@@ -2089,71 +2239,66 @@ def process_tickers(tickers: list, dataset: str) -> int:
         return 0
         
     STATS['ticker_count'] = total
-    max_workers = min(CONFIG['max_workers'], os.cpu_count() or 4)
-    batch_size = CONFIG['batch_size']
     
-    logger.info(f"Processing {total} tickers with {max_workers} workers")
-    
-    # Phase 1: Load data efficiently with parallel processing
-    all_data = {}
-    valid_count = 0
+    # Ensure dataset output directory exists
+    dataset_root = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
+    dataset_root.mkdir(parents=True, exist_ok=True)
     
     # Pre-check which files exist to avoid unnecessary processing
     data_dir = SCRIPT_DIR / 'data'
     existing_tickers = {f.stem for f in data_dir.glob('*.json') if f.name != 'A.json'}
     tickers_to_process = [t for t in tickers if t in existing_tickers]
+    if len(tickers_to_process) < total:
+        logger.info(f"Found {len(tickers_to_process)}/{total} tickers with data files")
     
-    with tqdm(total=len(tickers_to_process), desc="Loading Data", disable=CONFIG.get('verbosity', 0) == 0) as pbar:
-        for i in range(0, len(tickers_to_process), batch_size):
-            batch = tickers_to_process[i:i + batch_size]
-            
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(read_stock_data, ticker): ticker for ticker in batch}
-                
-                for future in concurrent.futures.as_completed(futures):
-                    ticker = futures[future]
-                    try:
-                        df = future.result()
-                        if df is not None:
-                            all_data[ticker] = df
-                            valid_count += 1
-                    except Exception as e:
-                        logger.debug(f"Error loading {ticker}: {e}")
-                    finally:
-                        pbar.update(1)
-    
-    logger.info(f"Loaded {valid_count}/{total} valid tickers")
-    gc.collect()
-    
-    # Phase 2: Find breakouts with parallel processing
-    # Process tickers sequentially to ensure files are written progressively
-    # This ensures files appear immediately as breakouts are found
     success = 0
+    valid_count = 0
+    created_directories: List[str] = []
+    if CONFIG.get('verbosity', 0) >= 2:
+        logger.debug(f"Processing {len(tickers_to_process)} tickers (after filtering existing data files)")
     
-    with tqdm(total=len(all_data), desc="Finding Breakouts", disable=CONFIG.get('verbosity', 0) == 0) as pbar:
-        for ticker in all_data.keys():
+    # Process iteratively: load -> process -> write -> next
+    with tqdm(total=len(tickers_to_process), desc="Processing Tickers", disable=CONFIG.get('verbosity', 0) == 0) as pbar:
+        for ticker in tickers_to_process:
             try:
-                if process_ticker(ticker, all_data):
+                # Load, process, and write files for this ticker
+                success_flag, created_dirs = process_ticker(ticker)
+                if success_flag:
                     success += 1
+                    valid_count += 1
                     STATS['success_count'] += 1
+                    created_directories.extend(created_dirs)
                 else:
                     STATS['failed_count'] += 1
+                    if CONFIG.get('verbosity', 0) >= 2:
+                        logger.debug(f"{ticker}: No output created during processing loop")
             except Exception as e:
-                logger.error(f"Error processing {ticker}: {e}")
+                logger.error(f"Error processing {ticker}: {e}", exc_info=True)
                 STATS['failed_count'] += 1
             finally:
                 pbar.update(1)
+                # Periodic garbage collection to free memory
+                if pbar.n % 50 == 0:
+                    gc.collect()
+    
+    unique_dirs = sorted(set(created_directories))
+    if unique_dirs:
+        tqdm.write("Created breakout directories:")
+        for path in unique_dirs:
+            tqdm.write(f" - {path}")
+    else:
+        tqdm.write("No breakout directories were created.")
     
     print_summary(total, valid_count, success)
     return success
 
-def process_ticker_wrapper(ticker, all_data):
+def process_ticker_wrapper(ticker):
     """Wrapper function for process_ticker to handle exceptions"""
     try:
-        return process_ticker(ticker, all_data)
+        return process_ticker(ticker)
     except Exception as e:
         logger.error(f"Error processing ticker {ticker}: {e}")
-        return False
+        return False, []
 
 def print_summary(total: int, valid_count: int, success: int):
     """
@@ -2194,9 +2339,22 @@ def main() -> int:
         configure_runtime(args)
         
         ds_dir = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
+        log_file_operation('info', f"main: Dataset directory path", path=str(ds_dir), 
+                          details={'script_dir': str(SCRIPT_DIR), 'dataset_name': CONFIG['dataset_name'],
+                                  'absolute_path': str(ds_dir.resolve())})
+        
         if ds_dir.exists():
+            log_file_operation('info', f"main: Removing existing dataset directory", path=str(ds_dir))
             shutil.rmtree(ds_dir)
-        ds_dir.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            ds_dir.mkdir(parents=True, exist_ok=True)
+            log_file_operation('info', f"main: Dataset directory created/verified", path=str(ds_dir), 
+                              details={'exists': ds_dir.exists(), 'is_dir': ds_dir.is_dir()})
+        except Exception as e:
+            log_file_operation('error', f"main: Failed to create dataset directory", path=str(ds_dir), 
+                              details={'error': str(e), 'script_dir_exists': SCRIPT_DIR.exists()})
+            raise
         
         verbosity = CONFIG.get('verbosity', 1)
         if verbosity == 0:
@@ -2242,6 +2400,13 @@ def configure_runtime(args) -> dict:
     
     if hasattr(args, 'verbosity'):
         CONFIG['verbosity'] = args.verbosity
+    
+    if CONFIG['verbosity'] <= 0:
+        CONFIG['log_level'] = logging.ERROR
+    elif CONFIG['verbosity'] == 1:
+        CONFIG['log_level'] = logging.INFO
+    else:
+        CONFIG['log_level'] = logging.DEBUG
     
     log_format = '%(asctime)s - %(levelname)s - %(message)s'
     logging.basicConfig(level=CONFIG['log_level'], format=log_format, force=True)

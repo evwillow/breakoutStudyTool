@@ -813,14 +813,14 @@ const StockChart = React.memo(({
 
     // Calculate heights for price and volume sections
     // On mobile, give volume a bit more space for better visibility
-    // For previous charts, use more space for price section (smaller volume section)
+    // For previous charts, hide volume completely and use full height for price
     const totalHeight = dimensions.innerHeight;
     let volumePercentage, volumeHeight, priceHeight;
     if (chartType === 'previous') {
-      // Previous charts: use minimal volume space to maximize price area
-      volumePercentage = isMobile ? 0.15 : 0.1; // 15% on mobile, 10% on desktop
-      volumeHeight = totalHeight * volumePercentage;
-      priceHeight = totalHeight - volumeHeight;
+      // Previous charts: no volume, price takes full height
+      volumePercentage = 0;
+      volumeHeight = 0;
+      priceHeight = totalHeight;
     } else {
       volumePercentage = isMobile ? 0.25 : 0.2; // 25% on mobile, 20% on desktop
       volumeHeight = totalHeight * volumePercentage;
@@ -1315,8 +1315,22 @@ const StockChart = React.memo(({
       
         // For previous charts, ensure bars reach the bottom (no gap)
         // Bar should go from topY to volumeHeight (bottom)
-        const barHeight = scales.volumeHeight - topY;
+        // Calculate bar height to ensure it always reaches the bottom
+        let barHeight = scales.volumeHeight - topY;
         const barY = topY;
+        
+        // For previous charts, ensure the bar actually reaches the bottom
+        // Adjust bar height to account for any floating point precision issues
+        if (chartType === 'previous') {
+          // Ensure bar reaches exactly to volumeHeight (bottom of volume area)
+          // Add a tiny amount if needed to close any gap due to floating point precision
+          const targetBottom = scales.volumeHeight;
+          const actualBottom = barY + barHeight;
+          if (actualBottom < targetBottom - 0.1) {
+            // If there's a noticeable gap (>0.1px), extend the bar to close it
+            barHeight = targetBottom - barY;
+          }
+        }
       
         return {
           x: finalX - (width / 2),
@@ -1331,7 +1345,7 @@ const StockChart = React.memo(({
     }).filter(Boolean); // Remove any null entries
     
     return result;
-  }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length]);
+  }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length, chartType]);
 
   // Create candlestick elements for after data with progressive reveal
   const afterCandlesticks = useMemo(() => {
@@ -2263,42 +2277,44 @@ const StockChart = React.memo(({
             })()}
           </g>
 
-          {/* Volume section */}
-          <g transform={`translate(0, ${scales.priceHeight})`}>
-            {/* Volume bars for main data */}
-            {volumeBars && volumeBars.length > 0 ? (
-              <>
-                {volumeBars.map((bar, i) => (
-              <rect
-                key={`vol-${i}`}
-                x={bar.x}
-                y={bar.y}
-                width={bar.width}
-                height={bar.height}
-                fill={CHART_CONFIG.COLORS.VOLUME}
-                opacity={backgroundColor ? 0.6 : 0.3}
-              />
-            ))}
-              </>
-            ) : (
-              <text x="10" y={scales.priceHeight + 20} fill="white" fontSize="12">
-                No volume bars to render
-              </text>
-            )}
-            
-            {/* Volume bars for after data - only show when zoomed out */}
-            {scales.isZoomedOut && showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar, i) => (
-              <rect
-                key={`after-vol-${i}`}
-                x={bar.x}
-                y={bar.y}
-                width={bar.width}
-                height={bar.height}
-                fill={CHART_CONFIG.COLORS.VOLUME}
-                opacity={0.5}
-              />
-            ))}
-          </g>
+          {/* Volume section - hidden for previous charts */}
+          {chartType !== 'previous' && (
+            <g transform={`translate(0, ${scales.priceHeight})`}>
+              {/* Volume bars for main data */}
+              {volumeBars && volumeBars.length > 0 ? (
+                <>
+                  {volumeBars.map((bar, i) => (
+                    <rect
+                      key={`vol-${i}`}
+                      x={bar.x}
+                      y={bar.y}
+                      width={bar.width}
+                      height={bar.height}
+                      fill={CHART_CONFIG.COLORS.VOLUME}
+                      opacity={backgroundColor ? 0.6 : 0.3}
+                    />
+                  ))}
+                </>
+              ) : (
+                <text x="10" y={scales.priceHeight + 20} fill="white" fontSize="12">
+                  No volume bars to render
+                </text>
+              )}
+              
+              {/* Volume bars for after data - only show when zoomed out */}
+              {scales.isZoomedOut && showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar, i) => (
+                <rect
+                  key={`after-vol-${i}`}
+                  x={bar.x}
+                  y={bar.y}
+                  width={bar.width}
+                  height={bar.height}
+                  fill={CHART_CONFIG.COLORS.VOLUME}
+                  opacity={0.5}
+                />
+              ))}
+            </g>
+          )}
         </g>
         
         {/* Progress indicator */}

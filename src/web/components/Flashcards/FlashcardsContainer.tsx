@@ -210,20 +210,33 @@ export default function FlashcardsContainer() {
 
   // Compute current flashcard using gameState's currentIndex
   // This ensures proper synchronization when transitioning between stocks
+  // Prevent index changes during loading to avoid rapid flipping through stocks
   const currentFlashcard = useMemo(() => {
+    // Don't update flashcard if we're still loading - prevents rapid flipping on refresh
+    // Check if flashcards are loaded but data might not be ready yet
+    const flashcardsLoaded = flashcards.length > 0;
+    const hasFlashcardData = flashcardsLoaded && flashcards.some(f => 
+      f.jsonFiles && f.jsonFiles.length > 0 && f.jsonFiles.every(file => file.data !== null && file.data !== undefined)
+    );
+    
+    if (loading || !flashcardsLoaded || !hasFlashcardData) {
+      // Return null during loading to prevent rapid changes
+      return null;
+    }
+    
     const index = gameState.currentIndex;
     // Ensure index is within bounds
     const safeIndex = Math.max(0, Math.min(index, flashcards.length - 1));
     const flashcard = flashcards[safeIndex] || null;
     
-    // If index was out of bounds, reset it
-    if (index !== safeIndex && flashcards.length > 0) {
+    // If index was out of bounds, reset it (but only if not loading)
+    if (index !== safeIndex && flashcards.length > 0 && !loading) {
       console.warn(`⚠️ Current index ${index} out of bounds, resetting to ${safeIndex}`);
       gameState.setCurrentIndex(safeIndex);
     }
     
     return flashcard;
-  }, [gameState.currentIndex, flashcards, gameState]);
+  }, [gameState.currentIndex, flashcards, gameState, loading]);
 
   // Process current flashcard data
   const processedData = useMemo(() => {
@@ -360,6 +373,7 @@ export default function FlashcardsContainer() {
 
       if (currentGameState.score === null || currentGameState.score === undefined) {
         // Show time-up overlay when timer runs out
+        // The overlay will auto-dismiss after 5 seconds and advance to next stock
         currentGameState.setShowTimeUpOverlay(true);
         clearTimeUpAdvanceTimeout();
 
@@ -368,15 +382,8 @@ export default function FlashcardsContainer() {
           timerRef.current.reset(timerDuration);
         }
 
-        // After 5 seconds, advance to next stock
-        timeUpAdvanceTimeoutRef.current = setTimeout(() => {
-          if (handleNextCardRef.current) {
-            console.log('Time up: Advancing to next stock after 5 second delay');
-            handleNextCardRef.current();
-          } else {
-            console.warn('Time up: handleNextCardRef.current is null, cannot advance');
-          }
-        }, 5000); // 5 second delay before advancing
+        // Note: Advance to next stock is now handled by handleTooltipDismiss
+        // when the tooltip auto-dismisses after 5 seconds
       } else if (handleNextCardRef.current) {
         // If user already made a selection, advance immediately
         handleNextCardRef.current();
@@ -395,6 +402,7 @@ export default function FlashcardsContainer() {
   }, [timer.reset, timer.start, timer.pause]);
 
   const handleTooltipDismiss = React.useCallback((event?: { reason?: string }) => {
+    // Hide the overlay immediately for smooth transition
     gameState.setShowTimeUpOverlay(false);
 
     if (event?.reason === 'manual-chart') {
@@ -405,8 +413,35 @@ export default function FlashcardsContainer() {
         }
         timerRef.current?.start?.();
       }
+      // Don't advance on manual chart selection - user is making a selection
+      return;
     }
-  }, [gameState, clearTimeUpAdvanceTimeout, timerDuration]);
+
+    // When tooltip is dismissed (auto, click-outside, or any other reason), advance to next stock
+    clearTimeUpAdvanceTimeout();
+    
+    // Use requestAnimationFrame for smoother transitions, then advance after popup animation
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (handleNextCardRef.current) {
+          console.log('Tooltip dismissed: Advancing to next stock (reason:', event?.reason || 'unknown', ')');
+          handleNextCardRef.current();
+        } else {
+          console.warn('Tooltip dismissed: handleNextCardRef.current is null, cannot advance');
+          // Fallback: try to advance using gameState directly
+          if (gameState && gameState.nextCard) {
+            console.log('Tooltip dismissed: Using gameState.nextCard as fallback');
+            gameState.nextCard();
+            // Also reset and start timer if needed
+            if (selectedFolder && timerDuration > 0 && timerRef.current) {
+              timerRef.current.reset(timerDuration);
+              timerRef.current.start();
+            }
+          }
+        }
+      });
+    });
+  }, [gameState, clearTimeUpAdvanceTimeout, timerDuration, selectedFolder]);
 
   // Track last loaded folder/userId to prevent repeated calls
   const lastLoadedRef = React.useRef<{folder: string|null, userId: string|null}>({folder: null, userId: null});
@@ -748,11 +783,14 @@ export default function FlashcardsContainer() {
     // This gives React time to process the state updates and re-render with new data
     // Timer should work even without a round (for practice mode)
     // Don't start if timerDuration is 0 (always pause mode)
-    setTimeout(() => {
-      if (selectedFolder && timerDuration > 0) { // Only start if we have a folder selected (game is active) and duration > 0
-        timer.start();
-      }
-    }, 100); // Reduced delay since state updates are now properly sequenced
+    // Use requestAnimationFrame for smoother transitions
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (selectedFolder && timerDuration > 0) { // Only start if we have a folder selected (game is active) and duration > 0
+          timer.start();
+        }
+      });
+    });
   }, [gameState, timer, timerDuration, selectedFolder]);
   
   // Store handleNextCard in ref for timer callback
@@ -1154,13 +1192,28 @@ export default function FlashcardsContainer() {
   );
 
   // Ensure currentIndex stays within bounds when flashcards array changes
+  // But only adjust if not loading to prevent rapid flipping on refresh
   useEffect(() => {
+    // Don't adjust index during loading - wait until data is fully loaded
+    if (loading) {
+      return;
+    }
+    
+    // Check if flashcards have data loaded
+    const flashcardsHaveData = flashcards.length > 0 && flashcards.some(f => 
+      f.jsonFiles && f.jsonFiles.length > 0 && f.jsonFiles.every(file => file.data !== null && file.data !== undefined)
+    );
+    
+    if (!flashcardsHaveData) {
+      return;
+    }
+    
     if (flashcards.length > 0 && gameState.currentIndex >= flashcards.length) {
       gameState.setCurrentIndex(flashcards.length - 1);
     } else if (flashcards.length > 0 && gameState.currentIndex < 0) {
       gameState.setCurrentIndex(0);
     }
-  }, [flashcards.length, gameState]);
+  }, [flashcards.length, gameState, loading]);
 
   // Load rounds when folder is selected, but only if folder/userId actually changed
   useEffect(() => {
@@ -1209,30 +1262,43 @@ export default function FlashcardsContainer() {
   // Show data loading state - keep showing if loading OR if we have a folder selected but no data ready yet
   // Check that we have actual usable data: flashcards exist, current flashcard exists, and it has data files with actual data
   // Also verify the data is actually an array/object with content, not just an empty object
+  // Ensure ALL required files have their data loaded (not just file references)
   const hasValidData = flashcards.length > 0 && 
                        currentFlashcard && 
                        currentFlashcard.jsonFiles && 
                        currentFlashcard.jsonFiles.length > 0 &&
+                       // Check that all jsonFiles have data loaded (not just file references)
+                       currentFlashcard.jsonFiles.every(file => file.data !== null && file.data !== undefined) &&
                        processedData.orderedFiles.length > 0 && 
+                       // Ensure all ordered files have data
+                       processedData.orderedFiles.every(file => file.data !== null && file.data !== undefined) &&
                        processedData.orderedFiles[0]?.data &&
                        Array.isArray(processedData.orderedFiles[0].data) &&
-                       processedData.orderedFiles[0].data.length > 0;
+                       processedData.orderedFiles[0].data.length > 0 &&
+                       // Ensure processedData is fully ready (afterJsonData can be null, but if it exists it should be valid)
+                       (processedData.afterJsonData === null || 
+                        (Array.isArray(processedData.afterJsonData) && processedData.afterJsonData.length >= 0));
   
   // Show loading screen if:
-  // 1. Actively loading, OR
-  // 2. We have a folder selected but no valid data ready yet, OR
-  // 3. We're initializing (no folder selected yet - this includes when folders are being fetched)
+  // 1. Session is not authenticated yet, OR
+  // 2. Actively loading, OR
+  // 3. We have a folder selected but no valid data ready yet, OR
+  // 4. We're initializing (no folder selected yet - this includes when folders are being fetched)
   // This ensures seamless transition from study page loading screen with no gaps
+  // Also prevents any visual glitches by ensuring everything is loaded before rendering
+  const sessionNotReady = status !== "authenticated";
   const hasNoDataReady = selectedFolder && !hasValidData;
   const isInitializing = !selectedFolder && !error; // Initializing if no folder selected and no error yet
   
-  // Always show loading screen if we're loading OR if data isn't ready OR if we're initializing
-  if (loading || hasNoDataReady || isInitializing) {
+  // Always show loading screen if session isn't ready, we're loading, data isn't ready, or we're initializing
+  // This ensures NO partial renders - everything must be ready before showing UI
+  // Use smooth transitions for loading state
+  if (sessionNotReady || loading || hasNoDataReady || isInitializing) {
     return (
       <>
         {/* Black background overlay covering entire page including header/footer */}
-        <div className="fixed inset-0 bg-black z-40 pointer-events-none" style={{ pointerEvents: 'none' }} />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none" style={{ pointerEvents: 'none' }}>
+        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
           <LoadingStates.DataLoading
             progress={loadingProgress}
             step={loadingStep || (hasNoDataReady ? "Preparing data..." : isInitializing ? "Initializing..." : "")}
@@ -1277,6 +1343,24 @@ export default function FlashcardsContainer() {
   // If no data but no error, continue to render the main interface (will show folder selector)
   
   // Show round selection prompt when no round is selected
+
+  // Final safety check - ensure we have valid data before rendering
+  // This prevents any edge cases where we might have passed the loading check but data isn't actually ready
+  // Use smooth transition for loading state
+  if (!hasValidData) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300" style={{ pointerEvents: 'none', opacity: 1 }} />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300" style={{ pointerEvents: 'none', opacity: 1 }}>
+          <LoadingStates.DataLoading
+            progress={loadingProgress}
+            step="Finalizing data..."
+            folder={selectedFolder}
+          />
+        </div>
+      </>
+    );
+  }
 
   // Main game interface
   return (

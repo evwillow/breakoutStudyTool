@@ -81,74 +81,38 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     
     const fetchAllStockFiles = async () => {
       try {
-        // First, try to use files from flashcards that are already loaded
-        // Extract date-formatted files from OTHER directories of the same stock symbol
-        const preloadedFiles = [];
-        if (flashcards && flashcards.length > 0 && currentStock) {
+        // Parse current stock to get ticker and breakout date
+        if (!currentStock) {
+          setAllFiles([]);
+          setDebugInfo('No stock selected');
+          return;
+        }
+        
           const currentStockLower = currentStock.toLowerCase();
           const currentStockParts = currentStockLower.split('_');
-          const currentStockSymbol = currentStockParts[0]; // e.g., "adpt"
-          
-          flashcards.forEach(flashcard => {
-            if (flashcard.jsonFiles && flashcard.jsonFiles.length > 0) {
-              flashcard.jsonFiles.forEach(file => {
-                if (file && file.fileName && file.data) {
-                  const fileName = file.fileName.toLowerCase();
-                  const fileNameParts = fileName.split(/[/\\]/);
-                  const lastPart = fileNameParts[fileNameParts.length - 1];
-                  
-                  // Only include date-formatted files (e.g., "Dec_23_2020.json")
-                  const isDateFile = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i.test(lastPart);
-                  
-                  if (isDateFile) {
-                    // Extract directory name
-                    const fileDir = file.fileName.split('/')[0]?.toLowerCase() || '';
-                    
-                    // Only include if from the SAME folder as d.json (current stock's directory)
-                    if (fileDir === currentStockLower) {
-                      preloadedFiles.push({
-                        id: file.fileName,
-                        subfolder: file.fileName.split('/')[0],
-                        fileName: file.fileName,
-                        data: file.data, // Already loaded!
-                        path: file.fileName
-                      });
-                    }
-                  }
-                }
-              });
-            }
-          });
+        if (currentStockParts.length < 4) {
+          console.error(`Invalid stock format: ${currentStock}`);
+          return;
         }
         
-        if (preloadedFiles.length > 0) {
-          // If we have preloaded files, set them immediately so they display right away
-          // Set fileData for preloaded files immediately
-          const preloadedFileData = {};
-          preloadedFiles.forEach(file => {
-            if (file.data) {
-              preloadedFileData[file.id] = file.data;
-            }
-          });
-          if (Object.keys(preloadedFileData).length > 0) {
-            setFileData(prev => ({ ...prev, ...preloadedFileData }));
-          }
-          
-          // Set files immediately if we have preloaded ones
-          setAllFiles(preloadedFiles);
+        const currentTicker = currentStockParts[0]; // e.g., "aa"
+        const currentMonthStr = currentStockParts[1]; // e.g., "jul"
+        const currentDay = parseInt(currentStockParts[2], 10);
+        const currentYear = parseInt(currentStockParts[3], 10);
+        
+        const monthMap = {
+          'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+          'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+        };
+        const currentMonthIndex = monthMap[currentMonthStr.toLowerCase()];
+        if (currentMonthIndex === undefined || isNaN(currentDay) || isNaN(currentYear)) {
+          console.error(`Invalid date in stock format: ${currentStock}`);
+          return;
         }
         
-        // Don't clear files immediately - wait until we have new data to avoid flicker
-        // setAllFiles([]); // Commented out to prevent clearing before new data is ready
+        const currentBreakoutDate = new Date(currentYear, currentMonthIndex, currentDay);
         
-        // Note: getStockFiles API not available in local setup
-        // Special handling disabled for local data loading
-        
-        // Note: searchFiles API not available in local setup
-        // This fallback is disabled for local data loading
-        
-        // Normal flow: Get all files from quality_breakouts folder
-        // The API returns all files from all stock directories in quality_breakouts
+        // Get all files from quality_breakouts folder
         const foldersRes = await fetch("/api/files/local-folders");
         if (!foldersRes.ok) {
           console.error(`Error fetching folders: ${foldersRes.status}`);
@@ -170,145 +134,197 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         
         const allFiles = qualityBreakoutsFolder.files;
         
-        if (!currentStock) {
-          setAllFiles([]);
-          setDebugInfo('No stock selected');
-          return;
+        // Group files by directory (stock folder)
+        const filesByDirectory = new Map();
+        
+        // First, check flashcards for preloaded data
+        if (flashcards && flashcards.length > 0) {
+          flashcards.forEach(flashcard => {
+            if (flashcard.jsonFiles && flashcard.jsonFiles.length > 0) {
+              flashcard.jsonFiles.forEach(file => {
+                if (file && file.fileName) {
+                  const fileName = file.fileName;
+                  const fileNameParts = fileName.split(/[/\\]/);
+                  if (fileNameParts.length < 2) return;
+                  
+                  const directoryName = fileNameParts[0];
+                  const actualFileName = fileNameParts[fileNameParts.length - 1].toLowerCase();
+                  
+                  // Only process directories that match the current ticker
+                  const dirParts = directoryName.toLowerCase().split('_');
+                  if (dirParts.length < 4 || dirParts[0] !== currentTicker) return;
+                  
+                  if (!filesByDirectory.has(directoryName)) {
+                    filesByDirectory.set(directoryName, { dJson: null, afterJson: null });
+                  }
+                  
+                  const dirData = filesByDirectory.get(directoryName);
+                  if (actualFileName === 'd.json' || actualFileName === 'D.json') {
+                    dirData.dJson = { ...file, data: file.data }; // Preserve data if already loaded
+                  } else if (actualFileName === 'after.json') {
+                    dirData.afterJson = { ...file, data: file.data }; // Preserve data if already loaded
+                  }
+                }
+              });
+            }
+          });
         }
         
-        // Extract current stock folder name (e.g., "ADPT_Dec_7_2020")
-        const currentStockLower = currentStock.toLowerCase();
-        
-        // Filter: Get date-formatted files ONLY from the SAME folder as d.json
-        // Only include files from the current stock's directory
-        const previousBreakoutFiles = allFiles.filter(file => {
-          // File format: "STOCK_DIR/FILENAME.json" (e.g., "ADPT_Dec_7_2020/Dec_23_2020.json")
+        // Then, add files from API response
+        allFiles.forEach(file => {
           const fileName = file.fileName || file.name || '';
           const fileNameParts = fileName.split(/[/\\]/);
+          if (fileNameParts.length < 2) return;
           
-          if (fileNameParts.length < 2) return false;
-          
-          const directoryName = fileNameParts[0].toLowerCase();
+          const directoryName = fileNameParts[0];
           const actualFileName = fileNameParts[fileNameParts.length - 1].toLowerCase();
           
-          // Only include files from the SAME folder as d.json (current stock's directory)
-          if (directoryName !== currentStockLower) return false;
+          // Only process directories that match the current ticker
+          const dirParts = directoryName.toLowerCase().split('_');
+          if (dirParts.length < 4 || dirParts[0] !== currentTicker) return;
           
-          // Only include date-formatted files (e.g., "Dec_23_2020.json")
-          const dateFormatRegex = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i;
-          return dateFormatRegex.test(actualFileName);
+          if (!filesByDirectory.has(directoryName)) {
+            filesByDirectory.set(directoryName, { dJson: null, afterJson: null });
+          }
+          
+          const dirData = filesByDirectory.get(directoryName);
+          // Only set if not already set from flashcards (to preserve preloaded data)
+          if ((actualFileName === 'd.json' || actualFileName === 'D.json') && !dirData.dJson) {
+            dirData.dJson = file;
+          } else if (actualFileName === 'after.json' && !dirData.afterJson) {
+            dirData.afterJson = file;
+          }
         });
         
-        // Format files for display
-        const dateFormattedFiles = previousBreakoutFiles.map(file => ({
-          id: file.fileName || file.name,
-          subfolder: (file.fileName || file.name).split('/')[0],
-          fileName: file.fileName || file.name,
-          data: file.data || null,
-          path: file.fileName || file.name
-        }));
+        // Process each directory to create previous setup entries
+        const previousSetups = [];
         
-        // Load date-formatted files in parallel
-        const dateFileLoadPromises = dateFormattedFiles.map(async (file) => {
-          // Skip if already has data
-          if (file.data) {
-            return { file, success: true };
-          }
+        for (const [directoryName, files] of filesByDirectory.entries()) {
+          // Skip if missing d.json (required)
+          if (!files.dJson) continue;
           
-          // Check if we have a path to load from
-          if (!file.path && !file.id && !file.fileName) {
-            return { file, success: false };
-          }
+          // Parse breakout date from directory name (e.g., "AA_Jul_31_2003")
+          const dirParts = directoryName.toLowerCase().split('_');
+          if (dirParts.length < 4) continue;
           
+          const prevMonthStr = dirParts[1];
+          const prevDay = parseInt(dirParts[2], 10);
+          const prevYear = parseInt(dirParts[3], 10);
+          const prevMonthIndex = monthMap[prevMonthStr];
+          
+          if (prevMonthIndex === undefined || isNaN(prevDay) || isNaN(prevYear)) continue;
+          
+          const prevBreakoutDate = new Date(prevYear, prevMonthIndex, prevDay);
+          
+          // Only include if previous breakout date is before current breakout date
+          if (prevBreakoutDate >= currentBreakoutDate) continue;
+          
+          // Load d.json and after.json
           try {
-            // The file.id format is "folderName/fileName" (e.g., "AAL_Dec_11_2006/Feb_22_2016.json")
-            // The API expects file as "folderName/fileName" and folder as "quality_breakouts"
-            const filePath = file.fileName || file.path || file.id;
-            // All files are in the quality_breakouts folder, regardless of stock directory
-            const folderName = 'quality_breakouts';
+            // Try both D.json and d.json (case-insensitive)
+            let dJsonData = null;
+            let dJsonPath = null;
             
-            const response = await fetch(`/api/files/local-data?file=${encodeURIComponent(filePath)}&folder=${encodeURIComponent(folderName)}`);
-            if (response.ok) {
-              const result = await response.json();
-              if (result.success && result.data) {
-                file.data = result.data;
-                return { file, success: true };
-              } else if (result.data) {
-                file.data = result.data;
-                return { file, success: true };
+            // First, check if we already have the data from flashcards
+            if (files.dJson && files.dJson.data) {
+              dJsonData = files.dJson.data;
+            } else {
+              // Try D.json first (capital D)
+              dJsonPath = `${directoryName}/D.json`;
+              let dJsonResponse = await fetch(`/api/files/local-data?file=${encodeURIComponent(dJsonPath)}&folder=${encodeURIComponent('quality_breakouts')}`);
+              
+              if (!dJsonResponse.ok) {
+                // Try lowercase d.json
+                dJsonPath = `${directoryName}/d.json`;
+                dJsonResponse = await fetch(`/api/files/local-data?file=${encodeURIComponent(dJsonPath)}&folder=${encodeURIComponent('quality_breakouts')}`);
+              }
+              
+              if (!dJsonResponse.ok) continue;
+              
+              const dJsonResult = await dJsonResponse.json();
+              if (!dJsonResult.success || !dJsonResult.data || !Array.isArray(dJsonResult.data) || dJsonResult.data.length === 0) continue;
+              
+              dJsonData = dJsonResult.data;
+            }
+            
+            // Get the last date from d.json (this is the breakout date)
+            const lastDJsonEntry = dJsonData[dJsonData.length - 1];
+            const lastDJsonDate = lastDJsonEntry?.Date ? new Date(lastDJsonEntry.Date) : prevBreakoutDate;
+            
+            // Load after.json if it exists
+            let afterJsonData = null;
+            if (files.afterJson) {
+              try {
+                // First, check if we already have the data from flashcards
+                if (files.afterJson.data) {
+                  afterJsonData = files.afterJson.data;
+                } else {
+                  const afterJsonPath = `${directoryName}/after.json`;
+                  const afterJsonResponse = await fetch(`/api/files/local-data?file=${encodeURIComponent(afterJsonPath)}&folder=${encodeURIComponent('quality_breakouts')}`);
+                  
+                  if (afterJsonResponse.ok) {
+                    const afterJsonResult = await afterJsonResponse.json();
+                    if (afterJsonResult.success && afterJsonResult.data && Array.isArray(afterJsonResult.data) && afterJsonResult.data.length > 0) {
+                      afterJsonData = afterJsonResult.data;
+                    }
+                  }
+                }
+                
+                if (afterJsonData && afterJsonData.length > 0) {
+                  // Check if after.json extends past current breakout date
+                  const lastAfterJsonEntry = afterJsonData[afterJsonData.length - 1];
+                  const lastAfterJsonDate = lastAfterJsonEntry?.Date ? new Date(lastAfterJsonEntry.Date) : null;
+                  
+                  if (lastAfterJsonDate && lastAfterJsonDate > currentBreakoutDate) {
+                    // Filter after.json to only include entries up to (but not including) current breakout date
+                    afterJsonData = afterJsonData.filter(entry => {
+                      if (!entry.Date) return false;
+                      const entryDate = new Date(entry.Date);
+                      return entryDate < currentBreakoutDate;
+                    });
+                    
+                    // If no valid entries remain, skip this setup
+                    if (afterJsonData.length === 0) continue;
+                  }
+                }
+              } catch (err) {
+                console.error(`Error loading after.json for ${directoryName}:`, err);
+                // Continue without after.json
               }
             }
-            return { file, success: false };
-          } catch (err) {
-            console.error(`Error loading date file ${file.id}:`, err);
-            return { file, success: false };
-          }
-        });
-        
-        // Wait for all date-formatted files to load
-        const dateFileResults = await Promise.allSettled(dateFileLoadPromises);
-        
-        // Only include files that successfully loaded (or already had data)
-        const loadedDateFiles = dateFileResults
-          .filter(result => result.status === 'fulfilled' && (result.value.success || result.value.file.data))
-          .map(result => result.value.file);
-        
-        // Merge preloaded files with fetched files, avoiding duplicates
-        // Prefer preloaded files (already have data) over fetched files (may not have data yet)
-        const allFetchedFiles = loadedDateFiles;
-        const mergedFilesMap = new Map();
-        
-        // First, add all preloaded files (they already have data loaded)
-        preloadedFiles.forEach(file => {
-          mergedFilesMap.set(file.id, file);
-        });
-        
-        // Then, add fetched files that aren't already in preloaded files
-        // or if they don't have data yet, replace with fetched version that might have data
-        allFetchedFiles.forEach(file => {
-          const existing = mergedFilesMap.get(file.id);
-          // Add if not exists, or replace if existing doesn't have data but new one does
-          if (!existing || (!existing.data && file.data)) {
-            mergedFilesMap.set(file.id, file);
-          }
-        });
-        
-        // Remove duplicates based on full file path (id) - ensure no duplicates ever
-        // Use a Map to ensure each unique file path appears only once
-        const uniqueFilesMap = new Map();
-        Array.from(mergedFilesMap.values()).forEach(file => {
-          // Use the full path as the key to ensure uniqueness
-          const key = file.id || file.fileName || file.path;
-          if (key) {
-            // If file already exists, prefer the one with data
-            const existing = uniqueFilesMap.get(key);
-            if (!existing || (!existing.data && file.data)) {
-              uniqueFilesMap.set(key, file);
+            
+            // Combine d.json and after.json
+            const combinedData = [...dJsonData];
+            if (afterJsonData && afterJsonData.length > 0) {
+              combinedData.push(...afterJsonData);
             }
+            
+            // Create file entry for this previous setup
+            previousSetups.push({
+              id: `${directoryName}_previous_setup`,
+              subfolder: directoryName,
+              fileName: directoryName, // Use directory name as identifier
+              data: combinedData,
+              path: directoryName,
+              breakoutDate: lastDJsonDate, // Use last date of d.json as the date to display
+              directoryName: directoryName
+            });
+          } catch (err) {
+            console.error(`Error processing previous setup ${directoryName}:`, err);
+            continue;
           }
+        }
+        
+        // Sort by breakout date (most recent first)
+        previousSetups.sort((a, b) => {
+          const dateA = a.breakoutDate?.getTime() || 0;
+          const dateB = b.breakoutDate?.getTime() || 0;
+          return dateB - dateA;
         });
         
-        // Additional deduplication pass: also check by actual filename to catch any duplicates
-        const finalUniqueMap = new Map();
-        Array.from(uniqueFilesMap.values()).forEach(file => {
-          // Extract just the filename (last part of path) for comparison
-          const fileName = file.fileName || file.id || file.path || '';
-          const fileNameParts = fileName.split(/[/\\]/);
-          const actualFileName = fileNameParts.length > 1 ? fileNameParts[fileNameParts.length - 1] : fileName;
-          const fileKey = actualFileName.toLowerCase();
-          
-          // Use filename as key to catch duplicates even if paths differ slightly
-          const existing = finalUniqueMap.get(fileKey);
-          if (!existing || (!existing.data && file.data)) {
-            finalUniqueMap.set(fileKey, file);
-          }
-        });
-        
-        const finalFiles = Array.from(finalUniqueMap.values());
-        
-        // Set fileData for files that have data loaded (for date-formatted files)
+        // Set fileData for all previous setups
         const fileDataToSet = {};
-        finalFiles.forEach(file => {
+        previousSetups.forEach(file => {
           if (file.data) {
             fileDataToSet[file.id] = file.data;
           }
@@ -317,32 +333,27 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           setFileData(prev => ({ ...prev, ...fileDataToSet }));
         }
         
-        // Smoothly update files - use requestAnimationFrame for smooth transition
+        // Smoothly update files
         requestAnimationFrame(() => {
-          if (finalFiles.length > 0) {
-            setAllFiles(finalFiles);
-            setDebugInfo(`Found ${finalFiles.length} previous setups for ${currentStock || "all stocks"}`);
+          if (previousSetups.length > 0) {
+            setAllFiles(previousSetups);
+            setDebugInfo(`Found ${previousSetups.length} previous setups for ${currentStock}`);
           } else if (currentStock) {
-            // If we have a currentStock but found no files, still update to show empty state
-            // Delay slightly to allow smooth fade
             setTimeout(() => {
               setAllFiles([]);
               setDebugInfo('');
             }, 200);
             console.warn(`No previous setups found for current stock: ${currentStock}`);
           } else {
-            // If no currentStock, clear files
             setTimeout(() => {
               setAllFiles([]);
               setDebugInfo(`No stock selected`);
             }, 200);
           }
-          // Mark loading as complete after a brief delay for smooth transition
           setTimeout(() => setIsLoading(false), 100);
         });
       } catch (error) {
-        // Silently handle errors - just log to console
-        console.error('Failed to load files:', error);
+        console.error('Failed to load previous setups:', error);
         setIsLoading(false);
       }
     };
@@ -432,8 +443,8 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     
     const observerOptions = {
       root: null, // use viewport
-      rootMargin: '0px',
-      threshold: 0.2 // Lower threshold to trigger earlier (20% visibility)
+      rootMargin: '200px', // Larger margin so items appear earlier (200px before entering viewport)
+      threshold: [0, 0.1, 0.2, 0.5] // Multiple thresholds for smoother transitions
     };
 
     const observerCallback = (entries) => {
@@ -444,18 +455,22 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         if (!id) return; // Skip if no file ID
         
         if (entry.isIntersecting) {
-          // Always make the item visible when it enters the viewport
+          // Always make the item visible when it enters the viewport (or gets close)
+          // Once visible, keep it visible permanently (don't remove from visibleItems)
           setVisibleItems(prev => {
             if (!prev.includes(id)) {
               return [...prev, id];
             }
-            return prev;
+            return prev; // Keep it in the list - never remove once seen
           });
           
           // Only auto-expand if:
           // 1. The item is not manually controlled (user hasn't interacted with it)
           // 2. We're scrolling down (progressive expansion)
-          if (!manuallyControlledItems.includes(id) && scrollingDirection.current === 'down') {
+          // 3. Item is at least 10% visible (to prevent premature expansion)
+          if (!manuallyControlledItems.includes(id) && 
+              scrollingDirection.current === 'down' && 
+              entry.intersectionRatio >= 0.1) {
             setAutoExpandedItems(prev => {
               if (!prev.includes(id)) {
                 // Load file data if not already loaded
@@ -477,14 +492,19 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           }
         } else {
           // Item has left the viewport
-          // Auto-close if:
+          // IMPORTANT: Don't remove from visibleItems - keep items visible once revealed
+          // Only auto-close expanded items if:
           // 1. The item is not manually controlled
           // 2. It was auto-expanded (is in autoExpandedItems)
           // 3. We're scrolling up
-          if (!manuallyControlledItems.includes(id) && scrollingDirection.current === 'up') {
+          // 4. Item is significantly out of view (scrolled past by a good margin)
+          if (!manuallyControlledItems.includes(id) && 
+              scrollingDirection.current === 'up' &&
+              entry.intersectionRatio === 0) {
+            // Only close if item is completely out of view and we're scrolling up
             setAutoExpandedItems(prev => {
               if (prev.includes(id)) {
-                // Remove from expanded files
+                // Remove from expanded files but keep in visibleItems
                 setExpandedFiles(current => current.filter(fileId => fileId !== id));
                 return prev.filter(item => item !== id);
               }
@@ -719,54 +739,14 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
 
   /**
    * Check if a file is relevant to the current stock
-   * For "Previous Setups", we want to show date-formatted files from previous breakouts of the same stock
+   * For "Previous Setups", we want to show previous breakouts from the same ticker
+   * This function is no longer used for previous setups (handled in fetchAllStockFiles),
+   * but kept for compatibility
    */
   const isRelevantToCurrentStock = (fileName, stockSymbol) => {
-    if (!stockSymbol) {
-      return false; // If no stock symbol, don't show any files (need current stock to filter)
-    }
-    
-    // Clean up the stock name and filename for comparison
-    const fileNameLower = fileName.toLowerCase();
-    const stockLower = stockSymbol.toLowerCase();
-    
-    // Extract stock symbol from current stock (e.g., "AAL" from "AAL_Dec_19_2006")
-    const stockParts = stockLower.split('_');
-    const currentStockSymbol = stockParts[0]; // e.g., "aal"
-    
-    // Extract directory from fileName if it contains a path (e.g., "AAL_Dec_11_2006/after.json")
-    const fileNameParts = fileNameLower.split(/[/\\]/);
-    const directoryName = fileNameParts.length > 1 ? fileNameParts[0] : null;
-    const actualFileName = fileNameParts.length > 1 ? fileNameParts[fileNameParts.length - 1] : fileNameLower;
-    
-    // Check if it's a date-formatted file (e.g., "Mar_21_1994.json")
-    // Use case-insensitive matching for date files
-    const isDateFile = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/i.test(actualFileName);
-    
-    // For "Previous Setups", we want to show date-formatted files from the SAME STOCK SYMBOL
-    // This includes files from the same directory if they're date-formatted (date filtering happens later)
-    if (!directoryName) {
-      // If no directory path, can't determine stock - exclude it
-      return false;
-    }
-    
-    // Extract stock symbol from directory name (e.g., "aal" from "aal_dec_19_2006")
-    const directoryParts = directoryName.split('_');
-    const fileStockSymbol = directoryParts[0].toLowerCase(); // Ensure lowercase comparison
-    
-    // Only include files from directories that match the current stock symbol (case-insensitive)
-    if (fileStockSymbol !== currentStockSymbol) {
-      return false;
-    }
-    
-    // For "Previous Setups", we want date-formatted files from the SAME folder as d.json
-    // Only include files from the current stock's directory
-    if (directoryName !== stockLower) {
-      return false; // Only include files from the current stock's directory
-    }
-    
-    // Only include date-formatted files
-    return isDateFile;
+    // This function is deprecated for previous setups
+    // Previous setups are now loaded directly from d.json + after.json
+    return false;
   };
 
   /**
@@ -783,74 +763,70 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
    * Formats a filename for display in the UI
    * 
    * This function:
-   * 1. Extracts the date from the filename
-   * 2. Calculates the difference in days between the file date and the breakout date
+   * 1. Uses the breakoutDate from the file object (last date of d.json)
+   * 2. Calculates the difference in days between the previous breakout date and the current breakout date
    * 3. Returns a string showing "X days before breakout"
    * 
    * @param {string} fileName - The raw filename to format
+   * @param {Object} file - The file object (may contain breakoutDate property)
    * @returns {string|React.ReactNode} The formatted filename for display
    */
-  const displayFileName = (fileName) => {
-    // Check if it's after.json (case-insensitive)
-    // Handle both "after.json" and "folder/after.json" formats
-    const fileNameLower = fileName.toLowerCase();
-    const fileNameParts = fileNameLower.split(/[/\\]/);
-    const lastPart = fileNameParts[fileNameParts.length - 1];
+  const displayFileName = (fileName, file = null) => {
+    // Get the breakout date from the file object if available
+    let previousBreakoutDate = null;
     
-    // Remove .json extension and get just the filename part
-    const nameWithoutExtension = fileName.replace('.json', '').split(/[/\\]/).pop();
-    
-    // Check if the filename is a date format like "Feb_22_2016"
-    const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;
-    if (dateFormatRegex.test(nameWithoutExtension)) {
-      // Extract date from the filename
-      const parts = nameWithoutExtension.split('_');
-      const month = parts[0];
-      const day = parseInt(parts[1], 10);
-      const year = parseInt(parts[2], 10);
+    if (file && file.breakoutDate) {
+      previousBreakoutDate = file.breakoutDate instanceof Date ? file.breakoutDate : new Date(file.breakoutDate);
+    } else {
+      // Fallback: try to parse from directory name in fileName
+      const fileNameParts = fileName.split(/[/\\]/);
+      const directoryName = fileNameParts[0] || fileName;
+      const dirParts = directoryName.toLowerCase().split('_');
       
-      // Create a Date object for the file date (previous breakout date from filename)
+      if (dirParts.length >= 4) {
       const monthMap = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
-      const monthLower = month.toLowerCase();
-      const monthIndex = monthMap[monthLower];
-      
-      if (monthIndex === undefined || isNaN(day) || isNaN(year)) {
-        return <span className="text-white">{nameWithoutExtension}</span>;
+        const monthStr = dirParts[1];
+        const day = parseInt(dirParts[2], 10);
+        const year = parseInt(dirParts[3], 10);
+        const monthIndex = monthMap[monthStr];
+        
+        if (monthIndex !== undefined && !isNaN(day) && !isNaN(year)) {
+          previousBreakoutDate = new Date(year, monthIndex, day);
+        }
       }
-      
-      const previousBreakoutDate = new Date(year, monthIndex, day);
-      
-      // Extract date from the stock folder name (if available)
+    }
+    
+    // Extract date from the current stock folder name
       // Format: STOCK_Month_Day_Year (e.g., "AAL_Dec_11_2006")
+    let currentBreakoutDate = null;
       if (currentStock) {
         const stockParts = currentStock.split('_');
-        
-        // The date is in parts [1], [2], [3] (Month, Day, Year)
-        // Stock symbol is part [0]
-        let breakoutDate = null;
+      const monthMap = {
+        'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+        'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+      };
         
         if (stockParts.length >= 4) {
           const currentMonthStr = stockParts[1];
           const currentDay = parseInt(stockParts[2], 10);
           const currentYear = parseInt(stockParts[3], 10);
-          
           const currentMonthLower = currentMonthStr.toLowerCase();
           const currentMonthIndex = monthMap[currentMonthLower];
           
           if (currentMonthIndex !== undefined && !isNaN(currentDay) && !isNaN(currentYear) &&
               currentDay >= 1 && currentDay <= 31 &&
               currentYear >= 1900 && currentYear <= 2100) {
-            breakoutDate = new Date(currentYear, currentMonthIndex, currentDay);
-          }
+          currentBreakoutDate = new Date(currentYear, currentMonthIndex, currentDay);
         }
-        
-        // If we have a valid breakout date, calculate the difference
-        if (breakoutDate) {
-          // Calculate the difference: current breakout date - previous breakout date
-          const timeDiff = breakoutDate.getTime() - previousBreakoutDate.getTime();
+      }
+    }
+    
+    // If we have both dates, calculate the difference
+    if (previousBreakoutDate && currentBreakoutDate) {
+      const timeDiff = currentBreakoutDate.getTime() - previousBreakoutDate.getTime();
           const daysDiff = Math.round(timeDiff / (1000 * 3600 * 24));
           
           // Format the time difference in the most appropriate unit
@@ -886,79 +862,94 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
               return <span className="text-white">{weeksDiff === 1 ? '1 week after' : `${weeksDiff} weeks after`}</span>;
             } else {
               return <span className="text-white">{absDaysDiff === 1 ? '1 day after' : `${absDaysDiff} days after`}</span>;
-            }
           }
         }
       }
       
       // If we couldn't calculate a time difference, format the date nicely
+    if (previousBreakoutDate) {
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const monthName = monthNames[monthIndex];
+      const monthName = monthNames[previousBreakoutDate.getMonth()];
+      const day = previousBreakoutDate.getDate();
+      const year = previousBreakoutDate.getFullYear();
       return <span className="text-white">{monthName} {day}, {year}</span>;
     }
     
-    // For non-date filenames, just return the name without extension
+    // Fallback: return directory name or filename
+    const nameWithoutExtension = fileName.replace('.json', '').split(/[/\\]/).pop();
     return nameWithoutExtension;
   };
   
   /**
-   * Determines if a file should be included in the dropdown based on its name format
+   * Determines if a file should be included in the dropdown
    * 
-   * This function filters files to:
-   * 1. Include files with date-formatted names (e.g., "Feb_22_2016")
-   * 2. Include after.json files
-   * 3. Exclude single-letter files (D.json, H.json, M.json)
-   * 4. Exclude any other files that don't match the date format pattern
-   * 
-   * The date format pattern is: three-letter month, underscore, one or two-digit day,
-   * underscore, four-digit year (e.g., "Feb_22_2016")
+   * For previous setups, we now include all files that have been created
+   * (they are previous setups with combined d.json + after.json data)
    * 
    * @param {string} fileName - The filename to check
+   * @param {Object} file - The file object
    * @returns {boolean} True if the file should be included, false otherwise
    */
-  const shouldIncludeInDropdown = (fileName) => {
-    // Only include date-formatted files (e.g., "Sep_7_2021.json")
-    const fileNameLower = fileName.toLowerCase();
-    const fileNameParts = fileNameLower.split(/[/\\]/);
-    const lastPart = fileNameParts[fileNameParts.length - 1];
-    
-    // Check if it's a date-formatted file (e.g., "Sep_7_2021.json")
-    const dateFormatRegex = /^[a-z]{3}_\d{1,2}_\d{4}\.json$/;
-    if (dateFormatRegex.test(lastPart)) {
+  const shouldIncludeInDropdown = (fileName, file = null) => {
+    // Include all previous setup files (they have breakoutDate property)
+    if (file && file.breakoutDate) {
       return true;
     }
     
-    // Exclude all other files (after.json, D.json, H.json, M.json, etc.)
-    return false;
-  };
-
-  /**
-   * Parses a date from a filename in the format "Month_Day_Year"
-   * 
-   * @param {string} fileName - The filename to parse
-   * @returns {Date|null} A Date object if parsing was successful, null otherwise
-   */
-  const parseDateFromFileName = (fileName) => {
-    // Get just the filename part (handle paths like "folder/file.json")
-    const nameWithoutExtension = fileName.replace('.json', '').split(/[/\\]/).pop();
+    // Fallback: check if it's a directory name format (previous setup)
+    const fileNameParts = fileName.split(/[/\\]/);
+    const directoryName = fileNameParts[0] || fileName;
+    const dirParts = directoryName.toLowerCase().split('_');
     
-    // Check if the filename is a date format like "Feb_22_2016"
-    const dateFormatRegex = /^[A-Za-z]{3}_\d{1,2}_\d{4}$/;
-    if (dateFormatRegex.test(nameWithoutExtension)) {
-      const parts = nameWithoutExtension.split('_');
-      const month = parts[0];
-      const day = parseInt(parts[1], 10);
-      const year = parseInt(parts[2], 10);
-      
-      // Create a Date object (case-insensitive month matching)
+    // Check if it matches the directory format: TICKER_Month_Day_Year
+    if (dirParts.length >= 4) {
       const monthMap = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
-      const monthLower = month.toLowerCase();
+      const monthStr = dirParts[1];
+      const day = parseInt(dirParts[2], 10);
+      const year = parseInt(dirParts[3], 10);
+      const monthIndex = monthMap[monthStr];
       
-      if (monthLower in monthMap && !isNaN(day) && !isNaN(year)) {
-        return new Date(year, monthMap[monthLower], day);
+      if (monthIndex !== undefined && !isNaN(day) && !isNaN(year)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  /**
+   * Parses a date from a file object or directory name
+   * 
+   * @param {string} fileName - The filename/directory name to parse
+   * @param {Object} file - The file object (may contain breakoutDate property)
+   * @returns {Date|null} A Date object if parsing was successful, null otherwise
+   */
+  const parseDateFromFileName = (fileName, file = null) => {
+    // First try to get date from file object
+    if (file && file.breakoutDate) {
+      return file.breakoutDate instanceof Date ? file.breakoutDate : new Date(file.breakoutDate);
+    }
+    
+    // Fallback: parse from directory name format (TICKER_Month_Day_Year)
+    const fileNameParts = fileName.split(/[/\\]/);
+    const directoryName = fileNameParts[0] || fileName;
+    const dirParts = directoryName.toLowerCase().split('_');
+    
+    if (dirParts.length >= 4) {
+      const monthMap = {
+        'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+        'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+      };
+      const monthStr = dirParts[1];
+      const day = parseInt(dirParts[2], 10);
+      const year = parseInt(dirParts[3], 10);
+      const monthIndex = monthMap[monthStr];
+      
+      if (monthIndex !== undefined && !isNaN(day) && !isNaN(year)) {
+        return new Date(year, monthIndex, day);
       }
     }
     
@@ -1008,11 +999,11 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
       {allFiles.length > 0 && (
         <div className="space-y-4">
           {allFiles
-            .filter(file => shouldIncludeInDropdown(file.fileName))
+            .filter(file => shouldIncludeInDropdown(file.fileName, file))
             .sort((a, b) => {
-              // Parse dates from filenames (e.g., "Feb_22_2016.json")
-              const fileDateA = parseDateFromFileName(a.fileName);
-              const fileDateB = parseDateFromFileName(b.fileName);
+              // Parse dates from file objects (breakoutDate property)
+              const fileDateA = parseDateFromFileName(a.fileName, a);
+              const fileDateB = parseDateFromFileName(b.fileName, b);
               
               // If both dates are valid, sort by most recent first (newest dates first)
               if (fileDateA && fileDateB) {
@@ -1033,12 +1024,19 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   if (el) fileRefs.current[file.id] = { current: el };
                 }}
                 data-file-id={file.id}
-                className={`border border-white/30 rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-700 ease-out transform ${
+                className={`border border-white/30 rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-500 ease-out transform ${
                   visibleItems.includes(file.id) 
                     ? 'opacity-100 translate-y-0' 
-                    : 'opacity-0 translate-y-16'
+                    : 'opacity-0 translate-y-8'
                 }`}
-                style={{ transitionDelay: `${index * 150}ms` }}
+                style={{ 
+                  // Stagger animation only for items not yet visible
+                  transitionDelay: visibleItems.includes(file.id) ? '0ms' : `${Math.min(index * 100, 1000)}ms`,
+                  // Ensure items stay visible once revealed - no fade out
+                  visibility: visibleItems.includes(file.id) ? 'visible' : 'hidden',
+                  // Smooth transition for all properties
+                  willChange: visibleItems.includes(file.id) ? 'auto' : 'transform, opacity'
+                }}
               >
                 <button 
                   className={`w-full p-4 text-left text-white bg-black hover:bg-black flex justify-between items-center setup-item-interactive transition-all duration-700 ease-out border-0 ${manuallyControlledItems.includes(file.id) ? 'manually-controlled' : ''}`}
@@ -1046,7 +1044,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
                   style={{ borderBottom: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
                 >
                   <span className="text-white font-semibold bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg inline-block">
-                    {displayFileName(file.fileName)}
+                    {displayFileName(file.fileName, file)}
                   </span>
                   <svg 
                     className={`w-5 h-5 transform transition-transform duration-500 ease-in-out text-gray-500 ${expandedFiles.includes(file.id) ? 'rotate-180' : ''}`} 
