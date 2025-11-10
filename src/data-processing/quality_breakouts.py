@@ -242,203 +242,71 @@ def log_file_operation(*args, **kwargs):
     pass
 
 def write_json(path, df):
-    """Write data to JSON file with optimized formatting and immediate flush."""
+    """Write data to JSON file - optimized for speed."""
     try:
         path_obj = Path(path)
-        log_file_operation('debug', f"Starting write_json", path=str(path_obj), 
-                          details={'parent_exists': path_obj.parent.exists(), 
-                                  'parent_path': str(path_obj.parent)})
-        
-        # Create parent directory
-        try:
-            path_obj.parent.mkdir(parents=True, exist_ok=True)
-            log_file_operation('debug', f"Created/verified parent directory", path=str(path_obj.parent))
-        except Exception as e:
-            log_file_operation('error', f"Failed to create parent directory", path=str(path_obj.parent), 
-                              details={'error': str(e)})
-            return False
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
         
         if path.endswith("points.json"):
             data_to_write = [{"points": indicator} for indicator in df] if isinstance(df, list) else [{"points": str(df)}]
         else:
             if hasattr(df, 'columns'):
-                # Reset index to include Date in the output
-                df_copy = df.reset_index() if df.index.name == 'Date' or isinstance(df.index, pd.DatetimeIndex) else df.copy()
+                df_copy = df.reset_index() if isinstance(df.index, pd.DatetimeIndex) else df.copy()
                 df_copy.columns = df_copy.columns.str.lower()
-                
-                # Ensure we have the required columns
                 required_cols = ['open', 'high', 'low', 'close', 'volume', '10sma', '20sma', '50sma']
-                # Include date column if it exists
                 if 'date' in df_copy.columns:
                     required_cols = ['date'] + required_cols
                 
-                missing_cols = [col for col in required_cols if col not in df_copy.columns]
-                if missing_cols:
-                    log_file_operation('error', f"Missing columns in data", path=str(path_obj), 
-                                      details={'missing_cols': missing_cols, 'available_cols': list(df_copy.columns)})
+                if not all(col in df_copy.columns for col in required_cols):
                     return False
                 
                 df_subset = df_copy[required_cols].copy()
-                log_file_operation('debug', f"Prepared dataframe subset", path=str(path_obj), 
-                                  details={'rows': len(df_subset), 'cols': list(df_subset.columns)})
-                
-                # Replace NaN values with None (which becomes null in JSON)
                 df_subset = df_subset.where(pd.notnull(df_subset), None)
                 
-                # Ensure we have data to write
                 if len(df_subset) == 0:
-                    log_file_operation('error', f"Empty dataframe", path=str(path_obj))
                     return False
                 
                 records = df_subset.to_dict('records')
                 data_to_write = []
                 for r in records:
-                    try:
-                        record = {}
-                        # Include Date if present
-                        if 'date' in r:
-                            date_val = r['date']
-                            if isinstance(date_val, pd.Timestamp):
-                                record["Date"] = date_val.strftime('%Y-%m-%d')
-                            elif date_val is not None:
-                                record["Date"] = str(date_val)
-                            else:
-                                record["Date"] = None
-                        
-                        record.update({
-                            "Open": float(r['open']) if r['open'] is not None and not pd.isna(r['open']) else None,
-                            "High": float(r['high']) if r['high'] is not None and not pd.isna(r['high']) else None,
-                            "Low": float(r['low']) if r['low'] is not None and not pd.isna(r['low']) else None,
-                            "Close": float(r['close']) if r['close'] is not None and not pd.isna(r['close']) else None,
-                            "Volume": float(r['volume']) if r['volume'] is not None and not pd.isna(r['volume']) else None,
-                            "10sma": float(r['10sma']) if r['10sma'] is not None and not pd.isna(r['10sma']) else None,
-                            "20sma": float(r['20sma']) if r['20sma'] is not None and not pd.isna(r['20sma']) else None,
-                            "50sma": float(r['50sma']) if r['50sma'] is not None and not pd.isna(r['50sma']) else None
-                        })
-                        data_to_write.append(record)
-                    except (ValueError, TypeError) as e:
-                        logger.error(f"Error converting data for {path}: {e}")
-                        return False
+                    record = {}
+                    if 'date' in r:
+                        date_val = r['date']
+                        record["Date"] = date_val.strftime('%Y-%m-%d') if isinstance(date_val, pd.Timestamp) else (str(date_val) if date_val is not None else None)
+                    record.update({
+                        "Open": float(r['open']) if r['open'] is not None and not pd.isna(r['open']) else None,
+                        "High": float(r['high']) if r['high'] is not None and not pd.isna(r['high']) else None,
+                        "Low": float(r['low']) if r['low'] is not None and not pd.isna(r['low']) else None,
+                        "Close": float(r['close']) if r['close'] is not None and not pd.isna(r['close']) else None,
+                        "Volume": float(r['volume']) if r['volume'] is not None and not pd.isna(r['volume']) else None,
+                        "10sma": float(r['10sma']) if r['10sma'] is not None and not pd.isna(r['10sma']) else None,
+                        "20sma": float(r['20sma']) if r['20sma'] is not None and not pd.isna(r['20sma']) else None,
+                        "50sma": float(r['50sma']) if r['50sma'] is not None and not pd.isna(r['50sma']) else None
+                    })
+                    data_to_write.append(record)
             else:
                 data_to_write = df
-                
-        write_success = False
-        last_error = None
         
-        log_file_operation('debug', f"Attempting atomic write", path=str(path_obj), 
-                          details={'records_count': len(data_to_write) if isinstance(data_to_write, list) else 'N/A'})
+        # Simplified write - single attempt, no verification overhead
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=str(path_obj.parent),
+                                        prefix=f".{path_obj.stem}_", suffix=path_obj.suffix,
+                                        encoding='utf-8') as tmp_file:
+            json.dump(data_to_write, tmp_file, indent=4, allow_nan=False)
+            tmp_file.flush()
+            tmp_path = Path(tmp_file.name)
         
-        for attempt in range(3):
-            tmp_path = None
-            try:
-                log_file_operation('debug', f"Write attempt {attempt + 1}/3", path=str(path_obj))
-                with tempfile.NamedTemporaryFile(
-                    mode='w',
-                    delete=False,
-                    dir=str(path_obj.parent),
-                    prefix=f".{path_obj.stem}_",
-                    suffix=path_obj.suffix,
-                    encoding='utf-8'
-                ) as tmp_file:
-                    json.dump(data_to_write, tmp_file, indent=4, allow_nan=False)
-                    tmp_file.flush()
-                    try:
-                        os.fsync(tmp_file.fileno())
-                    except (OSError, AttributeError):
-                        pass
-                    tmp_path = Path(tmp_file.name)
-                    log_file_operation('debug', f"Created temp file", path=str(tmp_path))
-                
-                try:
-                    os.replace(tmp_path, path_obj)
-                    write_success = True
-                    log_file_operation('info', f"Successfully wrote file (atomic)", path=str(path_obj))
-                    break
-                except OSError as e:
-                    last_error = e
-                    log_file_operation('warning', f"Atomic replace failed, attempt {attempt + 1}", 
-                                      path=str(path_obj), details={'error': str(e)})
-                    if path_obj.exists():
-                        try:
-                            path_obj.unlink()
-                            os.replace(tmp_path, path_obj)
-                            write_success = True
-                            log_file_operation('info', f"Successfully wrote file (after unlink)", path=str(path_obj))
-                            break
-                        except OSError as inner:
-                            last_error = inner
-                            log_file_operation('warning', f"Unlink and replace failed", 
-                                              path=str(path_obj), details={'error': str(inner)})
-                    if tmp_path and tmp_path.exists():
-                        try:
-                            tmp_path.unlink()
-                        except OSError:
-                            pass
-                    time.sleep(0.1 * (attempt + 1))
-            except Exception as e:
-                last_error = e
-                log_file_operation('error', f"Exception during write attempt {attempt + 1}", 
-                                  path=str(path_obj), details={'error': str(e)})
-                if tmp_path and tmp_path.exists():
-                    try:
-                        tmp_path.unlink()
-                    except OSError:
-                        pass
-                time.sleep(0.1 * (attempt + 1))
-        
-        if not write_success:
-            if last_error is not None:
-                log_file_operation('warning', f"Atomic write failed, falling back to direct write", 
-                                  path=str(path_obj), details={'error': str(last_error)})
-            try:
-                log_file_operation('debug', f"Attempting direct write", path=str(path_obj))
-                with open(path_obj, 'w', encoding='utf-8') as f:
-                    json.dump(data_to_write, f, indent=4, allow_nan=False)
-                    f.flush()
-                    try:
-                        os.fsync(f.fileno())
-                    except (OSError, AttributeError):
-                        pass
-                write_success = True
-                log_file_operation('info', f"Successfully wrote file (direct)", path=str(path_obj))
-            except Exception as e:
-                log_file_operation('error', f"Direct write also failed", path=str(path_obj), 
-                                  details={'error': str(e)})
-                logger.error(f"Exception during file write for {path}: {e}", exc_info=True)
-                return False
-        
-        # Verify file was written and has content
-        if not path_obj.exists():
-            log_file_operation('error', f"File verification failed: file does not exist", path=str(path_obj))
-            return False
-        
-        # Verify file has content (at least 10 bytes for a minimal JSON file)
-        file_size = path_obj.stat().st_size
-        log_file_operation('debug', f"File verification: size check", path=str(path_obj), 
-                          details={'file_size': file_size})
-        if file_size < 10:
-            log_file_operation('error', f"File verification failed: file too small", path=str(path_obj), 
-                             details={'file_size': file_size})
-            return False
-        
-        # Verify JSON is valid by attempting to read it
         try:
-            with open(path_obj, 'r', encoding='utf-8') as f:
-                json.load(f)
-            log_file_operation('info', f"File verification: JSON valid", path=str(path_obj), 
-                              details={'file_size': file_size})
-        except json.JSONDecodeError as e:
-            log_file_operation('error', f"File verification failed: invalid JSON", path=str(path_obj), 
-                             details={'error': str(e), 'file_size': file_size})
-            return False
+            os.replace(tmp_path, path_obj)
+        except OSError:
+            if path_obj.exists():
+                path_obj.unlink()
+                os.replace(tmp_path, path_obj)
+            else:
+                tmp_path.rename(path_obj)
         
-        log_file_operation('info', f"Successfully completed write_json", path=str(path_obj), 
-                          details={'file_size': file_size})
         return True
     except Exception as e:
-        log_file_operation('error', f"Unexpected error in write_json", path=path if isinstance(path, str) else str(path), 
-                          details={'error': str(e)})
-        logger.error(f"Error writing {path}: {e}", exc_info=True)
+        logger.error(f"Error writing {path}: {e}")
         return False
 
 
@@ -467,7 +335,7 @@ def generate_indicators(data, breakout_idx, category):
     """
     indicator_scores = {}
     
-    # Higher Lows Pattern
+    # Higher Lows Pattern (increased priority - key consolidation pattern)
     if breakout_idx > 5:
         pre_breakout = data.iloc[max(0, breakout_idx-20):breakout_idx]
         if len(pre_breakout) >= 10:
@@ -475,7 +343,7 @@ def generate_indicators(data, breakout_idx, category):
             earlier_low = pre_breakout.iloc[-10:-5]['low'].min()
             earliest_low = pre_breakout.iloc[:-10]['low'].min() if len(pre_breakout) > 10 else float('inf')
             if recent_low > earlier_low * 1.01 and (len(pre_breakout) <= 10 or earlier_low > earliest_low * 1.005):
-                score = 85 + min(15, (recent_low / earlier_low - 1) * 1000)
+                score = 90 + min(20, (recent_low / earlier_low - 1) * 1500)  # Increased from 85+15
                 indicator_scores["Higher Lows"] = score
     
     # Cup and Handle Pattern
@@ -539,7 +407,7 @@ def generate_indicators(data, breakout_idx, category):
                         indicator_scores["Resistance Break"] = score
                         break
     
-    # Volume Surge
+    # Volume Surge (reduced priority - consolidation patterns are more important)
     if breakout_idx > 20 and breakout_idx < len(data):
         short_term_avg = data.iloc[max(0, breakout_idx-10):breakout_idx]['volume'].mean()
         longer_term_avg = data.iloc[max(0, breakout_idx-30):breakout_idx]['volume'].mean()
@@ -547,10 +415,10 @@ def generate_indicators(data, breakout_idx, category):
         if short_term_avg > 0 and longer_term_avg > 0:
             volume_ratio = min(breakout_volume / short_term_avg, breakout_volume / longer_term_avg)
             if breakout_volume > short_term_avg * 1.8 and breakout_volume > longer_term_avg * 1.5:
-                score = 75 + min(25, (volume_ratio - 1.5) * 50)
+                score = 50 + min(15, (volume_ratio - 1.5) * 30)  # Reduced from 75+25
                 indicator_scores["Volume Surge"] = score
     
-    # Volume Contraction
+    # Volume Contraction (reduced priority)
     if breakout_idx > 15:
         early_vol = data.iloc[max(0, breakout_idx-15):max(0, breakout_idx-8)]['volume'].mean()
         late_vol = data.iloc[max(0, breakout_idx-7):breakout_idx]['volume'].mean()
@@ -560,10 +428,10 @@ def generate_indicators(data, breakout_idx, category):
                 days = np.arange(len(vol_data))
                 volume_slope = np.polyfit(days, vol_data, 1)[0]
                 if volume_slope < 0:
-                    score = 65 + abs(volume_slope) * 100
+                    score = 45 + abs(volume_slope) * 50  # Reduced from 65+100
                     indicator_scores["Volume Contraction"] = score
     
-    # Tight Consolidation
+    # Tight Consolidation (increased priority - key consolidation pattern)
     if breakout_idx > 10:
         pre_breakout = data.iloc[max(0, breakout_idx-15):breakout_idx]
         if len(pre_breakout) >= 7:
@@ -579,10 +447,10 @@ def generate_indicators(data, breakout_idx, category):
                 else:
                     volatility_reduction = True
                 if range_pct < 0.12 and volatility_reduction:
-                    score = 70 + (0.12 - range_pct) * 500
+                    score = 88 + (0.12 - range_pct) * 800  # Increased from 70+500
                     indicator_scores["Tight Consolidation"] = score
     
-    # MA Support
+    # MA Support (increased priority - key consolidation pattern)
     if breakout_idx > 20 and '20sma' in data.columns:
         lows_near_ma = 0
         total_checks = 0
@@ -594,7 +462,7 @@ def generate_indicators(data, breakout_idx, category):
                 if low_value >= ma_value * 0.97 and data.iloc[i]['close'] >= ma_value:
                     lows_near_ma += 1
         if lows_near_ma >= 3 and total_checks > 0 and lows_near_ma / total_checks >= 0.4:
-            score = 68 + (lows_near_ma / total_checks) * 30
+            score = 82 + (lows_near_ma / total_checks) * 40  # Increased from 68+30
             indicator_scores["MA Support"] = score
     
     # Above Key MAs
@@ -638,11 +506,7 @@ def generate_indicators(data, breakout_idx, category):
         for ind in ["Volume Surge", "Uptrending MAs", "Strong Close", "Sector Leader", "Market Leader"]:
             indicator_scores.pop(ind, None)
         indicator_scores["Weak RS"] = 40
-        if breakout_idx > 10 and breakout_idx < len(data):
-            avg_volume = data.iloc[max(0, breakout_idx-10):breakout_idx]['volume'].mean()
-            breakout_volume = data.iloc[breakout_idx]['volume']
-            if avg_volume > 0 and breakout_volume > avg_volume * 2.2:
-                indicator_scores["Distribution"] = 35
+        # Removed volume-based distribution check - focus on consolidation patterns
     
     # Fallback indicators if we have fewer than 3
     if len(indicator_scores) < 3:
@@ -1422,46 +1286,13 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         
         # Handle null values in D.json data
         if d_data.isnull().any().any():
-            null_counts = d_data.isnull().sum()
-            log_file_operation('info', f"process_breakout: D.json contains nulls", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'null_counts': null_counts[null_counts > 0].to_dict(),
-                                      'd_data_rows_before': len(d_data)})
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {focus_date.date()}: D.json contains nulls - dropping affected rows")
             d_data = d_data.dropna()
-            log_file_operation('info', f"process_breakout: D.json after dropping nulls", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'd_data_rows_after': len(d_data)})
             if d_data.empty:
-                log_file_operation('error', f"process_breakout: D.json empty after dropping nulls", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date())})
-                logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - D.json empty after dropping nulls")
                 return None
             
         # Check if there are too many green candles in the data
-        green_candles = (d_data['close'] > d_data['open']).sum() if len(d_data) > 0 else 0
-        green_pct = green_candles / len(d_data) if len(d_data) > 0 else 0
         if not check_candle_distribution(d_data):
-            log_file_operation('info', f"process_breakout: Candle distribution check failed", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'green_candles': green_candles, 'total_candles': len(d_data),
-                                      'green_pct': green_pct*100, 'max_green_pct': 90.0})
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(
-                    f"{ticker} {focus_date.date()}: Disqualified - too many green candles in D.json | "
-                    f"green_pct={green_pct*100:.1f}% (max 90%)"
-                )
-            else:
-                logger.info(
-                    f"{ticker} {focus_date.date()}: Aborting breakout - D.json candle distribution out of range | "
-                    f"green_pct={green_pct*100:.1f}% (max 90%)"
-                )
             return None
-        else:
-            log_file_operation('debug', f"process_breakout: Candle distribution check passed", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'green_pct': green_pct*100})
         
         # Visual quality check: Ensure breakout shows clear upward movement
         if len(d_data) >= 10:
@@ -1469,79 +1300,19 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
             end_price = d_data.iloc[-1]['close']
             total_gain = (end_price - start_price) / start_price
             if total_gain < 0.07:
-                log_file_operation('info', f"process_breakout: Insufficient uptrend check failed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'total_gain_pct': total_gain*100, 'threshold': 7.0,
-                                          'start_price': start_price, 'end_price': end_price,
-                                          'd_data_rows': len(d_data)})
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - insufficient uptrend ({total_gain*100:.1f}%)")
-                else:
-                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - gain {total_gain*100:.1f}% below threshold")
                 return None
         
         # Visual quality check: Ensure breakout day is clearly above recent highs
-        # Exclude the breakout day itself when calculating recent_highs
         if len(d_data) >= 6:
-            # Get the 5 days BEFORE the breakout day (exclude the breakout day itself)
             recent_highs = d_data.iloc[-6:-1]['high'].max()
             breakout_high = d_data.iloc[-1]['high']
-            breakout_high_pct_above = (breakout_high / recent_highs - 1) * 100
-            threshold_pct = 1.0
-            if breakout_high <= recent_highs * 1.01:  # Less than 1% above recent highs
-                log_file_operation('info', f"process_breakout: Breakout high check failed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'breakout_high': breakout_high, 'recent_highs': recent_highs,
-                                          'breakout_high_pct_above': breakout_high_pct_above,
-                                          'threshold_pct': threshold_pct,
-                                          'recent_highs_dates': [str(d.date()) for d in d_data.iloc[-6:-1].index]})
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(
-                        f"{ticker} {focus_date.date()}: Disqualified - breakout not clear enough | "
-                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
-                        f"pct_above={breakout_high_pct_above:.2f}% (need > {threshold_pct}%)"
-                    )
-                else:
-                    logger.info(
-                        f"{ticker} {focus_date.date()}: Aborting breakout - breakout high not sufficiently above recent highs | "
-                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
-                        f"only {breakout_high_pct_above:.2f}% above (need > {threshold_pct}%)"
-                    )
+            if breakout_high <= recent_highs * 1.01:
                 return None
-            else:
-                log_file_operation('debug', f"process_breakout: Breakout high check passed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'breakout_high_pct_above': breakout_high_pct_above})
         elif len(d_data) >= 2:
-            # If we have fewer than 6 days, use all days except the breakout day
             recent_highs = d_data.iloc[:-1]['high'].max()
             breakout_high = d_data.iloc[-1]['high']
-            breakout_high_pct_above = (breakout_high / recent_highs - 1) * 100
-            threshold_pct = 1.0
-            if breakout_high <= recent_highs * 1.01:  # Less than 1% above recent highs
-                log_file_operation('info', f"process_breakout: Breakout high check failed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'breakout_high': breakout_high, 'recent_highs': recent_highs,
-                                          'breakout_high_pct_above': breakout_high_pct_above,
-                                          'threshold_pct': threshold_pct,
-                                          'recent_highs_dates': [str(d.date()) for d in d_data.iloc[:-1].index]})
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(
-                        f"{ticker} {focus_date.date()}: Disqualified - breakout not clear enough | "
-                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
-                        f"pct_above={breakout_high_pct_above:.2f}% (need > {threshold_pct}%)"
-                    )
-                else:
-                    logger.info(
-                        f"{ticker} {focus_date.date()}: Aborting breakout - breakout high not sufficiently above recent highs | "
-                        f"breakout_high={breakout_high:.2f} | recent_highs={recent_highs:.2f} | "
-                        f"only {breakout_high_pct_above:.2f}% above (need > {threshold_pct}%)"
-                    )
+            if breakout_high <= recent_highs * 1.01:
                 return None
-            else:
-                log_file_operation('debug', f"process_breakout: Breakout high check passed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'breakout_high_pct_above': breakout_high_pct_above})
             
         # Create after.json with data starting from the day after the breakout (not the beginning of uptrend)
         # Ensure it includes at least 25 days of data regardless of when price crosses below 20SMA
@@ -1562,192 +1333,64 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         
         # Handle null values in after.json data
         if after_data.isnull().any().any():
-            null_counts = after_data.isnull().sum()
-            log_file_operation('info', f"process_breakout: after.json contains nulls", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'null_counts': null_counts[null_counts > 0].to_dict(),
-                                      'after_data_rows_before': len(after_data)})
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(f"{ticker} {focus_date.date()}: after.json contains nulls - dropping affected rows")
             after_data = after_data.dropna()
-            log_file_operation('info', f"process_breakout: after.json after dropping nulls", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'after_data_rows_after': len(after_data)})
             if after_data.empty:
-                log_file_operation('error', f"process_breakout: after.json empty after dropping nulls", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date())})
-                logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - after.json empty after dropping nulls")
                 return None
             
         # Check if there are too many green candles in the after data
-        after_green_candles = (after_data['close'] > after_data['open']).sum() if len(after_data) > 0 else 0
-        after_green_pct = after_green_candles / len(after_data) if len(after_data) > 0 else 0
         if not check_candle_distribution(after_data):
-            log_file_operation('info', f"process_breakout: After data candle distribution check failed", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'green_candles': after_green_candles, 'total_candles': len(after_data),
-                                      'green_pct': after_green_pct*100, 'max_green_pct': 90.0})
-            if CONFIG.get('verbosity', 0) > 1:
-                logger.debug(
-                    f"{ticker} {focus_date.date()}: Disqualified - too many green candles in after data | "
-                    f"green_pct={after_green_pct*100:.1f}% (max 90%)"
-                )
-            else:
-                logger.info(
-                    f"{ticker} {focus_date.date()}: Aborting breakout - after.json candle distribution out of range | "
-                    f"green_pct={after_green_pct*100:.1f}% (max 90%)"
-                )
             return None
-        else:
-            log_file_operation('debug', f"process_breakout: After data candle distribution check passed", 
-                              details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                      'green_pct': after_green_pct*100})
         
         # Determine category based on performance
-        category = None
-        if forced_category is not None:
-            category = forced_category
-        else:
-            category = determine_performance_category(data, focus_idx, cross_idx)
+        category = forced_category if forced_category is not None else determine_performance_category(data, focus_idx, cross_idx)
         
-        log_file_operation('info', f"process_breakout: Preparing to create directory", 
-                          details={'ticker': ticker, 'focus_date': str(focus_date.date()), 
-                                  'category': category, 'forced_category': forced_category})
-        
-        # Create directory and write files IMMEDIATELY - all at once
+        # Create directory and write files
         date_str = format_date(focus_date)
         directory = SCRIPT_DIR / 'ds' / CONFIG['dataset_name'] / f"{ticker}_{date_str}"
         
-        log_file_operation('info', f"process_breakout: Directory path constructed", path=str(directory), 
-                          details={'script_dir': str(SCRIPT_DIR), 'dataset_name': CONFIG['dataset_name'], 
-                                  'date_str': date_str, 'ticker': ticker})
-        
         try:
             directory.mkdir(parents=True, exist_ok=True)
-            log_file_operation('info', f"process_breakout: Directory created/verified", path=str(directory), 
-                              details={'exists': directory.exists(), 'is_dir': directory.is_dir(), 
-                                      'absolute_path': str(directory.resolve())})
-        except Exception as e:
-            log_file_operation('error', f"process_breakout: Failed to create directory", path=str(directory), 
-                              details={'error': str(e), 'script_dir_exists': SCRIPT_DIR.exists(), 
-                                      'ds_dir_exists': (SCRIPT_DIR / 'ds').exists()})
+        except Exception:
             return None
         
-        # Write ALL files immediately - D.json, after.json, points.json, H.json
-        # Create the data files (points.json and H.json)
-        log_file_operation('info', f"process_breakout: Calling create_files", path=str(directory), 
-                          details={'forced_category': forced_category})
+        # Write files
         if forced_category is not None:
             create_files_with_category(str(directory), data, focus_idx, cross_idx, forced_category, ticker, d_data)
         else:
             create_files(str(directory), data, focus_idx, cross_idx, ticker, d_data)
         
-        # Write D.json and after.json immediately with verification
-        d_json_path = directory / "D.json"
-        log_file_operation('info', f"process_breakout: Writing D.json", path=str(d_json_path), 
-                          details={'d_data_rows': len(d_data)})
-        if not write_json(str(d_json_path), d_data):
-            log_file_operation('error', f"process_breakout: Failed to write D.json", path=str(d_json_path), 
-                             details={'ticker': ticker})
+        # Write D.json and after.json
+        if not write_json(str(directory / "D.json"), d_data):
             return None
-        # Verify D.json was written correctly
-        if not d_json_path.exists() or d_json_path.stat().st_size < 10:
-            log_file_operation('error', f"process_breakout: D.json verification failed", path=str(d_json_path), 
-                             details={'exists': d_json_path.exists(), 
-                                     'size': d_json_path.stat().st_size if d_json_path.exists() else 0})
+        if not write_json(str(directory / "after.json"), after_data):
             return None
-        log_file_operation('info', f"process_breakout: D.json verified", path=str(d_json_path), 
-                          details={'size': d_json_path.stat().st_size})
-        
-        after_json_path = directory / "after.json"
-        log_file_operation('info', f"process_breakout: Writing after.json", path=str(after_json_path), 
-                          details={'after_data_rows': len(after_data)})
-        if not write_json(str(after_json_path), after_data):
-            log_file_operation('error', f"process_breakout: Failed to write after.json", path=str(after_json_path), 
-                             details={'ticker': ticker})
-            return None
-        # Verify after.json was written correctly
-        if not after_json_path.exists() or after_json_path.stat().st_size < 10:
-            log_file_operation('error', f"process_breakout: after.json verification failed", path=str(after_json_path), 
-                             details={'exists': after_json_path.exists(), 
-                                     'size': after_json_path.stat().st_size if after_json_path.exists() else 0})
-            return None
-        log_file_operation('info', f"process_breakout: after.json verified", path=str(after_json_path), 
-                          details={'size': after_json_path.stat().st_size})
         
         # Quality check: Volume surge on breakout day
         if focus_idx > 0 and focus_idx < len(data):
             breakout_volume = data.iloc[focus_idx]['volume']
             avg_volume_10d = data.iloc[max(0, focus_idx-10):focus_idx]['volume'].mean()
             avg_volume_30d = data.iloc[max(0, focus_idx-30):focus_idx]['volume'].mean()
-            
             volume_surge_10d = breakout_volume / avg_volume_10d if avg_volume_10d > 0 else 0
             volume_surge_30d = breakout_volume / avg_volume_30d if avg_volume_30d > 0 else 0
-            
-            # Require at least 2.0x average volume on breakout day (stricter for Qullamaggie)
             if volume_surge_10d < 2.0 and volume_surge_30d < 2.0:
-                log_file_operation('info', f"process_breakout: Volume surge check failed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'breakout_volume': breakout_volume, 'avg_volume_10d': avg_volume_10d,
-                                          'avg_volume_30d': avg_volume_30d, 'surge_10d': volume_surge_10d,
-                                          'surge_30d': volume_surge_30d})
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - insufficient volume surge ({volume_surge_10d:.2f}x 10d avg, {volume_surge_30d:.2f}x 30d avg)")
-                else:
-                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - insufficient volume surge")
                 return None
-            else:
-                log_file_operation('debug', f"process_breakout: Volume surge check passed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'surge_10d': volume_surge_10d, 'surge_30d': volume_surge_30d})
         
-        # Quality check: Strong close on breakout day (close near high)
+        # Quality check: Strong close on breakout day
         if focus_idx < len(data):
             breakout_row = data.iloc[focus_idx]
-            breakout_high = breakout_row['high']
-            breakout_close = breakout_row['close']
-            close_to_high_pct = (breakout_high - breakout_close) / breakout_high * 100
-            
-            # Require close within 2% of high (strong close)
+            close_to_high_pct = (breakout_row['high'] - breakout_row['close']) / breakout_row['high'] * 100
             if close_to_high_pct > 2.0:
-                log_file_operation('info', f"process_breakout: Strong close check failed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'close_to_high_pct': close_to_high_pct, 'threshold': 2.0})
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - weak close ({close_to_high_pct:.2f}% below high)")
-                else:
-                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - weak close")
                 return None
-            else:
-                log_file_operation('debug', f"process_breakout: Strong close check passed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'close_to_high_pct': close_to_high_pct})
         
-        # Quality check: Price above key moving averages on breakout day
+        # Quality check: Price above key moving averages
         if focus_idx < len(data) and '10sma' in data.columns and '20sma' in data.columns:
             breakout_row = data.iloc[focus_idx]
             breakout_close = breakout_row['close']
             sma10 = breakout_row['10sma'] if not pd.isna(breakout_row['10sma']) else None
             sma20 = breakout_row['20sma'] if not pd.isna(breakout_row['20sma']) else None
-            
-            # Require price above at least one key MA
-            above_mas = True
-            if sma10 and breakout_close <= sma10 * 1.01:  # Allow 1% tolerance
+            if sma10 and breakout_close <= sma10 * 1.01:
                 if sma20 and breakout_close <= sma20 * 1.01:
-                    above_mas = False
-            
-            if not above_mas:
-                log_file_operation('info', f"process_breakout: Price above MAs check failed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date()),
-                                          'close': breakout_close, 'sma10': sma10, 'sma20': sma20})
-                if CONFIG.get('verbosity', 0) > 1:
-                    logger.debug(f"{ticker} {focus_date.date()}: Disqualified - price not above key MAs")
-                else:
-                    logger.info(f"{ticker} {focus_date.date()}: Aborting breakout - price not above key MAs")
-                return None
-            else:
-                log_file_operation('debug', f"process_breakout: Price above MAs check passed", 
-                                  details={'ticker': ticker, 'focus_date': str(focus_date.date())})
+                    return None
         
         # Check if this was a successful breakout (30% rise before crossing below 20SMA)
         is_successful, peak_date = check_successful_breakout(data, focus_idx, cross_idx)
@@ -1768,31 +1411,18 @@ def process_breakout(ticker: str, data: pd.DataFrame, focus_date: pd.Timestamp,
         _, _, pullback_pct = check_orderly_pullback(data, cons_start)
         
         # Create and return breakout data dictionary
-        breakout_data = {
+        return {
             'ticker': ticker,
             'breakout_date': focus_date,
-            'low_date': low_date,  # This is the actual uptrend start date from find_big_move
+            'low_date': low_date,
             'high_date': cons_start,
             'category': category,
             'cross_idx': cross_idx,
             'pullback_pct': pullback_pct,
             'output_path': str(directory)
         }
-        
-        log_file_operation('info', f"process_breakout: Successfully completed", path=str(directory), 
-                          details={'ticker': ticker, 'category': category, 'focus_date': str(focus_date.date()),
-                                  'output_path': str(directory)})
-        if CONFIG.get('verbosity', 0) > 0:
-            logger.info(f"Successfully processed {ticker} {focus_date.date()} (Category {category})")
-            logger.info(f"Files written to: {directory}")
-        return breakout_data
     except Exception as e:
-        log_file_operation('error', f"process_breakout: Exception occurred", 
-                          details={'ticker': ticker, 'focus_date': str(focus_date.date()) if 'focus_date' in locals() else 'unknown',
-                                  'error': str(e)})
-        logger.error(f"Error processing {ticker} at {focus_date.date()}: {e}")
-        if CONFIG.get('verbosity', 0) > 0:
-            logger.warning(f"{ticker} {focus_date.date()}: Exception during processing")
+        logger.error(f"Error processing {ticker}: {e}")
         return None
 
 def identify_quality_breakouts(df: pd.DataFrame, ticker: str) -> Tuple[list, dict, dict]:
@@ -2320,9 +1950,8 @@ def print_summary(total: int, valid_count: int, success: int):
 
 def cleanup():
     """Clean up global state and resources."""
-    global _data_cache, _hourly_data_cache, STATS
+    global _data_cache, STATS
     _data_cache.clear()
-    _hourly_data_cache.clear()
     STATS = {'ticker_count': 0, 'success_count': 0, 'failed_count': 0}
 
 def main() -> int:
@@ -2339,22 +1968,11 @@ def main() -> int:
         configure_runtime(args)
         
         ds_dir = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
-        log_file_operation('info', f"main: Dataset directory path", path=str(ds_dir), 
-                          details={'script_dir': str(SCRIPT_DIR), 'dataset_name': CONFIG['dataset_name'],
-                                  'absolute_path': str(ds_dir.resolve())})
         
         if ds_dir.exists():
-            log_file_operation('info', f"main: Removing existing dataset directory", path=str(ds_dir))
             shutil.rmtree(ds_dir)
         
-        try:
-            ds_dir.mkdir(parents=True, exist_ok=True)
-            log_file_operation('info', f"main: Dataset directory created/verified", path=str(ds_dir), 
-                              details={'exists': ds_dir.exists(), 'is_dir': ds_dir.is_dir()})
-        except Exception as e:
-            log_file_operation('error', f"main: Failed to create dataset directory", path=str(ds_dir), 
-                              details={'error': str(e), 'script_dir_exists': SCRIPT_DIR.exists()})
-            raise
+        ds_dir.mkdir(parents=True, exist_ok=True)
         
         verbosity = CONFIG.get('verbosity', 1)
         if verbosity == 0:

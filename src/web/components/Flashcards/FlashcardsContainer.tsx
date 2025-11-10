@@ -417,26 +417,22 @@ export default function FlashcardsContainer() {
       return;
     }
 
-    // When tooltip is dismissed (auto, click-outside, or any other reason), advance to next stock
+    // When tooltip is dismissed (auto, click-outside, or any other reason), ALWAYS advance to next stock
     clearTimeUpAdvanceTimeout();
     
     // Use requestAnimationFrame for smoother transitions, then advance after popup animation
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        // Always advance to next stock when popup is dismissed (except manual-chart)
         if (handleNextCardRef.current) {
-          console.log('Tooltip dismissed: Advancing to next stock (reason:', event?.reason || 'unknown', ')');
           handleNextCardRef.current();
-        } else {
-          console.warn('Tooltip dismissed: handleNextCardRef.current is null, cannot advance');
-          // Fallback: try to advance using gameState directly
-          if (gameState && gameState.nextCard) {
-            console.log('Tooltip dismissed: Using gameState.nextCard as fallback');
-            gameState.nextCard();
-            // Also reset and start timer if needed
-            if (selectedFolder && timerDuration > 0 && timerRef.current) {
-              timerRef.current.reset(timerDuration);
-              timerRef.current.start();
-            }
+        } else if (gameState && gameState.nextCard) {
+          // Fallback: use gameState directly
+          gameState.nextCard();
+          // Also reset and start timer if needed
+          if (selectedFolder && timerDuration > 0 && timerRef.current) {
+            timerRef.current.reset(timerDuration);
+            timerRef.current.start();
           }
         }
       });
@@ -1309,20 +1305,24 @@ export default function FlashcardsContainer() {
     );
   }
 
-  // Show error state
+  // Handle error silently - show loading state instead of error page
   if (error) {
     return (
-      <LoadingStates.ErrorState
-        error={error}
-        onRetry={() => {
-          clearError();
-          setSelectedFolder(null);
-        }}
-      />
+      <>
+        {/* Black background overlay covering entire page including header/footer */}
+        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
+          <LoadingStates.DataLoading
+            progress={loadingProgress}
+            step={loadingStep || "Loading..."}
+            folder={selectedFolder}
+          />
+        </div>
+      </>
     );
   }
 
-  // Show error state if there's an error and no data
+  // Handle error silently - show loading state instead of error page
   if (
     (!flashcards.length ||
     !currentFlashcard ||
@@ -1330,13 +1330,17 @@ export default function FlashcardsContainer() {
     error
   ) {
     return (
-      <LoadingStates.ErrorState
-        error={error}
-        onRetry={() => {
-          clearError();
-          setSelectedFolder(null);
-        }}
-      />
+      <>
+        {/* Black background overlay covering entire page including header/footer */}
+        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
+        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
+          <LoadingStates.DataLoading
+            progress={loadingProgress}
+            step={loadingStep || "Loading..."}
+            folder={selectedFolder}
+          />
+        </div>
+      </>
     );
   }
   

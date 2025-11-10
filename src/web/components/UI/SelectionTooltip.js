@@ -60,15 +60,28 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
     clearAllTimeouts();
     setIsExiting(true);
 
-    exitTimeoutRef.current = window.setTimeout(() => {
+    // For click-outside, call onDismiss immediately to advance to next stock
+    if (reason === 'click-outside') {
       onDismiss?.({ reason });
-      exitTimeoutRef.current = null;
+      exitTimeoutRef.current = window.setTimeout(() => {
+        exitTimeoutRef.current = null;
+        cleanupTimeoutRef.current = window.setTimeout(() => {
+          setIsExiting(false);
+          cleanupTimeoutRef.current = null;
+        }, 100);
+      }, 250);
+    } else {
+      // For auto-dismiss, use the normal delay
+      exitTimeoutRef.current = window.setTimeout(() => {
+        onDismiss?.({ reason });
+        exitTimeoutRef.current = null;
 
-      cleanupTimeoutRef.current = window.setTimeout(() => {
-        setIsExiting(false);
-        cleanupTimeoutRef.current = null;
-      }, 100);
-    }, 250);
+        cleanupTimeoutRef.current = window.setTimeout(() => {
+          setIsExiting(false);
+          cleanupTimeoutRef.current = null;
+        }, 100);
+      }, 250);
+    }
   }, [onDismiss]);
 
   useEffect(() => {
@@ -109,12 +122,14 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
     ...style,
   };
 
-  // Handle click outside to dismiss
+  // Handle click outside to dismiss - simplified and more reliable
   const handleBackdropClick = useCallback((event) => {
     // Dismiss when clicking on the backdrop
     event.stopPropagation();
-    startExit('click-outside');
-  }, [startExit]);
+    if (!isExiting) {
+      startExit('click-outside');
+    }
+  }, [startExit, isExiting]);
 
   // Handle click on document to dismiss when clicking outside the tooltip
   useEffect(() => {
@@ -126,7 +141,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
       if (tooltipElement && !tooltipElement.contains(event.target)) {
         // Don't dismiss if clicking on chart elements (let chart handle it)
         const isChartClick = event.target.closest('svg') || event.target.closest('[data-chart-container]');
-        if (!isChartClick) {
+        if (!isChartClick && !isExiting) {
           startExit('click-outside');
         }
       }
@@ -135,23 +150,26 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
     // Add a small delay to prevent immediate dismissal when tooltip first appears
     const timeoutId = setTimeout(() => {
       document.addEventListener('click', handleDocumentClick, true);
+      document.addEventListener('mousedown', handleDocumentClick, true);
     }, 100);
 
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleDocumentClick, true);
+      document.removeEventListener('mousedown', handleDocumentClick, true);
     };
   }, [show, isExiting, startExit]);
 
   return (
     <>
       {/* Backdrop overlay - click outside to dismiss */}
-      {/* Positioned absolutely to cover the parent container (chart area) */}
+      {/* Positioned absolutely to cover the entire viewport */}
       {show && !isExiting && (
         <div
-          className="fixed inset-0 z-[58] bg-black/5 transition-opacity duration-250"
+          className="fixed inset-0 z-[58] bg-transparent transition-opacity duration-250"
           onClick={handleBackdropClick}
-          style={{ pointerEvents: 'auto' }}
+          onMouseDown={handleBackdropClick}
+          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
         />
       )}
       <div
@@ -163,6 +181,11 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
         }`}
         style={tooltipStyle}
         onClick={(event) => {
+          // Stop propagation so clicking tooltip doesn't trigger backdrop
+          event.stopPropagation();
+        }}
+        onMouseDown={(event) => {
+          // Stop propagation so clicking tooltip doesn't trigger backdrop
           event.stopPropagation();
         }}
       >
