@@ -7,9 +7,9 @@
 
 export const AUTH_CONFIG = {
   PAGES: {
-    SIGN_IN: "/login",
-    ERROR: "/login",
-    SIGN_OUT: "/login"
+    SIGN_IN: "/",
+    ERROR: "/",
+    SIGN_OUT: "/"
   },
   
   SESSION: {

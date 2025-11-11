@@ -24,17 +24,29 @@ const FormInput = ({
   required = false,
   autoComplete,
   placeholder,
-  className = ''
+  className = '',
+  error
 }) => {
   const handleChange = (e) => {
     onChange(e.target.value);
   };
 
+  const labelClasses = `block text-sm font-medium mb-1 ${
+    error ? 'text-red-200' : 'text-turquoise-400'
+  }`;
+
+  const inputClasses = [
+    'mt-1 block w-full rounded-md px-3 py-2 shadow-sm transition-colors focus:ring-1',
+    error
+      ? 'border border-red-400 bg-red-950/30 text-red-200 placeholder-red-300/70 focus:border-red-400 focus:ring-red-400'
+      : 'bg-soft-gray-50 border border-turquoise-700/50 text-turquoise-300 placeholder-turquoise-600/50 focus:border-turquoise-500 focus:ring-turquoise-500',
+  ].join(' ');
+
   return (
     <div className={className}>
       <label 
         htmlFor={id} 
-        className="block text-sm font-medium text-turquoise-400 mb-1"
+        className={labelClasses}
       >
         {label}
       </label>
@@ -43,16 +55,22 @@ const FormInput = ({
         id={id}
         value={value}
         onChange={handleChange}
-        className="mt-1 block w-full rounded-md bg-soft-gray-50 border border-turquoise-700/50 text-turquoise-300 placeholder-turquoise-600/50 shadow-sm focus:border-turquoise-500 focus:ring-turquoise-500 focus:ring-1 transition-colors px-3 py-2"
+        className={inputClasses}
         required={required}
         autoComplete={autoComplete}
         placeholder={placeholder}
         aria-describedby={required ? `${id}-required` : undefined}
+        aria-invalid={Boolean(error)}
       />
       {required && (
         <span id={`${id}-required`} className="sr-only">
           This field is required
         </span>
+      )}
+      {error && (
+        <p className="mt-1 text-xs text-red-300" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );

@@ -43,6 +43,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
   const lastScrollY = useRef(0);
   const scrollingDirection = useRef('down');
   const prevExpandedFilesRef = useRef([]);
+  const prevFetchKeyRef = useRef(null);
 
   // Function to expand visible items that aren't manually controlled
   const expandVisibleItems = useCallback(() => {
@@ -56,7 +57,10 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
 
   // Main effect for fetching stock files when the current stock changes
   useEffect(() => {
-    if (!session) return;
+    if (!session) {
+      prevFetchKeyRef.current = null;
+      return;
+    }
     
     // Don't fetch if no current stock
     if (!currentStock) {
@@ -74,6 +78,24 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
       return;
     }
     
+    const flashcardsKey = Array.isArray(flashcards)
+      ? flashcards
+          .map((card, index) => {
+            if (!card || typeof card !== 'object') return `card-${index}`;
+            return card.id || card.fileName || card.slug || `card-${index}`;
+          })
+          .join('|')
+      : 'none';
+    const currentFlashcardKey = currentFlashcard
+      ? currentFlashcard.id || currentFlashcard.fileName || currentFlashcard.slug || 'selected'
+      : 'none';
+    const fetchKey = `${session?.user?.id || 'anon'}|${currentStock}|${flashcardsKey}|${currentFlashcardKey}`;
+
+    if (prevFetchKeyRef.current === fetchKey) {
+      return;
+    }
+    prevFetchKeyRef.current = fetchKey;
+
     // Clear error and debug info immediately, but keep files visible during transition
     setError(null);
     setDebugInfo('');

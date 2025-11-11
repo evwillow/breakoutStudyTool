@@ -674,7 +674,12 @@ export default function FlashcardsContainer() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.error('Failed to load rounds:', result.error);
+        const message =
+          result?.error?.message ||
+          result?.error ||
+          result?.message ||
+          `Unexpected response (${response.status})`;
+        console.error('Failed to load rounds:', message, { result });
         setAvailableRounds([]);
         // Try to create a new round even if loading fails, so the game can still work
         const autoName = generateRoundName();

@@ -115,6 +115,29 @@ export const useAuth = () => {
     }
   }, [update]);
 
+  const signInWithProvider = useCallback(async (provider, options = {}) => {
+    const finalOptions = {
+      redirect: options.redirect ?? true,
+      ...options,
+    };
+
+    try {
+      const result = await signIn(provider, finalOptions);
+
+      // When redirecting, NextAuth handles navigation and returns undefined
+      if (!finalOptions.redirect && !result?.error && typeof update === 'function') {
+        update().catch((err) => {
+          console.error('Session refresh error:', err);
+        });
+      }
+
+      return result;
+    } catch (error) {
+      console.error(`Sign in with ${provider} error:`, error);
+      return { error: error.message || `Unable to sign in with ${provider}` };
+    }
+  }, [update]);
+
   return {
     // State
     session,
@@ -126,6 +149,7 @@ export const useAuth = () => {
     
     // Methods
     signIn: signInWithCredentials,
+    signInWithProvider,
     signOut: signOutUser,
     update
   };

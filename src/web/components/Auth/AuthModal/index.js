@@ -55,8 +55,17 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   const [databaseError, setDatabaseError] = useState(false);
   const [captchaToken, setCaptchaToken] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [systemStatus, setSystemStatus] = useState(null);
 
-  const { signIn, update } = useAuth();
+  const { signIn: signInWithCredentials, signInWithProvider, update } = useAuth();
+  const isGoogleEnabled =
+    Boolean(process.env.NEXT_PUBLIC_GOOGLE_SIGNIN_ENABLED?.toLowerCase() === 'true') ||
+    Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+  const googleDisabledMessage =
+    process.env.NODE_ENV === 'development'
+      ? 'Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and NEXTAUTH_URL to enable it.'
+      : 'Google sign-in is not available right now. Contact support if you need it enabled.';
 
   // Reset form and mode when modal opens
   useEffect(() => {
@@ -96,6 +105,41 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     
     return () => {
       document.body.style.overflow = '';
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let isActive = true;
+    setSystemStatus(null);
+
+    testDatabaseConnection()
+      .then((result) => {
+        if (!isActive) return;
+
+        if (result?.success) {
+          setSystemStatus({
+            state: 'ready',
+            message: 'You can sign up right away—we’re ready when you are.',
+          });
+        } else {
+          setSystemStatus({
+            state: 'monitoring',
+            message: 'If anything feels off, reach us on support and we’ll help immediately.',
+          });
+        }
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setSystemStatus({
+          state: 'monitoring',
+          message: 'If anything feels off, reach us on support and we’ll help immediately.',
+        });
+      });
+
+    return () => {
+      isActive = false;
     };
   }, [open]);
 
@@ -200,7 +244,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
 
     // Auto sign in after successful signup
     console.log('✅ Signup successful, attempting auto sign-in...');
-    const signInResult = await signIn({
+    const signInResult = await signInWithCredentials({
       email: formData.email,
       password: formData.password
     });
@@ -243,7 +287,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       
       const emailValidationMessage = validationErrors.email;
       if (emailValidationMessage && emailValidationMessage.includes('already exists')) {
-        const autoSignInResult = await signIn({
+        const autoSignInResult = await signInWithCredentials({
           email: formData.email,
           password: formData.password
         });
@@ -308,7 +352,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     console.log('📧 Email:', formData.email);
     console.log('🔑 Password length:', formData.password?.length || 0);
     
-    const result = await signIn({
+    const result = await signInWithCredentials({
       email: formData.email,
       password: formData.password
     });
@@ -326,6 +370,40 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (!isGoogleEnabled) {
+      setError(
+        'Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable it.'
+      );
+      return;
+    }
+
+    setError(null);
+    setDatabaseError(false);
+    setIsGoogleLoading(true);
+
+    try {
+      const callbackUrl =
+        typeof window !== 'undefined' && window.location
+          ? window.location.href
+          : undefined;
+
+      const result = await signInWithProvider('google', {
+        callbackUrl,
+        redirect: true,
+      });
+
+      // With redirect true, NextAuth navigates away, so we shouldn't reach here.
+      if (result?.error) {
+        console.error('Google sign-in failed:', result.error);
+      }
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   const toggleMode = () => {
     const newMode = mode === AUTH_MODES.SIGNIN ? AUTH_MODES.SIGNUP : AUTH_MODES.SIGNIN;
     console.log('🔄 Toggling auth mode from', mode, 'to', newMode);
@@ -335,67 +413,83 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     setFieldErrors({});
   };
 
+  const isSignup = mode === AUTH_MODES.SIGNUP;
   // Ensure modal is always rendered when open, using portal for proper z-index stacking
   if (!open) return null;
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] overflow-y-auto">
-      <div className="fixed inset-0 bg-turquoise-950 bg-opacity-70 backdrop-blur-sm"></div>
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-soft-white rounded-md p-6 sm:p-8 w-full max-w-xs sm:max-w-sm md:max-w-md relative text-turquoise-300 shadow-2xl border border-turquoise-700/50">
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-turquoise-400 hover:text-turquoise-300 transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded"
-          aria-label="Close modal"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-block p-3 bg-turquoise-900/50 rounded-md mb-2 border border-turquoise-700/50">
-            <svg className="w-8 h-8 text-turquoise-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-turquoise-300">
-            {mode === AUTH_MODES.SIGNIN ? UI_TEXT.WELCOME_BACK : UI_TEXT.CREATE_ACCOUNT}
-          </h2>
-          <p className="text-turquoise-400 mt-1">
-            {mode === AUTH_MODES.SIGNIN ? UI_TEXT.SIGNIN_SUBTITLE : UI_TEXT.SIGNUP_SUBTITLE}
-          </p>
-        </div>
+      <div className="fixed inset-0 bg-turquoise-950/70 backdrop-blur-sm"></div>
+      <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+        <div className="relative w-full max-w-2xl">
+          <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-br from-turquoise-900/25 via-transparent to-transparent blur-3xl"></div>
+          <div className="relative overflow-hidden rounded-3xl border border-turquoise-200/60 bg-soft-white/95 shadow-2xl shadow-turquoise-950/20">
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 z-10 rounded-full bg-white/80 p-2 text-turquoise-500 transition hover:text-turquoise-400 focus:outline-none focus:ring-2 focus:ring-turquoise-400"
+              aria-label="Close modal"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
 
-        {/* Form */}
-        {mode === AUTH_MODES.SIGNIN ? (
-          <SignInForm
-            formData={formData}
-            onInputChange={handleInputChange}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            error={error}
-            databaseError={databaseError}
-            onToggleMode={toggleMode}
-          />
-        ) : (
-          <SignUpForm
-            formData={formData}
-            onInputChange={handleInputChange}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-            error={error}
-            databaseError={databaseError}
-            fieldErrors={fieldErrors}
-            captchaToken={captchaToken}
-            onCaptchaVerify={handleCaptchaVerify}
-            onCaptchaReset={handleCaptchaReset}
-            onToggleMode={toggleMode}
-            HCaptchaComponent={HCaptcha}
-          />
-        )}
+            <div className="flex flex-col gap-6 p-6 sm:p-8">
+              <div className="space-y-3 text-center sm:text-left">
+                <h2 className="text-2xl font-semibold text-turquoise-800 sm:text-3xl">
+                  {isSignup ? UI_TEXT.CREATE_ACCOUNT : UI_TEXT.WELCOME_BACK}
+                </h2>
+                <p className="text-sm text-turquoise-500/90 sm:text-base">
+                  {isSignup ? UI_TEXT.SIGNUP_SUBTITLE : UI_TEXT.SIGNIN_SUBTITLE}
+                </p>
+                {systemStatus?.message && (
+                  <p className="text-xs text-turquoise-400/80 sm:text-sm">{systemStatus.message}</p>
+                )}
+              </div>
+
+              {isSignup ? (
+                <SignUpForm
+                  formData={formData}
+                  onInputChange={handleInputChange}
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  error={error}
+                  databaseError={databaseError}
+                  fieldErrors={fieldErrors}
+                  captchaToken={captchaToken}
+                  onCaptchaVerify={handleCaptchaVerify}
+                  onCaptchaReset={handleCaptchaReset}
+                  onToggleMode={toggleMode}
+                  onGoogleSignIn={handleGoogleSignIn}
+                  isGoogleLoading={isGoogleLoading}
+                  isGoogleEnabled={isGoogleEnabled}
+                  googleUnavailableMessage={googleDisabledMessage}
+                  onTermsClick={onClose}
+                  HCaptchaComponent={HCaptcha}
+                />
+              ) : (
+                <SignInForm
+                  formData={formData}
+                  onInputChange={handleInputChange}
+                  onSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  error={error}
+                  databaseError={databaseError}
+                  onToggleMode={toggleMode}
+                  onGoogleSignIn={handleGoogleSignIn}
+                  isGoogleLoading={isGoogleLoading}
+                  isGoogleEnabled={isGoogleEnabled}
+                  googleUnavailableMessage={googleDisabledMessage}
+                />
+              )}
+
+              {isSignup && systemStatus?.message && (
+                <div className="rounded-2xl border border-turquoise-200/40 bg-turquoise-50/70 p-4 text-xs text-turquoise-600">
+                  {systemStatus.message}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

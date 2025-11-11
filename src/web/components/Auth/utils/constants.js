@@ -27,9 +27,9 @@ export const SUCCESS_MESSAGES = {
 
 export const UI_TEXT = {
   WELCOME_BACK: 'Welcome Back',
-  CREATE_ACCOUNT: 'Create Account',
-  SIGNIN_SUBTITLE: 'Sign in to continue to the app',
-  SIGNUP_SUBTITLE: 'Sign up to get started',
+  CREATE_ACCOUNT: 'Join Breakout Study',
+  SIGNIN_SUBTITLE: 'Jump right back into your personalized drills.',
+  SIGNUP_SUBTITLE: 'Create your practice HQ in seconds.',
   EMAIL_LABEL: 'Email',
   PASSWORD_LABEL: 'Password',
   SIGNIN_BUTTON: 'Sign In',
@@ -39,7 +39,11 @@ export const UI_TEXT = {
   TERMS_TEXT: 'By creating an account, you agree to our',
   TERMS_LINK: 'Terms of Service',
   SIGNOUT_BUTTON: 'Sign Out',
-  SIGNIN_SIGNUP_BUTTON: 'Sign In/Sign Up'
+  SIGNIN_SIGNUP_BUTTON: 'Sign In/Sign Up',
+  OR_WITH_EMAIL: 'or continue with email',
+  GOOGLE_CONTINUE: 'Continue with Google',
+  GOOGLE_SIGNIN: 'Sign in with Google',
+  PASSWORD_HELP_TITLE: 'What you unlock',
 };
 
 export const DATABASE_ERROR_SOLUTIONS = [

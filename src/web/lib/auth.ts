@@ -9,13 +9,16 @@
  * - Performance optimizations for user lookups
  * - Comprehensive logging and monitoring
  */
+import { randomUUID } from "crypto";
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { logger } from "@/lib/utils/logger";
 import { AuthenticationError, ErrorCodes } from "@/lib/utils/errorHandling";
 import { authService } from "./auth/services/authService";
 import { AUTH_CONFIG } from "./auth/constants";
 import type { AuthUser, AuthCredentials, AuthSession, AuthToken } from "./auth/types";
+import { getServerSupabaseClient } from "@/lib/supabase";
 
 // Environment validation with graceful fallbacks in development
 const ensureAuthEnv = (): void => {
@@ -32,97 +35,197 @@ const ensureAuthEnv = (): void => {
 // Ensure minimal auth env on module load without forcing unrelated services
 ensureAuthEnv();
 
+const providers: AuthOptions["providers"] = [];
+
+const shouldEnableGoogle =
+  !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
+
+if (shouldEnableGoogle) {
+  providers.push(
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    })
+  );
+} else if (process.env.NODE_ENV !== "production") {
+  logger.warn(
+    "Google sign-in is disabled. Provide GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable it."
+  );
+}
+
+providers.push(
+  CredentialsProvider({
+    id: "credentials",
+    name: "Credentials",
+    credentials: {
+      email: {
+        label: "Email",
+        type: "email",
+        placeholder: "Enter your email address",
+      },
+      password: {
+        label: "Password",
+        type: "password",
+        placeholder: "Enter your password",
+      },
+    },
+    /**
+     * Enhanced authorize function with improved security and error handling
+     */
+    async authorize(credentials): Promise<AuthUser | null> {
+      const startTime = Date.now();
+
+      try {
+        // Input validation
+        if (!credentials?.email || !credentials?.password) {
+          logger.warn("Auth attempt with missing credentials", {
+            hasEmail: !!credentials?.email,
+            hasPassword: !!credentials?.password,
+            ip: "redacted", // IP would be logged separately for security
+          });
+          return null;
+        }
+
+        // Validate credential format
+        const validatedCredentials = authService.validateCredentials({
+          email: credentials.email,
+          password: credentials.password,
+        });
+
+        if (!validatedCredentials.isValid || !validatedCredentials.data) {
+          logger.warn("Auth attempt with invalid credential format", {
+            email: credentials.email.split("@")[1], // Log domain only
+            errors: validatedCredentials.errors,
+          });
+          return null;
+        }
+
+        // Authenticate user with enhanced security
+        const authResult = await authService.authenticateUser(
+          validatedCredentials.data
+        );
+
+        if (!authResult.success || !authResult.user) {
+          logger.warn("Authentication failed", {
+            email: credentials.email.split("@")[1],
+            reason: authResult.reason,
+            duration: Date.now() - startTime,
+          });
+          return null;
+        }
+
+        // Log successful authentication
+        logger.info("User authenticated successfully", {
+          userId: authResult.user.id,
+          email: credentials.email.split("@")[1],
+          duration: Date.now() - startTime,
+        });
+
+        return authResult.user;
+      } catch (error) {
+        // Enhanced error handling with security considerations
+        const errorId = Math.random().toString(36).substring(7);
+
+        logger.error("Authentication error", {
+          errorId,
+          email: credentials?.email?.split("@")[1] || "unknown",
+          error: error instanceof Error ? error.message : "Unknown error",
+          duration: Date.now() - startTime,
+        });
+
+        // Don't expose internal errors to prevent information leakage
+        return null;
+      }
+    },
+  })
+);
+
+type OAuthUserRecord = Pick<AuthUser, "id" | "email">;
+
+const ensureOAuthUser = async (email: string, name?: string): Promise<OAuthUserRecord> => {
+  const normalizedEmail = email.toLowerCase();
+  const supabase = getServerSupabaseClient();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("users")
+    .select("id, email")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  if (fetchError) {
+    logger.error("Supabase lookup failed during OAuth sign-in", {
+      emailDomain: normalizedEmail.split("@")[1],
+      error: fetchError.message,
+    });
+    throw new Error(fetchError.message);
+  }
+
+  if (existing) {
+    return existing as OAuthUserRecord;
+  }
+
+  const placeholderSecret = randomUUID();
+  const hashedPassword = await authService.hashPassword(placeholderSecret);
+
+  const { data: created, error: insertError } = await supabase
+    .from("users")
+    .insert({
+      email: normalizedEmail,
+      password: hashedPassword,
+    })
+    .select("id, email")
+    .single();
+
+  if (insertError) {
+    logger.error("Supabase insert failed during OAuth sign-in", {
+      emailDomain: normalizedEmail.split("@")[1],
+      error: insertError.message,
+      code: insertError.code,
+    });
+    throw new Error(insertError.message);
+  }
+
+  logger.info("OAuth user created", {
+    emailDomain: normalizedEmail.split("@")[1],
+  });
+
+  return created as OAuthUserRecord;
+};
+
 /**
  * NextAuth.js configuration with enhanced security and performance
  */
 export const authConfig: AuthOptions = {
-  providers: [
-    CredentialsProvider({
-      id: "credentials",
-      name: "Credentials",
-      credentials: {
-        email: { 
-          label: "Email", 
-          type: "email",
-          placeholder: "Enter your email address"
-        },
-        password: { 
-          label: "Password", 
-          type: "password",
-          placeholder: "Enter your password"
-        }
-      },
-      /**
-       * Enhanced authorize function with improved security and error handling
-       */
-      async authorize(credentials): Promise<AuthUser | null> {
-        const startTime = Date.now();
-        
-        try {
-          // Input validation
-          if (!credentials?.email || !credentials?.password) {
-            logger.warn('Auth attempt with missing credentials', {
-              hasEmail: !!credentials?.email,
-              hasPassword: !!credentials?.password,
-              ip: 'redacted' // IP would be logged separately for security
-            });
-            return null;
-          }
-
-          // Validate credential format
-          const validatedCredentials = authService.validateCredentials({
-            email: credentials.email,
-            password: credentials.password
-          });
-
-          if (!validatedCredentials.isValid || !validatedCredentials.data) {
-            logger.warn('Auth attempt with invalid credential format', {
-              email: credentials.email.split('@')[1], // Log domain only
-              errors: validatedCredentials.errors
-            });
-            return null;
-          }
-
-          // Authenticate user with enhanced security
-          const authResult = await authService.authenticateUser(validatedCredentials.data);
-          
-          if (!authResult.success || !authResult.user) {
-            logger.warn('Authentication failed', {
-              email: credentials.email.split('@')[1],
-              reason: authResult.reason,
-              duration: Date.now() - startTime
-            });
-            return null;
-          }
-
-          // Log successful authentication
-          logger.info('User authenticated successfully', {
-            userId: authResult.user.id,
-            email: credentials.email.split('@')[1],
-            duration: Date.now() - startTime
-          });
-
-          return authResult.user;
-
-        } catch (error) {
-          // Enhanced error handling with security considerations
-          const errorId = Math.random().toString(36).substring(7);
-          
-          logger.error('Authentication error', {
-            errorId,
-            email: credentials?.email?.split('@')[1] || 'unknown',
-            error: error instanceof Error ? error.message : 'Unknown error',
-            duration: Date.now() - startTime
-          });
-
-          // Don't expose internal errors to prevent information leakage
-          return null;
-        }
-      }
-    })
-  ],
+  providers,
 
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google") {
+        const email = profile?.email || user?.email;
+
+        if (!email) {
+          logger.error("Google sign-in attempted without an email profile");
+          return false;
+        }
+
+        try {
+          const dbUser = await ensureOAuthUser(email, profile?.name);
+          (user as AuthUser).id = dbUser.id;
+          (user as AuthUser).email = dbUser.email;
+          if (!user.name && profile?.name) {
+            (user as AuthUser).name = profile.name;
+          }
+        } catch (error) {
+          logger.error("Failed to ensure OAuth user", {
+            emailDomain: email.split("@")[1],
+            error: error instanceof Error ? error.message : String(error),
+          });
+          return false;
+        }
+      }
+
+      return true;
+    },
     /**
      * Enhanced JWT callback with better type safety
      */
@@ -161,12 +264,6 @@ export const authConfig: AuthOptions = {
       }
       return session as AuthSession;
     }
-  },
-
-  pages: {
-    signIn: AUTH_CONFIG.PAGES.SIGN_IN,
-    error: AUTH_CONFIG.PAGES.ERROR,
-    signOut: AUTH_CONFIG.PAGES.SIGN_OUT
   },
 
   session: {

@@ -67,8 +67,13 @@ const RoundHistory = ({ isOpen, onClose, onLoadRound, userId, onRefresh }) => {
       console.log('Received data:', data);
       
       if (!fetchResponse.ok) {
-        console.error('RoundHistory: Error fetching rounds:', data.error);
-        throw new Error(data.error || "Failed to fetch rounds");
+        const message =
+          data?.error?.message ||
+          data?.error ||
+          data?.message ||
+          `Unexpected response (${fetchResponse.status})`;
+        console.error('RoundHistory: Error fetching rounds:', message, { data });
+        throw new Error(message || "Failed to fetch rounds");
       }
       
       console.log('RoundHistory: Number of rounds found:', data.data?.length || 0);
