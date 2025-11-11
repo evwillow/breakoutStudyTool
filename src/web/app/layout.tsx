@@ -18,11 +18,35 @@ import { getGoogleAnalyticsScript, getGoogleAnalyticsConfig } from "@/lib/config
 
 // Define metadata for SEO and browser tab
 export const metadata: Metadata = {
-  title: "Breakout Study Tool",
-  description: "Tool for studying the classic Qullamaggie breakout!",
+  metadataBase: new URL("https://breakoutstudytool.com"),
+  title: "Breakout Trading Practice | Breakout Study Tool",
+  description: "Train breakout recognition with focused drills, instant after-chart feedback, and progress tracking designed for active traders.",
   icons: {
     icon: '/favicon.svg',
-  }
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
+  openGraph: {
+    title: "Breakout Trading Practice | Breakout Study Tool",
+    description: "Sharpen your breakout execution with curated drills, instant feedback, and trader-built workflows.",
+    url: "https://breakoutstudytool.com",
+    siteName: "Breakout Study Tool",
+    images: [
+      {
+        url: "/og-preview.svg",
+        width: 1200,
+        height: 630,
+        alt: "Breakout Study Tool preview showing breakout drill interface",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Breakout Trading Practice | Breakout Study Tool",
+    description: "Practice breakouts faster with trader-built drills and instant feedback.",
+    images: ["/og-preview.svg"],
+  },
 }
 
 export default function RootLayout({

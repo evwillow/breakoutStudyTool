@@ -468,6 +468,7 @@ const StockChart = React.memo(({
   isInDelayPhase = false,
   afterAnimationComplete = false,
   forceShowSMA = false,
+  tightPadding = false,
   onChartClick = null,
   userSelection = null,
   targetPoint = null,
@@ -490,6 +491,7 @@ const StockChart = React.memo(({
   
   // Use either data or csvData prop
   const chartData = data || csvData;
+  const shouldRenderSMA = showSMA || forceShowSMA;
   
   // Handle container resize with debounce for performance
   useEffect(() => {
@@ -550,15 +552,17 @@ const StockChart = React.memo(({
         
         setIsMobile(isMobileView);
         
-        const margin = { 
-          top: 0, // No top margin - chart extends to top of container
-          right: isMobileView ? 10 : 15, 
-          bottom: 0, // No bottom margin - volume section extends to bottom of container
-          left: 0 // No left margin - chart extends to left edge of container
-        };
+        const margin = tightPadding
+          ? { top: 0, right: 0, bottom: 0, left: 0 }
+          : {
+              top: 0,
+              right: isMobileView ? 10 : 15,
+              bottom: 0,
+              left: isMobileView ? 10 : 15,
+            };
         
-        const innerWidth = containerWidth - margin.left - margin.right;
-        const innerHeight = containerHeight - margin.top - margin.bottom;
+        const innerWidth = Math.max(containerWidth - margin.left - margin.right, 0);
+        const innerHeight = Math.max(containerHeight - margin.top - margin.bottom, 0);
         
         // Only update dimensions if they actually changed (prevent feedback loop)
         const newDims = {
@@ -852,7 +856,7 @@ const StockChart = React.memo(({
     
     // Adjust padding for mobile - reduce padding to move data visualization further right
     // Reduced padding so data takes up more of the chart width, moving the divider line further right
-    const xScalePadding = isMobile ? 0.05 : 0.1;
+    const xScalePadding = tightPadding ? 0 : (isMobile ? 0.05 : 0.1);
     
     // Calculate x-scale range so that the last D.json data point ends at the divider line
     // Divider line position: Mobile 70%, Desktop 75% of innerWidth
@@ -993,10 +997,11 @@ const StockChart = React.memo(({
       isZoomedOut: zoomPercentage > 0,
       extendedDomain: extendedIndices.length > combinedIndices.length
     };
-  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage, isMobile, chartType]);
+  }, [dimensions, stockData, afterStockData, hasSMA10, hasSMA20, hasSMA50, visibleAfterData, zoomPercentage, isMobile, chartType, tightPadding]);
 
   // Create line generators for SMA
   const sma10Line = useMemo(() => {
+    if (!shouldRenderSMA) return null;
     if (!scales || !stockData.length) return null;
     
     // Special handling for hourly chart
@@ -1015,7 +1020,9 @@ const StockChart = React.memo(({
     
     // If no valid points, don't try to create a line
     if (validSMA10Points.length === 0) {
-      console.warn("No valid SMA10 points to render");
+      if (shouldRenderSMA) {
+        console.warn("No valid SMA10 points to render");
+      }
       return null;
     }
     
@@ -1046,10 +1053,11 @@ const StockChart = React.memo(({
         const isInDomain = scales.xScale.domain().includes(i);
         return hasValidValue && isInDomain;
       });
-  }, [scales, stockData]);
+  }, [scales, stockData, shouldRenderSMA, chartType]);
   
   // Create line generators for SMA20 and SMA50 (similar to SMA10)
   const sma20Line = useMemo(() => {
+    if (!shouldRenderSMA) return null;
     if (!scales || !stockData.length) return null;
     
     // Special handling for hourly chart
@@ -1068,7 +1076,9 @@ const StockChart = React.memo(({
     
     // If no valid points, don't try to create a line
     if (validSMA20Points.length === 0) {
-      console.warn("No valid SMA20 points to render");
+      if (shouldRenderSMA) {
+        console.warn("No valid SMA20 points to render");
+      }
       return null;
     }
     
@@ -1092,9 +1102,10 @@ const StockChart = React.memo(({
         const isInDomain = scales.xScale.domain().includes(i);
         return hasValidValue && isInDomain;
       });
-  }, [scales, stockData]);
+  }, [scales, stockData, shouldRenderSMA, chartType]);
   
   const sma50Line = useMemo(() => {
+    if (!shouldRenderSMA) return null;
     if (!scales || !stockData.length) return null;
     
     // Check if we have valid SMA50 values to render
@@ -1105,7 +1116,9 @@ const StockChart = React.memo(({
     
     // If no valid points, don't try to create a line
     if (validSMA50Points.length === 0) {
-      console.warn("No valid SMA50 points to render");
+      if (shouldRenderSMA) {
+        console.warn("No valid SMA50 points to render");
+      }
       return null;
     }
     
@@ -1129,7 +1142,7 @@ const StockChart = React.memo(({
         const isInDomain = scales.xScale.domain().includes(i);
         return hasValidValue && isInDomain;
       });
-  }, [scales, stockData]);
+  }, [scales, stockData, shouldRenderSMA]);
 
   // Create SMA line generators for after data
   const afterSma10Line = useMemo(() => {
@@ -1777,7 +1790,15 @@ const StockChart = React.memo(({
           return dimensions.width;
         })()} ${dimensions.height}`}
         className={`w-full h-full transition-opacity duration-500 ease-in-out ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
-        preserveAspectRatio={chartType === 'hourly' ? 'xMidYMid slice' : chartType === 'previous' ? 'xMinYMid meet' : 'xMidYMid meet'}
+        preserveAspectRatio={
+          tightPadding
+            ? 'none'
+            : chartType === 'hourly'
+              ? 'xMidYMid slice'
+              : chartType === 'previous'
+                ? 'xMinYMid meet'
+                : 'xMidYMid meet'
+        }
         onClick={handleChartClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -2338,7 +2359,8 @@ const StockChart = React.memo(({
     prevProps.zoomPercentage === nextProps.zoomPercentage &&
     prevProps.isInDelayPhase === nextProps.isInDelayPhase &&
     prevProps.afterAnimationComplete === nextProps.afterAnimationComplete &&
-    prevProps.forceShowSMA === nextProps.forceShowSMA
+    prevProps.forceShowSMA === nextProps.forceShowSMA &&
+    prevProps.tightPadding === nextProps.tightPadding
   );
 });
 
