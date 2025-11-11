@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { signOut, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Logo from "./Logo"
 import { AuthModal } from "../Auth"
@@ -22,7 +23,7 @@ const Header = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalMode, setAuthModalMode] = useState('signin')
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const [scrolled, setScrolled] = useState(false)
   const [headerHeight, setHeaderHeight] = useState(56) // Default to 3.5rem (56px)
   const mobileMenuRef = useRef(null)
@@ -31,6 +32,37 @@ const Header = () => {
   const hamburgerButtonRef = useRef(null)
   const mobileMenuPanelRef = useRef(null)
   const mobileMenuButtonsRef = useRef(null)
+  const router = useRouter()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+  const [pendingSignOut, setPendingSignOut] = useState(false)
+
+  const handleSignOutRequest = useCallback(async () => {
+    if (isSigningOut) {
+      return
+    }
+
+    setPendingSignOut(true)
+    setIsSigningOut(true)
+
+    try {
+      await signOut({ redirect: false })
+      if (typeof update === "function") {
+        await update()
+      }
+      router.refresh()
+    } catch (error) {
+      console.error("Sign out failed:", error)
+      setPendingSignOut(false)
+    } finally {
+      setIsSigningOut(false)
+    }
+  }, [isSigningOut, router, update])
+
+  useEffect(() => {
+    if (!session) {
+      setPendingSignOut(false)
+    }
+  }, [session])
 
   // Measure header height and update on resize/menu toggle
   useEffect(() => {
@@ -484,7 +516,7 @@ const Header = () => {
 
           {/* Authentication / User menu - right aligned */}
           <div className="justify-self-end flex items-center ml-1 sm:ml-2 relative pr-2 pt-1 max-[800px]:absolute max-[800px]:top-1 max-[800px]:right-2 max-[800px]:ml-0 max-[800px]:pr-0 z-[101]">
-            {session ? (
+            {session && !pendingSignOut ? (
               <div className="relative hidden min-[800px]:block" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(v => !v)}
@@ -519,7 +551,10 @@ const Header = () => {
                     </div>
                     <div className="border-t" />
                     <button
-                      onClick={() => { setUserMenuOpen(false); signOut({ redirect: false }) }}
+                      onClick={() => {
+                        setUserMenuOpen(false)
+                        handleSignOutRequest()
+                      }}
                       className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-gray-50"
                     >
                       Sign Out
@@ -749,11 +784,11 @@ const Header = () => {
                 backgroundColor: 'rgba(0, 0, 0, 0.8)' // Ensure buttons have background
               }}
             >
-              {session ? (
+              {session && !pendingSignOut ? (
                 <button
                   onClick={() => {
-                    signOut({ redirect: false })
                     setMobileMenuOpen(false)
+                    handleSignOutRequest()
                   }}
                   className="w-full px-5 py-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-base font-semibold rounded-md shadow-lg hover:from-turquoise-500 hover:to-turquoise-400 transition-all duration-200 active:scale-[0.98]"
                 >
