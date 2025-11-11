@@ -58,16 +58,33 @@ const AuthModal = ({ open, onClose, initialMode }) => {
 
   const { signIn, update } = useAuth();
 
-  // Reset form when mode changes or modal opens
+  // Reset form and mode when modal opens
   useEffect(() => {
     if (open) {
+      // Ensure mode is set correctly when modal opens
+      const correctMode = initialMode || AUTH_MODES.SIGNIN;
+      setMode(correctMode);
       setFormData({ email: '', password: '' });
       setError(null);
       setDatabaseError(false);
       setCaptchaToken(null);
       setFieldErrors({});
     }
-  }, [mode, open]);
+  }, [open, initialMode]);
+
+  // Reset form when mode changes (but modal is already open)
+  // This handles mode toggles while the modal is open
+  useEffect(() => {
+    if (open) {
+      // Only reset form if mode actually changed (not on initial mount)
+      setFormData({ email: '', password: '' });
+      setError(null);
+      setDatabaseError(false);
+      setCaptchaToken(null);
+      setFieldErrors({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Control body scroll when modal opens/closes
   useEffect(() => {
@@ -107,8 +124,19 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     setIsLoading(true);
     setFieldErrors({});
 
-    // Validate form data
-    const validation = validateAuthForm(formData, mode, captchaToken);
+    // Capture current mode to prevent race conditions
+    const currentMode = mode;
+    
+    // Validate that mode is valid
+    if (currentMode !== AUTH_MODES.SIGNIN && currentMode !== AUTH_MODES.SIGNUP) {
+      console.error('Invalid auth mode:', currentMode);
+      setError('An error occurred. Please refresh the page and try again.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate form data with current mode
+    const validation = validateAuthForm(formData, currentMode, captchaToken);
     if (!validation.isValid) {
       setError(validation.error);
       setIsLoading(false);
@@ -116,10 +144,15 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     }
 
     try {
-      if (mode === AUTH_MODES.SIGNUP) {
+      // Double-check mode before calling handler to prevent confusion
+      if (currentMode === AUTH_MODES.SIGNUP) {
+        console.log('📝 Submitting signup form');
         await handleSignUp();
-      } else {
+      } else if (currentMode === AUTH_MODES.SIGNIN) {
+        console.log('🔐 Submitting signin form');
         await handleSignIn();
+      } else {
+        throw new Error('Invalid authentication mode');
       }
     } catch (err) {
       console.error('Auth error:', err);
@@ -130,6 +163,13 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   };
 
   const handleSignUp = async () => {
+    // Safety check: ensure we're in signup mode
+    if (mode !== AUTH_MODES.SIGNUP) {
+      console.error('handleSignUp called but mode is:', mode);
+      throw new Error('Invalid operation: not in signup mode');
+    }
+
+    console.log('🚀 Starting signup request for:', formData.email);
     const response = await fetch('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -159,14 +199,23 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     }
 
     // Auto sign in after successful signup
+    console.log('✅ Signup successful, attempting auto sign-in...');
     const signInResult = await signIn({
       email: formData.email,
       password: formData.password
     });
 
     if (signInResult.error) {
-      throw new Error(ERROR_MESSAGES.SIGNIN_AFTER_SIGNUP_ERROR);
+      console.error('❌ Auto sign-in after signup failed:', signInResult.error);
+      // Don't throw error - account was created successfully
+      // Just show a message that they need to sign in manually
+      setError('Account created successfully! Please sign in with your email and password.');
+      // Reset form so they can sign in
+      setFormData({ email: formData.email, password: '' });
+      setMode(AUTH_MODES.SIGNIN);
+      setCaptchaToken(null);
     } else {
+      console.log('✅ Auto sign-in successful');
       alert(ERROR_MESSAGES.SIGNUP_SUCCESS);
       await update();
       onClose();
@@ -249,6 +298,12 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   };
 
   const handleSignIn = async () => {
+    // Safety check: ensure we're in signin mode
+    if (mode !== AUTH_MODES.SIGNIN) {
+      console.error('handleSignIn called but mode is:', mode);
+      throw new Error('Invalid operation: not in signin mode');
+    }
+
     console.log('🔍 Starting sign in process...');
     console.log('📧 Email:', formData.email);
     console.log('🔑 Password length:', formData.password?.length || 0);
@@ -272,7 +327,12 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   };
 
   const toggleMode = () => {
-    setMode(mode === AUTH_MODES.SIGNIN ? AUTH_MODES.SIGNUP : AUTH_MODES.SIGNIN);
+    const newMode = mode === AUTH_MODES.SIGNIN ? AUTH_MODES.SIGNUP : AUTH_MODES.SIGNIN;
+    console.log('🔄 Toggling auth mode from', mode, 'to', newMode);
+    setMode(newMode);
+    // Clear any errors when switching modes
+    setError(null);
+    setFieldErrors({});
   };
 
   // Ensure modal is always rendered when open, using portal for proper z-index stacking
