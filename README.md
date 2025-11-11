@@ -217,6 +217,8 @@ GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----..."
 
 # Analytics
 NEXT_PUBLIC_GA_MEASUREMENT_ID="G-XXXXXXXXXX"
+GOOGLE_APPLICATION_CREDENTIALS="src/analytics/credentials/ga-service-account.json"
+GA_PROPERTY_ID="your-ga4-property-id"
 ```
 
 ---

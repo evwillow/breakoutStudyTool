@@ -1,0 +1,5 @@
+# Google Analytics Data API dependencies
+# Install with: pip install google-analytics-data
+
+google-analytics-data>=0.18.0
+
