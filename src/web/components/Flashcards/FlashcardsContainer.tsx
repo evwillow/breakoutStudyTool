@@ -37,6 +37,13 @@ import { useTimer } from "./hooks/useTimer";
 import { processFlashcardData, extractStockName, FlashcardData } from "./utils/dataProcessors";
 import { GAME_CONFIG, UI_CONFIG, TIMER_CONFIG } from "./constants";
 
+declare global {
+  interface Window {
+    __roundCache?: Record<string, { rounds: any[]; fetchedAt: number }>;
+    __matchCache?: Record<string, any>;
+  }
+}
+
 // Type the imported JS components
 const TypedChartSection = ChartSection as React.ComponentType<any>;
 const TypedFolderSection = FolderSection as React.ComponentType<any>;

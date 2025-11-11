@@ -6,9 +6,9 @@
 import React from 'react';
 
 interface DataLoadingProps {
-  progress: number;
-  step: string;
-  folder: string | null;
+  progress?: number;
+  step?: string;
+  folder?: string | null;
 }
 
 interface ErrorStateProps {
@@ -63,9 +63,18 @@ export const AuthLoading: React.FC = () => (
 );
 
 // Data loading state with progress
-export const DataLoading: React.FC<DataLoadingProps> = () => (
-  <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center bg-black">
+export const DataLoading: React.FC<DataLoadingProps> = ({ progress, step, folder }) => (
+  <div className="w-full h-[calc(100vh-14rem)] flex flex-col items-center justify-center bg-black gap-4">
     <div className="animate-spin rounded-full h-14 w-14 border-4 border-turquoise-400 border-t-transparent border-r-turquoise-400 border-b-turquoise-400" />
+    {(progress !== undefined || step || folder) && (
+      <div className="flex flex-col items-center text-center text-sm text-turquoise-200 gap-1">
+        {progress !== undefined && (
+          <span className="font-semibold tracking-wide">{`Loading ${Math.round(progress * 100)}%`}</span>
+        )}
+        {step && <span>{step}</span>}
+        {folder && <span className="text-turquoise-300">{folder}</span>}
+      </div>
+    )}
   </div>
 );
 

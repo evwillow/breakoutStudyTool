@@ -22,6 +22,8 @@ const BEFORE_PATH = "/D.json";
 const AFTER_PATH = "/after.json";
 const PRESET_FEEDBACK = "Sample plan tags the breakout but leaves room to tighten the stop.";
 
+const TypedStockChart = StockChart as React.ComponentType<any>;
+
 const toNumber = (value: any, fallback = 0) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
@@ -224,7 +226,7 @@ const LandingDrillPreview: React.FC<LandingDrillPreviewProps> = ({ highlight }) 
               </div>
             ) : (
               <div className="absolute inset-0 pointer-events-none">
-                <StockChart
+                <TypedStockChart
                   data={beforeData}
                   afterData={afterData}
                   showAfterAnimation={isRevealed}
