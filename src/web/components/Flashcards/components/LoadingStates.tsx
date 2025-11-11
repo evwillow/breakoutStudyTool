@@ -63,45 +63,9 @@ export const AuthLoading: React.FC = () => (
 );
 
 // Data loading state with progress
-export const DataLoading: React.FC<DataLoadingProps> = ({ 
-  progress, 
-  step, 
-  folder 
-}) => (
-  <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black overflow-hidden">
-    <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl w-[28rem] border border-white mx-auto box-border">
-    <div className="relative">
-      <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-turquoise-400 font-bold text-lg">{progress}%</span>
-      </div>
-    </div>
-    <div className="text-center space-y-3">
-      <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
-        Loading Dataset
-      </h2>
-      <p className="text-turquoise-300 text-lg font-medium">{step}</p>
-      {/* Always reserve space for folder section to maintain consistent box height */}
-      <div className="flex items-center justify-center gap-2 pt-2 min-h-[2.5rem]">
-        {folder ? (
-          <>
-            <span className="text-gray-400 text-sm">Folder:</span>
-            <span className="text-turquoise-400 text-sm font-semibold bg-gray-900 px-3 py-1 rounded-md border border-turquoise-500/30">
-              {folder}
-            </span>
-          </>
-        ) : (
-          <span className="opacity-0 pointer-events-none" aria-hidden="true">&nbsp;</span>
-        )}
-      </div>
-    </div>
-    <div className="w-full bg-gray-900 rounded-full h-3 border border-gray-700">
-      <div 
-        className="bg-gradient-to-r from-turquoise-500 to-turquoise-400 h-3 rounded-full transition-all duration-300 ease-in-out shadow-lg shadow-turquoise-500/50"
-        style={{ width: `${progress}%` }}
-      ></div>
-    </div>
-    </div>
+export const DataLoading: React.FC<DataLoadingProps> = () => (
+  <div className="w-full h-[calc(100vh-14rem)] flex items-center justify-center bg-black">
+    <div className="animate-spin rounded-full h-14 w-14 border-4 border-turquoise-400 border-t-transparent border-r-turquoise-400 border-b-turquoise-400" />
   </div>
 );
 

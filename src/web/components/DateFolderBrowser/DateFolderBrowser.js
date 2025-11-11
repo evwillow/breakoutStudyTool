@@ -79,6 +79,9 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     setDebugInfo('');
     setIsLoading(true);
     
+    const abortController = new AbortController();
+    let isActive = true;
+
     const fetchAllStockFiles = async () => {
       try {
         // Parse current stock to get ticker and breakout date
@@ -113,9 +116,12 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         const currentBreakoutDate = new Date(currentYear, currentMonthIndex, currentDay);
         
         // Get all files from quality_breakouts folder
-        const foldersRes = await fetch("/api/files/local-folders");
+        const foldersRes = await fetch("/api/files/local-folders", {
+          signal: abortController.signal,
+        });
         if (!foldersRes.ok) {
           console.error(`Error fetching folders: ${foldersRes.status}`);
+          throw new Error(`Failed to load folders (status ${foldersRes.status})`);
           return;
         }
         
@@ -353,12 +359,29 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
           setTimeout(() => setIsLoading(false), 100);
         });
       } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        if (error?.name === 'AbortError') {
+          console.warn('Cancelled historical file fetch for DateFolderBrowser');
+          return;
+        }
+
         console.error('Failed to load previous setups:', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        setError(message);
+        setDebugInfo(`Error loading previous setups: ${message}`);
         setIsLoading(false);
       }
     };
     
     fetchAllStockFiles();
+
+    return () => {
+      isActive = false;
+      abortController.abort();
+    };
   }, [session, currentStock, flashcards, currentFlashcard]);
 
 

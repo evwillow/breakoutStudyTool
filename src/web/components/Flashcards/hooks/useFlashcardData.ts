@@ -60,6 +60,7 @@ export function useFlashcardData({
   // Refs for cleanup
   const mountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const foldersDataRef = useRef<any[]>([]);
   
   // Get or create abort controller
   const getAbortController = useCallback(() => {
@@ -124,6 +125,7 @@ export function useFlashcardData({
         
         console.log("Setting folders state...");
         setFolders(data.folders);
+        foldersDataRef.current = data.folders;
         console.log("Folders state set");
         
         // Auto-select first folder if none selected
@@ -167,42 +169,79 @@ export function useFlashcardData({
     try {
       setLoading(true);
       setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.INITIALIZING);
-      setLoadingStep('Initializing...');
+      setLoadingStep('Preparing dataset...');
       setError(null);
       
       console.log("Starting flashcard fetch for folder:", selectedFolder);
       
-      // Get all stock breakouts for the selected date
-      const response = await fetch(`/api/files/local-folders`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || ERROR_MESSAGES.DATA_FETCH_ERROR);
-      }
-      
       setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.LOADING_FLASHCARDS);
       setLoadingStep('Loading flashcards...');
       
-      const data = await response.json();
-      
-      if (data.success && data.folders && Array.isArray(data.folders)) {
-        // Find the selected folder
-        const selectedFolderData = data.folders.find((folder: any) => folder.name === selectedFolder);
+      let foldersPayload = foldersDataRef.current;
+      let fetchedFromNetwork = false;
+
+      if (!foldersPayload || foldersPayload.length === 0) {
+        const response = await fetch(`/api/files/local-folders`);
         
-        if (!selectedFolderData || !selectedFolderData.files || selectedFolderData.files.length === 0) {
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || ERROR_MESSAGES.DATA_FETCH_ERROR);
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !Array.isArray(data.folders)) {
           throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
         }
+
+        foldersPayload = data.folders;
+        foldersDataRef.current = data.folders;
+        setFolders(data.folders);
+        fetchedFromNetwork = true;
+      }
+
+      // Find the selected folder using cached or freshly fetched data
+      let selectedFolderData = foldersPayload?.find((folder: any) => folder.name === selectedFolder);
+
+      if (!selectedFolderData || !selectedFolderData.files || selectedFolderData.files.length === 0) {
+        // If cached data is missing or outdated, refetch once
+        if (!fetchedFromNetwork) {
+          const response = await fetch(`/api/files/local-folders`);
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || ERROR_MESSAGES.DATA_FETCH_ERROR);
+          }
+
+          const freshData = await response.json();
+
+          if (!freshData.success || !Array.isArray(freshData.folders)) {
+            throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
+          }
+
+          foldersPayload = freshData.folders;
+          foldersDataRef.current = freshData.folders;
+          setFolders(freshData.folders);
+
+          selectedFolderData = foldersPayload.find((folder: any) => folder.name === selectedFolder);
+        }
+      }
+
+      if (!selectedFolderData || !selectedFolderData.files || selectedFolderData.files.length === 0) {
+        throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
+      }
         
         setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.PROCESSING_DATA);
-        setLoadingStep('Processing chart data...');
+        setLoadingStep('Optimizing chart data...');
         
         // Load actual JSON data for each file
         // Strategy: Show UI as soon as we have ONE ready flashcard, then load rest in background
         const files = selectedFolderData.files;
         console.log(`Loading ${files.length} files for folder ${selectedFolder}`);
         
-        const QUICK_BATCH_SIZE = 20; // Load first 20 files in parallel for faster initial load
-        const BATCH_SIZE = 25; // Larger batches for faster background loading
+        const INITIAL_STOCK_COUNT = 2; // Number of stock folders to fully load before showing UI
+        const QUICK_BATCH_FILE_TARGET = 18; // Max files to load during quick bootstrap
+        const BACKGROUND_BATCH_SIZE = 50; // Larger batches for faster background loading
         const loadedFiles: any[] = [];
         let uiReady = false;
         let initialShuffleSeed: number | null = null; // Store shuffle seed to maintain consistent order
@@ -327,11 +366,114 @@ export function useFlashcardData({
           })
         ];
         
+        // Map stock directories to their files for quick access
+        const stockFilesMap = new Map<string, any[]>();
+        files.forEach((file: any) => {
+          const stockDir = file.fileName.split('/')[0];
+          if (!stockDir) {
+            return;
+          }
+          if (!stockFilesMap.has(stockDir)) {
+            stockFilesMap.set(stockDir, []);
+          }
+          stockFilesMap.get(stockDir)!.push(file);
+        });
+
+        // Determine stock order based on prioritized files to respect initial priority
+        const stockOrder: string[] = [];
+        prioritizedFiles.forEach((file: any) => {
+          const stockDir = file.fileName.split('/')[0];
+          if (stockDir && !stockOrder.includes(stockDir)) {
+            stockOrder.push(stockDir);
+          }
+        });
+
         // Load first quick batch to get UI ready ASAP (now with prioritization)
-        // Load enough files to get essential files + points.json + after.json + date-formatted files for at least one flashcard
-        // Include date-formatted files in initial batch so DateFolderBrowser can display them immediately
-        // Points.json is now loaded together with D.json in the same priority batch
-        const quickBatch = prioritizedFiles.slice(0, QUICK_BATCH_SIZE * 3); // Load more files in parallel for faster initial load
+        // Load enough files to get essential files + after.json + points.json + date-formatted files for a few flashcards
+        const quickBatchAdded = new Set<string>();
+        const quickBatch: any[] = [];
+        const stocksLoaded = new Set<string>();
+        const essentialFileNamesLower = new Set(['d.json', 'm.json']);
+        const optionalPriorityLower = new Set(['points.json']);
+        const afterFileNameLower = 'after.json';
+
+        for (const stockDir of stockOrder) {
+          const stockFiles = stockFilesMap.get(stockDir) || [];
+          if (stockFiles.length === 0) {
+            continue;
+          }
+
+          let addedForStock = false;
+          const tryAddFile = (file: any) => {
+            if (!file) return;
+            if (quickBatchAdded.has(file.fileName)) return;
+            quickBatch.push(file);
+            quickBatchAdded.add(file.fileName);
+            addedForStock = true;
+          };
+
+          // Essential timeframe files
+          stockFiles
+            .filter((file: any) => {
+              const lastPart = (file.fileName.split('/').pop() || file.fileName).toLowerCase();
+              return essentialFileNamesLower.has(lastPart);
+            })
+            .forEach(tryAddFile);
+
+          // Points file
+          const pointsFile = stockFiles.find((file: any) => {
+            const lastPart = (file.fileName.split('/').pop() || file.fileName).toLowerCase();
+            return optionalPriorityLower.has(lastPart);
+          });
+          if (pointsFile) {
+            tryAddFile(pointsFile);
+          }
+
+          // After file
+          const afterFile = stockFiles.find((file: any) => {
+            const lastPart = (file.fileName.split('/').pop() || file.fileName).toLowerCase();
+            return lastPart === afterFileNameLower;
+          });
+          if (afterFile) {
+            tryAddFile(afterFile);
+          }
+
+          // Limited set of date-formatted history files
+          stockFiles
+            .filter((file: any) => {
+              const lastPart = file.fileName.split('/').pop() || file.fileName;
+              return dateFilePattern.test(lastPart);
+            })
+            .slice(0, 3)
+            .forEach(tryAddFile);
+
+          if (addedForStock) {
+            stocksLoaded.add(stockDir);
+          }
+
+          if (quickBatch.length >= QUICK_BATCH_FILE_TARGET) {
+            break;
+          }
+
+          if (stocksLoaded.size >= INITIAL_STOCK_COUNT && quickBatch.length >= 6) {
+            break;
+          }
+        }
+
+        // Fallback: ensure we have at least some files to process
+        if (quickBatch.length === 0) {
+          const fallbackCount = Math.min(QUICK_BATCH_FILE_TARGET, prioritizedFiles.length);
+          for (let i = 0; i < fallbackCount; i++) {
+            const file = prioritizedFiles[i];
+            if (!quickBatchAdded.has(file.fileName)) {
+              quickBatch.push(file);
+              quickBatchAdded.add(file.fileName);
+            }
+          }
+        }
+
+        const quickBatchFileNames = new Set(quickBatch.map((file: any) => file.fileName));
+
         const quickPromises = quickBatch.map(async (file: any) => {
           try {
             const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
@@ -369,8 +511,10 @@ export function useFlashcardData({
         checkAndShowUI(loadedFiles);
         
         // If still not ready, load more files in parallel (no sequential wait)
-        if (!uiReady && prioritizedFiles.length > quickBatch.length) {
-          const nextQuickBatch = prioritizedFiles.slice(quickBatch.length, quickBatch.length + QUICK_BATCH_SIZE);
+        const prioritizedRemainder = prioritizedFiles.filter((file: any) => !quickBatchFileNames.has(file.fileName));
+
+        if (!uiReady && prioritizedRemainder.length > 0) {
+          const nextQuickBatch = prioritizedRemainder.slice(0, Math.min(QUICK_BATCH_FILE_TARGET, prioritizedRemainder.length));
           const nextQuickPromises = nextQuickBatch.map(async (file: any) => {
             try {
               const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
@@ -403,13 +547,14 @@ export function useFlashcardData({
         
         // Continue loading remaining files in background (non-blocking)
         // Start background loading immediately - no delay
-        const remainingFiles = prioritizedFiles.slice(loadedFiles.length);
+        const loadedFileNameSet = new Set(loadedFiles.map(file => file.fileName));
+        const remainingFiles = prioritizedFiles.filter((file: any) => !loadedFileNameSet.has(file.fileName));
         
         if (remainingFiles.length > 0) {
           // Start background loading immediately without any delay
           (async () => {
-            for (let i = 0; i < remainingFiles.length; i += BATCH_SIZE) {
-              const batch = remainingFiles.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < remainingFiles.length; i += BACKGROUND_BATCH_SIZE) {
+              const batch = remainingFiles.slice(i, i + BACKGROUND_BATCH_SIZE);
               const batchPromises = batch.map(async (file: any) => {
                 try {
                   const url = `/api/files/local-data?file=${encodeURIComponent(file.fileName)}&folder=${encodeURIComponent(selectedFolder)}`;
@@ -626,12 +771,9 @@ export function useFlashcardData({
         
         // If we didn't have ready flashcards, keep loading state active
         if (readyFlashcards.length === 0) {
-          setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.FINALIZING);
-          setLoadingStep('Waiting for essential files...');
+        setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.FINALIZING);
+        setLoadingStep('Finalizing dataset...');
         }
-      } else {
-        throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
-      }
     } catch (error: any) {
       console.error("Error fetching flashcards:", error);
       setError(error.message);
@@ -652,7 +794,7 @@ export function useFlashcardData({
   ) => {
     console.log(`Background loading: Starting to load ${missingFiles.length} files...`);
     
-    const BATCH_SIZE = 25; // Larger batch size for faster background loading
+    const BATCH_SIZE = 50; // Larger batch size for faster background loading
     
     for (let i = 0; i < missingFiles.length; i += BATCH_SIZE) {
       const batch = missingFiles.slice(i, i + BATCH_SIZE);

@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { signOut, useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Logo from "./Logo"
 import { AuthModal } from "../Auth"
+import { useAuth } from "../Auth/hooks/useAuth"
 
 /**
  * Header Component
@@ -23,7 +22,7 @@ const Header = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authModalMode, setAuthModalMode] = useState('signin')
-  const { data: session, update } = useSession()
+  const { session, signOut: signOutUser } = useAuth()
   const [scrolled, setScrolled] = useState(false)
   const [headerHeight, setHeaderHeight] = useState(56) // Default to 3.5rem (56px)
   const mobileMenuRef = useRef(null)
@@ -32,7 +31,6 @@ const Header = () => {
   const hamburgerButtonRef = useRef(null)
   const mobileMenuPanelRef = useRef(null)
   const mobileMenuButtonsRef = useRef(null)
-  const router = useRouter()
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [pendingSignOut, setPendingSignOut] = useState(false)
 
@@ -45,22 +43,18 @@ const Header = () => {
     setIsSigningOut(true)
 
     try {
-      await signOut({ redirect: false })
-      if (typeof update === "function") {
-        await update()
-      }
-      router.refresh()
+      await signOutUser({ callbackUrl: '/' })
     } catch (error) {
       console.error("Sign out failed:", error)
       setPendingSignOut(false)
-    } finally {
       setIsSigningOut(false)
     }
-  }, [isSigningOut, router, update])
+  }, [isSigningOut, signOutUser])
 
   useEffect(() => {
     if (!session) {
       setPendingSignOut(false)
+      setIsSigningOut(false)
     }
   }, [session])
 
@@ -662,7 +656,7 @@ const Header = () => {
             ref={mobileMenuRef}
             className="mobile-menu-backdrop fixed bg-black/60 backdrop-blur-sm min-[800px]:hidden transition-opacity duration-300 opacity-100 z-[99]"
             style={{ 
-              top: `${headerHeight}px`,
+              top: 0,
               left: 0,
               right: 0,
               bottom: 0,
@@ -725,15 +719,16 @@ const Header = () => {
           ref={mobileMenuPanelRef}
           className={`fixed right-0 w-56 bg-black/95 backdrop-blur-sm border-l border-white/30 shadow-2xl z-[99] min-[800px]:hidden flex flex-col transform transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}
           style={{ 
-            top: `${headerHeight}px`,
-            height: `calc(100vh - ${headerHeight}px)`,
-            maxHeight: `calc(100vh - ${headerHeight}px)`,
-            minHeight: 0,
+            top: 0,
+            height: `100vh`,
+            maxHeight: `100vh`,
+            minHeight: '100vh',
             overflow: 'hidden',
             pointerEvents: mobileMenuOpen ? 'auto' : 'none',
             touchAction: 'pan-y', // Allow vertical scrolling in menu
             WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
-            overscrollBehavior: 'contain' // Prevent scroll chaining
+            overscrollBehavior: 'contain', // Prevent scroll chaining
+            paddingTop: `${headerHeight}px`
           }}
           onClick={(e) => {
             e.stopPropagation()

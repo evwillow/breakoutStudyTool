@@ -1295,11 +1295,7 @@ export default function FlashcardsContainer() {
         {/* Black background overlay covering entire page including header/footer */}
         <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
         <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading
-            progress={loadingProgress}
-            step={loadingStep || (hasNoDataReady ? "Preparing data..." : isInitializing ? "Initializing..." : "")}
-            folder={selectedFolder}
-          />
+          <LoadingStates.DataLoading />
         </div>
       </>
     );
@@ -1312,11 +1308,7 @@ export default function FlashcardsContainer() {
         {/* Black background overlay covering entire page including header/footer */}
         <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
         <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading
-            progress={loadingProgress}
-            step={loadingStep || "Loading..."}
-            folder={selectedFolder}
-          />
+          <LoadingStates.DataLoading />
         </div>
       </>
     );
@@ -1334,11 +1326,7 @@ export default function FlashcardsContainer() {
         {/* Black background overlay covering entire page including header/footer */}
         <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
         <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading
-            progress={loadingProgress}
-            step={loadingStep || "Loading..."}
-            folder={selectedFolder}
-          />
+          <LoadingStates.DataLoading />
         </div>
       </>
     );
@@ -1356,11 +1344,7 @@ export default function FlashcardsContainer() {
       <>
         <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300" style={{ pointerEvents: 'none', opacity: 1 }} />
         <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading
-            progress={loadingProgress}
-            step="Finalizing data..."
-            folder={selectedFolder}
-          />
+          <LoadingStates.DataLoading />
         </div>
       </>
     );

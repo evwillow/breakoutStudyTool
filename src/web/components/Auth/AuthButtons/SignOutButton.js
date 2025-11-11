@@ -23,21 +23,32 @@ import { UI_TEXT } from '../utils/constants';
  */
 const SignOutButton = ({ className = "" }) => {
   const { signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = React.useState(false);
 
   const handleSignOut = async () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+
     try {
       await signOut();
     } catch (error) {
       console.error('Sign out failed:', error);
-      // Could add toast notification here
+      setIsSigningOut(false);
     }
   };
+
+  const buttonLabel = isSigningOut ? 'Signing out…' : UI_TEXT.SIGNOUT_BUTTON;
 
   return (
     <button
       onClick={handleSignOut}
-      className={`px-3 py-1.5 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-sm rounded-md shadow hover:from-turquoise-800 hover:to-turquoise-700 transition flex items-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-turquoise-500 ${className}`}
+      disabled={isSigningOut}
       aria-label="Sign out"
+      aria-busy={isSigningOut}
+      className={`px-3 py-1.5 bg-gradient-to-r from-turquoise-700 to-turquoise-600 text-white text-sm rounded-md shadow transition flex items-center focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-turquoise-500 disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
     >
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
@@ -53,9 +64,9 @@ const SignOutButton = ({ className = "" }) => {
         />
         <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
       </svg>
-      {UI_TEXT.SIGNOUT_BUTTON}
+      {buttonLabel}
     </button>
   );
 };
 
-export default SignOutButton; 
+export default SignOutButton;
