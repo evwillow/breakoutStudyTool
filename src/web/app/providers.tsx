@@ -13,7 +13,30 @@ import { AppError, ErrorCodes } from "@/lib/utils/errorHandling";
  * @param error The error that was thrown
  */
 const handleGlobalError = (error: any) => {
-  logger.error("Unhandled global error", error instanceof Error ? error : new Error(String(error)));
+  const errorObj = error instanceof Error ? error : new Error(String(error));
+  
+  // Handle ChunkLoadError - this happens when Next.js chunks fail to load
+  // Usually due to deployment updates or cache issues
+  if (errorObj.name === 'ChunkLoadError' || 
+      errorObj.message?.includes('Loading chunk') ||
+      errorObj.message?.includes('Failed to load resource')) {
+    logger.warn('ChunkLoadError detected - will reload page', {
+      error: errorObj.message,
+      url: typeof window !== 'undefined' ? window.location.href : undefined
+    });
+    
+    // Reload the page after a short delay to get fresh chunks
+    // Only reload once to prevent infinite loops
+    if (typeof window !== 'undefined' && !sessionStorage.getItem('chunk-reload-attempted')) {
+      sessionStorage.setItem('chunk-reload-attempted', 'true');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      return;
+    }
+  }
+  
+  logger.error("Unhandled global error", errorObj);
 };
 
 /**
@@ -34,13 +57,44 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   
   const rejectionHandler = useCallback((event: PromiseRejectionEvent) => {
     event.preventDefault();
-    handleGlobalError(event.reason);
+    
+    // Check for ChunkLoadError in promise rejections
+    const reason = event.reason;
+    if (reason && typeof reason === 'object') {
+      const errorName = (reason as any).name || (reason as any).constructor?.name;
+      const errorMessage = (reason as any).message || String(reason);
+      
+      if (errorName === 'ChunkLoadError' || 
+          errorMessage?.includes('Loading chunk') ||
+          errorMessage?.includes('Failed to load resource')) {
+        logger.warn('ChunkLoadError in promise rejection - will reload page', {
+          error: errorMessage,
+          url: window.location.href
+        });
+        
+        // Reload the page after a short delay
+        if (!sessionStorage.getItem('chunk-reload-attempted')) {
+          sessionStorage.setItem('chunk-reload-attempted', 'true');
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+          return;
+        }
+      }
+    }
+    
+    handleGlobalError(reason);
   }, []);
 
   // Set up global error handlers with optimized listeners
   useEffect(() => {
     // Initialize with current network status
     setIsOnline(navigator.onLine);
+    
+    // Clear chunk reload flag on mount (allows retry on new page load)
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('chunk-reload-attempted');
+    }
     
     // Log initialization for debugging (only once)
     logger.debug("Providers initialized", { isOnline: navigator.onLine });
@@ -50,6 +104,33 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     window.addEventListener('unhandledrejection', rejectionHandler);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    
+    // Listen for chunk loading errors specifically
+    const handleChunkError = (event: Event) => {
+      const target = event.target as HTMLElement;
+      if (target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK')) {
+        const src = (target as HTMLScriptElement).src || (target as HTMLLinkElement).href;
+        if (src && (src.includes('/_next/static/') || src.includes('chunk'))) {
+          const errorEvent = event as ErrorEvent;
+          if (errorEvent && (errorEvent.message?.includes('chunk') || 
+              errorEvent.message?.includes('Failed to load'))) {
+            logger.warn('Chunk loading error detected from script/link tag', {
+              src,
+              message: errorEvent.message
+            });
+            
+            if (!sessionStorage.getItem('chunk-reload-attempted')) {
+              sessionStorage.setItem('chunk-reload-attempted', 'true');
+              setTimeout(() => {
+                window.location.reload();
+              }, 1000);
+            }
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('error', handleChunkError, true);
 
     // Clean up event listeners on unmount
     return () => {
@@ -57,6 +138,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       window.removeEventListener('unhandledrejection', rejectionHandler);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('error', handleChunkError, true);
     };
   }, [errorHandler, rejectionHandler, handleOnline, handleOffline]);
 

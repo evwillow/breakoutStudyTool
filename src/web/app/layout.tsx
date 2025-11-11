@@ -46,6 +46,50 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased overflow-x-hidden">
+        {/* ChunkLoadError handler - runs before React loads */}
+        <Script
+          id="chunk-error-handler"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                // Handle chunk loading errors early
+                window.addEventListener('error', function(e) {
+                  if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+                    var src = e.target.src || e.target.href || '';
+                    if (src && (src.indexOf('/_next/static/') !== -1 || src.indexOf('chunk') !== -1)) {
+                      if (!sessionStorage.getItem('chunk-reload-attempted')) {
+                        sessionStorage.setItem('chunk-reload-attempted', 'true');
+                        setTimeout(function() {
+                          window.location.reload();
+                        }, 1000);
+                      }
+                    }
+                  }
+                }, true);
+                
+                // Handle unhandled promise rejections for chunk errors
+                window.addEventListener('unhandledrejection', function(e) {
+                  var reason = e.reason;
+                  if (reason && typeof reason === 'object') {
+                    var errorName = reason.name || (reason.constructor && reason.constructor.name) || '';
+                    var errorMessage = reason.message || String(reason) || '';
+                    if (errorName === 'ChunkLoadError' || 
+                        errorMessage.indexOf('Loading chunk') !== -1 ||
+                        errorMessage.indexOf('Failed to load resource') !== -1) {
+                      if (!sessionStorage.getItem('chunk-reload-attempted')) {
+                        sessionStorage.setItem('chunk-reload-attempted', 'true');
+                        setTimeout(function() {
+                          window.location.reload();
+                        }, 1000);
+                      }
+                    }
+                  }
+                });
+              })();
+            `,
+          }}
+        />
         {/* Global subtle wave background - fixed behind all content */}
         <div className="app-bg-waves" aria-hidden="true" />
         {/* Google Analytics - Only in production */}

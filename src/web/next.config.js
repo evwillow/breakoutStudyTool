@@ -24,7 +24,7 @@ const nextConfig = {
     NEXT_PUBLIC_USE_MOCK_DB: process.env.NODE_ENV === 'development' ? 'true' : 'false',
   },
   // Performance optimizations
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     // Optimize chunk splitting for better caching
     config.optimization.splitChunks = {
       chunks: 'all',
@@ -60,6 +60,12 @@ const nextConfig = {
     if (!dev) {
       config.optimization.usedExports = true;
       config.optimization.sideEffects = false;
+    }
+    
+    // Add error handling for chunk loading failures
+    if (!isServer && !dev) {
+      config.optimization.chunkIds = 'deterministic';
+      config.optimization.moduleIds = 'deterministic';
     }
 
     return config;
