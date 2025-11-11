@@ -12,7 +12,7 @@ export const ERROR_MESSAGES = {
   INVALID_EMAIL: 'Please enter a valid email address',
   CAPTCHA_REQUIRED: 'Please complete the CAPTCHA verification',
   CAPTCHA_FAILED: 'CAPTCHA verification failed. Please try again.',
-  INVALID_CREDENTIALS: 'Invalid username or password',
+  INVALID_CREDENTIALS: 'Invalid email or password',
   SIGNUP_FAILED: 'Failed to create account',
   SIGNIN_FAILED: 'Sign in failed',
   SIGNUP_SUCCESS: 'Account created successfully! You are now logged in.',

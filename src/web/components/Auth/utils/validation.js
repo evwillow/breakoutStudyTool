@@ -40,11 +40,20 @@ export const validateAuthForm = (formData, mode, captchaToken = null) => {
     };
   }
 
-  if (mode === 'signup' && !captchaToken) {
-    return {
-      isValid: false,
-      error: ERROR_MESSAGES.CAPTCHA_REQUIRED
-    };
+  if (mode === 'signup') {
+    if (password.length < 8) {
+      return {
+        isValid: false,
+        error: 'Password must be at least 8 characters long'
+      };
+    }
+    
+    if (!captchaToken) {
+      return {
+        isValid: false,
+        error: ERROR_MESSAGES.CAPTCHA_REQUIRED
+      };
+    }
   }
 
   return {

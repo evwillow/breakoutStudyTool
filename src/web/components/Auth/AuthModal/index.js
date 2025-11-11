@@ -224,15 +224,25 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     )) {
       setDatabaseError(true);
       setError(errorData.error + (errorData.details ? `: ${errorData.details}` : ''));
-    } else if (errorData.error?.code === 4000 || errorData.error?.message === 'Please check your input and try again.' || errorData.message === 'Please check your input and try again.') {
-      // Handle generic validation errors with clear requirements
-      setError('Please check your input. Email must be valid and your password needs at least 8 characters.');
+    } else if (errorData.error?.code === 4000 || errorData.error?.code === 4002 || errorData.error?.message === 'Please check your input and try again.' || errorData.message === 'Please check your input and try again.') {
+      // Handle generic validation errors - check if we have specific validation errors
+      if (validationErrors && Object.keys(validationErrors).length > 0) {
+        // We already handled validation errors above, but if we get here, show a helpful message
+        const errorMessages = Object.entries(validationErrors)
+          .map(([field, message]) => {
+            const fieldName = field === 'email' ? 'Email' : field === 'password' ? 'Password' : field.charAt(0).toUpperCase() + field.slice(1);
+            return `${fieldName}: ${message}`;
+          });
+        setError(errorMessages.join('\n'));
+      } else {
+        // Generic validation error without specific field errors
+        setError('Please check your input. Email must be valid and your password needs at least 8 characters.');
+      }
     } else {
       // Convert error to string if it's not already
       const errorMessage = errorData.error?.message || 
         (typeof errorData.error === 'string' ? errorData.error : null) ||
         errorData.message || 
-        JSON.stringify(errorData.error) || 
         ERROR_MESSAGES.SIGNUP_FAILED;
       setError(errorMessage);
     }

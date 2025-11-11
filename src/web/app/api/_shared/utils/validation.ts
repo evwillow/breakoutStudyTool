@@ -41,7 +41,8 @@ export function validateInput<T = any>(
 
     // Check required fields
     if (rule.required && (value === undefined || value === null || value === '')) {
-      errors[field] = `${field} is required`;
+      const fieldLabel = field === 'email' ? 'Email' : field === 'password' ? 'Password' : field.charAt(0).toUpperCase() + field.slice(1);
+      errors[field] = `${fieldLabel} is required`;
       continue;
     }
 
@@ -61,16 +62,17 @@ export function validateInput<T = any>(
 
     // String validations
     if (typeof value === 'string') {
+      const fieldLabel = field === 'email' ? 'Email' : field === 'password' ? 'Password' : field.charAt(0).toUpperCase() + field.slice(1);
       if (rule.minLength && value.length < rule.minLength) {
-        errors[field] = `${field} must be at least ${rule.minLength} characters`;
+        errors[field] = `${fieldLabel} must be at least ${rule.minLength} characters`;
         continue;
       }
       if (rule.maxLength && value.length > rule.maxLength) {
-        errors[field] = `${field} must be no more than ${rule.maxLength} characters`;
+        errors[field] = `${fieldLabel} must be no more than ${rule.maxLength} characters`;
         continue;
       }
       if (rule.pattern && !rule.pattern.test(value)) {
-        errors[field] = `${field} format is invalid`;
+        errors[field] = `${fieldLabel} format is invalid`;
         continue;
       }
     }
@@ -91,7 +93,8 @@ export function validateInput<T = any>(
     if (rule.custom) {
       const customResult = rule.custom(value);
       if (customResult !== true) {
-        errors[field] = typeof customResult === 'string' ? customResult : `${field} is invalid`;
+        const fieldLabel = field === 'email' ? 'Email' : field === 'password' ? 'Password' : field.charAt(0).toUpperCase() + field.slice(1);
+        errors[field] = typeof customResult === 'string' ? customResult : `${fieldLabel} is invalid`;
         continue;
       }
     }
@@ -111,30 +114,32 @@ export function validateInput<T = any>(
  * Validate a single value's type
  */
 function validateType(value: any, type: ValidationRule['type'], fieldName: string): string | null {
+  const fieldLabel = fieldName === 'email' ? 'Email' : fieldName === 'password' ? 'Password' : fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+  
   switch (type) {
     case 'string':
       if (typeof value !== 'string') {
-        return `${fieldName} must be a string`;
+        return `${fieldLabel} must be a string`;
       }
       break;
     case 'number':
       if (typeof value !== 'number' || isNaN(value)) {
-        return `${fieldName} must be a number`;
+        return `${fieldLabel} must be a number`;
       }
       break;
     case 'boolean':
       if (typeof value !== 'boolean') {
-        return `${fieldName} must be a boolean`;
+        return `${fieldLabel} must be a boolean`;
       }
       break;
     case 'email':
       if (typeof value !== 'string' || !isValidEmail(value)) {
-        return `${fieldName} must be a valid email address`;
+        return `Please enter a valid email address`;
       }
       break;
     case 'uuid':
       if (typeof value !== 'string' || !isValidUUID(value)) {
-        return `${fieldName} must be a valid UUID`;
+        return `${fieldLabel} must be a valid UUID`;
       }
       break;
   }
