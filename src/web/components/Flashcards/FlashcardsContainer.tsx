@@ -244,6 +244,94 @@ export default function FlashcardsContainer() {
     return result;
   }, [currentFlashcard, gameState.currentIndex]);
 
+  const currentFlashcardKey = useMemo(() => {
+    if (!currentFlashcard) {
+      return `index_${gameState.currentIndex}`;
+    }
+    const identifier = currentFlashcard.id || currentFlashcard.name || `index_${gameState.currentIndex}`;
+    return `${currentFlashcard.folderName || 'default'}::${identifier}`;
+  }, [currentFlashcard, gameState.currentIndex]);
+
+  const currentFlashcardReady = useMemo(() => {
+    if (!flashcards.length || !currentFlashcard) {
+      return false;
+    }
+
+    if (!currentFlashcard.jsonFiles || currentFlashcard.jsonFiles.length === 0) {
+      return false;
+    }
+
+    const filesLoaded = currentFlashcard.jsonFiles.every(file => file.data !== null && file.data !== undefined);
+    if (!filesLoaded) {
+      return false;
+    }
+
+    if (!processedData.orderedFiles.length) {
+      return false;
+    }
+
+    const orderedFilesLoaded = processedData.orderedFiles.every(file => file.data !== null && file.data !== undefined);
+    if (!orderedFilesLoaded) {
+      return false;
+    }
+
+    const hasPrimaryData = Array.isArray(processedData.orderedFiles[0]?.data) && processedData.orderedFiles[0].data.length > 0;
+    if (!hasPrimaryData) {
+      return false;
+    }
+
+    const afterDataValid = processedData.afterJsonData === null ||
+      (Array.isArray(processedData.afterJsonData) && processedData.afterJsonData.length >= 0);
+
+    return afterDataValid;
+  }, [flashcards, currentFlashcard, processedData]);
+
+  const [stabilizedFlashcard, setStabilizedFlashcard] = React.useState<FlashcardData | null>(null);
+  const [stabilizedData, setStabilizedData] = React.useState<ReturnType<typeof processFlashcardData>>({
+    orderedFiles: [],
+    afterJsonData: null,
+    pointsTextArray: [],
+  });
+  const stabilizedKeyRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (loading || !currentFlashcardReady || !currentFlashcard) {
+      return;
+    }
+
+    const nextKey = currentFlashcardKey;
+    const nextData = processedData;
+
+    setStabilizedData(prevData => {
+      const prevKey = stabilizedKeyRef.current;
+      const prevLen = prevData?.orderedFiles?.[0]?.data?.length ?? 0;
+      const nextLen = nextData?.orderedFiles?.[0]?.data?.length ?? 0;
+
+      if (prevKey === nextKey) {
+        if (nextLen > prevLen) {
+          stabilizedKeyRef.current = nextKey;
+          setStabilizedFlashcard(currentFlashcard);
+          return nextData;
+        }
+        return prevData;
+      }
+
+      stabilizedKeyRef.current = nextKey;
+      setStabilizedFlashcard(currentFlashcard);
+      return nextData;
+    });
+  }, [loading, currentFlashcardReady, currentFlashcard, processedData, currentFlashcardKey]);
+
+  const hasStableMatch = stabilizedKeyRef.current === currentFlashcardKey && stabilizedFlashcard;
+
+  const activeFlashcard = currentFlashcardReady
+    ? (hasStableMatch ? stabilizedFlashcard : currentFlashcard)
+    : (stabilizedFlashcard ?? currentFlashcard);
+
+  const activeProcessedData = currentFlashcardReady
+    ? (hasStableMatch ? stabilizedData : processedData)
+    : (stabilizedFlashcard ? stabilizedData : processedData);
+
   // Log match with coordinates
   const logMatchWithCoordinates = useCallback(async (data: {
     coordinates: { x: number; y: number };
@@ -557,6 +645,28 @@ export default function FlashcardsContainer() {
     }
 
     setIsLoadingRounds(true);
+    const cacheKey = `${session.user.id}_${datasetName}`;
+
+    if (!window.__roundCache) {
+      window.__roundCache = {};
+    }
+    const roundCache = window.__roundCache;
+
+    if (roundCache[cacheKey]) {
+      const cached = roundCache[cacheKey];
+      setAvailableRounds(cached.rounds || []);
+      if (cached.rounds && cached.rounds.length > 0) {
+        const cachedMostRecent = cached.rounds.find((round: any) => !round.completed) || cached.rounds[0];
+        if (cachedMostRecent && !pendingRoundRef.current) {
+          setCurrentRoundId(cachedMostRecent.id);
+          timer.reset(timerDuration);
+          if (timerDuration > 0) {
+            requestAnimationFrame(() => timer.start());
+          }
+        }
+      }
+    }
+
     try {
       const url = `/api/game/rounds?userId=${session.user.id}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
       
@@ -579,6 +689,10 @@ export default function FlashcardsContainer() {
       const rounds = result.data || [];
       
       setAvailableRounds(rounds);
+      roundCache[cacheKey] = {
+        rounds,
+        fetchedAt: Date.now(),
+      };
 
       // Skip auto-loading if there's a pending round to load (user selected a specific round)
       if (pendingRoundRef.current) {
@@ -590,25 +704,46 @@ export default function FlashcardsContainer() {
       const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
       
       if (mostRecentIncomplete) {
-        setCurrentRoundId(mostRecentIncomplete.id);
-        // Load matches for this round to initialize game state
-        try {
-          const matchResponse = await fetch(`/api/game/matches?roundId=${mostRecentIncomplete.id}`);
-          if (matchResponse.ok) {
-            const matchResult = await matchResponse.json();
-            const matches = matchResult.data || [];
-            if (matches.length > 0) {
-              gameState.initializeFromMatches(matches);
-            }
-          }
-        } catch (error) {
-          console.error('Error loading matches for auto-loaded round:', error);
+        const roundId = mostRecentIncomplete.id;
+        setCurrentRoundId(roundId);
+
+        if (!window.__matchCache) {
+          window.__matchCache = {};
         }
-        // Start timer for auto-loaded round
+
+        const matchCacheKey = roundId;
+        const matchCache = window.__matchCache;
+
+        if (matchCache[matchCacheKey]?.matches) {
+          gameState.initializeFromMatches(matchCache[matchCacheKey].matches);
+        } else {
+          (async () => {
+            try {
+              const matchResponse = await fetch(`/api/game/matches?roundId=${roundId}`);
+              if (matchResponse.ok) {
+                const matchResult = await matchResponse.json();
+                const matches = matchResult.data || [];
+                if (matches.length > 0) {
+                  matchCache[matchCacheKey] = {
+                    matches,
+                    fetchedAt: Date.now(),
+                  };
+                  gameState.initializeFromMatches(matches);
+                }
+              }
+            } catch (error) {
+              console.error('Error loading matches for auto-loaded round:', error);
+            }
+          })();
+        }
+
+        // Immediately start timer for the active round
         timer.reset(timerDuration);
-        setTimeout(() => {
-          timer.start();
-        }, 100);
+        if (timerDuration > 0) {
+          requestAnimationFrame(() => {
+            timer.start();
+          });
+        }
       } else if (rounds.length > 0) {
         setShowRoundSelector(true);
       } else {
@@ -617,7 +752,12 @@ export default function FlashcardsContainer() {
         const newRoundId = await createNewRound(autoName);
         if (newRoundId) {
           setCurrentRoundId(newRoundId);
-          // Timer will start automatically via useEffect when currentRoundId is set
+          timer.reset(timerDuration);
+          if (timerDuration > 0) {
+            requestAnimationFrame(() => {
+              timer.start();
+            });
+          }
         } else {
           // Even if round creation fails, allow game to work (practice mode)
           // Timer will start via the auto-start effect when flashcard loads
@@ -632,11 +772,12 @@ export default function FlashcardsContainer() {
       const newRoundId = await createNewRound(autoName);
       if (newRoundId) {
         setCurrentRoundId(newRoundId);
-        // Start timer for new round
         timer.reset(timerDuration);
-        setTimeout(() => {
-          timer.start();
-        }, 100);
+        if (timerDuration > 0) {
+          requestAnimationFrame(() => {
+            timer.start();
+          });
+        }
       } else {
         setShowRoundSelector(true);
       }
@@ -796,7 +937,7 @@ export default function FlashcardsContainer() {
 
   // Log match to database
   const logMatch = useCallback(async (buttonIndex: number, isCorrect: boolean) => {
-    if (!currentRoundId || !currentFlashcard || !session?.user?.id) {
+    if (!currentRoundId || !activeFlashcard || !session?.user?.id) {
       return; // Don't log if no active round or missing data
     }
 
@@ -807,7 +948,7 @@ export default function FlashcardsContainer() {
     }
 
     // Extract stock symbol from current flashcard
-    const stockSymbol = extractStockName(currentFlashcard) || 'UNKNOWN';
+    const stockSymbol = extractStockName(activeFlashcard) || 'UNKNOWN';
 
     const matchData = {
       round_id: currentRoundId,
@@ -890,7 +1031,7 @@ export default function FlashcardsContainer() {
     } catch (error) {
       console.error('Error logging match:', error instanceof Error ? error.message : String(error));
     }
-  }, [currentRoundId, currentFlashcard, session?.user?.id, triggerRoundHistoryRefresh]);
+  }, [currentRoundId, activeFlashcard, session?.user?.id, triggerRoundHistoryRefresh]);
 
   // Handle selection with timer integration and match logging
   const handleSelection = useCallback((buttonIndex: number) => {
@@ -902,11 +1043,11 @@ export default function FlashcardsContainer() {
 
   // Calculate target point and ranges from data
   const { targetPoint, priceRange, timeRange } = useMemo(() => {
-    if (!processedData.afterJsonData || !Array.isArray(processedData.afterJsonData) || processedData.afterJsonData.length === 0) {
+  if (!activeProcessedData.afterJsonData || !Array.isArray(activeProcessedData.afterJsonData) || activeProcessedData.afterJsonData.length === 0) {
       return { targetPoint: null, priceRange: null, timeRange: null };
     }
     
-    const mainData = processedData.orderedFiles[0]?.data || [];
+    const mainData = activeProcessedData.orderedFiles[0]?.data || [];
     const mainDataLength = mainData.length;
     
     // Find peak close price in after data
@@ -914,7 +1055,7 @@ export default function FlashcardsContainer() {
     let maxIndex = -1;
     let maxPrice = 0;
     
-    processedData.afterJsonData.forEach((point: any, index: number) => {
+    activeProcessedData.afterJsonData.forEach((point: any, index: number) => {
       const close = point.close || point.Close || point.CLOSE;
       if (close && typeof close === 'number' && close > maxClose) {
         maxClose = close;
@@ -931,7 +1072,7 @@ export default function FlashcardsContainer() {
       const close = point.close || point.Close || point.CLOSE;
       if (close && typeof close === 'number') allPrices.push(close);
     });
-    processedData.afterJsonData.forEach((point: any) => {
+    activeProcessedData.afterJsonData.forEach((point: any) => {
       const close = point.close || point.Close || point.CLOSE;
       if (close && typeof close === 'number') allPrices.push(close);
     });
@@ -941,7 +1082,7 @@ export default function FlashcardsContainer() {
     const pricePadding = (priceMax - priceMin) * 0.2; // 20% padding for extended selection
     
     // Calculate time range (extend beyond current data to allow future predictions)
-    const totalTimePoints = mainDataLength + processedData.afterJsonData.length;
+    const totalTimePoints = mainDataLength + activeProcessedData.afterJsonData.length;
     const timeMin = 0;
     const timeMax = totalTimePoints * 1.5; // Extend 50% beyond for future predictions
     const timeIndex = mainDataLength + maxIndex;
@@ -962,7 +1103,7 @@ export default function FlashcardsContainer() {
         max: timeMax,
       }
     };
-  }, [processedData.afterJsonData, processedData.orderedFiles]);
+  }, [activeProcessedData.afterJsonData, activeProcessedData.orderedFiles]);
 
   // Force selection when timer expires - selects at middle of selectable area
   // Must be defined after targetPoint, priceRange, and timeRange
@@ -972,7 +1113,7 @@ export default function FlashcardsContainer() {
       return;
     }
     
-    const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
+    const mainDataLength = activeProcessedData.orderedFiles[0]?.data?.length || 0;
     
     // Select at middle of the selectable time range (after last data point)
     // Use middle of price range for Y coordinate
@@ -994,7 +1135,7 @@ export default function FlashcardsContainer() {
       forcedCoordinates,
       (distance: number, score: number, scoreData?: any) => {
         // Log match with coordinates
-        const stockSymbol = extractStockName(currentFlashcard) || 'UNKNOWN';
+        const stockSymbol = extractStockName(activeFlashcard) || 'UNKNOWN';
         const isCorrect = scoreData?.priceAccuracy >= 70 || score >= 70;
         
         logMatchWithCoordinates({
@@ -1015,7 +1156,7 @@ export default function FlashcardsContainer() {
       timeRange
     );
     timer.pause();
-  }, [targetPoint, priceRange, timeRange, gameState, processedData, currentFlashcard, timer, logMatchWithCoordinates]);
+  }, [targetPoint, priceRange, timeRange, gameState, activeProcessedData, activeFlashcard, timer, logMatchWithCoordinates]);
 
   // Update the ref so timer can access forceSelection
   React.useEffect(() => {
@@ -1029,7 +1170,7 @@ export default function FlashcardsContainer() {
     }
     
     // Verify selection is after the last data point
-    const mainDataLength = processedData.orderedFiles[0]?.data?.length || 0;
+    const mainDataLength = activeProcessedData.orderedFiles[0]?.data?.length || 0;
     
     if (coordinates.x <= mainDataLength - 1) {
       // Selection is not in the future - don't process
@@ -1040,7 +1181,7 @@ export default function FlashcardsContainer() {
       coordinates,
       (distance: number, score: number, scoreData?: any) => {
         // Log match with coordinates
-        const stockSymbol = extractStockName(currentFlashcard) || 'UNKNOWN';
+        const stockSymbol = extractStockName(activeFlashcard) || 'UNKNOWN';
         const isCorrect = scoreData?.priceAccuracy >= 70 || score >= 70;
         
         logMatchWithCoordinates({
@@ -1061,7 +1202,7 @@ export default function FlashcardsContainer() {
       timeRange
     );
     timer.pause();
-  }, [gameState, timer, targetPoint, priceRange, timeRange, currentFlashcard, processedData, logMatchWithCoordinates]);
+  }, [gameState, timer, targetPoint, priceRange, timeRange, activeFlashcard, activeProcessedData, logMatchWithCoordinates]);
 
   // Start timer when a round is selected
   useEffect(() => {
@@ -1090,7 +1231,7 @@ export default function FlashcardsContainer() {
   // Note: handleNextCard manages its own timer, so we only start if timer isn't already running
   useEffect(() => {
     if (
-      currentFlashcard && 
+      activeFlashcard && 
       !loading && 
       selectedFolder && 
       timerDuration > 0 &&
@@ -1109,7 +1250,7 @@ export default function FlashcardsContainer() {
         });
       });
     }
-  }, [currentFlashcard, loading, selectedFolder, timerDuration, timer, currentRoundId, gameState.feedback, gameState.showTimeUpOverlay]);
+  }, [activeFlashcard, loading, selectedFolder, timerDuration, timer, currentRoundId, gameState.feedback, gameState.showTimeUpOverlay]);
   
   // Auto-advance 10 seconds after a selection is made (only if not paused)
   // This works in sync with the countdown timer in ChartScoreOverlay
@@ -1183,8 +1324,8 @@ export default function FlashcardsContainer() {
 
   // Extract stock name for DateFolderBrowser
   const currentStock = useMemo(() => 
-    extractStockName(currentFlashcard),
-    [currentFlashcard]
+    extractStockName(activeFlashcard),
+    [activeFlashcard]
   );
 
   // Ensure currentIndex stays within bounds when flashcards array changes
@@ -1259,21 +1400,7 @@ export default function FlashcardsContainer() {
   // Check that we have actual usable data: flashcards exist, current flashcard exists, and it has data files with actual data
   // Also verify the data is actually an array/object with content, not just an empty object
   // Ensure ALL required files have their data loaded (not just file references)
-  const hasValidData = flashcards.length > 0 && 
-                       currentFlashcard && 
-                       currentFlashcard.jsonFiles && 
-                       currentFlashcard.jsonFiles.length > 0 &&
-                       // Check that all jsonFiles have data loaded (not just file references)
-                       currentFlashcard.jsonFiles.every(file => file.data !== null && file.data !== undefined) &&
-                       processedData.orderedFiles.length > 0 && 
-                       // Ensure all ordered files have data
-                       processedData.orderedFiles.every(file => file.data !== null && file.data !== undefined) &&
-                       processedData.orderedFiles[0]?.data &&
-                       Array.isArray(processedData.orderedFiles[0].data) &&
-                       processedData.orderedFiles[0].data.length > 0 &&
-                       // Ensure processedData is fully ready (afterJsonData can be null, but if it exists it should be valid)
-                       (processedData.afterJsonData === null || 
-                        (Array.isArray(processedData.afterJsonData) && processedData.afterJsonData.length >= 0));
+  const hasValidData = currentFlashcardReady;
   
   // Show loading screen if:
   // 1. Session is not authenticated yet, OR
@@ -1317,8 +1444,8 @@ export default function FlashcardsContainer() {
   // Handle error silently - show loading state instead of error page
   if (
     (!flashcards.length ||
-    !currentFlashcard ||
-    processedData.orderedFiles.length === 0) &&
+    !activeFlashcard ||
+    activeProcessedData.orderedFiles.length === 0) &&
     error
   ) {
     return (
@@ -1361,8 +1488,8 @@ export default function FlashcardsContainer() {
             {/* Chart Section - Left side */}
             <div className="w-full lg:w-4/5">
               <TypedChartSection
-                orderedFiles={processedData.orderedFiles}
-                afterData={processedData.afterJsonData}
+                orderedFiles={activeProcessedData.orderedFiles}
+                afterData={activeProcessedData.afterJsonData}
                 timer={timer.displayValue}
                 pointsTextArray={[]}
                 feedback={gameState.feedback}
@@ -1400,7 +1527,7 @@ export default function FlashcardsContainer() {
                 timerDuration={timerDuration}
                 onTimerDurationChange={handleTimerDurationChange}
                 isCreatingRound={isCreatingRound}
-                pointsTextArray={processedData.pointsTextArray}
+                pointsTextArray={activeProcessedData.pointsTextArray}
                 isTimeUp={gameState.showTimeUpOverlay}
               />
             </div>
@@ -1412,7 +1539,7 @@ export default function FlashcardsContainer() {
               session={session} 
               currentStock={currentStock}
               flashcards={flashcards as FlashcardData[]}
-              currentFlashcard={currentFlashcard}
+            currentFlashcard={activeFlashcard}
               onChartExpanded={() => {
                 // Only restart timer if it's not already running
                 // This prevents the timer from restarting when scrolling causes charts to re-enter view
