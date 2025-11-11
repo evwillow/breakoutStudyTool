@@ -192,6 +192,43 @@ const ensureOAuthUser = async (email: string, name?: string): Promise<OAuthUserR
   return created as OAuthUserRecord;
 };
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function resolveSupabaseUserIdFromEmail(email?: string): Promise<string | null> {
+  if (!email) {
+    return null;
+  }
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    return null;
+  }
+
+  try {
+    const supabase = getServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email.toLowerCase())
+      .maybeSingle();
+
+    if (error) {
+      logger.error("Failed to resolve Supabase user ID by email", {
+        emailDomain: email.split("@")[1],
+        error: error.message,
+      });
+      return null;
+    }
+
+    return data?.id ?? null;
+  } catch (error) {
+    logger.error("Error resolving Supabase user ID from email", {
+      emailDomain: email.split("@")[1],
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
+}
+
 /**
  * NextAuth.js configuration with enhanced security and performance
  */
@@ -229,18 +266,43 @@ export const authConfig: AuthOptions = {
     /**
      * Enhanced JWT callback with better type safety
      */
-    async jwt({ token, user }) {
-      if (user) {
-        // Ensure type safety when adding user data to token
-        const authUser = user as AuthUser;
-        token.id = authUser.id;
-        token.name = authUser.name;
-        token.email = authUser.email;
+    async jwt({ token, user, account, profile }) {
+      const maybeUser = user as AuthUser | undefined;
+
+      if (maybeUser) {
+        token.id = maybeUser.id;
+        token.name = maybeUser.name;
+        token.email = maybeUser.email;
         
         logger.debug('JWT token created', { 
-          userId: authUser.id,
-          email: authUser.email.split('@')[1]
+          userId: maybeUser.id,
+          email: maybeUser.email.split('@')[1]
         });
+      }
+
+      const tokenEmail = (token.email || maybeUser?.email || "").toString();
+
+      if ((!token.id || !uuidRegex.test(String(token.id))) && tokenEmail) {
+        try {
+          if (account?.provider === "google" && profile?.email) {
+            const dbUser = await ensureOAuthUser(profile.email, profile?.name);
+            if (dbUser?.id) {
+              token.id = dbUser.id;
+            }
+          }
+
+          if (!token.id || !uuidRegex.test(String(token.id))) {
+            const resolvedId = await resolveSupabaseUserIdFromEmail(tokenEmail);
+            if (resolvedId) {
+              token.id = resolvedId;
+            }
+          }
+        } catch (error) {
+          logger.error("Failed to ensure Supabase user ID during JWT callback", {
+            emailDomain: tokenEmail.split("@")[1],
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
       return token;
     },
@@ -256,7 +318,14 @@ export const authConfig: AuthOptions = {
           name: authToken.name,
           email: authToken.email
         };
-        
+
+        if (session.user.email && (!session.user.id || !uuidRegex.test(session.user.id))) {
+          const resolvedId = await resolveSupabaseUserIdFromEmail(session.user.email);
+          if (resolvedId) {
+            session.user.id = resolvedId;
+          }
+        }
+
         logger.debug('Session created', { 
           userId: authToken.id,
           email: authToken.email.split('@')[1]
