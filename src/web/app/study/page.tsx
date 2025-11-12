@@ -28,11 +28,12 @@ function StudyContent() {
       // Force a complete reset by incrementing key and resetting trigger
       setTutorialTrigger(false);
       setTutorialKey(prev => prev + 1); // Force remount
-      // Set trigger to true after a small delay to ensure state reset
+      // Set trigger to true after a delay to ensure component has remounted and started loading
+      // Give it more time to ensure the component is ready
       setTimeout(() => {
         console.log('Setting tutorial trigger to true after reset (from event)');
         setTutorialTrigger(true);
-      }, 200);
+      }, 300);
     };
 
     window.addEventListener('replay-tutorial', handleReplayTutorial, true);
@@ -55,11 +56,12 @@ function StudyContent() {
       // Remove query parameter immediately (async to not block state update)
       setTimeout(() => {
         router.replace('/study', { scroll: false });
-        // Set trigger to true after a small delay to ensure state reset
+        // Set trigger to true after a delay to ensure component has remounted and started loading
+        // Give it more time to ensure the component is ready
         setTimeout(() => {
           console.log('Setting tutorial trigger to true after reset');
           setTutorialTrigger(true);
-        }, 200);
+        }, 300);
       }, 50);
     } else if (prevParam === 'true' && tutorialParam !== 'true') {
       // Parameter was just removed, ensure trigger is reset

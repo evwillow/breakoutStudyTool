@@ -59,6 +59,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
   const router = useRouter();
   
   // Track previous tutorial trigger to detect changes
+  // Initialize to false so any true value will be detected as a change
   const prevTutorialTriggerRef = React.useRef<boolean>(false);
   
   // Data management
@@ -877,40 +878,53 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
       }
       return;
     }
-    
-    // Update ref after checking for state changes
-    prevTutorialTriggerRef.current = tutorialTrigger;
 
     // Only proceed if we have all required conditions
     if (!session?.user?.id || loading) {
       console.log('Waiting for session or loading to complete');
+      // Don't update ref yet - wait until conditions are met
       return;
     }
 
     // If flashcards aren't loaded yet, wait for them
     if (flashcards.length === 0) {
       console.log('Tutorial triggered but waiting for flashcards to load...');
+      // Don't update ref yet - wait until conditions are met
       return;
     }
 
     // If folder isn't selected yet, wait for it
     if (!selectedFolder) {
       console.log('Tutorial triggered but waiting for folder selection...');
+      // Don't update ref yet - wait until conditions are met
       return;
     }
 
-    // All conditions met - start tutorial
-    console.log('Starting tutorial - all conditions met', { tutorialJustTriggered });
+    // All conditions met - now we can start the tutorial
+    // Update ref only when we're actually about to start the tutorial
+    const wasJustTriggered = tutorialJustTriggered;
+    if (wasJustTriggered) {
+      // Only update ref when we're actually starting (not when waiting)
+      prevTutorialTriggerRef.current = tutorialTrigger;
+    } else if (prevTutorialTriggerRef.current !== tutorialTrigger) {
+      // Handle case where trigger was already true but we're now ready
+      prevTutorialTriggerRef.current = tutorialTrigger;
+    }
+
+    console.log('Starting tutorial - all conditions met', { tutorialJustTriggered: wasJustTriggered });
     
     // If tutorial was just triggered (replay), reset tutorial state first
-    if (tutorialJustTriggered) {
+    if (wasJustTriggered) {
       console.log('Resetting tutorial state for replay');
       setShowTutorial(false);
-      // Small delay to ensure state reset
-      setTimeout(() => {
+      // Small delay to ensure state reset, then start tutorial
+      const timeout = setTimeout(() => {
+        console.log('Starting tutorial after replay reset');
         setShowTutorial(true);
-      }, 100);
-      return;
+      }, 200);
+      return () => {
+        clearTimeout(timeout);
+      };
     }
     
     // Close round selector if open
@@ -931,7 +945,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     return () => {
       clearTimeout(timeout);
     };
-  }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, currentRoundId, loadRecentRounds, showTutorial]);
+  }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, currentRoundId, loadRecentRounds]);
 
   // Handle folder change
   const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
