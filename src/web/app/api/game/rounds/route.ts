@@ -142,42 +142,55 @@ async function getUserRounds(req: NextRequest) {
     return createSuccessResponse<Round[]>([]);
   }
 
-  // Calculate statistics for each round
-  const processedRounds = await Promise.all(
-    rounds.map(async (round) => {
-      const { data: matches, error: matchesError } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('round_id', round.id);
+  // Optimize: Fetch all matches in a single query instead of per-round
+  const roundIds = rounds.map(round => round.id);
+  const { data: allMatches, error: matchesError } = await supabase
+    .from('matches')
+    .select('*')
+    .in('round_id', roundIds);
 
-      if (matchesError) {
-        // Log error but don't fail the entire request
-        console.error(`Error fetching matches for round ${round.id}:`, matchesError);
-        return {
-          ...round,
-          accuracy: '0.00',
-          correctMatches: 0,
-          totalMatches: 0,
-        };
-      }
-
-      const totalMatches = matches ? matches.length : 0;
-      // Explicitly check for correct === true to handle null/undefined cases
-      const correctMatches = matches
-        ? matches.filter((match) => match.correct === true).length
-        : 0;
-      const accuracy = totalMatches > 0
-        ? ((correctMatches / totalMatches) * 100).toFixed(2)
-        : '0.00';
-
-      return {
+  if (matchesError) {
+    console.error('Error fetching matches:', matchesError);
+    // Return rounds without statistics if matches query fails
+    return createSuccessResponse<Round[]>(
+      rounds.map(round => ({
         ...round,
-        accuracy,
-        correctMatches,
-        totalMatches,
-      };
-    })
-  );
+        accuracy: '0.00',
+        correctMatches: 0,
+        totalMatches: 0,
+      }))
+    );
+  }
+
+  // Group matches by round_id for O(1) lookup
+  const matchesByRoundId = new Map<string, typeof allMatches>();
+  if (allMatches) {
+    for (const match of allMatches) {
+      const roundId = match.round_id;
+      if (!matchesByRoundId.has(roundId)) {
+        matchesByRoundId.set(roundId, []);
+      }
+      matchesByRoundId.get(roundId)!.push(match);
+    }
+  }
+
+  // Calculate statistics for each round using pre-fetched matches
+  const processedRounds = rounds.map((round) => {
+    const matches = matchesByRoundId.get(round.id) || [];
+    const totalMatches = matches.length;
+    // Explicitly check for correct === true to handle null/undefined cases
+    const correctMatches = matches.filter((match) => match.correct === true).length;
+    const accuracy = totalMatches > 0
+      ? ((correctMatches / totalMatches) * 100).toFixed(2)
+      : '0.00';
+
+    return {
+      ...round,
+      accuracy,
+      correctMatches,
+      totalMatches,
+    };
+  });
 
   return createSuccessResponse<Round[]>(processedRounds);
 }

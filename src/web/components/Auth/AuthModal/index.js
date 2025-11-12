@@ -263,6 +263,9 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       alert(ERROR_MESSAGES.SIGNUP_SUCCESS);
       await update();
       onClose();
+      // Redirect to study page with tutorial trigger for new users
+      // Check if user has completed tutorial (will be false for new users)
+      window.location.href = '/study?tutorial=true';
     }
   };
 

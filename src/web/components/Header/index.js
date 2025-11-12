@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import Logo from "./Logo"
 import { AuthModal } from "../Auth"
 import { useAuth } from "../Auth/hooks/useAuth"
@@ -18,6 +19,7 @@ import { useAuth } from "../Auth/hooks/useAuth"
  * - Links to dummy pages for future development
  */
 const Header = () => {
+  const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -514,6 +516,7 @@ const Header = () => {
               <div className="relative hidden min-[800px]:block" ref={userMenuRef}>
                 <button
                   onClick={() => setUserMenuOpen(v => !v)}
+                  data-tutorial-profile
                   className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm transition whitespace-nowrap ${
                     scrolled ? "text-gray-800 hover:bg-gray-100" : "text-white hover:bg-white/10"
                   }`}
@@ -543,6 +546,26 @@ const Header = () => {
                         {session.user?.email ? session.user.email.split('@')[0] : 'user'}
                       </p>
                     </div>
+                    <div className="border-t" />
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setUserMenuOpen(false)
+                        // Check if we're already on study page
+                        const isOnStudyPage = typeof window !== 'undefined' && window.location.pathname === '/study';
+                        if (isOnStudyPage) {
+                          // Already on study page - just dispatch event, no navigation
+                          window.dispatchEvent(new CustomEvent('replay-tutorial'));
+                        } else {
+                          // Not on study page - navigate there with tutorial param
+                          router.push('/study?tutorial=true');
+                        }
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Replay Tutorial
+                    </button>
                     <div className="border-t" />
                     <button
                       onClick={() => {
@@ -780,15 +803,36 @@ const Header = () => {
               }}
             >
               {session && !pendingSignOut ? (
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false)
-                    handleSignOutRequest()
-                  }}
-                  className="w-full px-5 py-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-base font-semibold rounded-md shadow-lg hover:from-turquoise-500 hover:to-turquoise-400 transition-all duration-200 active:scale-[0.98]"
-                >
-                  Sign Out
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMobileMenuOpen(false)
+                      // Check if we're already on study page
+                      const isOnStudyPage = typeof window !== 'undefined' && window.location.pathname === '/study';
+                      if (isOnStudyPage) {
+                        // Already on study page - just dispatch event, no navigation
+                        window.dispatchEvent(new CustomEvent('replay-tutorial'));
+                      } else {
+                        // Not on study page - navigate there with tutorial param
+                        router.push('/study?tutorial=true');
+                      }
+                    }}
+                    className="w-full px-5 py-3 bg-white/10 text-white font-semibold rounded-md hover:bg-white/20 transition-colors"
+                  >
+                    Replay Tutorial
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      handleSignOutRequest()
+                    }}
+                    className="w-full px-5 py-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-base font-semibold rounded-md shadow-lg hover:from-turquoise-500 hover:to-turquoise-400 transition-all duration-200 active:scale-[0.98]"
+                  >
+                    Sign Out
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-col gap-3">
                   <button

@@ -40,12 +40,8 @@ const FolderSection = React.memo(function FolderSection({
 }) {
   return (
     <div className="bg-transparent w-full">
-      {/* ====================================================================
-          DATASET SELECTOR - COMMENTED OUT BUT EASILY FINDABLE
-          To re-enable: uncomment the section below (lines ~47-72)
-          ==================================================================== */}
-      {/* 
-      <div className="flex flex-col gap-4 mb-4">
+      {/* Folder Selector - Hidden by default, shown during tutorial */}
+      <div className="flex flex-col gap-4 mb-4" style={{ display: 'none' }}>
         <div className="flex flex-row flex-wrap gap-3">
           <div className="flex flex-col flex-1 min-w-[140px]">
             <label htmlFor="dataset-selector" className="mb-1 text-sm font-medium text-turquoise-700">
@@ -57,6 +53,7 @@ const FolderSection = React.memo(function FolderSection({
             <div className="relative w-full">
               <select
                 id="dataset-selector"
+                data-tutorial-folder-selector
                 value={selectedFolder || ""}
                 onChange={onFolderChange}
                 className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-md text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
@@ -76,7 +73,6 @@ const FolderSection = React.memo(function FolderSection({
           </div>
         </div>
       </div>
-      */}
 
       {/* Right column: Points, Accuracy, and Rounds */}
       <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-6 md:px-10 md:pr-10 lg:pl-2 gap-3 items-start w-full relative z-50">
@@ -124,6 +120,7 @@ const FolderSection = React.memo(function FolderSection({
           <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
             <button 
               onClick={onRoundHistory}
+              data-tutorial-round-history
               className="flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white transition-colors flex-1"
             >
               <svg className="w-4 h-4 text-white/70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

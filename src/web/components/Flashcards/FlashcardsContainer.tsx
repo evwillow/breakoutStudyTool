@@ -16,6 +16,7 @@
 
 import React, { useMemo, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 // Components
 import { 
@@ -27,6 +28,7 @@ import {
 } from "../";
 import { AuthModal } from "../Auth";
 import { LoadingStates } from "./components/LoadingStates";
+import Tutorial from "../Tutorial/Tutorial";
 
 // Hooks
 import { useFlashcardData } from "./hooks/useFlashcardData";
@@ -48,8 +50,16 @@ declare global {
 const TypedChartSection = ChartSection as React.ComponentType<any>;
 const TypedFolderSection = FolderSection as React.ComponentType<any>;
 
-export default function FlashcardsContainer() {
+interface FlashcardsContainerProps {
+  tutorialTrigger?: boolean;
+}
+
+export default function FlashcardsContainer({ tutorialTrigger = false }: FlashcardsContainerProps) {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  
+  // Track previous tutorial trigger to detect changes
+  const prevTutorialTriggerRef = React.useRef<boolean>(false);
   
   // Data management
   const {
@@ -80,6 +90,7 @@ export default function FlashcardsContainer() {
   const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
   const [matchLogCount, setMatchLogCount] = React.useState<number>(0);
   const [refreshCount, setRefreshCount] = React.useState<number>(0);
+  const [showTutorial, setShowTutorial] = React.useState(false);
   
   // Ref to store handleNextCard for timer callback
   const handleNextCardRef = React.useRef<(() => void) | null>(null);
@@ -646,38 +657,66 @@ export default function FlashcardsContainer() {
   }, [session?.user?.id, selectedFolder]);
 
   // Load recent rounds for the current dataset
-  const loadRecentRounds = useCallback(async (datasetName: string) => {
-    if (!session?.user?.id || !datasetName) {
+  const loadRecentRounds = useCallback(async (datasetName: string, autoCreateForTutorial = false) => {
+    // Validate user ID and dataset name
+    if (!session?.user?.id) {
+      console.error('loadRecentRounds: Missing user ID');
+      return;
+    }
+    if (!datasetName) {
+      console.error('loadRecentRounds: Missing dataset name');
       return;
     }
 
-    setIsLoadingRounds(true);
-    const cacheKey = `${session.user.id}_${datasetName}`;
+    // Ensure cache is user-scoped
+    const userId = session.user.id;
+    const cacheKey = `${userId}_${datasetName}`;
 
     if (!window.__roundCache) {
       window.__roundCache = {};
     }
     const roundCache = window.__roundCache;
 
-    if (roundCache[cacheKey]) {
+    // Clear cache if user ID changed (prevent cross-user data leakage)
+    const cacheUserId = Object.keys(roundCache)[0]?.split('_')[0];
+    if (cacheUserId && cacheUserId !== userId) {
+      console.log('User ID changed, clearing round cache');
+      window.__roundCache = {};
+    }
+
+    // Skip cache if auto-creating for tutorial
+    if (!autoCreateForTutorial && roundCache[cacheKey]) {
       const cached = roundCache[cacheKey];
-      setAvailableRounds(cached.rounds || []);
-      if (cached.rounds && cached.rounds.length > 0) {
-        const cachedMostRecent = cached.rounds.find((round: any) => !round.completed) || cached.rounds[0];
-        if (cachedMostRecent && !pendingRoundRef.current) {
-          setCurrentRoundId(cachedMostRecent.id);
-          timer.reset(timerDuration);
-          if (timerDuration > 0) {
-            requestAnimationFrame(() => timer.start());
+      // Verify cache is still valid (not expired and for correct user)
+      const cacheAge = Date.now() - cached.fetchedAt;
+      if (cacheAge < 30000) { // 30 second cache
+        setAvailableRounds(cached.rounds || []);
+        if (cached.rounds && cached.rounds.length > 0) {
+          const cachedMostRecent = cached.rounds.find((round: any) => !round.completed) || cached.rounds[0];
+          if (cachedMostRecent && !pendingRoundRef.current) {
+            setCurrentRoundId(cachedMostRecent.id);
+            timer.reset(timerDuration);
+            if (timerDuration > 0) {
+              requestAnimationFrame(() => timer.start());
+            }
           }
         }
+        setIsLoadingRounds(false);
+        return;
       }
     }
 
+    setIsLoadingRounds(true);
     try {
-      const url = `/api/game/rounds?userId=${session.user.id}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
+      // Ensure user ID is properly encoded in URL
+      const url = `/api/game/rounds?userId=${encodeURIComponent(userId)}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       const result = await response.json();
 
       if (!response.ok) {
@@ -700,9 +739,18 @@ export default function FlashcardsContainer() {
 
       const rounds = result.data || [];
       
-      setAvailableRounds(rounds);
+      // Validate that all rounds belong to the current user
+      const validRounds = rounds.filter((round: any) => {
+        if (round.user_id !== userId) {
+          console.warn(`Round ${round.id} belongs to different user (${round.user_id} vs ${userId}), filtering out`);
+          return false;
+        }
+        return true;
+      });
+      
+      setAvailableRounds(validRounds);
       roundCache[cacheKey] = {
-        rounds,
+        rounds: validRounds,
         fetchedAt: Date.now(),
       };
 
@@ -715,7 +763,7 @@ export default function FlashcardsContainer() {
       // Auto-load the most recent incomplete round
       const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
       
-      if (mostRecentIncomplete) {
+      if (mostRecentIncomplete && !autoCreateForTutorial) {
         const roundId = mostRecentIncomplete.id;
         setCurrentRoundId(roundId);
 
@@ -756,16 +804,16 @@ export default function FlashcardsContainer() {
             timer.start();
           });
         }
-      } else if (rounds.length > 0) {
+      } else if (rounds.length > 0 && !autoCreateForTutorial) {
         setShowRoundSelector(true);
       } else {
-        // Automatically create a new round when none exist
+        // Automatically create a new round when none exist OR when autoCreateForTutorial is true
         const autoName = generateRoundName();
         const newRoundId = await createNewRound(autoName);
         if (newRoundId) {
           setCurrentRoundId(newRoundId);
           timer.reset(timerDuration);
-          if (timerDuration > 0) {
+          if (timerDuration > 0 && !autoCreateForTutorial) {
             requestAnimationFrame(() => {
               timer.start();
             });
@@ -773,7 +821,9 @@ export default function FlashcardsContainer() {
         } else {
           // Even if round creation fails, allow game to work (practice mode)
           // Timer will start via the auto-start effect when flashcard loads
-          setShowRoundSelector(true);
+          if (!autoCreateForTutorial) {
+            setShowRoundSelector(true);
+          }
         }
       }
     } catch (error) {
@@ -785,18 +835,103 @@ export default function FlashcardsContainer() {
       if (newRoundId) {
         setCurrentRoundId(newRoundId);
         timer.reset(timerDuration);
-        if (timerDuration > 0) {
+        if (timerDuration > 0 && !autoCreateForTutorial) {
           requestAnimationFrame(() => {
             timer.start();
           });
         }
       } else {
-        setShowRoundSelector(true);
+        if (!autoCreateForTutorial) {
+          setShowRoundSelector(true);
+        }
       }
     } finally {
       setIsLoadingRounds(false);
     }
   }, [session?.user?.id, createNewRound, gameState, timer, timerDuration, generateRoundName]);
+
+  // Initialize tutorial if triggered and auto-create round
+  React.useEffect(() => {
+    // Detect when tutorial trigger changes from false to true (replay scenario)
+    const tutorialJustTriggered = tutorialTrigger && !prevTutorialTriggerRef.current;
+    
+    console.log('Tutorial effect running', { 
+      tutorialTrigger, 
+      tutorialJustTriggered,
+      prevTrigger: prevTutorialTriggerRef.current,
+      hasSession: !!session?.user?.id,
+      loading,
+      flashcardsCount: flashcards.length,
+      selectedFolder 
+    });
+    
+    // Reset tutorial state when trigger changes to false
+    if (!tutorialTrigger) {
+      // Reset the ref when trigger becomes false, so next true will be detected as new
+      if (prevTutorialTriggerRef.current) {
+        console.log('Tutorial trigger reset to false, resetting ref');
+        prevTutorialTriggerRef.current = false;
+      }
+      if (showTutorial) {
+        setShowTutorial(false);
+      }
+      return;
+    }
+    
+    // Update ref after checking for state changes
+    prevTutorialTriggerRef.current = tutorialTrigger;
+
+    // Only proceed if we have all required conditions
+    if (!session?.user?.id || loading) {
+      console.log('Waiting for session or loading to complete');
+      return;
+    }
+
+    // If flashcards aren't loaded yet, wait for them
+    if (flashcards.length === 0) {
+      console.log('Tutorial triggered but waiting for flashcards to load...');
+      return;
+    }
+
+    // If folder isn't selected yet, wait for it
+    if (!selectedFolder) {
+      console.log('Tutorial triggered but waiting for folder selection...');
+      return;
+    }
+
+    // All conditions met - start tutorial
+    console.log('Starting tutorial - all conditions met', { tutorialJustTriggered });
+    
+    // If tutorial was just triggered (replay), reset tutorial state first
+    if (tutorialJustTriggered) {
+      console.log('Resetting tutorial state for replay');
+      setShowTutorial(false);
+      // Small delay to ensure state reset
+      setTimeout(() => {
+        setShowTutorial(true);
+      }, 100);
+      return;
+    }
+    
+    // Close round selector if open
+    setShowRoundSelector(false);
+    
+    // Auto-create round if needed (for new users)
+    if (!currentRoundId && selectedFolder) {
+      console.log('Auto-creating round for tutorial');
+      loadRecentRounds(selectedFolder, true); // true = auto-create for tutorial
+    }
+    
+    // Wait a bit for UI to render, then start tutorial
+    const timeout = setTimeout(() => {
+      console.log('Setting showTutorial to true');
+      setShowTutorial(true);
+    }, 1500);
+    
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, currentRoundId, loadRecentRounds, showTutorial]);
 
   // Handle folder change
   const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1189,6 +1324,11 @@ export default function FlashcardsContainer() {
       return;
     }
     
+    // Dispatch event for tutorial to detect valid selection (only after validation)
+    if (showTutorial) {
+      window.dispatchEvent(new CustomEvent('tutorial-selection-made'));
+    }
+    
     gameState.handleCoordinateSelection(
       coordinates,
       (distance: number, score: number, scoreData?: any) => {
@@ -1214,7 +1354,7 @@ export default function FlashcardsContainer() {
       timeRange
     );
     timer.pause();
-  }, [gameState, timer, targetPoint, priceRange, timeRange, activeFlashcard, activeProcessedData, logMatchWithCoordinates]);
+  }, [gameState, timer, targetPoint, priceRange, timeRange, activeFlashcard, activeProcessedData, logMatchWithCoordinates, showTutorial]);
 
   // Start timer when a round is selected
   useEffect(() => {
@@ -1506,7 +1646,7 @@ export default function FlashcardsContainer() {
                 pointsTextArray={[]}
                 feedback={gameState.feedback}
                 disabled={gameState.disableButtons}
-                isTimeUp={gameState.showTimeUpOverlay}
+                isTimeUp={gameState.showTimeUpOverlay && !showTutorial}
                 onAfterEffectComplete={handleAfterEffectComplete}
                 // Coordinate-based selection props
                 onChartClick={handleChartClick}
@@ -1729,6 +1869,37 @@ export default function FlashcardsContainer() {
           </div>
         </div>
       )}
+
+      {/* Tutorial */}
+      <Tutorial
+        key={`tutorial-${showTutorial}-${tutorialTrigger}`}
+        isActive={showTutorial}
+        onComplete={() => {
+          console.log('Tutorial completed');
+          setShowTutorial(false);
+          // Resume timer if needed
+          if (timerDuration > 0 && !timer.isRunning) {
+            timer.start();
+          }
+        }}
+        onSkip={() => {
+          console.log('Tutorial skipped');
+          setShowTutorial(false);
+          // Resume timer if needed
+          if (timerDuration > 0 && !timer.isRunning) {
+            timer.start();
+          }
+        }}
+        timer={{
+          pause: timer.pause,
+          resume: () => {
+            if (timerDuration > 0) {
+              timer.start();
+            }
+          },
+          isRunning: timer.isRunning,
+        }}
+      />
 
     </div>
   );

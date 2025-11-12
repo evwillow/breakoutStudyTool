@@ -171,6 +171,7 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
             {onNext && (
               <button
                 onClick={onNext}
+                data-tutorial-next
                 className={`bg-turquoise-500/20 hover:bg-turquoise-500/30 text-turquoise-400 hover:text-turquoise-300 rounded-md font-medium transition-all border border-turquoise-500/30 ${
                   isMobile 
                     ? 'px-3 py-1.5 text-xs' 
@@ -1385,7 +1386,7 @@ function ChartSection({
                 </div>
               </div>
               <div ref={timerContainerRef} className="relative inline-flex items-center gap-1.5 sm:gap-2">
-                <div className="inline-flex items-center gap-1.5 bg-black/80 backdrop-blur-sm pl-2.5 pr-3 sm:pl-3 sm:pr-3 py-1.5 sm:py-1 rounded-md border border-white/40 shadow-lg">
+                <div data-tutorial-timer className="inline-flex items-center gap-1.5 bg-black/80 backdrop-blur-sm pl-2.5 pr-3 sm:pl-3 sm:pr-3 py-1.5 sm:py-1 rounded-md border border-white/40 shadow-lg">
                   <svg className="w-4 h-4 sm:w-4 sm:h-4 text-white/70 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
@@ -1398,6 +1399,7 @@ function ChartSection({
                   <>
                     <button
                       ref={timerTriggerRef}
+                      data-tutorial-timer-duration
                       data-timer-trigger
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1505,10 +1507,14 @@ function ChartSection({
                 </div>
               </div>
             )}
-            <div className={`absolute inset-0 rounded-md overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} relative transition-opacity duration-500 ease-in-out`} style={{ height: '100%', width: '100%' }}>
+            {/* Only blur if time is up AND tutorial is not active */}
+            <div 
+              className={`absolute inset-0 rounded-md overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} relative transition-opacity duration-500 ease-in-out`} 
+              style={{ height: '100%', width: '100%' }}
+            >
               {/* Combined chart display - always shows D data, adds after data progressively when available */}
               {orderedFiles && orderedFiles.length > 0 && orderedFiles[0]?.data ? (
-                <div className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
+                <div data-tutorial-chart className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
                   <StockChart 
                     data={orderedFiles[0].data} 
                     afterData={afterData}
@@ -1580,15 +1586,17 @@ function ChartSection({
                   )}
                   {/* Score overlay - appears after selection */}
                   {score !== null && feedback && (
-                    <ChartScoreOverlay 
-                      score={score}
-                      accuracyTier={getAccuracyTier(score)}
-                      show={true}
-                      onNext={onNextCard}
-                      isMobile={isMobile}
-                      alwaysPaused={timerDuration === 0}
-                      onPauseChange={handlePauseChange}
-                    />
+                    <div data-tutorial-results>
+                      <ChartScoreOverlay 
+                        score={score}
+                        accuracyTier={getAccuracyTier(score)}
+                        show={true}
+                        onNext={onNextCard}
+                        isMobile={isMobile}
+                        alwaysPaused={timerDuration === 0}
+                        onPauseChange={handlePauseChange}
+                      />
+                    </div>
                   )}
                 </div>
               ) : (
