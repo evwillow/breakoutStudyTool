@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Simple Analytics Runner
+Analytics Runner
 
 Usage:
-    python src/analytics/run_analytics.py [--visitors N] [--source SOURCE]
+    python src/analytics/analytics.py [--visitors N] [--source SOURCE]
 """
 
 import subprocess
@@ -12,6 +12,10 @@ import os
 import argparse
 import json
 from pathlib import Path
+
+# Prevent Python from creating __pycache__ directories
+sys.dont_write_bytecode = True
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 
 # Try to import GA client (from same directory)
 script_dir = Path(__file__).parent
