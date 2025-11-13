@@ -1,21 +1,9 @@
 import { promises as fs } from "fs";
 import path from "path";
+import type { LocalFolder, LocalFolderFile } from '@breakout-study-tool/shared';
 
-type LocalFolderFile = {
-  id: string;
-  name: string;
-  fileName: string;
-  mimeType: string;
-  size: number;
-  createdTime: string;
-  modifiedTime: string;
-};
-
-export interface LocalFolder {
-  id: string;
-  name: string;
-  files: LocalFolderFile[];
-}
+// Re-export for backward compatibility
+export type { LocalFolder, LocalFolderFile };
 
 interface FileCacheEntry {
   data: unknown;

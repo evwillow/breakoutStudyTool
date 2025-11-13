@@ -6,30 +6,18 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GAME_CONFIG } from '../constants';
 import { calculateDistance, calculateDistanceScore } from '../utils/coordinateUtils';
+import type { 
+  GameMetrics, 
+  GameState, 
+  ChartCoordinate, 
+  UseGameStateReturn, 
+  UseGameStateOptions 
+} from '@breakout-study-tool/shared';
 
-export interface GameMetrics {
-  currentMatchIndex: number;
-  matchCount: number;
-  correctCount: number;
-  accuracy: number;
-}
+// Re-export for backward compatibility
+export type { GameMetrics, GameState, ChartCoordinate, UseGameStateOptions };
 
-export interface GameState {
-  currentIndex: number;
-  feedback: 'correct' | 'incorrect' | null;
-  disableButtons: boolean;
-  showTimeUpOverlay: boolean;
-  afterChartData: any;
-  metrics: GameMetrics;
-}
-
-export interface ChartCoordinate {
-  x: number;
-  y: number;
-  chartX?: number;
-  chartY?: number;
-}
-
+// UseGameStateReturn needs to be defined here as it extends GameState with additional methods
 export interface UseGameStateReturn extends GameState {
   // Actions
   handleSelection: (buttonIndex: number, onResult?: (isCorrect: boolean) => void) => void;

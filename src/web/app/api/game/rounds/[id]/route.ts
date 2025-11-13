@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server';
 import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';
 import { createSuccessResponse } from '../../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../../_shared/middleware/errorHandler';
-import { Round } from '../../../_shared/types/api';
+import type { Round } from '@breakout-study-tool/shared';
 import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling';
 
 /**

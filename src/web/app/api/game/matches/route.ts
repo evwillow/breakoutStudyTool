@@ -8,7 +8,7 @@ import { getAdminSupabaseClient } from '../../_shared/clients/supabase';
 import { createSuccessResponse } from '../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../_shared/middleware/errorHandler';
 import { validateOrThrow, commonSchemas } from '../../_shared/utils/validation';
-import { LogMatchRequest, Match } from '../../_shared/types/api';
+import type { LogMatchRequest, Match } from '@breakout-study-tool/shared';
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 
 /**

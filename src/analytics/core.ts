@@ -6,35 +6,26 @@
  */
 
 import { getAdminSupabaseClient } from '@/app/api/_shared/clients/supabase';
+import type { 
+  UserSegment, 
+  UserSegmentDefinition, 
+  UserMetrics, 
+  AnalyticsMetrics, 
+  DetailedUserAnalytics,
+  Round,
+  Match
+} from '@breakout-study-tool/shared';
 
-// ============================================================================
-// TYPE DEFINITIONS
-// ============================================================================
-
-export interface User {
-  id: string;
-  email: string;
-  email_verified: boolean;
-  created_at: string;
-}
-
-export interface Round {
-  id: string;
-  user_id: string;
-  dataset_name: string;
-  completed: boolean;
-  created_at: string;
-}
-
-export interface Match {
-  id: string;
-  round_id: string;
-  stock_symbol: string;
-  correct: boolean;
-  created_at: string;
-  price_accuracy?: number;
-  score?: number;
-}
+// Re-export for backward compatibility
+export type { 
+  UserSegment, 
+  UserSegmentDefinition, 
+  UserMetrics, 
+  AnalyticsMetrics, 
+  DetailedUserAnalytics,
+  Round,
+  Match
+};
 
 /**
  * User Segment Definitions:

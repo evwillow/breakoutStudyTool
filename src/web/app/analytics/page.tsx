@@ -10,44 +10,7 @@ import {
   AreaChartComponent,
 } from "@/components/Analytics/AnalyticsChart";
 
-interface SegmentDefinition {
-  type: string;
-  name: string;
-  description: string;
-  criteria: string;
-  targetPercentage?: { min: number; max: number };
-  color: string;
-}
-
-interface AnalyticsData {
-  totalUsers: number;
-  verifiedUsers: number;
-  activeUsers: number;
-  powerUsers: number;
-  activeUserSegment: number;
-  casualUsers: number;
-  oneTimeUsers: number;
-  churnedUsers: number;
-  activationRate: number;
-  averageActivationTime: number;
-  completionRate: number;
-  averageRoundsPerUser: number;
-  averageMatchesPerUser: number;
-  averageAccuracy: number;
-  day1Retention: number;
-  day7Retention: number;
-  day30Retention: number;
-  weeklyActiveUsers: number;
-  monthlyActiveUsers: number;
-  signUpToFirstRound: number;
-  firstToSecondRoundRate: number;
-  secondToThirdRoundRate: number;
-  thirdToPowerUserRate: number;
-  datasetUsage: Record<string, number>;
-  usersByWeek: Record<string, number>;
-  activityByWeek: Record<string, number>;
-  segmentDefinitions?: Record<string, SegmentDefinition>;
-}
+import type { AnalyticsData, SegmentDefinition } from '@breakout-study-tool/shared';
 
 /**
  * Analytics Page

@@ -8,37 +8,14 @@ import { useSession } from 'next-auth/react';
 import { API_CONFIG, LOADING_STATES, ERROR_MESSAGES, UI_CONFIG } from '../constants';
 import { FlashcardData, FlashcardFile, validateFlashcardData } from '../utils/dataProcessors';
 import type { LoadingState } from '../constants';
+import type { 
+  FolderOption, 
+  UseFlashcardDataReturn, 
+  UseFlashcardDataOptions 
+} from '@breakout-study-tool/shared';
 
-export interface FolderOption {
-  key: string;
-  value: string;
-  label: string;
-}
-
-export interface UseFlashcardDataReturn {
-  // Data
-  folders: FolderOption[];
-  flashcards: FlashcardData[];
-  selectedFolder: string | null;
-  currentFlashcard: FlashcardData | null;
-  
-  // Loading states
-  loading: boolean;
-  loadingProgress: number;
-  loadingStep: string;
-  error: string | null;
-  
-  // Actions
-  setSelectedFolder: (folder: string | null) => void;
-  refetchFolders: () => Promise<void>;
-  refetchFlashcards: () => Promise<void>;
-  clearError: () => void;
-}
-
-export interface UseFlashcardDataOptions {
-  currentIndex?: number;
-  autoSelectFirstFolder?: boolean;
-}
+// Re-export for backward compatibility
+export type { FolderOption, UseFlashcardDataReturn, UseFlashcardDataOptions };
 
 export function useFlashcardData({
   currentIndex = 0,

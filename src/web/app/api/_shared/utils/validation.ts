@@ -4,7 +4,9 @@
  * Provides type-safe validation without external dependencies
  */
 import { ValidationError, ErrorCodes } from '@/lib/utils/errorHandling';
+import type { ValidationResult } from '@breakout-study-tool/shared';
 
+// Component-specific validation rule (different from shared ValidationRule)
 export interface ValidationRule<T = any> {
   required?: boolean;
   type?: 'string' | 'number' | 'boolean' | 'email' | 'uuid';
@@ -20,11 +22,8 @@ export interface ValidationSchema {
   [key: string]: ValidationRule;
 }
 
-export interface ValidationResult<T = any> {
-  isValid: boolean;
-  data: Partial<T>;
-  errors: Record<string, string>;
-}
+// Re-export ValidationResult from shared
+export type { ValidationResult };
 
 /**
  * Validate input data against a schema

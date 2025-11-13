@@ -8,7 +8,7 @@ import { NextRequest } from 'next/server';
 import { createSuccessResponse, createErrorResponse } from '../../_shared/utils/response';
 import { withErrorHandling, withEnvironmentValidation, composeMiddleware } from '../../_shared/middleware/errorHandler';
 import { testDatabaseConnection, validateDatabaseSchema } from '../../_shared/clients/supabase';
-import { HealthCheckResponse, ServiceStatus } from '../../_shared/types/api';
+import type { HealthCheckResponse, ServiceStatus } from '@breakout-study-tool/shared';
 // Google Drive removed - using local data instead
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 

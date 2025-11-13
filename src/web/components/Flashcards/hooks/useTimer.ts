@@ -5,25 +5,10 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { TIMER_CONFIG } from '../constants';
+import type { UseTimerOptions, UseTimerReturn } from '@breakout-study-tool/shared';
 
-export interface UseTimerOptions {
-  initialDuration?: number;
-  onTimeUp?: () => void;
-  autoStart?: boolean;
-}
-
-export interface UseTimerReturn {
-  timer: number;
-  isRunning: boolean;
-  isPaused: boolean;
-  isReady: boolean;
-  displayValue: number;
-  start: () => void;
-  pause: () => void;
-  resume: () => void;
-  reset: (duration?: number) => void;
-  setDuration: (duration: number) => void;
-}
+// Re-export for backward compatibility
+export type { UseTimerOptions, UseTimerReturn };
 
 export function useTimer({
   initialDuration = TIMER_CONFIG.INITIAL_DURATION,

@@ -1,4 +1,4 @@
-import { ApiResponse } from '@/app/api/_shared/types/api';
+import type { ApiResponse } from '@breakout-study-tool/shared';
 import { AppError, ErrorCodes, ApiError } from './errorHandling';
 import { isOnline } from './errorHandling';
 import { logger } from './logger';

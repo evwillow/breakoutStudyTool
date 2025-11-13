@@ -3,7 +3,7 @@
  * Handles password validation and hashing operations
  */
 import bcrypt from 'bcryptjs';
-import { PasswordValidationResult } from '../types/auth';
+import type { PasswordValidationResult } from '@breakout-study-tool/shared';
 
 /**
  * Password complexity requirements

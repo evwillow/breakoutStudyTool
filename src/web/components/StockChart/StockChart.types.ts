@@ -1,10 +1,13 @@
-import { ScaleLinear, ScalePoint } from "d3-scale";
-import { Line } from "d3-shape";
+import type { ScaleLinear, ScalePoint } from "d3-scale";
+import type { Line } from "d3-shape";
+import type { 
+  ChartType, 
+  ChartCoordinate, 
+  ChartClickHandler 
+} from '@breakout-study-tool/shared';
 
-/**
- * Chart type identifier
- */
-export type ChartType = 'default' | 'D' | 'after' | 'hourly' | 'H' | 'previous' | 'monthly' | 'M' | 'minute';
+// Re-export shared types for convenience
+export type { ChartType, ChartCoordinate, ChartClickHandler };
 
 /**
  * Chart color configuration
@@ -97,20 +100,7 @@ export interface ProcessedStockDataPoint {
   json?: string;
 }
 
-/**
- * Chart coordinate for click events and selections
- */
-export interface ChartCoordinate {
-  x: number;
-  y: number;
-  chartX?: number;
-  chartY?: number;
-}
-
-/**
- * Chart click handler function type
- */
-export type ChartClickHandler = (coordinate: ChartCoordinate) => void;
+// ChartCoordinate and ChartClickHandler are imported from shared types above
 
 /**
  * Dimensions interface for chart container

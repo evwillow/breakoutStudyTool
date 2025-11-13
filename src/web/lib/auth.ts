@@ -17,7 +17,7 @@ import { logger } from "@/lib/utils/logger";
 import { AuthenticationError, ErrorCodes } from "@/lib/utils/errorHandling";
 import { authService } from "./auth/services/authService";
 import { AUTH_CONFIG } from "./auth/constants";
-import type { AuthUser, AuthCredentials, AuthSession, AuthToken } from "./auth/types";
+import type { AuthUser, AuthCredentials, AuthSession, AuthToken } from "@breakout-study-tool/shared";
 import { getServerSupabaseClient } from "@/lib/supabase";
 
 // Environment validation with graceful fallbacks in development

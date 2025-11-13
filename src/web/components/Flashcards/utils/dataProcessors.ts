@@ -4,25 +4,10 @@
  */
 
 import { FILE_PATTERNS, GAME_CONFIG } from '../constants';
+import type { FlashcardFile, FlashcardData, ProcessedFlashcardData } from '@breakout-study-tool/shared';
 
-export interface FlashcardFile {
-  fileName: string;
-  data: any;
-}
-
-export interface FlashcardData {
-  id?: string;
-  name?: string;
-  folderName?: string;
-  jsonFiles: FlashcardFile[];
-  isReady?: boolean;
-}
-
-export interface ProcessedFlashcardData {
-  orderedFiles: FlashcardFile[];
-  afterJsonData: any;
-  pointsTextArray: string[];
-}
+// Re-export for backward compatibility
+export type { FlashcardFile, FlashcardData, ProcessedFlashcardData };
 
 /**
  * Validates if a string is a proper UUID format

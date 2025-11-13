@@ -6,10 +6,10 @@
  * and calculating distance-based scores.
  */
 
-export interface ChartCoordinate {
-  x: number; // Horizontal position (time/index)
-  y: number; // Vertical position (price)
-}
+import type { ChartCoordinate } from '@breakout-study-tool/shared';
+
+// Re-export for backward compatibility
+export type { ChartCoordinate };
 
 export interface TargetPoint {
   x: number;

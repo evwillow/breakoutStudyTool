@@ -1,4 +1,4 @@
-import { ChartCoordinate, ChartClickHandler } from '../StockChart/StockChart.types';
+import type { ChartCoordinate, ChartClickHandler } from '@breakout-study-tool/shared';
 
 /**
  * Ordered file structure for chart data

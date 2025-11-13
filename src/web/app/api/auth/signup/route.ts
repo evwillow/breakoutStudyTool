@@ -15,7 +15,7 @@ import { logger } from '@/lib/utils/logger';
 import { verifyCaptcha } from '../_shared/services/captcha';
 import { validatePassword } from '../_shared/services/passwordService';
 import { userExists, createUser } from '../_shared/services/userService';
-import { SignupRequest, SignupResponse } from '../_shared/types/auth';
+import type { SignupRequest, SignupResponse } from '@breakout-study-tool/shared';
 
 /**
  * Handle user signup

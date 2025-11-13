@@ -184,10 +184,10 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
                   
                   const dirData = filesByDirectory.get(directoryName);
                   if (dirData) {
-                    if (actualFileName === 'd.json' || actualFileName === 'D.json') {
-                      dirData.dJson = { ...file, data: file.data }; // Preserve data if already loaded
-                    } else if (actualFileName === 'after.json') {
-                      dirData.afterJson = { ...file, data: file.data }; // Preserve data if already loaded
+                  if (actualFileName === 'd.json' || actualFileName === 'D.json') {
+                    dirData.dJson = { ...file, data: file.data }; // Preserve data if already loaded
+                  } else if (actualFileName === 'after.json') {
+                    dirData.afterJson = { ...file, data: file.data }; // Preserve data if already loaded
                     }
                   }
                 }
@@ -215,11 +215,11 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
           
           const dirData = filesByDirectory.get(directoryName);
           if (dirData) {
-            // Only set if not already set from flashcards (to preserve preloaded data)
-            if ((actualFileName === 'd.json' || actualFileName === 'D.json') && !dirData.dJson) {
-              dirData.dJson = file;
-            } else if (actualFileName === 'after.json' && !dirData.afterJson) {
-              dirData.afterJson = file;
+          // Only set if not already set from flashcards (to preserve preloaded data)
+          if ((actualFileName === 'd.json' || actualFileName === 'D.json') && !dirData.dJson) {
+            dirData.dJson = file;
+          } else if (actualFileName === 'after.json' && !dirData.afterJson) {
+            dirData.afterJson = file;
             }
           }
         });
