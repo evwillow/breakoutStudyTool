@@ -1,0 +1,9 @@
+# This file ensures the data/ directory is tracked in git
+# Actual dataset files are ignored via .gitignore
+# 
+# To set up the data directory:
+# 1. Run: npm run setup:data
+# 2. Move your dataset to: data/quality_breakouts/
+# 
+# For production, set DATA_DIRECTORY environment variable to point to your data location
+

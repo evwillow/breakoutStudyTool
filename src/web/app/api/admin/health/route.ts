@@ -67,9 +67,16 @@ async function checkLocalDataHealth(): Promise<ServiceStatus> {
     // Check if local data directory exists
     const fs = require('fs');
     const path = require('path');
-    const dataPath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
+    // Check new data/ directory first, then fallback to legacy path
+    const dataPath = process.env.DATA_DIRECTORY 
+      ? path.join(process.env.DATA_DIRECTORY, 'quality_breakouts')
+      : path.join(process.cwd(), 'data', 'quality_breakouts');
     
-    if (!fs.existsSync(dataPath)) {
+    // Fallback to legacy path if new path doesn't exist
+    const legacyPath = path.join(process.cwd(), '..', '..', 'src', 'data-processing', 'ds', 'quality_breakouts');
+    const finalPath = fs.existsSync(dataPath) ? dataPath : (fs.existsSync(legacyPath) ? legacyPath : dataPath);
+    
+    if (!fs.existsSync(finalPath)) {
       return {
         status: 'down',
         responseTime: Date.now() - startTime,

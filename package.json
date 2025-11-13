@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "setup": "node setup-dev.js",
+    "setup:data": "node scripts/setup-data-directory.js",
     "web:dev": "cd src/web && npm run dev",
     "web:build": "cd src/web && npm run build",
     "web:start": "cd src/web && npm run start",

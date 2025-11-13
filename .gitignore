@@ -251,5 +251,20 @@ dmypy.json
 # Prisma
 prisma/migrations/
 
-# Data Processing
+# Data Processing - raw data files (tracked via Git LFS)
 src/data-processing/data/
+src/data-processing/ds/
+
+# Data directory at root - JSON files tracked via Git LFS
+# Only ignore non-JSON files and build artifacts
+data/**/*.json~*
+data/**/.DS_Store
+
+# Build artifacts (already have .next/ but being explicit)
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.cache/
+.parcel-cache/

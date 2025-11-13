@@ -1871,7 +1871,16 @@ def process_tickers(tickers: list, dataset: str) -> int:
     STATS['ticker_count'] = total
     
     # Ensure dataset output directory exists
-    dataset_root = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
+    # Check for root data/ directory first (new standard), then fallback to ds/
+    root_data_dir = Path(SCRIPT_DIR.parent.parent) / 'data' / CONFIG['dataset_name']
+    legacy_ds_dir = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
+    
+    # Use root data/ if it exists or can be created, otherwise use legacy location
+    if root_data_dir.parent.exists() or root_data_dir.parent.parent.exists():
+        dataset_root = root_data_dir
+    else:
+        dataset_root = legacy_ds_dir
+    
     dataset_root.mkdir(parents=True, exist_ok=True)
     
     # Pre-check which files exist to avoid unnecessary processing
@@ -1967,7 +1976,15 @@ def main() -> int:
         args = parse_args()
         configure_runtime(args)
         
-        ds_dir = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
+        # Use root data/ directory if available, otherwise use legacy ds/ location
+        root_data_dir = Path(SCRIPT_DIR.parent.parent) / 'data' / CONFIG['dataset_name']
+        legacy_ds_dir = SCRIPT_DIR / 'ds' / CONFIG['dataset_name']
+        
+        # Prefer root data/ directory
+        if root_data_dir.parent.exists() or root_data_dir.parent.parent.exists():
+            ds_dir = root_data_dir
+        else:
+            ds_dir = legacy_ds_dir
         
         if ds_dir.exists():
             shutil.rmtree(ds_dir)

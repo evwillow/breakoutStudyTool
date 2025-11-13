@@ -19,11 +19,22 @@ export async function GET(_req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Error reading local folders:', error);
+    console.error('[local-folders API] Error reading local folders:', error);
+    console.error('[local-folders API] Error type:', typeof error);
+    console.error('[local-folders API] Error keys:', error ? Object.keys(error) : 'null');
+    
+    const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    const errorStack = error?.stack || '';
+    
     return NextResponse.json({
       success: false,
       message: 'Error reading local data',
-      error: error.message
+      error: errorMessage,
+      errorType: typeof error,
+      details: process.env.NODE_ENV === 'development' ? {
+        stack: errorStack,
+        fullError: String(error)
+      } : undefined
     }, { status: 500 });
   }
 }
