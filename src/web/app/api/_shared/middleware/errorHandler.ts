@@ -4,11 +4,11 @@
  * @dependencies next/server, @/lib/utils/logger, @/lib/utils/errorHandling
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createErrorResponse } from '../utils/response';
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 import { logger } from '@/lib/utils/logger';
+import { error as errorResponse } from '@/lib/api/responseHelpers';
 
-type ApiHandler = (req: NextRequest, context?: any) => Promise<NextResponse>;
+type ApiHandler = (req: NextRequest, context?: any) => Promise<Response>;
 
 /**
  * Enhanced middleware for error handling and request tracking
@@ -30,7 +30,8 @@ export function withErrorHandling(handler: ApiHandler): ApiHandler {
       requestLogger.info('API request started');
 
       // Execute the handler
-      const response = await handler(req, context);
+      const rawResponse = await handler(req, context);
+      const response = NextResponse.from(rawResponse);
       
       // Log successful completion
       const duration = Date.now() - startTime;
@@ -54,7 +55,16 @@ export function withErrorHandling(handler: ApiHandler): ApiHandler {
       });
 
       // Return standardized error response
-      return createErrorResponse(error);
+      const appError = error instanceof AppError ? error : new AppError(
+        error instanceof Error ? error.message : 'Unknown error occurred',
+        ErrorCodes.UNEXPECTED_ERROR,
+        error instanceof AppError ? error.httpStatus : 500
+      );
+      const response = NextResponse.from(
+        errorResponse(appError.userMessage, appError.httpStatus)
+      );
+      response.headers.set('X-Request-ID', requestId);
+      return response;
     }
   };
 }
@@ -68,14 +78,6 @@ export function withEnvironmentValidation(requiredVars: string[]) {
       const missingVars = requiredVars.filter(varName => !process.env[varName]);
       
       if (missingVars.length > 0) {
-        // In development, return a helpful JSON response instead of hard failing
-        if (process.env.NODE_ENV !== 'production') {
-          return NextResponse.json({
-            success: false,
-            message: 'Missing required environment variables',
-            missing: missingVars,
-          }, { status: 500 });
-        }
         const error = new AppError(
           `Missing required environment variables: ${missingVars.join(', ')}`,
           ErrorCodes.SERVER_ERROR,
@@ -83,8 +85,9 @@ export function withEnvironmentValidation(requiredVars: string[]) {
           { missingVars },
           'Service configuration error. Please contact support.'
         );
-        
-        return createErrorResponse(error);
+        return NextResponse.from(
+          errorResponse(error.userMessage, error.httpStatus)
+        );
       }
 
       return handler(req, context);
@@ -107,7 +110,9 @@ export function withMethodValidation(allowedMethods: string[]) {
           `Method ${req.method} is not allowed for this endpoint.`
         );
         
-        return createErrorResponse(error);
+        return NextResponse.from(
+          errorResponse(error.userMessage, error.httpStatus)
+        );
       }
 
       return handler(req, context);

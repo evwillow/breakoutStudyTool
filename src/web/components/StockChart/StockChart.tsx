@@ -280,6 +280,6 @@ const StockChart = React.memo<StockChartProps>(({
 export default StockChart;
 
 export { getChartConfig } from "./config";
-export { calculateSMA, processChartData } from "./utils/calculations";
+export { calculateSMA, processChartData } from "@/services/chart/technicalIndicators";
 
 

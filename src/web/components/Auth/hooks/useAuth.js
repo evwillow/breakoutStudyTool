@@ -10,8 +10,10 @@
  * Centralizes auth logic and provides consistent interface
  */
 
-import { useSession, signIn, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useCallback } from 'react';
+import { signInWithCredentials as authSignInWithCredentials, signInWithProvider as authSignInWithProvider, signOutUser as authSignOutUser } from '@/services/auth/authService';
+import { deriveAuthState } from '@/services/auth/sessionManager';
 
 /**
  * Custom hook for authentication operations
@@ -20,9 +22,7 @@ import { useCallback } from 'react';
 export const useAuth = () => {
   const { data: session, status, update } = useSession();
 
-  const isAuthenticated = status === 'authenticated' && !!session;
-  const isLoading = status === 'loading';
-  const isUnauthenticated = status === 'unauthenticated';
+  const authState = deriveAuthState(status, session);
 
   /**
    * Sign in with credentials
@@ -31,25 +31,12 @@ export const useAuth = () => {
    */
   const signInWithCredentials = useCallback(async (credentials) => {
     try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        ...credentials
-      });
-      
-      if (!result.error) {
-        if (typeof update === 'function') {
-          update().catch((err) => {
-            console.error('Session refresh error:', err);
-          });
-        }
-      }
-      
-      return result;
+      return await authSignInWithCredentials(credentials, update);
     } catch (error) {
       console.error('Sign in error:', error);
       return { error: error.message || 'Sign in failed' };
     }
-  }, [update]);
+  }, []);
 
   /**
    * Sign out user
@@ -57,63 +44,8 @@ export const useAuth = () => {
    * @returns {Promise<void>}
    */
   const signOutUser = useCallback(async (options = {}) => {
-    const getDefaultOrigin = () => {
-      if (typeof window !== 'undefined' && window.location?.origin) {
-        return window.location.origin;
-      }
-      if (process.env.NEXTAUTH_URL) {
-        return process.env.NEXTAUTH_URL.replace(/\/$/, '');
-      }
-      return '';
-    };
-
-    const ensureAbsoluteUrl = (url) => {
-      const origin = getDefaultOrigin();
-      const fallback = origin ? `${origin}/` : '/';
-
-      if (!url) {
-        return fallback;
-      }
-
-      try {
-        const absolute = new URL(url, origin || undefined);
-        return absolute.toString();
-      } catch {
-        return fallback;
-      }
-    };
-
-    const normalizedOptions = typeof options === 'object' && options !== null ? options : {};
-    const rawCallbackUrl = normalizedOptions.callbackUrl || normalizedOptions.callbackURL;
-
-    const finalOptions = {
-      redirect: false,
-      ...normalizedOptions,
-      callbackUrl: ensureAbsoluteUrl(rawCallbackUrl),
-    };
-
-    const targetUrl = finalOptions.callbackUrl || '/';
-
     try {
-      const result = await signOut(finalOptions);
-
-      const resolvedUrl =
-        typeof result === 'string'
-          ? ensureAbsoluteUrl(result)
-          : result && typeof result === 'object' && result.url
-            ? ensureAbsoluteUrl(result.url)
-            : targetUrl;
-
-      if (typeof window !== 'undefined') {
-        window.location.replace(resolvedUrl);
-        window.setTimeout(() => {
-          if (window.location.href !== resolvedUrl) {
-            window.location.assign(resolvedUrl);
-          }
-        }, 100);
-      }
-
-      return result;
+      return await authSignOutUser(options);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -121,22 +53,8 @@ export const useAuth = () => {
   }, [update]);
 
   const signInWithProvider = useCallback(async (provider, options = {}) => {
-    const finalOptions = {
-      redirect: options.redirect ?? true,
-      ...options,
-    };
-
     try {
-      const result = await signIn(provider, finalOptions);
-
-      // When redirecting, NextAuth handles navigation and returns undefined
-      if (!finalOptions.redirect && !result?.error && typeof update === 'function') {
-        update().catch((err) => {
-          console.error('Session refresh error:', err);
-        });
-      }
-
-      return result;
+      return await authSignInWithProvider(provider, options, update);
     } catch (error) {
       console.error(`Sign in with ${provider} error:`, error);
       return { error: error.message || `Unable to sign in with ${provider}` };
@@ -147,10 +65,10 @@ export const useAuth = () => {
     // State
     session,
     status,
-    isAuthenticated,
-    isLoading,
-    isUnauthenticated,
-    user: session?.user || null,
+    isAuthenticated: authState.isAuthenticated,
+    isLoading: authState.isLoading,
+    isUnauthenticated: authState.isUnauthenticated,
+    user: authState.user,
     
     // Methods
     signIn: signInWithCredentials,

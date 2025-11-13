@@ -3,11 +3,11 @@
  * @module src/web/app/api/game/rounds/bulk/route.ts
  * @dependencies next/server, @/app/api/_shared/utils/response
  */
-import { NextResponse } from 'next/server';
-import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';
-import { createSuccessResponse } from '../../../_shared/utils/response';
+import { NextRequest } from 'next/server';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../../_shared/middleware/errorHandler';
 import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling';
+import { success } from '@/lib/api/responseHelpers';
+import { deleteAllRoundsForUser } from '@/services/flashcard/roundManager';
 
 /**
  * Delete all rounds for a user
@@ -26,69 +26,19 @@ async function deleteAllRounds(req: NextRequest) {
     );
   }
 
-  const supabase = getAdminSupabaseClient();
+  const result = await deleteAllRoundsForUser(userId);
 
-  // First get all round IDs for the user
-  const { data: rounds, error: roundsError } = await supabase
-    .from('rounds')
-    .select('id')
-    .eq('user_id', userId);
-
-  if (roundsError) {
-    throw new AppError(
-      `Failed to fetch user rounds: ${roundsError.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: roundsError },
-      'Failed to delete rounds. Please try again.'
-    );
-  }
-
-  if (!rounds || rounds.length === 0) {
-    return createSuccessResponse({ 
+  if (result.deletedRounds === 0) {
+    return success({
       message: 'No rounds found for user',
       deletedRounds: 0,
-      deletedMatches: 0
+      deletedMatches: 0,
     });
   }
 
-  const roundIds = rounds.map(round => round.id);
-
-  // Delete all matches for these rounds
-  const { error: matchesError } = await supabase
-    .from('matches')
-    .delete()
-    .in('round_id', roundIds);
-
-  if (matchesError) {
-    throw new AppError(
-      `Failed to delete matches: ${matchesError.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: matchesError },
-      'Failed to delete rounds. Please try again.'
-    );
-  }
-
-  // Delete all rounds for the user
-  const { error: roundsDeleteError } = await supabase
-    .from('rounds')
-    .delete()
-    .eq('user_id', userId);
-
-  if (roundsDeleteError) {
-    throw new AppError(
-      `Failed to delete rounds: ${roundsDeleteError.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: roundsDeleteError },
-      'Failed to delete rounds. Please try again.'
-    );
-  }
-
-  return createSuccessResponse({ 
+  return success({
     message: 'All rounds deleted successfully',
-    deletedRounds: rounds.length
+    deletedRounds: result.deletedRounds,
   });
 }
 

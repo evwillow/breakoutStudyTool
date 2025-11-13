@@ -4,196 +4,26 @@
  * @dependencies next/server, @/app/api/_shared/utils/response, @/app/api/_shared/utils/validation, @/lib/cache/localDataCache, @/lib/utils/logger
  */
 import { NextRequest } from 'next/server';
-import { getAdminSupabaseClient } from '../../_shared/clients/supabase';
-import { createSuccessResponse } from '../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../_shared/middleware/errorHandler';
-import { validateOrThrow, commonSchemas } from '../../_shared/utils/validation';
-import type { LogMatchRequest, Match } from '@breakout-study-tool/shared';
-import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
+import { success } from '@/lib/api/responseHelpers';
+import { logMatch, getMatches } from '@/services/flashcard/roundManager';
 
-/**
- * Log a new match result
- */
-async function logMatch(req: NextRequest) {
-  let body;
-  try {
-    body = await req.json();
-  } catch (parseError) {
-    console.error('Failed to parse request body:', parseError);
-    throw new AppError(
-      'Invalid JSON in request body',
-      ErrorCodes.VALIDATION_ERROR,
-      400,
-      { parseError: parseError instanceof Error ? parseError.message : String(parseError) },
-      'Invalid request format. Please check your data and try again.'
-    );
-  }
-  
-  // Log incoming request for debugging
-  console.log('[MATCHES API] Received request body:', JSON.stringify(body, null, 2));
-  
-  // Validate input using schema
-  let validatedData;
-  try {
-    validatedData = validateOrThrow<LogMatchRequest>(body, commonSchemas.logMatch);
-  } catch (validationError: any) {
-    console.error('[MATCHES API] Validation failed:', {
-      error: validationError.message,
-      validationErrors: validationError.context?.validationErrors,
-      receivedData: body
-    });
-    throw validationError; // Re-throw validation errors as-is
-  }
+const handlePost = async (req: NextRequest) => {
+  const result = await logMatch(req);
+  return success(result);
+};
 
-  const supabase = getAdminSupabaseClient();
+const handleGet = async (req: NextRequest) => {
+  const result = await getMatches(req);
+  return success(result);
+};
 
-  // Insert new match (support both old and new formats)
-  const insertData: any = {
-    round_id: validatedData.round_id,
-    stock_symbol: validatedData.stock_symbol,
-  };
-  
-  // Add legacy button-based fields if provided
-  // For coordinate-based matches, set user_selection to a default value (0) to satisfy NOT NULL constraint
-  if (validatedData.user_selection !== undefined) {
-    insertData.user_selection = validatedData.user_selection;
-  } else if (validatedData.user_selection_x !== undefined || validatedData.user_selection_y !== undefined) {
-    // Coordinate-based match - set default user_selection to satisfy database NOT NULL constraint
-    insertData.user_selection = 0;
-  }
-  
-  // Add new coordinate-based fields if provided
-  if (validatedData.user_selection_x !== undefined) {
-    insertData.user_selection_x = validatedData.user_selection_x;
-  }
-  if (validatedData.user_selection_y !== undefined) {
-    insertData.user_selection_y = validatedData.user_selection_y;
-  }
-  if (validatedData.target_x !== undefined) {
-    insertData.target_x = validatedData.target_x;
-  }
-  if (validatedData.target_y !== undefined) {
-    insertData.target_y = validatedData.target_y;
-  }
-  if (validatedData.distance !== undefined) {
-    insertData.distance = validatedData.distance;
-  }
-  if (validatedData.score !== undefined) {
-    insertData.score = validatedData.score;
-  }
-  
-  // Add price-focused accuracy fields (primary metric for stock trading)
-  if (validatedData.price_accuracy !== undefined) {
-    insertData.price_accuracy = validatedData.price_accuracy;
-  }
-  
-  // Determine correct field: use explicit value if provided, otherwise calculate from accuracy metrics
-  // Priority: explicit correct > price_accuracy > score
-  if (validatedData.correct !== undefined) {
-    // Use explicitly provided correct value
-    insertData.correct = validatedData.correct;
-  } else {
-    // Auto-calculate correct from price_accuracy (primary metric) or score if available
-    const primaryAccuracy = validatedData.price_accuracy ?? validatedData.score;
-    if (primaryAccuracy !== undefined) {
-      insertData.correct = primaryAccuracy >= 70;
-    }
-    // If no accuracy data is available, correct will remain undefined (which is fine for legacy matches)
-  }
-  if (validatedData.time_position !== undefined) {
-    insertData.time_position = validatedData.time_position;
-  }
-  if (validatedData.price_error !== undefined) {
-    insertData.price_error = validatedData.price_error;
-  }
-  if (validatedData.time_error !== undefined) {
-    insertData.time_error = validatedData.time_error;
-  }
-
-  console.log('[MATCHES API] Inserting match data:', JSON.stringify(insertData, null, 2));
-  
-  const { data, error } = await supabase
-    .from('matches')
-    .insert([insertData])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('[MATCHES API] Supabase error details:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-      insertData: insertData
-    });
-    
-    throw new AppError(
-      `Failed to log match: ${error.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { 
-        supabaseError: error,
-        inputData: validatedData,
-        errorDetails: {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        }
-      },
-      'Failed to log match result. Please try again.'
-    );
-  }
-
-  console.log('[MATCHES API] Successfully saved match:', data?.id);
-  return createSuccessResponse<Match>(data);
-}
-
-/**
- * Get matches for a round
- */
-async function getMatches(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const roundId = searchParams.get('roundId');
-
-  if (!roundId) {
-    throw new AppError(
-      'Round ID is required',
-      ErrorCodes.VALIDATION_REQUIRED_FIELD,
-      400,
-      {},
-      'Round ID parameter is required.'
-    );
-  }
-
-  const supabase = getAdminSupabaseClient();
-
-  const { data: matches, error } = await supabase
-    .from('matches')
-    .select('*')
-    .eq('round_id', roundId)
-    .order('created_at', { ascending: true });
-
-  if (error) {
-    throw new AppError(
-      `Failed to fetch matches: ${error.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: error },
-      'Failed to fetch matches. Please try again.'
-    );
-  }
-
-  return createSuccessResponse<Match[]>(matches || []);
-}
-
-// Export handlers with middleware
 export const POST = composeMiddleware(
   withMethodValidation(['POST']),
   withErrorHandling
-)(logMatch);
+)(handlePost);
 
 export const GET = composeMiddleware(
   withMethodValidation(['GET']),
   withErrorHandling
-)(getMatches); 
+)(handleGet);

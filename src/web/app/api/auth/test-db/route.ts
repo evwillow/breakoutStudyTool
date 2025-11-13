@@ -8,10 +8,11 @@
  * 
  * Tests database connectivity and optionally creates a test user
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getAdminSupabaseClient } from '../../_shared/clients/supabase';
 import { authService } from '@/lib/auth/services/authService';
 import { logger } from '@/lib/utils/logger';
+import { success, error } from '@/lib/api/responseHelpers';
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,11 +25,7 @@ export async function GET(req: NextRequest) {
       .limit(1);
     
     if (testError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Database connection failed',
-        details: testError.message
-      }, { status: 500 });
+      return error(`Database connection failed: ${testError.message}`, 500);
     }
     
     // Check if test user exists
@@ -40,17 +37,12 @@ export async function GET(req: NextRequest) {
       .single();
     
     if (userError && userError.code !== 'PGRST116') {
-      return NextResponse.json({
-        success: false,
-        error: 'Error checking user',
-        details: userError.message
-      }, { status: 500 });
+      return error(`Error checking user: ${userError.message}`, 500);
     }
     
     const userExists = !userError && existingUser;
     
-    return NextResponse.json({
-      success: true,
+    return success({
       message: 'Database connection successful',
       userExists,
       testEmail,
@@ -60,11 +52,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     logger.error('Database test error', { error: error instanceof Error ? error.message : 'Unknown error' });
     
-    return NextResponse.json({
-      success: false,
-      error: 'Database test failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return error('Database test failed', 500);
   }
 }
 
@@ -74,10 +62,7 @@ export async function POST(req: NextRequest) {
     const { createTestUser } = body;
     
     if (!createTestUser) {
-      return NextResponse.json({
-        success: false,
-        error: 'createTestUser flag required'
-      }, { status: 400 });
+      return error('createTestUser flag required', 400);
     }
     
     const supabase = getAdminSupabaseClient();
@@ -92,8 +77,7 @@ export async function POST(req: NextRequest) {
       .single();
     
     if (!checkError && existingUser) {
-      return NextResponse.json({
-        success: true,
+      return success({
         message: 'Test user already exists',
         userId: existingUser.id,
         email: existingUser.email
@@ -113,15 +97,10 @@ export async function POST(req: NextRequest) {
       .single();
     
     if (createError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to create test user',
-        details: createError.message
-      }, { status: 500 });
+      return error(`Failed to create test user: ${createError.message}`, 500);
     }
     
-    return NextResponse.json({
-      success: true,
+    return success({
       message: 'Test user created successfully',
       userId: newUser.id,
       email: newUser.email,
@@ -131,11 +110,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     logger.error('Test user creation error', { error: error instanceof Error ? error.message : 'Unknown error' });
     
-    return NextResponse.json({
-      success: false,
-      error: 'Test user creation failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return error('Test user creation failed', 500);
   }
 }
 
@@ -145,10 +120,7 @@ export async function PUT(req: NextRequest) {
     const { resetPassword } = body;
     
     if (!resetPassword) {
-      return NextResponse.json({
-        success: false,
-        error: 'resetPassword flag required'
-      }, { status: 400 });
+      return error('resetPassword flag required', 400);
     }
     
     const supabase = getAdminSupabaseClient();
@@ -167,15 +139,10 @@ export async function PUT(req: NextRequest) {
       .single();
     
     if (updateError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to reset password',
-        details: updateError.message
-      }, { status: 500 });
+      return error(`Failed to reset password: ${updateError.message}`, 500);
     }
     
-    return NextResponse.json({
-      success: true,
+    return success({
       message: 'Password reset successfully',
       userId: updatedUser.id,
       email: updatedUser.email,
@@ -185,10 +152,6 @@ export async function PUT(req: NextRequest) {
   } catch (error) {
     logger.error('Password reset error', { error: error instanceof Error ? error.message : 'Unknown error' });
     
-    return NextResponse.json({
-      success: false,
-      error: 'Password reset failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return error('Password reset failed', 500);
   }
 } 

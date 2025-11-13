@@ -4,11 +4,10 @@
  * @dependencies next/server, @/app/api/_shared/utils/response, @/app/api/_shared/utils/validation
  */
 import { NextRequest } from 'next/server';
-import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';
-import { createSuccessResponse } from '../../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../../_shared/middleware/errorHandler';
-import type { Round } from '@breakout-study-tool/shared';
+import { success } from '@/lib/api/responseHelpers';
 import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling';
+import { getRoundById, updateRoundById, deleteRoundById } from '@/services/flashcard/roundManager';
 
 /**
  * Get a specific round by ID
@@ -26,34 +25,8 @@ async function getRound(req: NextRequest, { params }: { params: Promise<{ id: st
     );
   }
 
-  const supabase = getAdminSupabaseClient();
-
-  const { data: round, error } = await supabase
-    .from('rounds')
-    .select('*')
-    .eq('id', roundId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      throw new AppError(
-        'Round not found',
-        ErrorCodes.DB_RECORD_NOT_FOUND,
-        404,
-        {},
-        'The requested round was not found.'
-      );
-    }
-    throw new AppError(
-      `Failed to fetch round: ${error.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: error },
-      'Failed to fetch round. Please try again.'
-    );
-  }
-
-  return createSuccessResponse<Round>(round);
+  const round = await getRoundById(roundId);
+  return success(round);
 }
 
 /**
@@ -86,72 +59,8 @@ async function updateRound(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  const supabase = getAdminSupabaseClient();
-
-  // Only allow updating specific fields
-  const allowedFields = ['completed', 'dataset_name'];
-  const updateData: any = {};
-  
-  for (const field of allowedFields) {
-    if (body[field] !== undefined) {
-      updateData[field] = body[field];
-    }
-  }
-
-  if (Object.keys(updateData).length === 0) {
-    throw new ValidationError(
-      'No valid fields to update',
-      ErrorCodes.VALIDATION_ERROR,
-      400,
-      {},
-      'Please provide valid fields to update.'
-    );
-  }
-
-  const { data, error } = await supabase
-    .from('rounds')
-    .update(updateData)
-    .eq('id', roundId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Supabase error details:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code
-    });
-    
-    if (error.code === 'PGRST116') {
-      throw new AppError(
-        'Round not found',
-        ErrorCodes.DB_RECORD_NOT_FOUND,
-        404,
-        { roundId, updateData },
-        'The requested round was not found.'
-      );
-    }
-    throw new AppError(
-      `Failed to update round: ${error.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { 
-        supabaseError: error,
-        roundId,
-        updateData,
-        errorDetails: {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        }
-      },
-      'Failed to update round. Please try again.'
-    );
-  }
-
-  return createSuccessResponse<Round>(data);
+  const updatedRound = await updateRoundById(roundId, body);
+  return success(updatedRound);
 }
 
 /**
@@ -170,41 +79,8 @@ async function deleteRound(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
-  const supabase = getAdminSupabaseClient();
-
-  // First delete associated matches
-  const { error: matchesError } = await supabase
-    .from('matches')
-    .delete()
-    .eq('round_id', roundId);
-
-  if (matchesError) {
-    throw new AppError(
-      `Failed to delete round matches: ${matchesError.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: matchesError },
-      'Failed to delete round. Please try again.'
-    );
-  }
-
-  // Then delete the round
-  const { error } = await supabase
-    .from('rounds')
-    .delete()
-    .eq('id', roundId);
-
-  if (error) {
-    throw new AppError(
-      `Failed to delete round: ${error.message}`,
-      ErrorCodes.DB_QUERY_ERROR,
-      500,
-      { supabaseError: error },
-      'Failed to delete round. Please try again.'
-    );
-  }
-
-  return createSuccessResponse({ message: 'Round deleted successfully' });
+  await deleteRoundById(roundId);
+  return success({ message: 'Round deleted successfully' });
 }
 
 // Export handlers with middleware

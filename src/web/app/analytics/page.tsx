@@ -6,7 +6,7 @@
 "use client";
 
 import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MetricCard,
   BarChart,
@@ -15,7 +15,8 @@ import {
   AreaChartComponent,
 } from "@/components/Analytics/AnalyticsChart";
 
-import type { AnalyticsData, SegmentDefinition } from '@breakout-study-tool/shared';
+import type { AnalyticsData } from '@breakout-study-tool/shared';
+import { buildAnalyticsViewModel, fetchAnalyticsData } from "@/services/analytics/analyticsService";
 
 /**
  * Analytics Page
@@ -34,12 +35,8 @@ export default function AnalyticsPage() {
 
     async function fetchAnalytics() {
       try {
-        const response = await fetch('/api/analytics');
-        if (!response.ok) {
-          throw new Error('Failed to fetch analytics');
-        }
-        const data = await response.json();
-        setAnalytics(data);
+        const data = await fetchAnalyticsData();
+        setAnalytics(data as AnalyticsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
@@ -80,98 +77,10 @@ export default function AnalyticsPage() {
 
   if (!analytics) return null;
 
-  // Prepare chart data
-  const userSegmentData = [
-    {
-      label: 'Power Users (10+)',
-      value: analytics.powerUsers,
-      color: 'fill-purple-500',
-    },
-    {
-      label: 'Active Users (4-9)',
-      value: analytics.activeUserSegment,
-      color: 'fill-turquoise-500',
-    },
-    {
-      label: 'Casual Users (2-3)',
-      value: analytics.casualUsers,
-      color: 'fill-blue-500',
-    },
-    {
-      label: 'One-Time Users',
-      value: analytics.oneTimeUsers,
-      color: 'fill-yellow-500',
-    },
-    {
-      label: 'Churned Users',
-      value: analytics.churnedUsers,
-      color: 'fill-red-500',
-    },
-  ];
-
-  const retentionData = [
-    { label: 'Day 1', value: Math.round(analytics.day1Retention) },
-    { label: 'Day 7', value: Math.round(analytics.day7Retention) },
-    { label: 'Day 30', value: Math.round(analytics.day30Retention) },
-  ];
-
-  const funnelData = [
-    {
-      label: 'Sign-up → First Round',
-      value: analytics.signUpToFirstRound,
-    },
-    {
-      label: 'First → Second Round',
-      value: Math.round(
-        (analytics.firstToSecondRoundRate / 100) * analytics.signUpToFirstRound
-      ),
-    },
-    {
-      label: 'Second → Third Round',
-      value: Math.round(
-        (analytics.secondToThirdRoundRate / 100) *
-          (analytics.firstToSecondRoundRate / 100) *
-          analytics.signUpToFirstRound
-      ),
-    },
-    {
-      label: 'Third → Power User',
-      value: analytics.powerUsers,
-    },
-  ];
-
-  const datasetData = Object.entries(analytics.datasetUsage)
-    .map(([label, value]) => ({
-      label,
-      value,
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 10);
-
-  const weeklySignups = Object.entries(analytics.usersByWeek)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-12)
-    .map(([label, value]) => ({
-      label: label.split('-W')[1] || label,
-      value,
-    }));
-
-  const weeklyActivity = Object.entries(analytics.activityByWeek)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(-12)
-    .map(([label, value]) => ({
-      label: label.split('-W')[1] || label,
-      value,
-    }));
-
-  // Calculate segment percentages
-  const segmentPercentages: Record<string, number> = {
-    power: analytics.totalUsers > 0 ? (analytics.powerUsers / analytics.totalUsers) * 100 : 0,
-    active: analytics.totalUsers > 0 ? (analytics.activeUserSegment / analytics.totalUsers) * 100 : 0,
-    casual: analytics.totalUsers > 0 ? (analytics.casualUsers / analytics.totalUsers) * 100 : 0,
-    'one-time': analytics.totalUsers > 0 ? (analytics.oneTimeUsers / analytics.totalUsers) * 100 : 0,
-    churned: analytics.totalUsers > 0 ? (analytics.churnedUsers / analytics.totalUsers) * 100 : 0,
-  };
+  const viewModel = useMemo(
+    () => buildAnalyticsViewModel(analytics),
+    [analytics]
+  );
 
   return (
     <div className="w-full flex justify-center min-h-screen pb-16">
@@ -260,13 +169,13 @@ export default function AnalyticsPage() {
               </p>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DonutChart data={userSegmentData} title="" centerText="Total Users" />
+              <DonutChart data={viewModel.userSegmentData} title="" centerText="Total Users" />
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white/90 mb-4">
                   Segment Definitions
                 </h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                  {userSegmentData.map((segment, index) => {
+                  {viewModel.userSegmentData.map((segment, index) => {
                     const segmentKey = segment.label.toLowerCase().includes('power')
                       ? 'power'
                       : segment.label.toLowerCase().includes('active') && !segment.label.includes('(4-9)')
@@ -276,8 +185,8 @@ export default function AnalyticsPage() {
                       : segment.label.toLowerCase().includes('one-time')
                       ? 'one-time'
                       : 'churned';
-                    const def = analytics.segmentDefinitions?.[segmentKey];
-                    const percentage = segmentPercentages[segmentKey] || 0;
+                    const def = viewModel.segmentDefinitions?.[segmentKey];
+                    const percentage = viewModel.segmentPercentages[segmentKey] || 0;
                     const isSelected = selectedSegment === segmentKey;
 
                     return (
@@ -333,12 +242,12 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Retention Rates */}
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/15">
-            <BarChart data={retentionData} title="Retention Rates" color="green" />
+            <BarChart data={viewModel.retentionData} title="Retention Rates" color="green" />
           </div>
 
           {/* User Journey Funnel */}
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/15">
-            <BarChart data={funnelData} title="User Journey Funnel" color="purple" />
+            <BarChart data={viewModel.funnelData} title="User Journey Funnel" color="purple" />
           </div>
         </div>
 
@@ -346,7 +255,7 @@ export default function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/15">
             <AreaChartComponent
-              data={weeklySignups}
+              data={viewModel.weeklySignups}
               title="Weekly Sign-ups (Last 12 Weeks)"
               color="turquoise"
             />
@@ -354,7 +263,7 @@ export default function AnalyticsPage() {
 
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/15">
             <AreaChartComponent
-              data={weeklyActivity}
+              data={viewModel.weeklyActivity}
               title="Weekly Activity (Last 12 Weeks)"
               color="blue"
             />
@@ -362,9 +271,9 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Dataset Usage */}
-        {datasetData.length > 0 && (
+        {viewModel.datasetData.length > 0 && (
           <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/15 mb-8">
-            <BarChart data={datasetData} title="Top Dataset Usage" color="pink" />
+            <BarChart data={viewModel.datasetData} title="Top Dataset Usage" color="pink" />
           </div>
         )}
 

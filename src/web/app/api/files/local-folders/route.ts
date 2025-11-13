@@ -3,8 +3,9 @@
  * @module src/web/app/api/files/local-folders/route.ts
  * @dependencies next/server, node:path, node:fs/promises
  */
-import { NextRequest, NextResponse } from 'next/server';
-import { getFolderIndex } from '@/lib/cache/localDataCache';
+import { NextRequest } from 'next/server';
+import { success, error } from '@/lib/api/responseHelpers';
+import { fetchLocalFolders } from '@/services/flashcard/flashcardService';
 
 /**
  * Local Folders API Route
@@ -15,31 +16,14 @@ import { getFolderIndex } from '@/lib/cache/localDataCache';
 
 export async function GET(_req: NextRequest) {
   try {
-    const folders = await getFolderIndex();
-
-    return NextResponse.json({
-      success: true,
-      folders: folders,
-      totalFiles: folders.reduce((count, folder) => count + folder.files.length, 0)
-    });
-
+    const { folders, totalFiles } = await fetchLocalFolders();
+    return success({ folders, totalFiles });
   } catch (error: any) {
     console.error('[local-folders API] Error reading local folders:', error);
     console.error('[local-folders API] Error type:', typeof error);
     console.error('[local-folders API] Error keys:', error ? Object.keys(error) : 'null');
     
     const errorMessage = error?.message || error?.toString() || 'Unknown error';
-    const errorStack = error?.stack || '';
-    
-    return NextResponse.json({
-      success: false,
-      message: 'Error reading local data',
-      error: errorMessage,
-      errorType: typeof error,
-      details: process.env.NODE_ENV === 'development' ? {
-        stack: errorStack,
-        fullError: String(error)
-      } : undefined
-    }, { status: 500 });
+    return error(errorMessage, 500);
   }
 }

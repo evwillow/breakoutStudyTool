@@ -3,10 +3,11 @@
  * @module src/web/app/api/user/tutorial-complete/route.ts
  * @dependencies next/server, next-auth, @/lib/auth, @/lib/supabase
  */
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';
-import { getServerSupabaseClient } from '@/lib/supabase';
+import { success, error } from '@/lib/api/responseHelpers';
+import { updateTutorialCompletion } from '@/services/auth/authService';
 
 /**
  * API endpoint to mark tutorial as completed
@@ -17,10 +18,7 @@ export async function POST(req: NextRequest) {
     // Check authentication
     const session = await getServerSession(authConfig);
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return error('Unauthorized', 401);
     }
 
     // Parse request body
@@ -28,34 +26,15 @@ export async function POST(req: NextRequest) {
     const { completed } = body;
 
     if (typeof completed !== 'boolean') {
-      return NextResponse.json(
-        { error: 'Invalid request body. Expected { completed: boolean }' },
-        { status: 400 }
-      );
+      return error('Invalid request body. Expected { completed: boolean }', 400);
     }
 
-    // Update user's tutorial completion status using Supabase
-    const supabase = getServerSupabaseClient();
-    const { error } = await supabase
-      .from('users')
-      .update({ tutorial_completed: completed })
-      .eq('id', session.user.id);
+    await updateTutorialCompletion(session.user.id, completed);
 
-    if (error) {
-      console.error('Error updating tutorial completion:', error);
-      return NextResponse.json(
-        { error: 'Failed to update tutorial completion status' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true });
+    return success({ success: true });
   } catch (error: any) {
     console.error('Error updating tutorial completion:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return error('Internal server error', 500);
   }
 }
 

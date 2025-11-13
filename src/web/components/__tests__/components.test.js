@@ -51,38 +51,23 @@ describe('Component Imports', () => {
 });
 
 describe('StockChart Utilities', () => {
-  test('should import StockChart utilities without errors', async () => {
-    const { getPrice, getVolume, calculateSMA, hasSMAData, getSMAConfig } = await import('../StockChart/utils');
+  test('should import chart technical indicators', async () => {
+    const { calculateSMA, processChartData } = await import('@/services/chart/technicalIndicators');
     
-    expect(getPrice).toBeDefined();
-    expect(getVolume).toBeDefined();
     expect(calculateSMA).toBeDefined();
-    expect(hasSMAData).toBeDefined();
-    expect(getSMAConfig).toBeDefined();
+    expect(processChartData).toBeDefined();
   });
 
-  test('getPrice should handle various property names', async () => {
-    const { getPrice } = await import('../StockChart/utils');
+  test('processChartData should normalize SMA fields', async () => {
+    const { processChartData } = await import('@/services/chart/technicalIndicators');
     
-    const testData = { close: 100.5, Close: 200.5 };
-    const result1 = getPrice(testData, ['close']);
-    const result2 = getPrice(testData, ['Close']);
-    const result3 = getPrice(testData, ['price', 'close']);
+    const input = [
+      { Close: 10, SMA10: 5 },
+      { Close: 12, SMA10: 6 },
+    ];
     
-    expect(result1).toBe(100.5);
-    expect(result2).toBe(200.5);
-    expect(result3).toBe(100.5);
+    const result = processChartData(input, 'daily');
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].close).toBe(10);
   });
-
-  test('getSMAConfig should return correct configuration', async () => {
-    const { getSMAConfig } = await import('../StockChart/utils');
-    
-    const hourlyConfig = getSMAConfig('hourly');
-    const monthlyConfig = getSMAConfig('monthly');
-    const defaultConfig = getSMAConfig('daily');
-    
-    expect(hourlyConfig.showSMA50).toBe(false);
-    expect(monthlyConfig.showSMA10).toBe(false);
-    expect(defaultConfig.showSMA10).toBe(true);
-  });
-}); 
+});

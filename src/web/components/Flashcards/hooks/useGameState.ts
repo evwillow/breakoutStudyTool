@@ -13,13 +13,13 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { GAME_CONFIG } from '../constants';
-import { calculateDistance, calculateDistanceScore } from '../utils/coordinateUtils';
 import type { 
   GameMetrics, 
   GameState, 
   ChartCoordinate 
 } from '@breakout-study-tool/shared';
 import type { UseGameStateOptions } from '@breakout-study-tool/shared';
+import { evaluateCoordinateSelection, updateMatchMetrics, calculateAccuracy, summarizeExistingMatches } from '@/services/flashcard/gameLogic';
 
 // Re-export for backward compatibility
 export type { GameMetrics, GameState, ChartCoordinate, UseGameStateOptions };
@@ -116,7 +116,7 @@ export function useGameState({
   // Computed values
   // Accuracy is calculated as percentage of selections that are "correct"
   // A selection is "correct" if priceAccuracy >= 70% (stock price prediction accuracy)
-  const accuracy = matchCount > 0 ? Math.round((correctCount / matchCount) * 100) : 0;
+  const accuracy = calculateAccuracy(matchCount, correctCount);
   const selectedButtonIndex = userSelectedButton;
   // Fix edge case: when length is 0, game is not complete (can't be complete with no cards)
   // When length is 1, index 0 means we're on the last card
@@ -203,30 +203,41 @@ export function useGameState({
     
     // Calculate distance and score if target and ranges are provided
     if (target && priceRange && timeRange) {
-      const calculatedDistance = calculateDistance(coordinates, target);
-      const scoreData = calculateDistanceScore(coordinates, target, priceRange, timeRange);
+      const selectionResult = evaluateCoordinateSelection({
+        coordinates,
+        target,
+        priceRange,
+        timeRange
+      });
       
-      setDistance(calculatedDistance);
-      setScore(scoreData.score);
+      setDistance(selectionResult.distance);
+      setScore(selectionResult.score);
       setTargetPoint(target);
       
       // Update metrics based on price accuracy (primary metric for stock trading)
       // Threshold at 70% price accuracy for "correct"
-      const isCorrect = scoreData.priceAccuracy >= 70;
-      setMatchCount(prev => prev + 1);
-      if (isCorrect) {
-        setCorrectCount(prev => prev + 1);
+      const updatedMetrics = updateMatchMetrics(
+        { matchCount, correctCount },
+        selectionResult.isCorrect
+      );
+      setMatchCount(updatedMetrics.matchCount);
+      setCorrectCount(updatedMetrics.correctCount);
+      if (selectionResult.isCorrect) {
         onCorrectAnswer?.();
       } else {
         onIncorrectAnswer?.();
       }
       
       // Set feedback based on price accuracy
-      setFeedback(isCorrect ? 'correct' : 'incorrect');
+      setFeedback(selectionResult.isCorrect ? 'correct' : 'incorrect');
       
       // Call result callback with full score data
       if (onResult) {
-        onResult(calculatedDistance, scoreData.score, scoreData);
+        onResult(
+          selectionResult.distance ?? 0,
+          selectionResult.score ?? 0,
+          selectionResult.scoreData
+        );
       }
     }
   }, [
@@ -235,6 +246,8 @@ export function useGameState({
     onCorrectAnswer,
     onIncorrectAnswer,
     score,
+    matchCount,
+    correctCount,
   ]);
   
   // Move to next card
@@ -275,19 +288,17 @@ export function useGameState({
   
   // Initialize game state from existing matches
   const initializeFromMatches = useCallback((matches: Array<{ correct: boolean }>) => {
-    const totalMatches = matches.length;
-    const correctMatches = matches.filter(m => m.correct).length;
+    const summary = summarizeExistingMatches(matches);
     
     console.log('Initializing game state from matches:', {
-      totalMatches,
-      correctMatches,
-      accuracy: totalMatches > 0 ? Math.round((correctMatches / totalMatches) * 100) : 0
+      totalMatches: summary.totalMatches,
+      correctMatches: summary.correctMatches,
+      accuracy: summary.accuracy
     });
     
-    setMatchCount(totalMatches);
-    setCorrectCount(correctMatches);
-    // Set current match index to the number of matches (so next match is at this index)
-    setCurrentMatchIndex(totalMatches);
+    setMatchCount(summary.totalMatches);
+    setCorrectCount(summary.correctMatches);
+    setCurrentMatchIndex(summary.totalMatches);
   }, []);
 
   // Reset entire game state

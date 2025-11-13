@@ -1,9 +1,8 @@
 /**
  * @fileoverview hCaptcha verification service for validating signup requests.
  * @module src/web/app/api/auth/_shared/services/captcha.ts
- * @dependencies node-fetch, @/lib/utils/logger
+ * @dependencies @/lib/utils/logger
  */
-import fetch from 'node-fetch';
 import { CaptchaVerificationResult } from '../types/auth';
 import { logger } from '@/lib/utils/logger';
 

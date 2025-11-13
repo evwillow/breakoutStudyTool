@@ -8,7 +8,8 @@
 import { useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
-import { GA_MEASUREMENT_ID, pageview } from '@/lib/gtag';
+import { GA_MEASUREMENT_ID } from '@/lib/gtag';
+import { trackPageView } from '@/services/analytics/eventTrackers';
 
 /**
  * @component GoogleAnalytics
@@ -29,7 +30,7 @@ export default function GoogleAnalytics() {
       return;
     }
     const url = pathname + (searchParams?.toString() || '');
-    pageview(url);
+    trackPageView(url);
   }, [pathname, searchParams]);
 
   if (!GA_MEASUREMENT_ID) {
