@@ -1,3 +1,8 @@
+/*
+ * @fileoverview Global Tailwind base overrides and theme variables.
+ * @module src/web/app/globals.css
+ * @dependencies tailwindcss
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

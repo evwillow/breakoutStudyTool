@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Barrel exports for UI helper components used across the app.
+ * @module src/web/components/UI/index.ts
+ * @dependencies none
+ */
 // UI Components Barrel Export
 export { default as Popup } from './Popup';
 export { default as BackButton } from './BackButton';

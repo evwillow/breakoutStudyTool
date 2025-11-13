@@ -1,14 +1,8 @@
 /**
- * @module AnalyticsChart
- * @overview Presentation primitives built on Recharts for rendering analytics dashboards (bars, lines, areas, donut, metric cards).
- * @usage ```tsx
- * import { BarChart, LineChart, DonutChart, MetricCard } from "@/components/Analytics/AnalyticsChart";
- *
- * <BarChart title="Weekly Signups" data={[{ label: "Week 1", value: 120 }]} />
- * ```
- * @when Use inside analytics dashboards or admin reports when you need consistent theming and tooltip behavior.
+ * @fileoverview Reusable analytics chart wrappers built on Recharts for admin dashboards.
+ * @module src/web/components/Analytics/AnalyticsChart.tsx
+ * @dependencies recharts
  */
-
 'use client';
 
 import {

@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+/**
+ * @fileoverview Returns specific dataset JSON files for flashcard charts.
+ * @module src/web/app/api/files/local-data/route.ts
+ * @dependencies next/server, node:path, node:fs/promises
+ */
+import { NextResponse } from 'next/server';
 import { getFileData } from '@/lib/cache/localDataCache';
 
 /**

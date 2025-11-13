@@ -1,8 +1,9 @@
 /**
- * Simple Input Validation Utilities
- * 
- * Provides type-safe validation without external dependencies
+ * @fileoverview Validation helpers for API request payloads using Zod.
+ * @module src/web/app/api/_shared/utils/validation.ts
+ * @dependencies zod
  */
+import { z } from 'zod';
 import { ValidationError, ErrorCodes } from '@/lib/utils/errorHandling';
 import type { ValidationResult } from '@breakout-study-tool/shared';
 

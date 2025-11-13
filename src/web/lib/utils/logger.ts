@@ -1,4 +1,11 @@
 /**
+ * @fileoverview Centralized client/server logger wrapper for consistent logging output.
+ * @module src/web/lib/utils/logger.ts
+ * @dependencies console
+ */
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+/**
  * Simple logger implementation for application logging.
  * This replaces the more complex logger to simplify usage.
  */

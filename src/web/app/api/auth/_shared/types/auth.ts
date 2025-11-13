@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Shared authentication type definitions used across auth routes and services.
+ * @module src/web/app/api/auth/_shared/types/auth.ts
+ * @dependencies none
+ */
+/**
  * Authentication Types
  * Centralized type definitions for auth-related operations
  */

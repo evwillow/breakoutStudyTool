@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Helpers for Upstash-based rate limiting across API routes.
+ * @module src/web/lib/rateLimit.ts
+ * @dependencies @upstash/ratelimit, @upstash/redis
+ */
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 

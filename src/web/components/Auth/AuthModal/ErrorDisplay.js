@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Error display panel for auth modals with optional troubleshooting steps.
+ * @module src/web/components/Auth/AuthModal/ErrorDisplay.js
+ * @dependencies React, next/link
+ */
+/**
  * ErrorDisplay Component
  * 
  * Features:

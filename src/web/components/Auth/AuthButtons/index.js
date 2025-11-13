@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Auth buttons wrapper that toggles between sign-in and sign-out states.
+ * @module src/web/components/Auth/AuthButtons/index.js
+ * @dependencies React, ../hooks/useAuth, ./SignInButton, ./SignOutButton
+ */
 "use client";
 
 /**

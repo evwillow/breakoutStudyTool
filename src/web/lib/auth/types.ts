@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Authentication-related TypeScript interfaces for shared use.
+ * @module src/web/lib/auth/types.ts
+ * @dependencies none
+ */
+/**
  * Authentication Type Definitions
  * 
  * Centralized type definitions for the authentication system.

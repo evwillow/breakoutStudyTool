@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Barrel exports for the ErrorBoundary component and related types.
+ * @module src/web/components/ErrorBoundary/index.ts
+ * @dependencies ./ErrorBoundary, react-error-boundary
+ */
+/**
  * ErrorBoundary module exports
  * 
  * Provides a centralized error boundary implementation with:

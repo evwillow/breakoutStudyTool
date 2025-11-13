@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Minimal history back button for client-side navigation.
+ * @module src/web/components/UI/BackButton.tsx
+ * @dependencies React
+ */
 'use client';
 
 import React from 'react';

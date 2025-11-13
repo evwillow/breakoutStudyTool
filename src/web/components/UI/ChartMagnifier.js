@@ -1,13 +1,10 @@
 "use client";
-
 /**
- * ChartMagnifier Component
- * 
- * Provides an automatic magnifying glass tool for easier precise selection on charts
- * Mobile-only tool that auto-activates on touch and shows a zoomed view
+ * @fileoverview Provides a magnifier overlay for selecting points on the stock chart.
+ * @module src/web/components/UI/ChartMagnifier.js
+ * @dependencies React
  */
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const ChartMagnifier = ({ 
   onSelection, 

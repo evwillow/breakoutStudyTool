@@ -1,7 +1,7 @@
 /**
- * Standardized API Response Utilities
- * 
- * Provides consistent response formatting across all API endpoints
+ * @fileoverview Response helper utilities for building standardized API payloads.
+ * @module src/web/app/api/_shared/utils/response.ts
+ * @dependencies next/server
  */
 import { NextResponse } from 'next/server';
 import { ApiResponse, PaginationMeta } from '../types/api';

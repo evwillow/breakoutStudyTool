@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Authentication modal orchestrating sign-in/up forms, captcha, and system status checks.
+ * @module src/web/components/Auth/AuthModal/index.js
+ * @dependencies React, react-dom, ../hooks/useAuth, ../utils/constants, ../utils/validation, ./SignInForm, ./SignUpForm, @hcaptcha/react-hcaptcha
+ */
 "use client";
 
 /**

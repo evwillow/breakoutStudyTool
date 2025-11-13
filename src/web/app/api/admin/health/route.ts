@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Comprehensive health-check endpoint verifying database, local data, and auth status.
+ * @module src/web/app/api/admin/health/route.ts
+ * @dependencies next/server, ../../_shared/utils/response, ../../_shared/middleware/errorHandler, ../../_shared/clients/supabase, @breakout-study-tool/shared, @/lib/utils/errorHandling
+ */
+/**
  * Admin Health Check API
  * 
  * Consolidated endpoint for system health monitoring and diagnostics

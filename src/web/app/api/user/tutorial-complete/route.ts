@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Marks a user's tutorial completion status in Supabase via authenticated POST.
+ * @module src/web/app/api/user/tutorial-complete/route.ts
+ * @dependencies next/server, next-auth, @/lib/auth, @/lib/supabase
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authConfig } from '@/lib/auth';

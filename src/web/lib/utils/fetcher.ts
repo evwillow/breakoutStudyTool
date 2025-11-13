@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Lightweight fetch wrapper providing JSON parsing and error propagation.
+ * @module src/web/lib/utils/fetcher.ts
+ * @dependencies fetch
+ */
 import type { ApiResponse } from '@breakout-study-tool/shared';
 import { AppError, ErrorCodes, ApiError } from './errorHandling';
 import { isOnline } from './errorHandling';
@@ -17,10 +22,7 @@ interface FetchOptions extends RequestInit {
 /**
  * Enhanced fetch function with error handling, retries, and timeout
  */
-export async function fetchWithErrorHandling<T>(
-  url: string,
-  options: FetchOptions = {}
-): Promise<T> {
+export async function fetcher<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const {
     timeout = 10000,            // 10 second timeout by default
     retries = 3,                // Retry 3 times by default
@@ -28,7 +30,7 @@ export async function fetchWithErrorHandling<T>(
     retryBackoff = true,        // Use exponential backoff
     skipNetworkCheck = false,   // Check for network connectivity by default
     ...fetchOptions
-  } = options;
+  } = init || {};
 
   // Check network connectivity
   if (!skipNetworkCheck && !isOnline()) {
@@ -36,7 +38,7 @@ export async function fetchWithErrorHandling<T>(
       'No internet connection',
       ErrorCodes.CLIENT_OFFLINE,
       0,
-      { url },
+      { url: input as string },
       'You appear to be offline. Please check your internet connection and try again.'
     );
   }
@@ -57,7 +59,7 @@ export async function fetchWithErrorHandling<T>(
       };
 
       // Start the fetch request
-      const response = await fetch(url, fetchOptionsWithSignal);
+      const response = await fetch(input, fetchOptionsWithSignal);
       
       // Clear the timeout since the request completed
       clearTimeout(timeoutId);
@@ -81,7 +83,7 @@ export async function fetchWithErrorHandling<T>(
               `Authentication failed: ${errorResponseData.message || 'Unauthorized'}`,
               ErrorCodes.AUTH_UNAUTHORIZED,
               401,
-              { url, status: response.status, response: errorResponseData },
+              { url: input as string, status: response.status, response: errorResponseData },
               'Your session has expired. Please sign in again.'
             );
             
@@ -90,7 +92,7 @@ export async function fetchWithErrorHandling<T>(
               `Access denied: ${errorResponseData.message || 'Forbidden'}`,
               ErrorCodes.AUTH_MISSING_PERMISSION,
               403,
-              { url, status: response.status, response: errorResponseData },
+              { url: input as string, status: response.status, response: errorResponseData },
               'You do not have permission to access this resource.'
             );
             
@@ -99,7 +101,7 @@ export async function fetchWithErrorHandling<T>(
               `Resource not found: ${errorResponseData.message || 'Not Found'}`,
               ErrorCodes.API_ERROR,
               404,
-              { url, status: response.status, response: errorResponseData },
+              { url: input as string, status: response.status, response: errorResponseData },
               'The requested resource was not found.'
             );
             
@@ -108,7 +110,7 @@ export async function fetchWithErrorHandling<T>(
               `Rate limited: ${errorResponseData.message || 'Too Many Requests'}`,
               ErrorCodes.API_RATE_LIMITED,
               429,
-              { url, status: response.status, response: errorResponseData },
+              { url: input as string, status: response.status, response: errorResponseData },
               'You have made too many requests. Please try again later.'
             );
             
@@ -117,7 +119,7 @@ export async function fetchWithErrorHandling<T>(
               `API request failed: ${errorResponseData.message || response.statusText}`,
               ErrorCodes.API_ERROR,
               response.status,
-              { url, status: response.status, response: errorResponseData },
+              { url: input as string, status: response.status, response: errorResponseData },
               'There was a problem with the request. Please try again later.'
             );
         }
@@ -136,7 +138,7 @@ export async function fetchWithErrorHandling<T>(
             apiResponse.error?.details || 'API request failed',
             apiResponse.error?.code || ErrorCodes.API_ERROR,
             response.status,
-            { url, response: apiResponse },
+            { url: input as string, response: apiResponse },
             apiResponse.error?.message || 'Something went wrong with the request'
           );
         }
@@ -163,7 +165,7 @@ export async function fetchWithErrorHandling<T>(
             'Request timed out',
             ErrorCodes.API_TIMEOUT,
             408,
-            { url, timeout },
+            { url: input as string, timeout },
             'The request took too long to complete. Please try again.'
           );
         }
@@ -174,7 +176,7 @@ export async function fetchWithErrorHandling<T>(
 
       // Log the retry attempt
       logger.warn(`Retrying failed request (attempt ${attempt + 1}/${retries})`, {
-        url,
+        url: input as string,
         error: error.message,
         attempt: attempt + 1,
       });
@@ -200,7 +202,7 @@ export async function getJSON<T>(
   url: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  return fetchWithErrorHandling<T>(url, {
+  return fetcher<T>(url, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
@@ -218,7 +220,7 @@ export async function postJSON<T>(
   data: any,
   options: FetchOptions = {}
 ): Promise<T> {
-  return fetchWithErrorHandling<T>(url, {
+  return fetcher<T>(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -238,7 +240,7 @@ export async function putJSON<T>(
   data: any,
   options: FetchOptions = {}
 ): Promise<T> {
-  return fetchWithErrorHandling<T>(url, {
+  return fetcher<T>(url, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -257,7 +259,7 @@ export async function deleteJSON<T>(
   url: string,
   options: FetchOptions = {}
 ): Promise<T> {
-  return fetchWithErrorHandling<T>(url, {
+  return fetcher<T>(url, {
     method: 'DELETE',
     headers: {
       'Accept': 'application/json',

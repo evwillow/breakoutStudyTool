@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Next.js configuration loading root env vars and optimizing builds.
+ * @module src/web/next.config.js
+ * @dependencies path, dotenv
+ */
 /** @type {import('next').NextConfig} */
 // Load environment variables from root .env.local file
 const path = require('path');

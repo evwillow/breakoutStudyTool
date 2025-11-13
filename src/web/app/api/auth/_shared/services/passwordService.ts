@@ -1,6 +1,7 @@
 /**
- * Password Service
- * Handles password validation and hashing operations
+ * @fileoverview Password hashing and verification helpers for auth flows.
+ * @module src/web/app/api/auth/_shared/services/passwordService.ts
+ * @dependencies bcryptjs
  */
 import bcrypt from 'bcryptjs';
 import type { PasswordValidationResult } from '@breakout-study-tool/shared';

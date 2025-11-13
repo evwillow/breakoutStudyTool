@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Sign-out button component leveraging the custom auth hook.
+ * @module src/web/components/Auth/AuthButtons/SignOutButton.js
+ * @dependencies React, ../hooks/useAuth, ../utils/constants
+ */
 "use client";
 
 /**

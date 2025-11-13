@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Reusable form input with consistent styling and validation states for auth forms.
+ * @module src/web/components/Auth/AuthModal/FormInput.js
+ * @dependencies React
+ */
+/**
  * FormInput Component
  * 
  * Features:

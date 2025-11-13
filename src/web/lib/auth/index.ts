@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Barrel exports for shared authentication configuration, services, and types.
+ * @module src/web/lib/auth/index.ts
+ * @dependencies ../auth, ./services/authService, ./types, ./constants
+ */
+/**
  * Authentication Module Index
  * 
  * Centralized exports for the authentication system.

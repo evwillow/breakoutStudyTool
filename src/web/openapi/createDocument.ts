@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Creates the base OpenAPI document and merges route-specific components.
+ * @module src/web/openapi/createDocument.ts
+ * @dependencies openapi3-ts
+ */
 import { OpenAPIObject } from "openapi3-ts";
 
 export type DocumentOptions = {

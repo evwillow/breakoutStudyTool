@@ -1,9 +1,9 @@
 /**
- * Bulk Round Operations API
- * 
- * Handles bulk operations on rounds (e.g., delete all for a user)
+ * @fileoverview Bulk operations for updating or creating multiple rounds at once.
+ * @module src/web/app/api/game/rounds/bulk/route.ts
+ * @dependencies next/server, @/app/api/_shared/utils/response
  */
-import { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';
 import { createSuccessResponse } from '../../../_shared/utils/response';
 import { withErrorHandling, withMethodValidation, composeMiddleware } from '../../../_shared/middleware/errorHandler';

@@ -1,4 +1,11 @@
 /**
+ * @fileoverview Analytics configuration helpers for initializing tracking settings.
+ * @module src/web/lib/config/analytics.ts
+ * @dependencies @/lib/utils/logger
+ */
+import { logger } from '@/lib/utils/logger';
+
+/**
  * Analytics Configuration
  * 
  * Centralized configuration for analytics services including Google Analytics.

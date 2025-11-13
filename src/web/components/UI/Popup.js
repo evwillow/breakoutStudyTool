@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Modal popup prompting users to choose predefined responses when time expires.
+ * @module src/web/components/UI/Popup.js
+ * @dependencies React
+ */
 "use client";
 
 /**

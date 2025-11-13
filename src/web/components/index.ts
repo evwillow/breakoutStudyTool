@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Barrel exports for core, UI, feature, and layout components.
+ * @module src/web/components/index.ts
+ * @dependencies ./StockChart, ./ChartSection, ./DateFolderBrowser, ./UI, ./Header, ./LandingPage, ./FolderSection, ./Features, ./Auth, ./ErrorBoundary, ./FallbackUI
+ */
 // Main Components Barrel Export
 // Core Components
 export { default as StockChart } from './StockChart';

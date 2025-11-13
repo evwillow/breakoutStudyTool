@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Terms of service page presenting usage guidelines and contact details.
+ * @module src/web/app/terms/page.tsx
+ * @dependencies React
+ */
 import React from 'react';
 
 export default function TermsPage() {

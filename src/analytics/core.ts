@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Core analytics module aggregating Supabase data and computing engagement metrics.
+ * @module src/analytics/core.ts
+ * @dependencies @/app/api/_shared/clients/supabase, ../../lib/shared
+ */
+/**
  * Core Analytics Module
  *
  * Consolidated analytics functionality with clear metric definitions and calculations.

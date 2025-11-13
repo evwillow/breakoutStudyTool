@@ -1,4 +1,10 @@
 /**
+ * @fileoverview Error configuration constants for consistent messaging and retry behavior.
+ * @module src/web/lib/config/errorConfig.ts
+ * @dependencies none
+ */
+
+/**
  * Error handling configuration file
  * 
  * Centralizes error handling settings based on environment.

@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Countdown timer hook supporting pause/resume and visibility adjustments for flashcard rounds.
+ * @module src/web/components/Flashcards/hooks/useTimer.ts
+ * @dependencies React, ../constants, @breakout-study-tool/shared
+ */
+/**
  * @hook useTimer
  * @overview Provides a resilient countdown timer with pause/resume and visibility handling for flashcard sessions.
  * @usage ```ts

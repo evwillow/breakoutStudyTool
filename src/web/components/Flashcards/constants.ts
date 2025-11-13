@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Configuration constants for flashcard gameplay, timers, and file processing.
+ * @module src/web/components/Flashcards/constants.ts
+ * @dependencies none
+ */
+/**
  * Application Constants
  * Centralized configuration for the Flashcards application
  */

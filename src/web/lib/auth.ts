@@ -1,14 +1,9 @@
 /**
- * Authentication Configuration
- * 
- * Optimized NextAuth.js configuration with improved security, performance, and maintainability.
- * Features:
- * - Enhanced type safety with proper interfaces
- * - Secure error handling without information leakage
- * - Separated concerns for better maintainability
- * - Performance optimizations for user lookups
- * - Comprehensive logging and monitoring
+ * @fileoverview NextAuth helper exports configuring providers and session callbacks.
+ * @module src/web/lib/auth.ts
+ * @dependencies next-auth, ./auth
  */
+import NextAuth from 'next-auth';
 import { randomUUID } from "crypto";
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";

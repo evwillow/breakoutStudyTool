@@ -1,16 +1,8 @@
 /**
- * @component FlashcardsContainer
- * @overview High-level orchestrator for the stock trading flashcard flow—coordinates data fetching, timers, chart playback, and tutorial overlays.
- * @usage ```tsx
- * import FlashcardsContainer from "@/components/Flashcards/FlashcardsContainer";
- *
- * export default function StudyPage() {
- *   return <FlashcardsContainer />;
- * }
- * ```
- * @when Use on the primary study experience page to present flashcards, handle round logging, and drive the training loop.
+ * @fileoverview Orchestrates the flashcard study workflow, including data loading, timers, and chart interactions.
+ * @module src/web/components/Flashcards/FlashcardsContainer.tsx
+ * @dependencies React, next-auth/react, next/navigation, ../ChartSection, ../FolderSection, ../Flashcards/utils/dataProcessors, ../Flashcards/hooks/useFlashcardData, ../Flashcards/hooks/useGameState, ../Flashcards/hooks/useTimer, ../Flashcards/constants, ../Auth, ../Tutorial, ./components/LoadingStates
  */
-
 "use client";
 
 import React, { useMemo, useCallback, useEffect } from "react";

@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Sign-in button component with themed styling and callback support.
+ * @module src/web/components/Auth/AuthButtons/SignInButton.js
+ * @dependencies React, ../utils/constants
+ */
+/**
  * Optimized SignInButton Component
  * 
  * Features:

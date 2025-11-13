@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Global error boundary page that logs unhandled errors and displays recovery options.
+ * @module src/web/app/error.tsx
+ * @dependencies React, ../components/FallbackUI, @/lib/utils/logger, @/lib/config/errorConfig, @/lib/utils/errorHandling
+ */
 'use client';
 
 import { useEffect, useCallback } from 'react';

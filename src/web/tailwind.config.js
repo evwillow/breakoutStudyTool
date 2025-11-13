@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Tailwind CSS configuration for the Breakout Study Tool web app.
+ * @module src/web/tailwind.config.js
+ * @dependencies tailwindcss
+ */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [

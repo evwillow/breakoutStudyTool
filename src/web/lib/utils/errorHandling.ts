@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Shared error handling utilities including AppError definition and helpers.
+ * @module src/web/lib/utils/errorHandling.ts
+ * @dependencies console
+ */
+import { logger } from './logger';
+
 // Error codes for consistent error identification
 export const ErrorCodes = {
   // API Error Codes (1000-1999)

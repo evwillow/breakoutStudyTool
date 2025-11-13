@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Root layout component configuring fonts, metadata, providers, and analytics.
+ * @module src/web/app/layout.tsx
+ * @dependencies next, next/script, ./globals.css, ./providers, @/components, @/lib/config/analytics
+ */
+/**
  * Root Layout Component
  * 
  * Defines the base layout structure for the entire application.

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Collection of reusable fallback components for network, loading, error, and empty states.
+ * @module src/web/components/FallbackUI/index.tsx
+ * @dependencies React, @/lib/utils/errorHandling
+ */
 import React, { ReactNode } from 'react';
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Wraps components with react-error-boundary to provide consistent fallback UI and logging.
+ * @module src/web/components/ErrorBoundary/ErrorBoundary.tsx
+ * @dependencies React, react-error-boundary, @/lib/utils/logger, @/lib/utils/errorHandling, @/components/FallbackUI
+ */
 "use client";
 
 import { ReactNode, useCallback, useMemo, ErrorInfo } from 'react';

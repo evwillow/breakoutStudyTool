@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Tooltip overlay guiding users when chart selection is required.
+ * @module src/web/components/UI/SelectionTooltip.js
+ * @dependencies React
+ */
 "use client";
 
 /**

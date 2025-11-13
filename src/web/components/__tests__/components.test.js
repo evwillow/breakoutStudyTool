@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Smoke tests ensuring component barrel exports resolve without runtime errors.
+ * @module src/web/components/__tests__/components.test.js
+ * @dependencies jest
+ */
+/**
  * Component Import Validation Tests
  * 
  * Simple tests to ensure all components can be imported correctly

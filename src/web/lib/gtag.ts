@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Google Analytics helper utilities for Next.js pages.
+ * @module src/web/lib/gtag.ts
+ * @dependencies none
+ */
 export const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || 'G-CSGDH5PT27';
 
 // https://developers.google.com/analytics/devguides/collection/gtagjs/pages

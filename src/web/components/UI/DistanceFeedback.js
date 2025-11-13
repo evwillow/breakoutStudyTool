@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Displays accuracy feedback for user selections with score and tier labels.
+ * @module src/web/components/UI/DistanceFeedback.js
+ * @dependencies React
+ */
+/**
  * DistanceFeedback Component
  * 
  * GeoGuessr-style feedback component showing:

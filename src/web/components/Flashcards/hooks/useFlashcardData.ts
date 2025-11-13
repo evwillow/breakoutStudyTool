@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Custom hook for loading flashcard folders, datasets, and handling fetch lifecycle state.
+ * @module src/web/components/Flashcards/hooks/useFlashcardData.ts
+ * @dependencies React, next-auth/react, ../constants, ../utils/dataProcessors, @breakout-study-tool/shared
+ */
+/**
  * @hook useFlashcardData
  * @overview Fetches flashcard folders, loads card data, and exposes loading state for the flashcard study flow.
  * @usage ```ts

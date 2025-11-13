@@ -1,4 +1,11 @@
 /**
+ * @fileoverview Root landing page showcasing breakout study overview and marketing content.
+ * @module src/web/app/page.tsx
+ * @dependencies React
+ */
+import Image from "next/image";
+
+/**
  * Home Page Component
  * 
  * Renders the marketing LandingPage for unauthenticated users,

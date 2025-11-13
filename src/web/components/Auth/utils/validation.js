@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Authentication validation helpers for emails, form inputs, and captcha checks.
+ * @module src/web/components/Auth/utils/validation.js
+ * @dependencies ./constants
+ */
+/**
  * Authentication Validation Utilities
  * Centralized validation functions for auth forms
  */

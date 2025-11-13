@@ -1,10 +1,9 @@
 /**
- * Simplified Analytics Dashboard (CLI)
- *
- * For detailed analytics, use the web dashboard at /analytics
+ * @fileoverview Exports analytics utilities for integration with the web application.
+ * @module src/analytics/index.ts
+ * @dependencies ./core
  */
-
-import { getDetailedAnalytics } from './core';
+export { getDetailedAnalytics, USER_SEGMENT_DEFINITIONS } from './core';
 
 async function generateSimpleReport(trafficData?: { totalVisitors: number; source?: string }): Promise<string> {
   const analytics = await getDetailedAnalytics();

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Lists available local dataset folders for flashcard selection.
+ * @module src/web/app/api/files/local-folders/route.ts
+ * @dependencies next/server, node:path, node:fs/promises
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { getFolderIndex } from '@/lib/cache/localDataCache';
 

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Renders interactive OHLC stock charts with overlays, volume, and moving averages for drills.
+ * @module src/web/components/StockChart/StockChart.tsx
+ * @dependencies React, d3-scale, d3-shape, ./StockChart.types
+ */
 "use client";
 
 /**

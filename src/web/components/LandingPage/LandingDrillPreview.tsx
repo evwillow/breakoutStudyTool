@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Landing page drill preview simulating breakout practice animations.
+ * @module src/web/components/LandingPage/LandingDrillPreview.tsx
+ * @dependencies React, ../StockChart
+ */
 "use client";
 
 /**

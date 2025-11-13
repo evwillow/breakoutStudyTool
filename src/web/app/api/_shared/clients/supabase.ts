@@ -1,12 +1,9 @@
 /**
- * Centralized Supabase Client Factory
- * 
- * Provides singleton instances of Supabase clients for different use cases:
- * - Admin client for server-side operations with elevated privileges
- * - Standard client for regular operations
- * - Cached instances to improve performance
+ * @fileoverview Creates Supabase client instances for server-side API routes.
+ * @module src/web/app/api/_shared/clients/supabase.ts
+ * @dependencies @supabase/supabase-js, @/lib/utils/logger
  */
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 import { logger } from "@/lib/utils/logger";
 
 // Lazy env resolution to avoid crashing at import time

@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Jest tests validating auth utility functions and component imports.
+ * @module src/web/components/Auth/__tests__/auth.test.js
+ * @dependencies ../utils/validation, ../utils/constants
+ */
+/**
  * Auth Components Tests
  * Basic tests to verify functionality
  */

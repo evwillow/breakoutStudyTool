@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Injects Google Analytics scripts and tracks client-side route transitions.
+ * @module src/web/components/GoogleAnalytics.tsx
+ * @dependencies React, next/navigation, next/script, @/lib/gtag
+ */
 "use client";
 
 import { useEffect } from 'react';

@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Barrel exports for flashcard container, hooks, and utilities.
+ * @module src/web/components/Flashcards/index.ts
+ * @dependencies none
+ */
+/**
  * Flashcards Module Exports
  * Centralized exports for the optimized flashcards module
  */

@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Application logo component linking back to the homepage.
+ * @module src/web/components/Header/Logo.js
+ * @dependencies next/link
+ */
 import Link from "next/link";
 
 /**

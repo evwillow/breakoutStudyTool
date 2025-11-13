@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Client page rendering Swagger UI for API documentation.
+ * @module src/web/app/api-docs/page.tsx
+ * @dependencies swagger-ui-react, swagger-ui-react/swagger-ui.css
+ */
 "use client";
 
 import SwaggerUI from "swagger-ui-react";

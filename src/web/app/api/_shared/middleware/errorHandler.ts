@@ -1,7 +1,7 @@
 /**
- * Enhanced API Error Handling Middleware
- * 
- * Provides centralized error handling with standardized responses
+ * @fileoverview Middleware helpers for consistent API error responses and logging.
+ * @module src/web/app/api/_shared/middleware/errorHandler.ts
+ * @dependencies next/server, @/lib/utils/logger, @/lib/utils/errorHandling
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '../utils/response';

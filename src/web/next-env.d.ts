@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Next.js ambient type references for the web application.
+ * @module src/web/next-env.d.ts
+ * @dependencies next
+ */
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
 

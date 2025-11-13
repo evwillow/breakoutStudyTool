@@ -1,7 +1,7 @@
 /**
- * Individual Round Management API
- * 
- * Handles operations on specific rounds by ID
+ * @fileoverview Updates and retrieves specific round details identified by round ID.
+ * @module src/web/app/api/game/rounds/[id]/route.ts
+ * @dependencies next/server, @/app/api/_shared/utils/response, @/app/api/_shared/utils/validation
  */
 import { NextRequest } from 'next/server';
 import { getAdminSupabaseClient } from '../../../_shared/clients/supabase';

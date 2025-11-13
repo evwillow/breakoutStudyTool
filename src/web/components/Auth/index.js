@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Barrel exports for authentication components and hooks.
+ * @module src/web/components/Auth/index.js
+ * @dependencies none
+ */
 // Auth Components Barrel Export
 export { default as AuthModal } from './AuthModal';
 export { default as AuthButtons } from './AuthButtons';

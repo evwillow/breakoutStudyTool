@@ -1,7 +1,13 @@
 /**
+ * @fileoverview Provides aggregated analytics metrics for the admin dashboard.
+ * @module src/web/app/api/analytics/route.ts
+ * @dependencies next/server, @/analytics/core
+ */
+/**
  * Analytics API Endpoint
  *
  * Provides comprehensive analytics data for the admin dashboard.
+ *
  */
 
 import { NextResponse } from 'next/server';

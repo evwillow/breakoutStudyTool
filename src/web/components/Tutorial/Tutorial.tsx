@@ -1,15 +1,9 @@
-"use client";
-
 /**
- * @component Tutorial
- * @overview Overlay walkthrough guiding new users through the breakout flashcard interface with contextual tooltips and gated interactions.
- * @usage ```tsx
- * import Tutorial from "@/components/Tutorial";
- *
- * <Tutorial isActive={show} onComplete={handleComplete} onSkip={handleSkip} timer={timerControls} />
- * ```
- * @when Trigger during onboarding or when the learner requests a refresher from the profile menu.
+ * @fileoverview Interactive onboarding tutorial overlay with guided steps, tooltips, and action tracking.
+ * @module src/web/components/Tutorial/Tutorial.tsx
+ * @dependencies React, react-dom
  */
+"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';

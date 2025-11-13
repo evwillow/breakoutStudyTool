@@ -1,13 +1,8 @@
 /**
- * NextAuth API Route Handler
- * 
- * Handles authentication requests using NextAuth.js
- * Configured for Node.js runtime for optimal performance
+ * @fileoverview NextAuth configuration route handling authentication providers and callbacks.
+ * @module src/web/app/api/auth/[...nextauth]/route.ts
+ * @dependencies next-auth, next-auth/providers/google, @/lib/auth
  */
-
-// Force Node.js runtime for better performance with auth operations
-export const runtime = "nodejs";
-
 import NextAuth from "next-auth";
 import { authConfig } from "@/lib/auth";
 

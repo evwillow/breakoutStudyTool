@@ -1,6 +1,7 @@
 /**
- * User Service
- * Handles user database operations with proper error handling
+ * @fileoverview Supabase user service for creating accounts, fetching profiles, and managing auth metadata.
+ * @module src/web/app/api/auth/_shared/services/userService.ts
+ * @dependencies @/lib/utils/logger, @/app/api/_shared/utils/response
  */
 import { getServerSupabaseClient } from '@/lib/supabase';
 import { AuthUser, SignupRequest } from '../types/auth';

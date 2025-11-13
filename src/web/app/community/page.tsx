@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Community landing page placeholder gated by authentication.
+ * @module src/web/app/community/page.tsx
+ * @dependencies React, @/lib/hooks/useAuthRedirect
+ */
 "use client";
 
 import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";

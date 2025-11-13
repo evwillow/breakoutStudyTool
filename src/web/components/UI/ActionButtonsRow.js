@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Renders action buttons for flashcard responses with visual feedback and accessibility support.
+ * @module src/web/components/UI/ActionButtonsRow.js
+ * @dependencies React
+ */
+/**
  * ActionButtonsRow.js
  * 
  * Component for displaying a row of action buttons for user interaction.

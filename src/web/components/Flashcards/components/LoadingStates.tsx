@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Flashcard-specific loading and error fallback components.
+ * @module src/web/components/Flashcards/components/LoadingStates.tsx
+ * @dependencies React
+ */
+/**
  * @module LoadingStates
  * @overview Flashcard-specific loading, authentication, and error fallbacks for the study experience.
  * @usage ```tsx

@@ -2,7 +2,9 @@ import { Session } from 'next-auth';
 import { FlashcardData } from '../Flashcards/utils/dataProcessors';
 
 /**
- * File entry structure for previous setups
+ * @fileoverview Type definitions for DateFolderBrowser props and helper maps.
+ * @module src/web/components/DateFolderBrowser/DateFolderBrowser.types.ts
+ * @dependencies none
  */
 export interface PreviousSetupFile {
   id: string;

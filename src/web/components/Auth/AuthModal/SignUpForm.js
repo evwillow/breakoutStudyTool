@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Sign-up form component with Google login, hCaptcha, and terms acknowledgement.
+ * @module src/web/components/Auth/AuthModal/SignUpForm.js
+ * @dependencies React, next/link, ../utils/constants, ./FormInput, ./FormButton, ./ErrorDisplay
+ */
+/**
  * SignUpForm Component
  * 
  * Features:

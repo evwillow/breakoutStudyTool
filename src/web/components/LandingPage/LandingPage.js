@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Marketing landing page component featuring hero content, preview, and CTAs.
+ * @module src/web/components/LandingPage/LandingPage.js
+ * @dependencies React, next/link, next/script, ../Auth/AuthModal, ./LandingDrillPreview
+ */
 "use client";
 
 /**

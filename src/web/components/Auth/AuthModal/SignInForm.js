@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Sign-in form component handling email flow, Google login, and validation messages.
+ * @module src/web/components/Auth/AuthModal/SignInForm.js
+ * @dependencies React, ../utils/constants, ./FormInput, ./FormButton, ./ErrorDisplay
+ */
+/**
  * SignInForm Component
  * 
  * Features:

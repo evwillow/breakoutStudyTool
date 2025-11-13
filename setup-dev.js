@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * @fileoverview CLI utility to bootstrap local development environment dependencies.
+ * @module setup-dev.js
+ * @dependencies fs, path, child_process
+ */
 
 const fs = require('fs');
 const path = require('path');

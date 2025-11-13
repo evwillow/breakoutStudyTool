@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Responsive application header providing navigation, auth controls, and mobile menus.
+ * @module src/web/components/Header/Header.tsx
+ * @dependencies React, next/link, next/navigation, ./Logo, ../Auth, ../Auth/hooks/useAuth, ./Header.types
+ */
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback } from "react"

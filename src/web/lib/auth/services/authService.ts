@@ -1,8 +1,7 @@
 /**
- * Authentication Service
- * 
- * Core authentication logic separated from NextAuth configuration.
- * Handles user validation, password verification, and security measures.
+ * @fileoverview Authentication service managing Supabase user creation and credential validation.
+ * @module src/web/lib/auth/services/authService.ts
+ * @dependencies @supabase/supabase-js, ./passwordService, ./userService, @/lib/utils/logger
  */
 import bcrypt from "bcryptjs";
 import { getServerSupabaseClient } from "../../supabase.js";

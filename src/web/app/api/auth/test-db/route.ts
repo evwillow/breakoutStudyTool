@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Testing endpoint for verifying Supabase connectivity and managing a sample user.
+ * @module src/web/app/api/auth/test-db/route.ts
+ * @dependencies next/server, ../../_shared/clients/supabase, @/lib/auth/services/authService, @/lib/utils/logger
+ */
+/**
  * Database Test API Route
  * 
  * Tests database connectivity and optionally creates a test user

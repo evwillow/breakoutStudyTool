@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Custom 404 page providing navigation back to the app home.
+ * @module src/web/app/not-found.tsx
+ * @dependencies next/link, '@/components'
+ */
 import Link from 'next/link';
 import { BackButton } from '@/components';
 

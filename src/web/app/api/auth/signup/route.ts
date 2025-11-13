@@ -1,7 +1,7 @@
 /**
- * User Signup API Route
- * 
- * Handles user registration with validation, rate limiting, and security measures
+ * @fileoverview Handles user signup requests, validation, and Supabase user creation.
+ * @module src/web/app/api/auth/signup/route.ts
+ * @dependencies next/server, @/app/api/_shared/utils/response, @/app/api/_shared/utils/validation, @/app/api/auth/_shared/services/userService, @/lib/utils/logger
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createSuccessResponse } from '../../_shared/utils/response';

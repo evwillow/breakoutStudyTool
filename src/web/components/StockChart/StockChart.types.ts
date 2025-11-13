@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Type definitions for StockChart configuration, scales, and props.
+ * @module src/web/components/StockChart/StockChart.types.ts
+ * @dependencies d3-scale, d3-shape, @breakout-study-tool/shared
+ */
 import type { ScaleLinear, ScalePoint } from "d3-scale";
 import type { Line } from "d3-shape";
 import type { 

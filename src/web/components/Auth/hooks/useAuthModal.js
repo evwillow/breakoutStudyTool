@@ -1,3 +1,8 @@
+/**
+ * @fileoverview React context and hooks for controlling the authentication modal state.
+ * @module src/web/components/Auth/hooks/useAuthModal.js
+ * @dependencies React
+ */
 "use client";
 
 /**

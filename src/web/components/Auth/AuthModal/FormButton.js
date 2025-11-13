@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Reusable form button with loading and variant styling for auth modals.
+ * @module src/web/components/Auth/AuthModal/FormButton.js
+ * @dependencies React
+ */
+/**
  * FormButton Component
  * 
  * Features:

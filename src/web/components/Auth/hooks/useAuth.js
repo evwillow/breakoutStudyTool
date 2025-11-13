@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Custom hook wrapping NextAuth session, sign-in, and sign-out helpers.
+ * @module src/web/components/Auth/hooks/useAuth.js
+ * @dependencies next-auth/react
+ */
 "use client";
 
 /**

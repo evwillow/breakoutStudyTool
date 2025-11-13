@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Flat ESLint configuration bridging Next.js presets.
+ * @module eslint.config.mjs
+ * @dependencies path, url, @eslint/eslintrc
+ */
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";

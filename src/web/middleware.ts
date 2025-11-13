@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Global middleware adding security headers, CORS, and request validation.
+ * @module src/web/middleware.ts
+ * @dependencies next/server
+ */
+/**
  * Next.js Middleware
  * 
  * Provides security headers, CORS, and request validation

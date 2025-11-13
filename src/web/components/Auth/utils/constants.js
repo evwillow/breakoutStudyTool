@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Authentication string constants and configuration values used in auth UI.
+ * @module src/web/components/Auth/utils/constants.js
+ * @dependencies none
+ */
+/**
  * Authentication Constants
  * Centralized constants for auth components
  */

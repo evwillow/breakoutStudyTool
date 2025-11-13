@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Declaration merges extending NextAuth session and token types.
+ * @module src/web/lib/types/next-auth.d.ts
+ * @dependencies next-auth
+ */
+/**
  * NextAuth Type Extensions
  * Extends default NextAuth types to include custom fields
  */

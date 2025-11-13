@@ -1,15 +1,10 @@
+/**
+ * @fileoverview Browses historical flashcard folders and renders expandable stock charts for prior setups.
+ * @module src/web/components/DateFolderBrowser/DateFolderBrowser.tsx
+ * @dependencies React, ../StockChart, ../Flashcards/utils/dataProcessors, ./DateFolderBrowser.types
+ */
 "use client";
 
-/**
- * @component DateFolderBrowser
- * @overview Auxiliary browser that surfaces additional historical setups for the currently selected stock, allowing learners to inspect previous days.
- * @usage ```tsx
- * import DateFolderBrowser from "@/components/DateFolderBrowser";
- *
- * <DateFolderBrowser session={session} currentStock={symbol} flashcards={cards} />
- * ```
- * @when Embed alongside the main chart to let users explore alternate datasets without leaving the drill experience.
- */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import StockChart from "../StockChart";
 import { FlashcardData } from '../Flashcards/utils/dataProcessors';

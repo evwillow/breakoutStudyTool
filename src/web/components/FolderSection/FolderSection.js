@@ -1,16 +1,9 @@
 /**
- * FolderSection Component
- * 
- * Displays folder selection controls and round management options.
- * Features:
- * - Dropdown for selecting different data folders
- * - Display of current accuracy percentage
- * - Buttons for creating new rounds and viewing round history
- * - Responsive design that adapts to different screen sizes
- * - Optimized with React.memo for performance
- * - Clean, borderless design with soft backgrounds for reduced eye strain
+ * @fileoverview Renders folder selection UI for navigating flashcard datasets.
+ * @module src/web/components/FolderSection/FolderSection.js
+ * @dependencies React
  */
-import React from "react";
+import React from 'react';
 
 /**
  * FolderSection displays folder selection and round management controls

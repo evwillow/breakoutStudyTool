@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Manages flashcard drill state, scoring, and navigation callbacks for the study experience.
+ * @module src/web/components/Flashcards/hooks/useGameState.ts
+ * @dependencies React, ../constants, ../utils/coordinateUtils, @breakout-study-tool/shared
+ */
+/**
  * @hook useGameState
  * @overview Manages flashcard drill progression, chart selections, metrics, and callback orchestration.
  * @usage ```ts

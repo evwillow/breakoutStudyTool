@@ -1,7 +1,7 @@
 /**
- * Game Matches API
- * 
- * Handles logging and retrieving game matches
+ * @fileoverview Handles recording of flashcard match results and scoring metadata.
+ * @module src/web/app/api/game/matches/route.ts
+ * @dependencies next/server, @/app/api/_shared/utils/response, @/app/api/_shared/utils/validation, @/lib/cache/localDataCache, @/lib/utils/logger
  */
 import { NextRequest } from 'next/server';
 import { getAdminSupabaseClient } from '../../_shared/clients/supabase';

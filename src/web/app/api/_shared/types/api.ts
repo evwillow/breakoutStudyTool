@@ -1,9 +1,8 @@
 /**
- * Standardized API Types
- * 
- * Defines consistent request/response types for all API endpoints
+ * @fileoverview Shared API type definitions for request/response payloads.
+ * @module src/web/app/api/_shared/types/api.ts
+ * @dependencies none
  */
-
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;

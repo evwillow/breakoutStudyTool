@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Static support page containing contact information for assistance.
+ * @module src/web/app/support/page.js
+ * @dependencies none
+ */
 export default function SupportPage() {
   return (
     <div className="w-full flex justify-center">

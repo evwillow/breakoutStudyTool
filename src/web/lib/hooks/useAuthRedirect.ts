@@ -1,8 +1,12 @@
-"use client";
+/**
+ * @fileoverview Hook that redirects authenticated users away from public routes and handles return paths.
+ * @module src/web/lib/hooks/useAuthRedirect.ts
+ * @dependencies next/navigation, next-auth/react
+ */
+import { useEffect } from 'react';
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 /**
  * Custom hook for handling authentication redirects

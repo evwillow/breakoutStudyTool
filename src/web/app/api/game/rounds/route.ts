@@ -1,7 +1,7 @@
 /**
- * Game Rounds API
- * 
- * Handles CRUD operations for game rounds
+ * @fileoverview Creates new game rounds and retrieves round summaries for the flashcard workflow.
+ * @module src/web/app/api/game/rounds/route.ts
+ * @dependencies next/server, @/app/api/_shared/utils/response, @/app/api/_shared/utils/validation, @/lib/utils/logger
  */
 import { NextRequest } from 'next/server';
 import { getAdminSupabaseClient } from '../../_shared/clients/supabase';

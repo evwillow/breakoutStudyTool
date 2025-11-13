@@ -1,16 +1,8 @@
 "use client";
-
 /**
- * TimerDurationSelector.js
- * 
- * Component for selecting the timer duration for each match.
- * Features:
- * - Popup modal that opens on click
- * - Button-based selection matching popup theme
- * - Reduced preset timer durations
- * - Custom time option with input field
- * - Visual feedback for the current selection
- * - Responsive design that adapts to different screen sizes
+ * @fileoverview Timer duration selector component for adjusting study session length.
+ * @module src/web/components/UI/TimerDurationSelector.js
+ * @dependencies React
  */
 import React, { useState, useEffect, useRef, useMemo } from "react";
 

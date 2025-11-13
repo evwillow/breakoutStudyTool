@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Simple in-memory cache for local dataset responses used by flashcard APIs.
+ * @module src/web/lib/cache/localDataCache.ts
+ * @dependencies fs, path, @breakout-study-tool/shared
+ */
+
 import { promises as fs } from "fs";
 import path from "path";
 import type { LocalFolder, LocalFolderFile } from '@breakout-study-tool/shared';

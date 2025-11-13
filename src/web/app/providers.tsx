@@ -1,7 +1,11 @@
-"use client";
+/**
+ * @fileoverview Global Next.js provider setup for session, analytics, and shared contexts.
+ * @module src/web/app/providers.tsx
+ * @dependencies React, next-auth/react, @/components/GoogleAnalytics
+ */
+'use client';
 
-import React from 'react';
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider } from 'next-auth/react';
 import { ErrorBoundary } from "../components";
 import { ErrorFallback, NetworkErrorFallback } from "../components/FallbackUI";
 import { useEffect, useState, useCallback } from "react";

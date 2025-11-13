@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Learn page placeholder for educational resources gated by authentication.
+ * @module src/web/app/learn/page.tsx
+ * @dependencies React, @/lib/hooks/useAuthRedirect
+ */
 "use client";
 
 import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";

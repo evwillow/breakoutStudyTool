@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Shared authentication constants for routes and services.
+ * @module src/web/lib/auth/constants.ts
+ * @dependencies none
+ */
+/**
  * Authentication Constants
  * 
  * Centralized configuration constants for the authentication system.

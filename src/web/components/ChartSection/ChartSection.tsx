@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Main drill container coordinating charts, timers, overlays, and interaction logic.
+ * @module src/web/components/ChartSection/ChartSection.tsx
+ * @dependencies React, ../StockChart, ../Auth, ../UI/ChartMagnifier, ../UI/SelectionTooltip, ../Flashcards/utils/coordinateUtils, ./ChartSection.types
+ */
 "use client";
 
 /**

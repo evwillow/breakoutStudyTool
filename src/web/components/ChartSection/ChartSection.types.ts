@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Type definitions supporting ChartSection component props and structures.
+ * @module src/web/components/ChartSection/ChartSection.types.ts
+ * @dependencies @breakout-study-tool/shared
+ */
 import type { ChartCoordinate, ChartClickHandler } from '@breakout-study-tool/shared';
 
 /**

@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Coordinate utilities for converting selections and computing scoring metrics.
+ * @module src/web/components/Flashcards/utils/coordinateUtils.ts
+ * @dependencies @breakout-study-tool/shared
+ */
+/**
  * Coordinate and Distance Utilities
  * 
  * Utilities for calculating target points from chart data,

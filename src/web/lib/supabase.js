@@ -1,4 +1,9 @@
 /**
+ * @fileoverview Supabase client factory providing server and client helpers.
+ * @module src/web/lib/supabase.js
+ * @dependencies @supabase/supabase-js
+ */
+/**
  * Optimized Supabase Client Factory
  * 
  * Provides singleton instances of Supabase clients for different use cases:

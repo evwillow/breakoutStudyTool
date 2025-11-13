@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Client-side analytics dashboard rendering charts and metrics for administrators.
+ * @module src/web/app/analytics/page.tsx
+ * @dependencies React, @/lib/hooks/useAuthRedirect, @/components/Analytics/AnalyticsChart, @breakout-study-tool/shared
+ */
 "use client";
 
 import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";

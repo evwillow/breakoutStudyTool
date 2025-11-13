@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Modal for browsing, loading, and managing user round history.
+ * @module src/web/components/Features/RoundHistory.js
+ * @dependencies React
+ */
 "use client";
 
 // /src/components/RoundHistory.js

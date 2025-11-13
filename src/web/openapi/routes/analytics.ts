@@ -1,3 +1,8 @@
+/**
+ * @fileoverview OpenAPI schema definitions for the analytics API route.
+ * @module src/web/openapi/routes/analytics.ts
+ * @dependencies openapi3-ts, @/openapi/createDocument
+ */
 import { OpenAPIObject, SchemaObject } from "openapi3-ts";
 
 import type { DocumentOptions } from "@/openapi/createDocument";
