@@ -11,15 +11,25 @@
     "data:dev": "cd src/data-processing && python -m uvicorn main:app --reload",
     "dev": "npm run web:dev",
     "build": "npm run web:build",
-    "start": "npm run web:start"
+    "start": "npm run web:start",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:watch": "vitest --watch"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
     "@turbo/gen": "^1.10.12",
+    "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/ui": "^4.0.8",
     "dependency-cruiser": "^17.2.0",
     "eslint": "^9.0.0",
+    "jsdom": "^26.0.1",
     "prettier": "^3.0.0",
     "turbo": "^1.10.12",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vite": "^6.4.1",
+    "vitest": "^4.0.8"
   },
   "packageManager": "npm@10.0.0",
   "engines": {
