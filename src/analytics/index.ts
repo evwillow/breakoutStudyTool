@@ -3,7 +3,9 @@
  * @module src/analytics/index.ts
  * @dependencies ./core
  */
-export { getDetailedAnalytics, USER_SEGMENT_DEFINITIONS } from './core';
+import { getDetailedAnalytics, USER_SEGMENT_DEFINITIONS } from './core';
+
+export { getDetailedAnalytics, USER_SEGMENT_DEFINITIONS };
 
 async function generateSimpleReport(trafficData?: { totalVisitors: number; source?: string }): Promise<string> {
   const analytics = await getDetailedAnalytics();

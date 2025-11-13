@@ -10,7 +10,7 @@
  * This module provides comprehensive user behavior and engagement analytics.
  */
 
-import { getAdminSupabaseClient } from '@/app/api/_shared/clients/supabase';
+import { getAdminSupabaseClient } from '../web/app/api/_shared/clients/supabase';
 // Import types from shared package using relative path
 import type { 
   UserSegment, 
