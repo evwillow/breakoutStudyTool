@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * DateFolderBrowser.js
+ * DateFolderBrowser.tsx
  * 
  * Component for browsing and displaying historical stock data files.
  * Features:
@@ -17,40 +17,35 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import StockChart from "../StockChart";
+import {
+  DateFolderBrowserProps,
+  PreviousSetupFile,
+  FileDataMap,
+  FileRefsMap
+} from './DateFolderBrowser.types';
 
-/**
- * DateFolderBrowser component displays historical stock data files
- * and allows viewing them as charts
- * @typedef {import('../Flashcards/utils/dataProcessors').FlashcardData} FlashcardData
- * @param {Object} props
- * @param {any} props.session
- * @param {string|null} props.currentStock
- * @param {FlashcardData[]} [props.flashcards]
- * @param {FlashcardData|null} [props.currentFlashcard]
- * @param {Function} [props.onChartExpanded] - Callback when a chart is expanded
- */
-const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlashcard = null, onChartExpanded = null }) => {
-  const [allFiles, setAllFiles] = useState([]);
-  const [expandedFiles, setExpandedFiles] = useState([]);
-  const [fileData, setFileData] = useState({});
-  const [error, setError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState('');
-  const [visibleItems, setVisibleItems] = useState([]);
-  const [autoExpandedItems, setAutoExpandedItems] = useState([]);
-  const [manuallyControlledItems, setManuallyControlledItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const fileRefs = useRef({});
-  const lastScrollY = useRef(0);
-  const scrollingDirection = useRef('down');
-  const prevExpandedFilesRef = useRef([]);
-  const prevFetchKeyRef = useRef(null);
+const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentStock, flashcards = [], currentFlashcard = null, onChartExpanded = null }) => {
+  const [allFiles, setAllFiles] = useState<PreviousSetupFile[]>([]);
+  const [expandedFiles, setExpandedFiles] = useState<string[]>([]);
+  const [fileData, setFileData] = useState<FileDataMap>({});
+  const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [visibleItems, setVisibleItems] = useState<string[]>([]);
+  const [autoExpandedItems, setAutoExpandedItems] = useState<string[]>([]);
+  const [manuallyControlledItems, setManuallyControlledItems] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const fileRefs = useRef<FileRefsMap>({});
+  const lastScrollY = useRef<number>(0);
+  const scrollingDirection = useRef<'up' | 'down'>('down');
+  const prevExpandedFilesRef = useRef<string[]>([]);
+  const prevFetchKeyRef = useRef<string | null>(null);
 
   // Function to expand visible items that aren't manually controlled
-  const expandVisibleItems = useCallback(() => {
-    visibleItems.forEach(fileId => {
+  const expandVisibleItems = useCallback((): void => {
+    visibleItems.forEach((fileId: string) => {
       if (!manuallyControlledItems.includes(fileId) && !expandedFiles.includes(fileId)) {
-        setExpandedFiles(prev => [...prev, fileId]);
-        setAutoExpandedItems(prev => [...prev, fileId]);
+        setExpandedFiles((prev: string[]) => [...prev, fileId]);
+        setAutoExpandedItems((prev: string[]) => [...prev, fileId]);
       }
     });
   }, [visibleItems, manuallyControlledItems, expandedFiles]);
@@ -104,7 +99,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
     const abortController = new AbortController();
     let isActive = true;
 
-    const fetchAllStockFiles = async () => {
+    const fetchAllStockFiles = async (): Promise<void> => {
       try {
         // Parse current stock to get ticker and breakout date
         if (!currentStock) {
@@ -125,7 +120,7 @@ const DateFolderBrowser = ({ session, currentStock, flashcards = [], currentFlas
         const currentDay = parseInt(currentStockParts[2], 10);
         const currentYear = parseInt(currentStockParts[3], 10);
         
-        const monthMap = {
+        const monthMap: { [key: string]: number } = {
           'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
           'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
         };

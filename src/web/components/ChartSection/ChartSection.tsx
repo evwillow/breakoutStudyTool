@@ -19,14 +19,20 @@ import { AuthModal } from "../Auth";
 import ChartMagnifier from "../UI/ChartMagnifier";
 import SelectionTooltip from "../UI/SelectionTooltip";
 import { getAccuracyTier } from "../Flashcards/utils/coordinateUtils";
+import {
+  ChartScoreOverlayProps,
+  ChartSectionProps,
+  PopupPosition,
+  StockInfo
+} from './ChartSection.types';
 
 // ChartScoreOverlay component - inlined to fix import issues
-const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, alwaysPaused = false, onPauseChange = null }) => {
-  const [countdown, setCountdown] = useState(10);
-  const [isPaused, setIsPaused] = useState(alwaysPaused);
-  const intervalRef = useRef(null);
-  const isPausedRef = useRef(alwaysPaused);
-  const onNextRef = useRef(onNext);
+const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({ score, accuracyTier, show, onNext, isMobile, alwaysPaused = false, onPauseChange = null }) => {
+  const [countdown, setCountdown] = useState<number>(10);
+  const [isPaused, setIsPaused] = useState<boolean>(alwaysPaused);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPausedRef = useRef<boolean>(alwaysPaused);
+  const onNextRef = useRef<(() => void) | null>(onNext);
   
   // Keep onNext ref up to date
   useEffect(() => {
@@ -88,8 +94,8 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
   }, [show, score, isPaused, alwaysPaused]);
   
   // Handle pause toggle
-  const handlePauseToggle = () => {
-    setIsPaused(prev => {
+  const handlePauseToggle = (): void => {
+    setIsPaused((prev: boolean) => {
       const newPaused = !prev;
       isPausedRef.current = newPaused; // Update ref immediately
       console.log("ChartScoreOverlay: Pause button clicked, new state:", newPaused);
@@ -188,7 +194,7 @@ const ChartScoreOverlay = ({ score, accuracyTier, show, onNext, isMobile, always
   );
 };
 
-function ChartSection({
+const ChartSection: React.FC<ChartSectionProps> = ({
   orderedFiles,
   afterData,
   timer,
@@ -212,16 +218,16 @@ function ChartSection({
   onPauseStateChange = null, // Callback to notify parent of pause state changes
   onDismissTooltip = null, // Callback to dismiss the selection tooltip
   onTimerPause = null, // Callback to pause the timer
-}) {
-  const [showAuthModal, setShowAuthModal] = React.useState(false);
-  const [showAfterAnimation, setShowAfterAnimation] = useState(false);
-  const [progressPercentage, setProgressPercentage] = useState(0);
-  const [zoomPercentage, setZoomPercentage] = useState(0);
-  const isAnimationPausedRef = useRef(false);
-  const animationPauseRef = useRef(null);
+}) => {
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showAfterAnimation, setShowAfterAnimation] = useState<boolean>(false);
+  const [progressPercentage, setProgressPercentage] = useState<number>(0);
+  const [zoomPercentage, setZoomPercentage] = useState<number>(0);
+  const isAnimationPausedRef = useRef<boolean>(false);
+  const animationPauseRef = useRef<number | null>(null);
   
   // Handle pause state change from overlay
-  const handlePauseChange = useCallback((paused) => {
+  const handlePauseChange = useCallback((paused: boolean): void => {
     console.log("Pause state changed:", paused);
     isAnimationPausedRef.current = paused;
     console.log("Animation pause ref updated to:", isAnimationPausedRef.current);
@@ -231,7 +237,7 @@ function ChartSection({
     }
   }, [onPauseStateChange]);
 
-  const handleChartAreaClickCapture = useCallback((event) => {
+  const handleChartAreaClickCapture = useCallback((event: React.MouseEvent<HTMLDivElement>): void => {
     if (isTimeUp && score === null) {
       event.stopPropagation();
       event.preventDefault();
@@ -240,10 +246,10 @@ function ChartSection({
       }
     }
   }, [isTimeUp, score, onDismissTooltip]);
-  const [completionDelay, setCompletionDelay] = useState(false);
-  const [afterAnimationComplete, setAfterAnimationComplete] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [animationInProgress, setAnimationInProgress] = useState(false);
+  const [completionDelay, setCompletionDelay] = useState<boolean>(false);
+  const [afterAnimationComplete, setAfterAnimationComplete] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [animationInProgress, setAnimationInProgress] = useState<boolean>(false);
   
   // Pause timer when animation is in progress
   useEffect(() => {
@@ -251,34 +257,34 @@ function ChartSection({
       onTimerPause();
     }
   }, [animationInProgress, onTimerPause]);
-  const [showTimerPopup, setShowTimerPopup] = useState(false);
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [customValue, setCustomValue] = useState("");
-  const [popupPosition, setPopupPosition] = useState({ top: '0px', left: '0px', right: 'auto', bottom: 'auto' });
-  const customInputRef = useRef(null);
-  const timerPopupRef = useRef(null);
-  const timerTriggerRef = useRef(null);
-  const timerContainerRef = useRef(null);
-  const dLabelRef = useRef(null);
-  const [timerRightEdge, setTimerRightEdge] = useState(null);
-  const [timerLeftEdge, setTimerLeftEdge] = useState(null);
-  const [dLabelRightEdge, setDLabelRightEdge] = useState(null);
-  const [dLabelCenterY, setDLabelCenterY] = useState(null);
-  const [smaLabelRightEdge, setSmaLabelRightEdge] = useState(null);
-  const [showInfoPopup, setShowInfoPopup] = useState(false);
-  const [infoPopupPersistent, setInfoPopupPersistent] = useState(false);
-  const infoPopupRef = useRef(null);
-  const infoButtonRef = useRef(null);
-  const delayTimerRef = useRef(null);
-  const delayStartTimeRef = useRef(null);
-  const debugIntervalRef = useRef(null);
-  const lastFeedbackRef = useRef(null);
-  const chartRef = useRef(null);
-  const shouldStopAnimationRef = useRef(false);
+  const [showTimerPopup, setShowTimerPopup] = useState<boolean>(false);
+  const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
+  const [customValue, setCustomValue] = useState<string>("");
+  const [popupPosition, setPopupPosition] = useState<PopupPosition>({ top: '0px', left: '0px', right: 'auto', bottom: 'auto' });
+  const customInputRef = useRef<HTMLInputElement | null>(null);
+  const timerPopupRef = useRef<HTMLDivElement | null>(null);
+  const timerTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const timerContainerRef = useRef<HTMLDivElement | null>(null);
+  const dLabelRef = useRef<HTMLDivElement | null>(null);
+  const [timerRightEdge, setTimerRightEdge] = useState<number | null>(null);
+  const [timerLeftEdge, setTimerLeftEdge] = useState<number | null>(null);
+  const [dLabelRightEdge, setDLabelRightEdge] = useState<number | null>(null);
+  const [dLabelCenterY, setDLabelCenterY] = useState<number | null>(null);
+  const [smaLabelRightEdge, setSmaLabelRightEdge] = useState<number | null>(null);
+  const [showInfoPopup, setShowInfoPopup] = useState<boolean>(false);
+  const [infoPopupPersistent, setInfoPopupPersistent] = useState<boolean>(false);
+  const infoPopupRef = useRef<HTMLDivElement | null>(null);
+  const infoButtonRef = useRef<HTMLButtonElement | null>(null);
+  const delayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const delayStartTimeRef = useRef<number | null>(null);
+  const debugIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFeedbackRef = useRef<string | null>(null);
+  const chartRef = useRef<HTMLElement | null>(null);
+  const shouldStopAnimationRef = useRef<boolean>(false);
 
   // Check if device is mobile
   useEffect(() => {
-    const checkMobile = () => {
+    const checkMobile = (): void => {
       // Increase breakpoint to 1024px to ensure charts don't get too small
       const mobile = window.innerWidth < 1024 || 'ontouchstart' in window;
       setIsMobile(mobile);
@@ -294,7 +300,7 @@ function ChartSection({
 
   // Calculate D label right edge and timer right edge for SMA label alignment
   useEffect(() => {
-    const calculateEdges = () => {
+    const calculateEdges = (): void => {
       const chartContainer = document.querySelector('.rounded-md');
       if (!chartContainer) return;
       
@@ -346,8 +352,8 @@ function ChartSection({
 
   // Find chart container element for magnifier
   useEffect(() => {
-    const findChartContainer = () => {
-      const container = document.querySelector('.stock-chart-container');
+    const findChartContainer = (): void => {
+      const container = document.querySelector('.stock-chart-container') as HTMLElement | null;
       if (container) {
         chartRef.current = container;
       }
@@ -427,7 +433,7 @@ function ChartSection({
         // Initial 1.5-second delay before any animation starts
         // This gives the user time to see the correct answer feedback
         // This delay is now pause-aware
-        await new Promise(resolve => {
+        await new Promise<void>(resolve => {
           console.log("Initial 1.5-second delay started");
           
           let remainingDelay = 1500; // 1.5 seconds in milliseconds
@@ -435,7 +441,7 @@ function ChartSection({
           let pauseStartTime = null;
           const delayStartTime = performance.now();
           
-          const checkInitialDelay = () => {
+          const checkInitialDelay = (): void => {
             // Check if animation should be stopped (e.g., Next Stock button pressed)
             if (shouldStopAnimationRef.current || !feedback) {
               console.log("Animation stopped during initial delay");
@@ -487,7 +493,7 @@ function ChartSection({
         // Only run zoom and reveal animations if we have afterData
         if (afterData && Array.isArray(afterData) && afterData.length > 0) {
           // Step 1: Zoom animation
-          await new Promise(resolve => {
+          await new Promise<void>(resolve => {
             let startTime = performance.now();
             const zoomDuration = 1500; // 1.5 seconds
             
@@ -495,7 +501,7 @@ function ChartSection({
             let pauseStartTime = null;
             let lastTimestamp = startTime;
             
-            const animateZoom = (timestamp) => {
+            const animateZoom = (timestamp: number): void => {
               // Check if animation should be stopped (e.g., Next Stock button pressed)
               if (shouldStopAnimationRef.current || !feedback) {
                 console.log("Animation stopped during zoom");
@@ -572,7 +578,7 @@ function ChartSection({
           if (onTimerPause) {
             onTimerPause();
           }
-          await new Promise(resolve => {
+          await new Promise<void>(resolve => {
             let startTime = performance.now();
             const revealDuration = 1800; // 1.8 seconds
             
@@ -580,7 +586,7 @@ function ChartSection({
             let pauseStartTime = null;
             let lastTimestamp = startTime;
             
-            const animateReveal = (timestamp) => {
+            const animateReveal = (timestamp: number): void => {
               // Check if animation should be stopped (e.g., Next Stock button pressed)
               if (shouldStopAnimationRef.current || !feedback) {
                 console.log("Animation stopped during reveal");
@@ -657,7 +663,7 @@ function ChartSection({
         
         // Ensure all visual updates have been applied before starting the delay timer
         // This forces the browser to complete all rendering before we start counting the 5 seconds
-        await new Promise(resolve => {
+        await new Promise<void>(resolve => {
           // Use RAF to ensure we're in the next frame after all rendering is complete
           requestAnimationFrame(() => {
             // Then use setTimeout with a small delay to be absolutely sure rendering is done
@@ -695,14 +701,14 @@ function ChartSection({
         
         // Use a precise timeout to ensure EXACTLY 5 seconds AFTER all data is visible
         // This respects pause state by checking and adjusting the delay
-        await new Promise(resolve => {
+        await new Promise<void>(resolve => {
           console.log(`Observation delay started at ${new Date().toISOString()} - Will last EXACTLY 5 seconds`);
           
           let remainingDelay = 5000; // 5 seconds in milliseconds
           let pausedTime = 0;
           let pauseStartTime = null;
           
-          const checkDelay = () => {
+          const checkDelay = (): void => {
             // Check if animation should be stopped (e.g., Next Stock button pressed)
             if (shouldStopAnimationRef.current || !feedback) {
               console.log("Animation stopped during observation delay");
@@ -919,7 +925,8 @@ function ChartSection({
     return presetValues.includes(timerDuration);
   }, [timerDuration, presetValues]);
 
-  const formatDuration = (seconds) => {
+  const formatDuration = (seconds: number | null): string => {
+    if (seconds === null || seconds === undefined) return '';
     if (seconds < 60) {
       return `${seconds} seconds`;
     }
@@ -931,7 +938,7 @@ function ChartSection({
     return `${minutes} minute${minutes > 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds > 1 ? 's' : ''}`;
   };
 
-  const handlePresetClick = (value) => {
+  const handlePresetClick = (value: number): void => {
     if (onTimerDurationChange) {
       onTimerDurationChange(Number(value));
     }
@@ -939,18 +946,18 @@ function ChartSection({
     setShowCustomInput(false);
   };
 
-  const handleCustomClick = () => {
+  const handleCustomClick = (): void => {
     setShowCustomInput(true);
     setCustomValue("");
   };
 
-  const handleCustomInputChange = (e) => {
+  const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setCustomValue(e.target.value);
   };
 
-  const handleCustomSubmit = () => {
+  const handleCustomSubmit = (): void => {
     let numValue = 60;
-    if (customValue && !isNaN(customValue)) {
+    if (customValue && !isNaN(Number(customValue))) {
       numValue = Math.max(1, Math.round(Number(customValue)));
     }
     if (onTimerDurationChange) {
@@ -961,7 +968,7 @@ function ChartSection({
     setCustomValue("");
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
       handleCustomSubmit();
     } else if (e.key === 'Escape') {
@@ -983,7 +990,7 @@ function ChartSection({
       return;
     }
 
-    const calculatePosition = () => {
+    const calculatePosition = (): void => {
       if (!timerContainerRef.current || !timerPopupRef.current) return;
       
       const timerContainer = timerContainerRef.current;
@@ -1232,9 +1239,9 @@ function ChartSection({
   useEffect(() => {
     if (!showTimerPopup) return;
 
-    function handleClickOutside(event) {
-      if (timerPopupRef.current && !timerPopupRef.current.contains(event.target)) {
-        const timerTrigger = event.target.closest('[data-timer-trigger]');
+    function handleClickOutside(event: MouseEvent): void {
+      if (timerPopupRef.current && event.target instanceof Node && !timerPopupRef.current.contains(event.target)) {
+        const timerTrigger = (event.target as Element).closest('[data-timer-trigger]');
         if (!timerTrigger) {
           setShowTimerPopup(false);
           setShowCustomInput(false);
@@ -1259,9 +1266,10 @@ function ChartSection({
       return;
     }
 
-    const handleClickOutside = (event) => {
+    const handleClickOutside = (event: MouseEvent): void => {
       if (
         infoPopupRef.current &&
+        event.target instanceof Node &&
         !infoPopupRef.current.contains(event.target) &&
         infoButtonRef.current &&
         !infoButtonRef.current.contains(event.target)
@@ -1281,14 +1289,15 @@ function ChartSection({
   }, [showInfoPopup, infoPopupPersistent]);
 
   // Timer color based on remaining time
-  const getTimerColor = () => {
+  const getTimerColor = (): string => {
+    if (timer === null || timer === undefined || typeof timer !== 'number') return "text-turquoise-600";
     if (timer <= 10) return "text-red-600";
     if (timer <= 30) return "text-yellow-600";
     return "text-turquoise-600";
   };
 
   // Extract ticker and breakout date from orderedFiles
-  const stockInfo = useMemo(() => {
+  const stockInfo = useMemo<StockInfo>(() => {
     if (!orderedFiles || orderedFiles.length === 0 || !orderedFiles[0]?.fileName) {
       return { ticker: null, breakoutDate: null };
     }
@@ -1628,7 +1637,7 @@ function ChartSection({
   );
 }
 
-export default React.memo(ChartSection, (prevProps, nextProps) => {
+export default React.memo<ChartSectionProps>(ChartSection, (prevProps: ChartSectionProps, nextProps: ChartSectionProps): boolean => {
   // Custom comparison to ensure pointsTextArray changes trigger re-render
   // Also compare other props that might affect rendering
   const pointsEqual = JSON.stringify(prevProps.pointsTextArray || []) === JSON.stringify(nextProps.pointsTextArray || []);
