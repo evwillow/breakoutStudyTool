@@ -5,8 +5,26 @@
  */
 import { FILE_PATTERNS, GAME_CONFIG } from '@/config/game.config';
 import type { FlashcardFile, FlashcardData, ProcessedFlashcardData } from '@breakout-study-tool/shared';
+import type { ProcessedStockDataPoint } from '@/components/StockChart/StockChart.types';
 
 export type { FlashcardFile, FlashcardData, ProcessedFlashcardData };
+
+/**
+ * After data point type - similar to ProcessedStockDataPoint but for after.json data
+ */
+export type AfterDataPoint = ProcessedStockDataPoint;
+
+/**
+ * Points text array item - can be a string or an object with various property names
+ */
+type PointsTextItem = string | {
+  points?: string;
+  point?: string;
+  text?: string;
+  label?: string;
+  name?: string;
+  [key: string]: unknown;
+};
 
 export function isValidUUID(uuid: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -43,7 +61,7 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
   }
 }
 
-export function extractAfterJsonData(flashcardData: FlashcardData | null): any {
+export function extractAfterJsonData(flashcardData: FlashcardData | null): AfterDataPoint[] | null {
   if (!flashcardData?.jsonFiles) {
     return null;
   }
@@ -146,11 +164,11 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
       typeof jsonData === 'object' &&
       jsonData !== null &&
       'value' in jsonData &&
-      Array.isArray((jsonData as any).value)
+      Array.isArray((jsonData as { value: unknown[] }).value)
     ) {
-      const valueArray = (jsonData as any).value;
+      const valueArray = (jsonData as { value: PointsTextItem[] }).value;
       return valueArray
-        .map((item: any) => {
+        .map((item: PointsTextItem) => {
           if (typeof item === 'string') {
             return item;
           }

@@ -6,14 +6,30 @@
 "use client";
 
 import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";
-import { useEffect, useMemo, useState } from "react";
-import {
-  MetricCard,
-  BarChart,
-  DonutChart,
-  LineChart,
-  AreaChartComponent,
-} from "@/components/Analytics/AnalyticsChart";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
+
+const MetricCard = dynamic(
+  () => import("@/components/Analytics/AnalyticsChart").then((mod) => mod.MetricCard),
+  { ssr: false }
+);
+const BarChart = dynamic(
+  () => import("@/components/Analytics/AnalyticsChart").then((mod) => mod.BarChart),
+  { ssr: false }
+);
+const DonutChart = dynamic(
+  () => import("@/components/Analytics/AnalyticsChart").then((mod) => mod.DonutChart),
+  { ssr: false }
+);
+const LineChart = dynamic(
+  () => import("@/components/Analytics/AnalyticsChart").then((mod) => mod.LineChart),
+  { ssr: false }
+);
+const AreaChartComponent = dynamic(
+  () => import("@/components/Analytics/AnalyticsChart").then((mod) => mod.AreaChartComponent),
+  { ssr: false }
+);
 
 import type { AnalyticsData } from '@breakout-study-tool/shared';
 import { buildAnalyticsViewModel, fetchAnalyticsData } from "@/services/analytics/analyticsService";
@@ -25,27 +41,23 @@ import { buildAnalyticsViewModel, fetchAnalyticsData } from "@/services/analytic
  */
 export default function AnalyticsPage() {
   const { session, isLoading } = useAuthRedirect();
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!session) return;
+  const {
+    data: analytics,
+    isLoading: loading,
+    error: queryError,
+  } = useQuery({
+    queryKey: ['analytics'],
+    queryFn: async () => {
+      const data = await fetchAnalyticsData();
+      return data as AnalyticsData;
+    },
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-    async function fetchAnalytics() {
-      try {
-        const data = await fetchAnalyticsData();
-        setAnalytics(data as AnalyticsData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchAnalytics();
-  }, [session]);
+  const error = queryError instanceof Error ? queryError.message : queryError ? 'Unknown error' : null;
 
   if (isLoading || loading) {
     return (

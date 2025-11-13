@@ -13,6 +13,7 @@
 
 import type { ChartCoordinate } from '@breakout-study-tool/shared';
 import { SCORING_CONFIG } from '@/config/game.config';
+import type { ProcessedStockDataPoint } from '@/components/StockChart/StockChart.types';
 
 // Re-export for backward compatibility
 export type { ChartCoordinate };
@@ -25,11 +26,16 @@ export interface TargetPoint {
 }
 
 /**
+ * After data point type - similar to ProcessedStockDataPoint but for after.json data
+ */
+export type AfterDataPoint = ProcessedStockDataPoint;
+
+/**
  * Calculate the target point from after data
  * Uses the peak close price in the after data as the target
  */
 export function calculateTargetPoint(
-  afterData: any[],
+  afterData: AfterDataPoint[],
   scales: {
     xScale: (value: number) => number;
     yScale: (value: number) => number;

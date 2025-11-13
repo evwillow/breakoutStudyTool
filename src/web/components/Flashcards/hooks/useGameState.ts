@@ -20,6 +20,8 @@ import type {
 } from '@breakout-study-tool/shared';
 import type { UseGameStateOptions } from '@breakout-study-tool/shared';
 import { evaluateCoordinateSelection, updateMatchMetrics, calculateAccuracy, summarizeExistingMatches } from '@/services/flashcard/gameLogic';
+import type { ProcessedStockDataPoint } from '@/components/StockChart/StockChart.types';
+import { calculateDistanceScore } from '../utils/coordinateUtils';
 
 // Re-export for backward compatibility
 export type { GameMetrics, GameState, ChartCoordinate, UseGameStateOptions };
@@ -30,7 +32,7 @@ export interface UseGameStateReturn extends GameState {
   handleSelection: (buttonIndex: number, onResult?: (isCorrect: boolean) => void) => void;
   handleCoordinateSelection: (
     coordinates: ChartCoordinate,
-    onResult?: (distance: number, score: number, scoreData?: any) => void,
+    onResult?: (distance: number, score: number, scoreData?: ReturnType<typeof calculateDistanceScore>) => void,
     target?: ChartCoordinate,
     priceRange?: { min: number; max: number },
     timeRange?: { min: number; max: number }
@@ -38,7 +40,7 @@ export interface UseGameStateReturn extends GameState {
   nextCard: () => void;
   resetGame: () => void;
   initializeFromMatches: (matches: Array<{ correct: boolean }>) => void;
-  setAfterChartData: (data: any) => void;
+  setAfterChartData: (data: ProcessedStockDataPoint[] | null) => void;
   setShowTimeUpOverlay: (show: boolean) => void;
   setCurrentIndex: (index: number) => void;
   
@@ -70,7 +72,7 @@ export function useGameState({
   /** Shows overlay when timer expires before a selection. */
   const [showTimeUpOverlay, setShowTimeUpOverlay] = useState(false);
   /** After-chart data supplied once drill completes. */
-  const [afterChartData, setAfterChartData] = useState<any>(null);
+  const [afterChartData, setAfterChartData] = useState<ProcessedStockDataPoint[] | null>(null);
   const [userSelectedButton, setUserSelectedButton] = useState<number | null>(null);
   const [correctAnswerButton, setCorrectAnswerButton] = useState<number | null>(null);
   
@@ -181,7 +183,7 @@ export function useGameState({
   // Handle coordinate-based selection
   const handleCoordinateSelection = useCallback((
     coordinates: ChartCoordinate,
-    onResult?: (distance: number, score: number, scoreData?: any) => void,
+    onResult?: (distance: number, score: number, scoreData?: ReturnType<typeof calculateDistanceScore>) => void,
     target?: ChartCoordinate,
     priceRange?: { min: number; max: number },
     timeRange?: { min: number; max: number }

@@ -1,5 +1,12 @@
 import type { ChartType, ProcessedStockDataPoint } from '@/components/StockChart/StockChart.types';
 
+/**
+ * Type guard to check if data is an array of stock data points
+ */
+function isStockDataArray(data: unknown): data is ProcessedStockDataPoint[] {
+  return Array.isArray(data) && data.length > 0;
+}
+
 export const calculateSMA = (
   data: ProcessedStockDataPoint[],
   period: number,
@@ -127,15 +134,15 @@ export const processChartData = (
   chartData: unknown,
   chartType: ChartType
 ): ProcessedStockDataPoint[] => {
-  if (!chartData || !Array.isArray(chartData) || chartData.length === 0) {
+  if (!isStockDataArray(chartData)) {
     console.warn('Invalid chart data:', chartData);
     return [];
   }
 
   console.log(`Processing ${chartData.length} data points for chart type: ${chartType}`);
 
-  let processedData: ProcessedStockDataPoint[] = chartData.map((item: unknown) => ({
-    ...(item as ProcessedStockDataPoint),
+  let processedData: ProcessedStockDataPoint[] = chartData.map((item: ProcessedStockDataPoint) => ({
+    ...item,
   }));
 
   if (chartType === 'hourly' || chartType === 'H') {

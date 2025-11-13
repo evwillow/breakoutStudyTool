@@ -11,8 +11,12 @@ import { useSession } from "next-auth/react";
 // Components
 import { DateFolderBrowser, LandingPage, RoundHistory } from "../";
 import { AuthModal } from "../Auth";
-import Tutorial from "../Tutorial/Tutorial";
+import dynamic from "next/dynamic";
 import ChartView from "./components/ChartView";
+
+const Tutorial = dynamic(() => import("../Tutorial/Tutorial"), {
+  ssr: false,
+});
 import ControlPanel from "./components/ControlPanel";
 import RoundSelector from "./components/RoundSelector";
 import DataLoadingState from "./components/DataLoadingState";

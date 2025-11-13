@@ -6,9 +6,13 @@
 "use client";
 
 import React from "react";
-import ChartMagnifier from "../../UI/ChartMagnifier";
+import dynamic from "next/dynamic";
 import SelectionTooltip from "../../UI/SelectionTooltip";
 import type { UseChartInteractionReturn } from "../hooks/useChartInteraction";
+
+const ChartMagnifier = dynamic(() => import("../../UI/ChartMagnifier"), {
+  ssr: false,
+});
 
 export interface InteractionLayerProps {
   interaction: UseChartInteractionReturn;

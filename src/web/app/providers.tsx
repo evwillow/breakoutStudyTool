@@ -11,6 +11,7 @@ import { ErrorFallback, NetworkErrorFallback } from "../components/FallbackUI";
 import { useEffect, useState, useCallback } from "react";
 import { logger } from "@/lib/utils/logger";
 import { AppError, ErrorCodes } from "@/lib/utils/errorHandling";
+import { QueryProvider } from "@/lib/providers/QueryProvider";
 
 /**
  * Memory-optimized global error handler for unhandled errors and Promise rejections
@@ -167,7 +168,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         refetchOnWindowFocus={false}
         refetchWhenOffline={false}
       >
-        {children}
+        <QueryProvider>
+          {children}
+        </QueryProvider>
       </SessionProvider>
     </ErrorBoundary>
   );
