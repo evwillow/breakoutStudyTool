@@ -1,11 +1,11 @@
 /**
  * @fileoverview React context and hooks for controlling the authentication modal state.
- * @module src/web/components/Auth/hooks/useAuthModal.ts
+ * @module src/web/components/Auth/hooks/useAuthModal.tsx
  * @dependencies React
  */
 "use client";
 
-import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
+import React, { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
 
 interface AuthModalContextValue {
   isOpen: boolean;

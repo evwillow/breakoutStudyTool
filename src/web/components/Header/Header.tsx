@@ -7,8 +7,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import Logo from "./Logo"
-import { AuthModal } from "../Auth"
-import { useAuth } from "../Auth/hooks/useAuth"
+import { AuthModal, useAuth } from "../Auth"
 import Navigation from "./components/Navigation"
 import UserMenu from "./components/UserMenu"
 import MobileMenu from "./components/MobileMenu"

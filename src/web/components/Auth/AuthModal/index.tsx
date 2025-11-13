@@ -135,12 +135,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
         if (result?.success) {
           setSystemStatus({
             state: 'ready',
-            message: 'You can sign up right away—we're ready when you are.',
+            message: 'You can sign up right away—we are ready when you are.',
           });
         } else {
           setSystemStatus({
             state: 'monitoring',
-            message: 'If anything feels off, reach us on support and we'll help immediately.',
+            message: 'If anything feels off, reach us on support and we will help immediately.',
           });
         }
       })
@@ -148,7 +148,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
         if (!isActive) return;
         setSystemStatus({
           state: 'monitoring',
-          message: 'If anything feels off, reach us on support and we'll help immediately.',
+          message: 'If anything feels off, reach us on support and we will help immediately.',
         });
       });
 
