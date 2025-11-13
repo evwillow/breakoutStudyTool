@@ -17,6 +17,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import StockChart from "../StockChart";
+import { FlashcardData } from '../Flashcards/utils/dataProcessors';
 import {
   DateFolderBrowserProps,
   PreviousSetupFile,
@@ -75,14 +76,14 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     
     const flashcardsKey = Array.isArray(flashcards)
       ? flashcards
-          .map((card, index) => {
+          .map((card: FlashcardData, index: number) => {
             if (!card || typeof card !== 'object') return `card-${index}`;
-            return card.id || card.fileName || card.slug || `card-${index}`;
+            return card.id || card.name || card.folderName || `card-${index}`;
           })
           .join('|')
       : 'none';
     const currentFlashcardKey = currentFlashcard
-      ? currentFlashcard.id || currentFlashcard.fileName || currentFlashcard.slug || 'selected'
+      ? currentFlashcard.id || currentFlashcard.name || currentFlashcard.folderName || 'selected'
       : 'none';
     const fetchKey = `${session?.user?.id || 'anon'}|${currentStock}|${flashcardsKey}|${currentFlashcardKey}`;
 
@@ -149,22 +150,22 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
         }
         
         // Find the quality_breakouts folder which contains all stock data
-        const qualityBreakoutsFolder = foldersData.folders.find(f => f.name === 'quality_breakouts');
+        const qualityBreakoutsFolder = foldersData.folders.find((f: { name: string }) => f.name === 'quality_breakouts');
         if (!qualityBreakoutsFolder || !qualityBreakoutsFolder.files) {
           console.log("No quality_breakouts folder found or no files");
           return;
         }
         
-        const allFiles = qualityBreakoutsFolder.files;
+        const allFiles = (qualityBreakoutsFolder as { files: unknown[] }).files;
         
         // Group files by directory (stock folder)
-        const filesByDirectory = new Map();
+        const filesByDirectory = new Map<string, { dJson: unknown | null; afterJson: unknown | null }>();
         
         // First, check flashcards for preloaded data
         if (flashcards && flashcards.length > 0) {
-          flashcards.forEach(flashcard => {
+          flashcards.forEach((flashcard: FlashcardData) => {
             if (flashcard.jsonFiles && flashcard.jsonFiles.length > 0) {
-              flashcard.jsonFiles.forEach(file => {
+              flashcard.jsonFiles.forEach((file: { fileName: string; data?: unknown }) => {
                 if (file && file.fileName) {
                   const fileName = file.fileName;
                   const fileNameParts = fileName.split(/[/\\]/);
@@ -182,10 +183,12 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
                   }
                   
                   const dirData = filesByDirectory.get(directoryName);
-                  if (actualFileName === 'd.json' || actualFileName === 'D.json') {
-                    dirData.dJson = { ...file, data: file.data }; // Preserve data if already loaded
-                  } else if (actualFileName === 'after.json') {
-                    dirData.afterJson = { ...file, data: file.data }; // Preserve data if already loaded
+                  if (dirData) {
+                    if (actualFileName === 'd.json' || actualFileName === 'D.json') {
+                      dirData.dJson = { ...file, data: file.data }; // Preserve data if already loaded
+                    } else if (actualFileName === 'after.json') {
+                      dirData.afterJson = { ...file, data: file.data }; // Preserve data if already loaded
+                    }
                   }
                 }
               });
@@ -194,7 +197,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
         }
         
         // Then, add files from API response
-        allFiles.forEach(file => {
+        (allFiles as Array<{ fileName?: string; name?: string }>).forEach((file: { fileName?: string; name?: string }) => {
           const fileName = file.fileName || file.name || '';
           const fileNameParts = fileName.split(/[/\\]/);
           if (fileNameParts.length < 2) return;
@@ -211,18 +214,20 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
           }
           
           const dirData = filesByDirectory.get(directoryName);
-          // Only set if not already set from flashcards (to preserve preloaded data)
-          if ((actualFileName === 'd.json' || actualFileName === 'D.json') && !dirData.dJson) {
-            dirData.dJson = file;
-          } else if (actualFileName === 'after.json' && !dirData.afterJson) {
-            dirData.afterJson = file;
+          if (dirData) {
+            // Only set if not already set from flashcards (to preserve preloaded data)
+            if ((actualFileName === 'd.json' || actualFileName === 'D.json') && !dirData.dJson) {
+              dirData.dJson = file;
+            } else if (actualFileName === 'after.json' && !dirData.afterJson) {
+              dirData.afterJson = file;
+            }
           }
         });
         
         // Process each directory to create previous setup entries
-        const previousSetups = [];
+        const previousSetups: PreviousSetupFile[] = [];
         
-        for (const [directoryName, files] of filesByDirectory.entries()) {
+        for (const [directoryName, files] of Array.from(filesByDirectory.entries())) {
           // Skip if missing d.json (required)
           if (!files.dJson) continue;
           
@@ -249,8 +254,8 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
             let dJsonPath = null;
             
             // First, check if we already have the data from flashcards
-            if (files.dJson && files.dJson.data) {
-              dJsonData = files.dJson.data;
+            if (files.dJson && typeof files.dJson === 'object' && 'data' in files.dJson && (files.dJson as { data: unknown }).data) {
+              dJsonData = (files.dJson as { data: unknown[] }).data;
             } else {
               // Try D.json first (capital D)
               dJsonPath = `${directoryName}/D.json`;
@@ -279,8 +284,8 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
             if (files.afterJson) {
               try {
                 // First, check if we already have the data from flashcards
-                if (files.afterJson.data) {
-                  afterJsonData = files.afterJson.data;
+                if (files.afterJson && typeof files.afterJson === 'object' && 'data' in files.afterJson && (files.afterJson as { data: unknown }).data) {
+                  afterJsonData = (files.afterJson as { data: unknown }).data as unknown[];
                 } else {
                   const afterJsonPath = `${directoryName}/after.json`;
                   const afterJsonResponse = await fetch(`/api/files/local-data?file=${encodeURIComponent(afterJsonPath)}&folder=${encodeURIComponent('quality_breakouts')}`);
@@ -300,7 +305,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
                   
                   if (lastAfterJsonDate && lastAfterJsonDate > currentBreakoutDate) {
                     // Filter after.json to only include entries up to (but not including) current breakout date
-                    afterJsonData = afterJsonData.filter(entry => {
+                    afterJsonData = afterJsonData.filter((entry: { Date?: string }) => {
                       if (!entry.Date) return false;
                       const entryDate = new Date(entry.Date);
                       return entryDate < currentBreakoutDate;
@@ -346,8 +351,8 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
         });
         
         // Set fileData for all previous setups
-        const fileDataToSet = {};
-        previousSetups.forEach(file => {
+        const fileDataToSet: FileDataMap = {};
+        previousSetups.forEach((file: PreviousSetupFile) => {
           if (file.data) {
             fileDataToSet[file.id] = file.data;
           }
@@ -380,7 +385,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
           return;
         }
 
-        if (error?.name === 'AbortError') {
+        if ((error as { name?: string })?.name === 'AbortError') {
           console.warn('Cancelled historical file fetch for DateFolderBrowser');
           return;
         }
@@ -404,16 +409,16 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
 
   // Initialize refs for each file
   useEffect(() => {
-    allFiles.forEach(file => {
+    allFiles.forEach((file: PreviousSetupFile) => {
       if (!fileRefs.current[file.id]) {
-        fileRefs.current[file.id] = React.createRef();
+        fileRefs.current[file.id] = React.createRef<HTMLDivElement>() as React.RefObject<HTMLDivElement>;
       }
     });
   }, [allFiles]);
 
   // Track scroll direction
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (): void => {
       if (typeof window !== 'undefined') {
         const currentScrollY = window.scrollY;
         if (currentScrollY > lastScrollY.current) {
@@ -432,7 +437,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
   }, []);
 
   // Load file data for a specific file
-  const loadFileData = useCallback(async (fileId) => {
+  const loadFileData = useCallback(async (fileId: string): Promise<void> => {
     const file = allFiles.find(f => f.id === fileId);
     if (!file || fileData[fileId]) return;
     
@@ -487,11 +492,12 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
       threshold: [0, 0.1, 0.2, 0.5] // Multiple thresholds for smoother transitions
     };
 
-    const observerCallback = (entries) => {
-      entries.forEach(entry => {
-        if (!entry.target || !entry.target.dataset) return; // Skip if target is invalid
+    const observerCallback = (entries: IntersectionObserverEntry[]): void => {
+      entries.forEach((entry: IntersectionObserverEntry) => {
+        const target = entry.target as HTMLElement;
+        if (!target || !target.dataset) return; // Skip if target is invalid
         
-        const id = entry.target.dataset.fileId;
+        const id = target.dataset.fileId;
         if (!id) return; // Skip if no file ID
         
         if (entry.isIntersecting) {
@@ -558,7 +564,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     const observer = new IntersectionObserver(observerCallback, observerOptions);
     
     // Observe all file elements
-    Object.entries(fileRefs.current).forEach(([id, ref]) => {
+    Object.entries(fileRefs.current).forEach(([id, ref]: [string, React.RefObject<HTMLDivElement>]) => {
       if (ref && ref.current) {
         observer.observe(ref.current);
       }
@@ -587,7 +593,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
   }, [expandedFiles, onChartExpanded]);
 
   // Handle manual file expansion toggle
-  const handleFileToggle = async (fileId) => {
+  const handleFileToggle = async (fileId: string): Promise<void> => {
     // Mark this item as manually controlled
     if (!manuallyControlledItems.includes(fileId)) {
       setManuallyControlledItems(prev => [...prev, fileId]);
@@ -620,9 +626,9 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
   /**
    * Process and filter files from API response
    */
-  const processAndFilterFiles = (data, folderName, stockSymbol) => {
-    const relevantFiles = [];
-    const processedFiles = new Set(); // To avoid duplicates
+  const processAndFilterFiles = (data: unknown, folderName: string, stockSymbol: string): { relevantFiles: PreviousSetupFile[]; totalFilesBeforeFiltering: number } => {
+    const relevantFiles: PreviousSetupFile[] = [];
+    const processedFiles = new Set<string>(); // To avoid duplicates
     let totalFilesBeforeFiltering = 0;
     
     // If data is not an array, try to extract files from object structure
@@ -635,7 +641,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
       ).length;
       
       // Process each extracted file
-      extractedFiles.forEach(file => {
+      extractedFiles.forEach((file: { name: string; data?: unknown; path?: string }) => {
         if (file.name && file.name.toLowerCase().endsWith('.json')) {
           // Check if the file is relevant to the current stock
           if (isRelevantToCurrentStock(file.name, stockSymbol)) {
@@ -647,7 +653,9 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
                 subfolder: folderName,
                 fileName: file.name,
                 data: file.data || null,
-                path: file.path || null
+                path: (file.path && typeof file.path === 'string') ? file.path : fileKey,
+                breakoutDate: new Date(), // Placeholder - will be set properly when processing
+                directoryName: folderName
               });
             }
           }
@@ -658,11 +666,11 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     }
     
     // Count total JSON files before filtering
-    totalFilesBeforeFiltering = data.filter(item => {
+    totalFilesBeforeFiltering = (data as unknown[]).filter((item: unknown) => {
       if (typeof item === 'string') {
         return item.toLowerCase().endsWith('.json');
-      } else if (item && typeof item === 'object' && item.name) {
-        return item.name.toLowerCase().endsWith('.json');
+      } else if (item && typeof item === 'object' && 'name' in item && typeof (item as { name: unknown }).name === 'string') {
+        return ((item as { name: string }).name).toLowerCase().endsWith('.json');
       }
       return false;
     }).length;
@@ -670,7 +678,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     /**
      * Add a file if it's relevant to the current stock
      */
-    const addFileIfRelevant = (fileName, subfolder, fileData, filePath = null) => {
+    const addFileIfRelevant = (fileName: string, subfolder: string, fileData: unknown, filePath: string | null = null): void => {
       // Skip files that don't match our criteria
       if (!fileName || !fileName.toLowerCase().endsWith('.json')) {
         return;
@@ -690,35 +698,39 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
             subfolder: fileName.includes('/') ? fileName.split('/')[0] : subfolder,
             fileName,
             data: fileData,
-            path: filePath || fileName
+            path: (filePath && typeof filePath === 'string') ? filePath : fileName,
+            breakoutDate: new Date(), // Placeholder - will be set properly when processing
+            directoryName: fileName.includes('/') ? fileName.split('/')[0] : subfolder
           });
         }
       }
     };
     
     // Process array data
-    data.forEach(item => {
+    (data as unknown[]).forEach((item: unknown) => {
       if (typeof item === 'string' && item.toLowerCase().endsWith('.json')) {
         // Simple string array of filenames
         addFileIfRelevant(item, folderName, null);
       } else if (item && typeof item === 'object') {
         // Object with fileName property (API returns fileName as full path)
         // Prefer fileName over name since fileName has the full path
-        const filePathToUse = item.fileName || item.name;
+        const itemObj = item as { fileName?: string; name?: string; data?: unknown; path?: string; files?: unknown[] };
+        const filePathToUse = itemObj.fileName || itemObj.name;
         if (filePathToUse && typeof filePathToUse === 'string') {
-          addFileIfRelevant(filePathToUse, folderName, item.data || null, item.path || null);
+          addFileIfRelevant(filePathToUse, folderName, itemObj.data || null, itemObj.path || null);
         }
         
         // Check for nested files property
-        if (item.files && Array.isArray(item.files)) {
-          item.files.forEach(file => {
+        if (itemObj.files && Array.isArray(itemObj.files)) {
+          itemObj.files.forEach((file: unknown) => {
             if (typeof file === 'string') {
               addFileIfRelevant(file, folderName, null);
             } else if (file && typeof file === 'object') {
+              const fileObj = file as { fileName?: string; name?: string; data?: unknown; path?: string };
               // Prefer fileName over name
-              const nestedFilePath = file.fileName || file.name;
-              if (nestedFilePath) {
-                addFileIfRelevant(nestedFilePath, folderName, file.data || null, file.path || null);
+              const nestedFilePath = fileObj.fileName || fileObj.name;
+              if (nestedFilePath && typeof nestedFilePath === 'string') {
+                addFileIfRelevant(nestedFilePath, folderName, fileObj.data || null, fileObj.path || null);
               }
             }
           });
@@ -732,22 +744,22 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
   /**
    * Extract files from complex object structures
    */
-  const extractFiles = (obj, path = '') => {
-    const files = [];
+  const extractFiles = (obj: unknown, path: string = ''): Array<{ name: string; data: unknown; path: string }> => {
+    const files: Array<{ name: string; data: unknown; path: string }> = [];
     
-    if (typeof obj === 'object') {
-      if (obj.name && obj.data && typeof obj.name === 'string' && 
-          obj.name.toLowerCase().endsWith('.json')) {
+    if (typeof obj === 'object' && obj !== null) {
+      if ('name' in obj && 'data' in obj && typeof (obj as { name: unknown; data: unknown }).name === 'string' && 
+          ((obj as { name: string }).name.toLowerCase().endsWith('.json'))) {
         files.push({
-          name: obj.name,
-          data: obj.data,
+          name: (obj as { name: string }).name,
+          data: (obj as { data: unknown }).data,
           path: path || ''
         });
       }
       
-      Object.keys(obj).forEach(key => {
+      Object.keys(obj).forEach((key: string) => {
         const newPath = path ? `${path}/${key}` : key;
-        files.push(...extractFiles(obj[key], newPath));
+        files.push(...extractFiles((obj as { [key: string]: unknown })[key], newPath));
       });
     }
     
@@ -757,7 +769,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
   /**
    * Parse date from directory name (e.g., "AAL_Dec_19_2006" -> Date for Dec 19, 2006)
    */
-  const parseDateFromDirectory = (directoryName) => {
+  const parseDateFromDirectory = (directoryName: string): Date | null => {
     if (!directoryName) return null;
     
     const dirParts = directoryName.split('_');
@@ -765,7 +777,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
       const monthStr = dirParts[1];
       const day = parseInt(dirParts[2], 10);
       const year = parseInt(dirParts[3], 10);
-      const monthMap = {
+      const monthMap: { [key: string]: number } = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
@@ -783,7 +795,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
    * This function is no longer used for previous setups (handled in fetchAllStockFiles),
    * but kept for compatibility
    */
-  const isRelevantToCurrentStock = (fileName, stockSymbol) => {
+  const isRelevantToCurrentStock = (fileName: string, stockSymbol: string): boolean => {
     // This function is deprecated for previous setups
     // Previous setups are now loaded directly from d.json + after.json
     return false;
@@ -792,7 +804,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
   /**
    * Format folder name for display
    */
-  const formatFolderName = (folderName) => {
+  const formatFolderName = (folderName: string): string => {
     if (!folderName) return '';
     
     // Replace underscores with spaces for better readability
@@ -811,7 +823,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
    * @param {Object} file - The file object (may contain breakoutDate property)
    * @returns {string|React.ReactNode} The formatted filename for display
    */
-  const displayFileName = (fileName, file = null) => {
+  const displayFileName = (fileName: string, file: PreviousSetupFile | null = null): React.ReactNode => {
     // Get the breakout date from the file object if available
     let previousBreakoutDate = null;
     
@@ -824,7 +836,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
       const dirParts = directoryName.toLowerCase().split('_');
       
       if (dirParts.length >= 4) {
-      const monthMap = {
+      const monthMap: { [key: string]: number } = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
@@ -844,7 +856,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     let currentBreakoutDate = null;
       if (currentStock) {
         const stockParts = currentStock.split('_');
-      const monthMap = {
+      const monthMap: { [key: string]: number } = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
@@ -930,7 +942,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
    * @param {Object} file - The file object
    * @returns {boolean} True if the file should be included, false otherwise
    */
-  const shouldIncludeInDropdown = (fileName, file = null) => {
+  const shouldIncludeInDropdown = (fileName: string, file: PreviousSetupFile | null = null): boolean => {
     // Include all previous setup files (they have breakoutDate property)
     if (file && file.breakoutDate) {
       return true;
@@ -943,7 +955,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     
     // Check if it matches the directory format: TICKER_Month_Day_Year
     if (dirParts.length >= 4) {
-      const monthMap = {
+      const monthMap: { [key: string]: number } = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
@@ -967,7 +979,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
    * @param {Object} file - The file object (may contain breakoutDate property)
    * @returns {Date|null} A Date object if parsing was successful, null otherwise
    */
-  const parseDateFromFileName = (fileName, file = null) => {
+  const parseDateFromFileName = (fileName: string, file: PreviousSetupFile | null = null): Date | null => {
     // First try to get date from file object
     if (file && file.breakoutDate) {
       return file.breakoutDate instanceof Date ? file.breakoutDate : new Date(file.breakoutDate);
@@ -979,7 +991,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
     const dirParts = directoryName.toLowerCase().split('_');
     
     if (dirParts.length >= 4) {
-      const monthMap = {
+      const monthMap: { [key: string]: number } = {
         'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
         'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
       };
@@ -998,7 +1010,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
 
   // Handle scroll events to auto-expand items
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (): void => {
       if (typeof window !== 'undefined') {
         const currentScrollY = window.scrollY;
         // Only process if we have items to expand
@@ -1039,8 +1051,8 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
       {allFiles.length > 0 && (
         <div className="space-y-4">
           {allFiles
-            .filter(file => shouldIncludeInDropdown(file.fileName, file))
-            .sort((a, b) => {
+            .filter((file: PreviousSetupFile) => shouldIncludeInDropdown(file.fileName, file))
+            .sort((a: PreviousSetupFile, b: PreviousSetupFile) => {
               // Parse dates from file objects (breakoutDate property)
               const fileDateA = parseDateFromFileName(a.fileName, a);
               const fileDateB = parseDateFromFileName(b.fileName, b);
@@ -1057,11 +1069,22 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentS
               // If neither has a valid date, sort alphabetically
               return a.fileName.localeCompare(b.fileName);
             })
-            .map((file, index) => (
+            .map((file: PreviousSetupFile, index: number) => (
               <div 
                 key={file.id} 
-                ref={el => {
-                  if (el) fileRefs.current[file.id] = { current: el };
+                ref={(el: HTMLDivElement | null) => {
+                  if (el) {
+                    if (!fileRefs.current[file.id]) {
+                      fileRefs.current[file.id] = React.createRef<HTMLDivElement>() as React.RefObject<HTMLDivElement>;
+                    }
+                    (fileRefs.current[file.id] as React.RefObject<HTMLDivElement>).current = el;
+                  } else if (fileRefs.current[file.id]) {
+                    // Clear ref when element is removed
+                    const ref = fileRefs.current[file.id] as React.RefObject<HTMLDivElement>;
+                    if (ref) {
+                      (ref as { current: HTMLDivElement | null }).current = null;
+                    }
+                  }
                 }}
                 data-file-id={file.id}
                 className={`border border-white/30 rounded-md overflow-hidden shadow-sm hover:shadow-md transition-all duration-500 ease-out transform ${
