@@ -10,7 +10,7 @@ import dynamic from "next/dynamic";
 import SelectionTooltip from "../../UI/SelectionTooltip";
 import type { UseChartInteractionReturn } from "../hooks/useChartInteraction";
 
-const ChartMagnifier = dynamic(() => import("../../UI/ChartMagnifier"), {
+const ChartMagnifier = dynamic(() => import("../../UI/chartMagnifier"), {
   ssr: false,
 });
 

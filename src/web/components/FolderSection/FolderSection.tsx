@@ -1,28 +1,40 @@
 /**
  * @fileoverview Renders folder selection UI for navigating flashcard datasets.
- * @module src/web/components/FolderSection/FolderSection.js
+ * @module src/web/components/FolderSection/FolderSection.tsx
  * @dependencies React
  */
+"use client";
+
 import React from 'react';
+
+interface FolderOption {
+  key: string;
+  value: string;
+  label: string;
+}
+
+interface FolderSectionProps {
+  selectedFolder?: string | null;
+  folderOptions?: FolderOption[];
+  onFolderChange?: ((e: React.ChangeEvent<HTMLSelectElement>) => void) | null;
+  accuracy?: number;
+  onNewRound?: (() => void) | null;
+  onRoundHistory?: (() => void) | null;
+  timerDuration?: number | null;
+  onTimerDurationChange?: ((duration: number) => void) | null;
+  isCreatingRound?: boolean;
+  pointsTextArray?: string[];
+  isTimeUp?: boolean;
+}
 
 /**
  * FolderSection displays folder selection and round management controls
- * 
- * @param {string} selectedFolder - Currently selected folder name
- * @param {Array} folderOptions - Available folder options with key, value, and label
- * @param {Function} onFolderChange - Handler for folder selection changes
- * @param {number} accuracy - Current accuracy percentage
- * @param {Function} onNewRound - Handler for creating a new round
- * @param {Function} onRoundHistory - Handler for viewing round history
- * @param {number} timerDuration - Current timer duration in seconds
- * @param {Function} onTimerDurationChange - Handler for timer duration changes
- * @param {boolean} isCreatingRound - Whether a round is currently being created
  */
-const FolderSection = React.memo(function FolderSection({
+const FolderSection = React.memo<FolderSectionProps>(function FolderSection({
   selectedFolder,
-  folderOptions,
+  folderOptions = [],
   onFolderChange,
-  accuracy,
+  accuracy = 0,
   onNewRound,
   onRoundHistory,
   timerDuration,
@@ -48,7 +60,7 @@ const FolderSection = React.memo(function FolderSection({
                 id="dataset-selector"
                 data-tutorial-folder-selector
                 value={selectedFolder || ""}
-                onChange={onFolderChange}
+                onChange={onFolderChange || undefined}
                 className="p-3 sm:p-2 md:p-3 border border-turquoise-300 rounded-md text-turquoise-900 w-full text-base sm:text-sm md:text-base h-12 sm:h-auto appearance-none bg-transparent shadow-sm focus:outline-none focus:ring-2 focus:ring-turquoise-500 focus:border-turquoise-500 font-medium"
               >
                 {folderOptions.map(({ key, value, label }) => (
@@ -112,7 +124,7 @@ const FolderSection = React.memo(function FolderSection({
           {/* Round History button with plus button */}
           <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
             <button 
-              onClick={onRoundHistory}
+              onClick={onRoundHistory || undefined}
               data-tutorial-round-history
               className="flex items-center gap-2 text-sm font-medium text-white/90 hover:text-white transition-colors flex-1"
             >
@@ -122,7 +134,7 @@ const FolderSection = React.memo(function FolderSection({
               <span className="whitespace-nowrap">Rounds</span>
             </button>
             <button
-              onClick={onNewRound}
+              onClick={onNewRound || undefined}
               disabled={isCreatingRound}
               className={`flex items-center justify-center rounded-md flex-shrink-0 ${
                 isCreatingRound 
@@ -150,3 +162,4 @@ const FolderSection = React.memo(function FolderSection({
 });
 
 export default FolderSection;
+

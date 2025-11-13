@@ -1,34 +1,26 @@
 /**
  * @fileoverview Marketing landing page component featuring hero content, preview, and CTAs.
- * @module src/web/components/LandingPage/LandingPage.js
+ * @module src/web/components/LandingPage/LandingPage.tsx
  * @dependencies React, next/link, next/script, ../Auth/AuthModal, ./LandingDrillPreview
  */
 "use client";
 
-/**
- * LandingPage Component
- * 
- * Premium marketing landing page designed to convert visitors into users.
- * Features:
- * - Hero section with clear value proposition and call-to-action
- * - Feature highlights with professional icons
- * - Social proof from successful traders
- * - Premium design elements and visual hierarchy
- * - Conversion-optimized copy and color scheme
- */
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { AuthModal } from "../Auth";
 import LandingDrillPreview from "./LandingDrillPreview";
-const FEATURE_NAMES = [
-  "Daily breakout drills",
-  "Instant after-chart reveals",
-  "Objective score tracking",
-  "Timer-guided reps",
-];
+import { TypedFeatures } from "./components";
 
-const FEATURE_CARDS = [
+
+interface FeatureCard {
+  action: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
+const FEATURE_CARDS: FeatureCard[] = [
   {
     action: "Train",
     title: "Train on real charts",
@@ -85,7 +77,12 @@ const FEATURE_CARDS = [
 
 const CTA_BUTTON_CLASS = "px-10 py-4 rounded-full font-semibold text-base sm:text-lg bg-emerald-500 text-slate-900 shadow-[0_18px_40px_rgba(16,185,129,0.35)] hover:shadow-[0_24px_70px_rgba(16,185,129,0.45)] transition transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/60";
 
-const HOW_IT_WORKS_STEPS = [
+interface HowItWorksStep {
+  title: string;
+  description: string;
+}
+
+const HOW_IT_WORKS_STEPS: HowItWorksStep[] = [
   {
     title: "Choose a breakout",
     description: "Pick a curated setup and load the drill in seconds—no data wrangling required.",
@@ -100,11 +97,16 @@ const HOW_IT_WORKS_STEPS = [
   },
   {
     title: "Review your rounds",
-    description: "Open your past rounds, replay the tape, and spot patterns in what’s working best.",
+    description: "Open your past rounds, replay the tape, and spot patterns in what's working best.",
   },
 ];
 
-const FAQ_ITEMS = [
+interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+const FAQ_ITEMS: FAQItem[] = [
   {
     question: "What data powers the drills?",
     answer: "We maintain a library of breakout setups drawn from decades of market history. You get the ready-to-train charts without touching spreadsheets or scripts.",
@@ -117,20 +119,35 @@ const FAQ_ITEMS = [
     question: "Where is my progress saved?",
     answer: "Your rounds and scores live in your account. Open the history panel any time to replay, export, or clear past sessions.",
   },
-]
+];
 
 const TESTIMONIAL = {
   name: "Beta trader",
   role: "Early access user",
-  quote: "“The repetition loop keeps me sharp. It’s the fastest way I’ve found to stress-test breakout plans before risking capital.”",
+  quote: "The repetition loop keeps me sharp. It's the fastest way I've found to stress-test breakout plans before risking capital.",
+};
+
+interface LandingPageProps {
+  onSignIn: () => void;
 }
 
-const LandingPage = ({ onSignIn }) => {
-  const [showAuth, setShowAuth] = useState(false)
-  const [showStickyCTA, setShowStickyCTA] = useState(false)
-  const [demoHighlight, setDemoHighlight] = useState(false)
+/**
+ * LandingPage Component
+ * 
+ * Premium marketing landing page designed to convert visitors into users.
+ * Features:
+ * - Hero section with clear value proposition and call-to-action
+ * - Feature highlights with professional icons
+ * - Social proof from successful traders
+ * - Premium design elements and visual hierarchy
+ * - Conversion-optimized copy and color scheme
+ */
+const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
+  const [showAuth, setShowAuth] = useState(false);
+  const [showStickyCTA, setShowStickyCTA] = useState(false);
+  const [demoHighlight, setDemoHighlight] = useState(false);
 
-const structuredData = useMemo(() => ({
+  const structuredData = useMemo(() => ({
     "@context": "https://schema.org",
     "@type": "WebPage",
     "name": "Breakout Study Tool",
@@ -144,20 +161,20 @@ const structuredData = useMemo(() => ({
 
   useEffect(() => {
     const handleScroll = () => {
-      const scrollPosition = window.scrollY + window.innerHeight
-      const docHeight = document.body.scrollHeight || 1
-      const progress = scrollPosition / docHeight
-      setShowStickyCTA(progress >= 0.6)
-    }
+      const scrollPosition = window.scrollY + window.innerHeight;
+      const docHeight = document.body.scrollHeight || 1;
+      const progress = scrollPosition / docHeight;
+      setShowStickyCTA(progress >= 0.6);
+    };
 
-    handleScroll()
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  const handleOpenSignup = () => {
-    setShowAuth(true)
-  }
+  const handleOpenSignup = (): void => {
+    setShowAuth(true);
+  };
 
   return (
     <div className="font-sans overflow-visible min-h-screen flex flex-col">
@@ -209,8 +226,8 @@ const structuredData = useMemo(() => ({
                       section.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
                   }
-                  setDemoHighlight(true)
-                  setTimeout(() => setDemoHighlight(false), 1600)
+                  setDemoHighlight(true);
+                  setTimeout(() => setDemoHighlight(false), 1600);
                 }}
                 className="w-full sm:w-auto px-10 py-4 rounded-full font-semibold text-base sm:text-lg border border-white/15 bg-white/5 text-white hover:bg-white/10 transition text-center backdrop-blur"
               >
@@ -327,59 +344,5 @@ const structuredData = useMemo(() => ({
   );
 };
 
-export default LandingPage; 
+export default LandingPage;
 
-// Typing effect for feature names in the hero (mobile-friendly)
-const TypedFeatures = () => {
-  const [text, setText] = useState("")
-  const [featureIndex, setFeatureIndex] = useState(0)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [charIndex, setCharIndex] = useState(0)
-
-  useEffect(() => {
-    const current = FEATURE_NAMES[featureIndex % FEATURE_NAMES.length]
-    const typeDelay = 32
-    const deleteDelay = 22
-    const endPause = 900
-    const startPause = 220
-
-    let timeoutId
-
-    if (!isDeleting && charIndex === 0) {
-      timeoutId = setTimeout(() => setCharIndex(1), startPause)
-    } else if (!isDeleting && charIndex <= current.length) {
-      timeoutId = setTimeout(() => {
-        setText(current.slice(0, charIndex))
-        setCharIndex(charIndex + 1)
-      }, typeDelay)
-    } else if (!isDeleting && charIndex > current.length) {
-      timeoutId = setTimeout(() => {
-        setIsDeleting(true)
-        setCharIndex(current.length - 1)
-      }, endPause)
-    } else if (isDeleting && charIndex >= 0) {
-      timeoutId = setTimeout(() => {
-        setText(current.slice(0, charIndex))
-        setCharIndex(charIndex - 1)
-      }, deleteDelay)
-    } else if (isDeleting && charIndex < 0) {
-      setIsDeleting(false)
-      setFeatureIndex((i) => (i + 1) % FEATURE_NAMES.length)
-      setCharIndex(0)
-    }
-
-    return () => timeoutId && clearTimeout(timeoutId)
-  }, [featureIndex, isDeleting, charIndex])
-
-  return (
-    <div className="mt-4 w-full text-lg sm:text-xl lg:text-2xl text-turquoise-300 font-mono tracking-wide font-semibold whitespace-normal md:whitespace-nowrap break-words max-w-full leading-snug min-h-[2.6rem] sm:min-h-[2.4rem] mb-3">
-      <span className="text-turquoise-400">Featuring</span>
-      <span className="mx-2 text-turquoise-500">//</span>
-      <span className="text-white">{text}</span>
-      <span className="ml-1 border-r-2 border-turquoise-400 align-middle inline-block" style={{ animation: 'caretBlink 1s steps(1) infinite' }} />
-      <style jsx>{`
-        @keyframes caretBlink { 50% { border-color: transparent; } }
-      `}</style>
-    </div>
-  )
-}

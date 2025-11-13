@@ -1,9 +1,20 @@
 /**
  * @fileoverview Modal popup prompting users to choose predefined responses when time expires.
- * @module src/web/components/UI/Popup.js
+ * @module src/web/components/UI/Popup.tsx
  * @dependencies React
  */
 "use client";
+
+import React, { useEffect } from "react";
+
+interface PopupOption {
+  label: string;
+  value: number;
+}
+
+interface PopupProps {
+  onSelect: (value: number) => void;
+}
 
 /**
  * Popup Component
@@ -17,16 +28,9 @@
  * - Mobile-friendly layout with text positioned closer to buttons
  * - Prevents scrolling when popup is active
  */
-import React, { useEffect } from "react";
-
-/**
- * Popup displays a modal dialog with selection options
- * 
- * @param {Function} onSelect - Callback function that receives the selected option value
- */
-const Popup = ({ onSelect }) => {
+const Popup: React.FC<PopupProps> = ({ onSelect }) => {
   // Predefined options for user selection
-  const options = [
+  const options: PopupOption[] = [
     { label: "-5%", value: 1 },
     { label: "0%", value: 2 },
     { label: "20%", value: 3 },
@@ -85,3 +89,4 @@ const Popup = ({ onSelect }) => {
 };
 
 export default Popup;
+

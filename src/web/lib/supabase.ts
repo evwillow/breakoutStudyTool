@@ -1,6 +1,6 @@
 /**
  * @fileoverview Supabase client factory providing server and client helpers.
- * @module src/web/lib/supabase.js
+ * @module src/web/lib/supabase.ts
  * @dependencies @supabase/supabase-js
  */
 /**
@@ -13,23 +13,30 @@
  * - Performance optimizations with connection caching
  * - Next.js 15 compatibility
  */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Environment detection
 const isServer = typeof window === 'undefined';
 const isBrowser = typeof window !== 'undefined';
 
 // Lazy environment resolution to avoid throwing on module import
-const resolveEnv = () => ({
+interface EnvConfig {
+  url: string | undefined;
+  serviceKey: string | undefined;
+  anonKey: string | undefined;
+}
+
+const resolveEnv = (): EnvConfig => ({
   url: process.env.NEXT_PUBLIC_SUPABASE_URL,
   serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 });
 
-let supabaseUrl;
-let serviceKey;
-let anonKey;
-const ensureEnv = () => {
+let supabaseUrl: string | undefined;
+let serviceKey: string | undefined;
+let anonKey: string | undefined;
+
+const ensureEnv = (): boolean => {
   if (!supabaseUrl) {
     const env = resolveEnv();
     supabaseUrl = env.url;
@@ -47,16 +54,16 @@ const ensureEnv = () => {
 };
 
 // Singleton instances for performance
-let serverClient = null;
-let clientClient = null;
+let serverClient: SupabaseClient | null = null;
+let clientClient: SupabaseClient | null = null;
 
 /**
  * Get server-side Supabase client with service role key
  * Use for admin operations, bypassing RLS policies
  * 
- * @returns {import('@supabase/supabase-js').SupabaseClient} Admin Supabase client
+ * @returns {SupabaseClient} Admin Supabase client
  */
-export const getServerSupabaseClient = () => {
+export const getServerSupabaseClient = (): SupabaseClient => {
   // Prevent server client creation in browser
   if (isBrowser) {
     throw new Error("Server Supabase client cannot be used in browser environment. Use getClientSupabaseClient() instead.");
@@ -65,13 +72,13 @@ export const getServerSupabaseClient = () => {
   if (!serverClient) {
     if (!ensureEnv()) {
       // Development fallback mock client that throws on use
-      return new Proxy({}, {
+      return new Proxy({} as SupabaseClient, {
         get() { throw new Error('Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'); }
       });
     }
     if (!serviceKey) {
       if (process.env.NODE_ENV !== 'production') {
-        return new Proxy({}, {
+        return new Proxy({} as SupabaseClient, {
           get() { throw new Error('SUPABASE_SERVICE_ROLE_KEY missing. Provide it to use server client.'); }
         });
       }
@@ -103,13 +110,13 @@ export const getServerSupabaseClient = () => {
  * Get client-side Supabase client with anon key
  * Use for user operations that respect RLS policies
  * 
- * @returns {import('@supabase/supabase-js').SupabaseClient} Client Supabase client
+ * @returns {SupabaseClient} Client Supabase client
  */
-export const getClientSupabaseClient = () => {
+export const getClientSupabaseClient = (): SupabaseClient => {
   if (!clientClient) {
     if (!ensureEnv()) {
       // Development fallback mock client that throws on use
-      return new Proxy({}, {
+      return new Proxy({} as SupabaseClient, {
         get() { throw new Error('Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY'); }
       });
     }
@@ -120,7 +127,7 @@ export const getClientSupabaseClient = () => {
     if (!key) {
       const envName = isBrowser ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : 'SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY';
       if (process.env.NODE_ENV !== 'production') {
-        return new Proxy({}, {
+        return new Proxy({} as SupabaseClient, {
           get() { throw new Error(`No Supabase key available for client operations. Missing: ${envName}`); }
         });
       }
@@ -157,9 +164,9 @@ export const getClientSupabaseClient = () => {
  * - Server: Returns server client with service role key
  * - Browser: Returns client with anon key
  * 
- * @returns {import('@supabase/supabase-js').SupabaseClient} Environment-appropriate Supabase client
+ * @returns {SupabaseClient} Environment-appropriate Supabase client
  */
-export const getSupabaseClient = () => {
+export const getSupabaseClient = (): SupabaseClient => {
   if (isServer) {
     return getServerSupabaseClient();
   } else {
@@ -173,7 +180,7 @@ export const getSupabaseClient = () => {
  * @param {boolean} useServerClient - Whether to test with server client
  * @returns {Promise<{success: boolean, error?: string, latency?: number}>}
  */
-export const testConnection = async (useServerClient = false) => {
+export const testConnection = async (useServerClient = false): Promise<{ success: boolean; error?: string; latency?: number }> => {
   const startTime = Date.now();
   
   try {
@@ -210,7 +217,7 @@ export const testConnection = async (useServerClient = false) => {
 /**
  * Reset client instances (useful for testing)
  */
-export const resetClients = () => {
+export const resetClients = (): void => {
   serverClient = null;
   clientClient = null;
   
@@ -222,4 +229,5 @@ export const resetClients = () => {
 // Default export for backward compatibility - environment-aware
 // Server: Returns server client, Browser: Returns client client
 const supabase = getSupabaseClient();
-export default supabase; 
+export default supabase;
+

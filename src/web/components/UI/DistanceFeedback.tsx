@@ -1,8 +1,23 @@
 /**
  * @fileoverview Displays accuracy feedback for user selections with score and tier labels.
- * @module src/web/components/UI/DistanceFeedback.js
+ * @module src/web/components/UI/DistanceFeedback.tsx
  * @dependencies React
  */
+"use client";
+
+import React from 'react';
+
+interface AccuracyTier {
+  tier: string;
+  color: string;
+}
+
+interface DistanceFeedbackProps {
+  distance?: number | null;
+  score?: number | null;
+  accuracyTier?: AccuracyTier | null;
+}
+
 /**
  * DistanceFeedback Component
  * 
@@ -11,10 +26,7 @@
  * - Accuracy score (0-100)
  * - Visual tier (Excellent, Great, Good, etc.)
  */
-
-import React from 'react';
-
-const DistanceFeedback = ({ distance, score, accuracyTier }) => {
+const DistanceFeedback: React.FC<DistanceFeedbackProps> = ({ distance, score, accuracyTier }) => {
   if (distance === null || distance === undefined || score === null || score === undefined) {
     return null;
   }
@@ -37,3 +49,4 @@ const DistanceFeedback = ({ distance, score, accuracyTier }) => {
 };
 
 export default DistanceFeedback;
+

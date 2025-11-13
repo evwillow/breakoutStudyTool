@@ -1,10 +1,25 @@
 /**
  * @fileoverview Renders action buttons for flashcard responses with visual feedback and accessibility support.
- * @module src/web/components/UI/ActionButtonsRow.js
+ * @module src/web/components/UI/ActionButtonsRow.tsx
  * @dependencies React
  */
+"use client";
+
+import React from "react";
+
+interface ActionButtonsRowProps {
+  actionButtons: string[];
+  selectedButtonIndex?: number | null;
+  correctAnswerButton?: number | null;
+  feedback?: "correct" | "incorrect" | null;
+  onButtonClick?: ((index: number) => void) | null;
+  disabled?: boolean;
+  isCompact?: boolean;
+  isTimeUp?: boolean;
+}
+
 /**
- * ActionButtonsRow.js
+ * ActionButtonsRow Component
  * 
  * Component for displaying a row of action buttons for user interaction.
  * Features:
@@ -15,9 +30,7 @@
  * - Consistent color scheme for different actions
  * - Keyboard shortcuts (1-4) for quick selection (hidden on mobile)
  */
-import React from "react";
-
-const ActionButtonsRow = React.memo(function ActionButtonsRow({
+const ActionButtonsRow = React.memo<ActionButtonsRowProps>(function ActionButtonsRow({
   actionButtons,
   selectedButtonIndex = null,
   correctAnswerButton = null,
@@ -57,7 +70,7 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
    * Determine button classes based on index and selection state
    * Adds visual feedback (outline) for correct/incorrect selections
    */
-  const getButtonClasses = (index) => {
+  const getButtonClasses = (index: number): string => {
     let classes = defaultClasses[index];
     
     // Add disabled state styling - but don't show "no" cursor when showing feedback
@@ -106,7 +119,7 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
   ];
 
   // Handler for button clicks
-  const handleClick = (index) => {
+  const handleClick = (index: number): void => {
     console.log(`Button clicked with index: ${index}`);
     if (onButtonClick && !disabled) {
       onButtonClick(index);
@@ -149,3 +162,4 @@ const ActionButtonsRow = React.memo(function ActionButtonsRow({
 });
 
 export default ActionButtonsRow;
+

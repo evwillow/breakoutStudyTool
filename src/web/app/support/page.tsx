@@ -1,9 +1,9 @@
 /**
  * @fileoverview Static support page containing contact information for assistance.
- * @module src/web/app/support/page.js
+ * @module src/web/app/support/page.tsx
  * @dependencies none
  */
-export default function SupportPage() {
+export default function SupportPage(): JSX.Element {
   return (
     <div className="w-full flex justify-center">
       <div className="w-full sm:w-[90%] md:w-[70%] lg:w-[60%] max-w-3xl px-4 py-16">
@@ -23,3 +23,4 @@ export default function SupportPage() {
     </div>
   );
 }
+

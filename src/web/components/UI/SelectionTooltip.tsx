@@ -1,31 +1,31 @@
 /**
  * @fileoverview Tooltip overlay guiding users when chart selection is required.
- * @module src/web/components/UI/SelectionTooltip.js
+ * @module src/web/components/UI/SelectionTooltip.tsx
  * @dependencies React
  */
 "use client";
 
-/**
- * SelectionTooltip Component
- * 
- * Speech bubble tooltip that appears when the timer runs out without a selection.
- * Positioned near the chart selection area with a quote box style design.
- */
-
 import React, { useEffect, useState, useRef, useCallback } from "react";
+
+interface SelectionTooltipProps {
+  show: boolean;
+  onDismiss?: ((event: { reason: string }) => void) | null;
+  style?: React.CSSProperties;
+  durationSeconds?: number | null;
+}
 
 /**
  * SelectionTooltip displays concise instructions for making selections
  * 
- * @param {boolean} show - Whether to show the tooltip
- * @param {Function} onDismiss - Optional callback when tooltip is dismissed
+ * Speech bubble tooltip that appears when the timer runs out without a selection.
+ * Positioned near the chart selection area with a quote box style design.
  */
-const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
+const SelectionTooltip: React.FC<SelectionTooltipProps> = ({ show, onDismiss, style, durationSeconds }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
-  const autoHideTimeoutRef = useRef(null);
-  const exitTimeoutRef = useRef(null);
-  const cleanupTimeoutRef = useRef(null);
+  const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const exitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Detect mobile device
   useEffect(() => {
@@ -44,7 +44,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
     };
   }, []);
 
-  const clearAllTimeouts = () => {
+  const clearAllTimeouts = useCallback(() => {
     if (autoHideTimeoutRef.current) {
       clearTimeout(autoHideTimeoutRef.current);
       autoHideTimeoutRef.current = null;
@@ -57,7 +57,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
       clearTimeout(cleanupTimeoutRef.current);
       cleanupTimeoutRef.current = null;
     }
-  };
+  }, []);
 
   const startExit = useCallback((reason = 'auto') => {
     if (exitTimeoutRef.current) return;
@@ -87,7 +87,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
         }, 100);
       }, 250);
     }
-  }, [onDismiss]);
+  }, [onDismiss, clearAllTimeouts]);
 
   useEffect(() => {
     if (!show) return;
@@ -112,14 +112,14 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
 
   useEffect(() => () => {
     clearAllTimeouts();
-  }, []);
+  }, [clearAllTimeouts]);
 
   const shouldRender = show || isExiting;
   if (!shouldRender) {
     return null;
   }
 
-  const tooltipStyle = {
+  const tooltipStyle: React.CSSProperties = {
     top: '16px',
     right: '16px',
     maxWidth: isMobile ? '320px' : '260px',
@@ -128,7 +128,7 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
   };
 
   // Handle click outside to dismiss - simplified and more reliable
-  const handleBackdropClick = useCallback((event) => {
+  const handleBackdropClick = useCallback((event: React.MouseEvent) => {
     // Dismiss when clicking on the backdrop
     event.stopPropagation();
     if (!isExiting) {
@@ -140,12 +140,12 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
   useEffect(() => {
     if (!show || isExiting) return;
 
-    const handleDocumentClick = (event) => {
+    const handleDocumentClick = (event: MouseEvent) => {
       // Check if click is outside the tooltip
       const tooltipElement = document.querySelector('[data-selection-tooltip]');
-      if (tooltipElement && !tooltipElement.contains(event.target)) {
+      if (tooltipElement && !tooltipElement.contains(event.target as Node)) {
         // Don't dismiss if clicking on chart elements (let chart handle it)
-        const isChartClick = event.target.closest('svg') || event.target.closest('[data-chart-container]');
+        const isChartClick = (event.target as Element)?.closest('svg') || (event.target as Element)?.closest('[data-chart-container]');
         if (!isChartClick && !isExiting) {
           startExit('click-outside');
         }
@@ -231,3 +231,4 @@ const SelectionTooltip = ({ show, onDismiss, style, durationSeconds }) => {
 };
 
 export default SelectionTooltip;
+

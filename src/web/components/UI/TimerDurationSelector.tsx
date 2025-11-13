@@ -1,19 +1,30 @@
-"use client";
 /**
  * @fileoverview Timer duration selector component for adjusting study session length.
- * @module src/web/components/UI/TimerDurationSelector.js
+ * @module src/web/components/UI/TimerDurationSelector.tsx
  * @dependencies React
  */
+"use client";
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 
-const TimerDurationSelector = ({ duration, onChange }) => {
+interface TimerDurationOption {
+  value: number;
+  label: string;
+}
+
+interface TimerDurationSelectorProps {
+  duration: number;
+  onChange: (duration: number) => void;
+}
+
+const TimerDurationSelector: React.FC<TimerDurationSelectorProps> = ({ duration, onChange }) => {
   const [showPopup, setShowPopup] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customValue, setCustomValue] = useState("");
-  const customInputRef = useRef(null);
+  const customInputRef = useRef<HTMLInputElement>(null);
 
   // Reduced preset timer durations in seconds - memoize to prevent recreation
-  const durations = useMemo(() => [
+  const durations = useMemo<TimerDurationOption[]>(() => [
     { value: 30, label: "30 seconds" },
     { value: 60, label: "1 minute" },
     { value: 120, label: "2 minutes" },
@@ -33,7 +44,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   }, [duration, presetValues]);
 
   // Format duration for display
-  const formatDuration = (seconds) => {
+  const formatDuration = (seconds: number): string => {
     if (seconds < 60) {
       return `${seconds} seconds`;
     }
@@ -46,30 +57,30 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   };
 
   // Handle preset button click
-  const handlePresetClick = (value) => {
+  const handlePresetClick = (value: number): void => {
     onChange(Number(value));
     setShowPopup(false);
     setShowCustomInput(false);
   };
 
   // Handle custom button click
-  const handleCustomClick = () => {
+  const handleCustomClick = (): void => {
     setShowCustomInput(true);
     setCustomValue("");
   };
 
   // Handle custom input change
-  const handleCustomInputChange = (e) => {
+  const handleCustomInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
     setCustomValue(value);
   };
 
   // Handle custom input submission
-  const handleCustomSubmit = () => {
+  const handleCustomSubmit = (): void => {
     // Validate and convert input
     let numValue = 60; // Default fallback
     
-    if (customValue && !isNaN(customValue)) {
+    if (customValue && !isNaN(Number(customValue))) {
       // Convert to number and enforce minimum value of 1
       numValue = Math.max(1, Math.round(Number(customValue)));
       console.log(`Custom timer value submitted: ${numValue}`);
@@ -85,7 +96,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   };
 
   // Handle key press in custom input
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
       handleCustomSubmit();
     } else if (e.key === 'Escape') {
@@ -106,10 +117,10 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   useEffect(() => {
     if (!showPopup) return;
 
-    function handleClickOutside(event) {
+    function handleClickOutside(event: MouseEvent): void {
       const popup = document.getElementById('timer-popup');
       const trigger = document.getElementById('timer-trigger');
-      if (popup && trigger && !popup.contains(event.target) && !trigger.contains(event.target)) {
+      if (popup && trigger && !popup.contains(event.target as Node) && !trigger.contains(event.target as Node)) {
         setShowPopup(false);
         setShowCustomInput(false);
         setCustomValue("");
@@ -129,7 +140,7 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   }, [showPopup]);
 
   // Get current duration display text
-  const getCurrentDurationText = () => {
+  const getCurrentDurationText = (): string => {
     if (duration === 0) return "Always Paused";
     if (isPreset) {
       const option = durations.find(opt => opt.value === duration);
@@ -228,4 +239,5 @@ const TimerDurationSelector = ({ duration, onChange }) => {
   );
 };
 
-export default TimerDurationSelector; 
+export default TimerDurationSelector;
+

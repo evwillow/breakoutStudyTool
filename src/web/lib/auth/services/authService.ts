@@ -4,7 +4,7 @@
  * @dependencies @supabase/supabase-js, ./passwordService, ./userService, @/lib/utils/logger
  */
 import bcrypt from "bcryptjs";
-import { getServerSupabaseClient } from "../../supabase.js";
+import { getServerSupabaseClient } from "../../supabase";
 import { logger } from "@/lib/utils/logger";
 import { AUTH_CONFIG, AUTH_ERRORS } from "../constants";
 import type { 

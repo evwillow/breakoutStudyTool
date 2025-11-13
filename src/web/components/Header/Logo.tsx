@@ -1,9 +1,13 @@
 /**
  * @fileoverview Application logo component linking back to the homepage.
- * @module src/web/components/Header/Logo.js
+ * @module src/web/components/Header/Logo.tsx
  * @dependencies next/link
  */
 import Link from "next/link";
+
+interface LogoProps {
+  scrolled?: boolean;
+}
 
 /**
  * Logo Component
@@ -19,7 +23,7 @@ import Link from "next/link";
  * - Modern, professional appearance with icon and text
  * - Link to home page for easy navigation
  */
-const Logo = ({ scrolled = false }) => {
+const Logo: React.FC<LogoProps> = ({ scrolled = false }) => {
   return (
     <Link href="/" className="flex items-center whitespace-nowrap">
       <div className="flex items-center">
@@ -52,3 +56,4 @@ const Logo = ({ scrolled = false }) => {
 };
 
 export default Logo;
+
