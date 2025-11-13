@@ -1,7 +1,7 @@
 /**
  * @fileoverview Orchestrates the flashcard study workflow, including data loading, timers, and chart interactions.
  * @module src/web/components/Flashcards/FlashcardsContainer.tsx
- * @dependencies React, next-auth/react, next/navigation, ../ChartSection, ../FolderSection, ../Flashcards/utils/dataProcessors, ../Flashcards/hooks/useFlashcardData, ../Flashcards/hooks/useGameState, ../Flashcards/hooks/useTimer, ../Flashcards/constants, ../Auth, ../Tutorial, ./components/LoadingStates
+ * @dependencies React, next-auth/react, next/navigation, ../Flashcards/utils/dataProcessors, ../Flashcards/hooks/useFlashcardData, ../Flashcards/hooks/useGameState, ../Flashcards/hooks/useTimer, ../Flashcards/constants, ../Auth, ../Tutorial, ./components/LoadingStates, ./components/ChartView, ./components/ControlPanel, ./components/RoundSelector
  */
 "use client";
 
@@ -10,13 +10,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 // Components
-import { 
-  ChartSection, 
-  FolderSection, 
-  RoundHistory, 
-  DateFolderBrowser, 
-  LandingPage 
-} from "../";
+import { DateFolderBrowser, LandingPage, RoundHistory } from "../";
 import { AuthModal } from "../Auth";
 import { LoadingStates } from "./components/LoadingStates";
 import Tutorial from "../Tutorial/Tutorial";
@@ -29,6 +23,9 @@ import { useTimer } from "./hooks/useTimer";
 // Utils
 import { processFlashcardData, extractStockName, FlashcardData } from "./utils/dataProcessors";
 import { GAME_CONFIG, UI_CONFIG, TIMER_CONFIG } from "./constants";
+import ChartView from "./components/ChartView";
+import ControlPanel from "./components/ControlPanel";
+import RoundSelector from "./components/RoundSelector";
 
 declare global {
   interface Window {
@@ -38,8 +35,6 @@ declare global {
 }
 
 // Type the imported JS components
-const TypedChartSection = ChartSection as React.ComponentType<any>;
-const TypedFolderSection = FolderSection as React.ComponentType<any>;
 
 /**
  * @property tutorialTrigger Optional flag forcing the tutorial carousel to replay.
@@ -1015,6 +1010,19 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     }
   }, [selectedFolder, roundNameInput, generateRoundName, createNewRound, gameState, timer, timerDuration]);
 
+  const handleRoundNameChange = useCallback((value: string) => {
+    setRoundNameInput(value);
+  }, []);
+
+  const handleGenerateRoundNameClick = useCallback(() => {
+    setRoundNameInput(generateRoundName());
+  }, [generateRoundName]);
+
+  const handleRoundSelectorCancel = useCallback(() => {
+    setShowRoundSelector(false);
+    setRoundNameInput('');
+  }, []);
+
   // Helper function to load round matches and initialize game state
   const loadRoundMatches = useCallback(async (roundId: string) => {
     setCurrentRoundId(roundId);
@@ -1071,6 +1079,15 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     // If folder already matches, load the round directly
     await loadRoundMatches(roundId);
   }, [gameState, timer, timerDuration, selectedFolder, setSelectedFolder, loadRoundMatches]);
+
+  const handleRoundSelectorSelect = useCallback(
+    (roundId: string, datasetName: string) => {
+      setShowRoundSelector(false);
+      setRoundNameInput('');
+      handleSelectRound(roundId, datasetName);
+    },
+    [handleSelectRound]
+  );
 
   // Handle next card with smooth transition
   const handleNextCard = useCallback(() => {
@@ -1667,16 +1684,15 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
           <div className="flex flex-col lg:flex-row gap-0 items-start">
             {/* Chart Section - Left side */}
             <div className="w-full lg:w-4/5">
-              <TypedChartSection
+              <ChartView
                 orderedFiles={activeProcessedData.orderedFiles}
                 afterData={activeProcessedData.afterJsonData}
-                timer={timer.displayValue}
                 pointsTextArray={[]}
+                timerDisplayValue={timer.displayValue}
                 feedback={gameState.feedback}
                 disabled={gameState.disableButtons}
-                isTimeUp={gameState.showTimeUpOverlay && !showTutorial}
+                showTimeUp={gameState.showTimeUpOverlay && !showTutorial}
                 onAfterEffectComplete={handleAfterEffectComplete}
-                // Coordinate-based selection props
                 onChartClick={handleChartClick}
                 userSelection={gameState.userSelection}
                 targetPoint={targetPoint}
@@ -1697,18 +1713,17 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
 
             {/* Folder Section - Right column with Points, Accuracy, and Rounds */}
             <div className="w-full lg:w-1/5">
-              <TypedFolderSection
+              <ControlPanel
                 selectedFolder={selectedFolder}
                 folderOptions={folders}
                 onFolderChange={handleFolderChange}
-                accuracy={gameState.metrics.accuracy}
-                onNewRound={handleNewRound}
-                onRoundHistory={() => setShowRoundHistory(true)}
-                timerDuration={timerDuration}
-                onTimerDurationChange={handleTimerDurationChange}
-                isCreatingRound={isCreatingRound}
                 pointsTextArray={activeProcessedData.pointsTextArray}
-                isTimeUp={gameState.showTimeUpOverlay}
+                accuracy={gameState.metrics.accuracy}
+                matchCount={gameState.metrics.matchCount}
+                correctCount={gameState.metrics.correctCount}
+                onRoundHistory={() => setShowRoundHistory(true)}
+                onNewRound={handleNewRound}
+                isCreatingRound={isCreatingRound}
               />
             </div>
           </div>
@@ -1812,91 +1827,17 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
           animation: glow 2s infinite;
         }
       `}</style>
-      {/* Round Selector Modal (rendered over the main interface) */}
-      {showRoundSelector && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm pointer-events-none">
-          <div className="relative bg-black/95 backdrop-blur-sm rounded-md shadow-xl max-w-md w-full p-6 pointer-events-auto border border-white/30">
-            {/* Decorative gradient overlay - faint turquoise */}
-            <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/5 via-transparent to-transparent pointer-events-none rounded-md"></div>
-            
-            <div className="relative z-10">
-              <h3 className="text-xl font-semibold text-white mb-4">
-                Choose Round
-              </h3>
-              {/* Round Name Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-white/70 mb-2">
-                  Round Name (optional)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={roundNameInput}
-                    onChange={(e) => setRoundNameInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleNewRound();
-                      }
-                    }}
-                    placeholder="Auto-generated if left blank"
-                    maxLength={100}
-                    className="flex-1 px-3 py-2 bg-black/50 border border-white/30 rounded-md focus:border-turquoise-500 focus:outline-none focus:ring-1 focus:ring-turquoise-500 text-white text-sm placeholder:text-white/50"
-                  />
-                  <button
-                    onClick={() => setRoundNameInput(generateRoundName())}
-                    className="px-3 py-2 bg-black/95 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white rounded-md text-sm font-medium transition-colors hover:bg-black/80"
-                    title="Generate name"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <>
-                  {availableRounds.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="font-semibold text-white/70 mb-3 text-sm uppercase tracking-wide">Recent Rounds:</h4>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {availableRounds.map((round: any) => (
-                          <div
-                            key={round.id}
-                            className="flex items-center justify-between p-3 border border-white/30 rounded-md hover:bg-black/80 hover:border-white/50 cursor-pointer transition-all bg-black/95 backdrop-blur-sm"
-                            onClick={() => handleSelectRound(round.id, round.dataset_name)}
-                          >
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-white/90">
-                                <span className={round.completed ? 'text-turquoise-400' : 'text-white/50'}>{round.completed ? '✓' : '◯'}</span> {round.name || 'Unnamed'} • {new Date(round.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={handleConfirmNewRound}
-                      disabled={isCreatingRound}
-                      className="flex-1 bg-turquoise-500/20 hover:bg-turquoise-500/30 text-turquoise-400 hover:text-turquoise-300 px-4 py-2 rounded-md border border-turquoise-500/30 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all"
-                    >
-                      {isCreatingRound ? 'Creating...' : 'Start New Round'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowRoundSelector(false);
-                        setRoundNameInput(''); // Clear input when canceling
-                      }}
-                      className="px-4 py-2 bg-black/95 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white rounded-md hover:bg-black/80 transition-all font-medium"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-              </>
-            </div>
-          </div>
-        </div>
-      )}
+      <RoundSelector
+        isOpen={showRoundSelector}
+        roundName={roundNameInput}
+        availableRounds={availableRounds}
+        isCreatingRound={isCreatingRound}
+        onRoundNameChange={handleRoundNameChange}
+        onGenerateRoundName={handleGenerateRoundNameClick}
+        onCreateRound={handleConfirmNewRound}
+        onSelectRound={handleRoundSelectorSelect}
+        onCancel={handleRoundSelectorCancel}
+      />
 
       {/* Tutorial */}
       <Tutorial
