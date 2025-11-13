@@ -4,7 +4,6 @@
  * @dependencies next/server, node:path, node:fs/promises
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { success, error } from '@/lib/api/responseHelpers';
 import { fetchLocalFile } from '@/services/flashcard/flashcardService';
 
 /**
@@ -20,22 +19,36 @@ export async function GET(req: NextRequest) {
     const folder = searchParams.get('folder');
 
     if (!fileName || !folder) {
-      return error('Missing file or folder parameter', 400);
+      return NextResponse.json(
+        { success: false, error: 'Missing file or folder parameter' },
+        { status: 400 }
+      );
     }
 
     const jsonData = await fetchLocalFile({ fileName });
 
-    const baseResponse = success({
-      data: jsonData,
-      fileName,
-      folder
-    });
-
-    const response = NextResponse.from(baseResponse);
-    response.headers.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    const response = NextResponse.json(
+      {
+        success: true,
+        data: {
+          data: jsonData,
+          fileName,
+          folder
+        }
+      },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+        }
+      }
+    );
     return response;
-  } catch (error: any) {
-    console.error('Error in local data API:', error);
-    return error('Error processing request', 500);
+  } catch (err: any) {
+    console.error('Error in local data API:', err);
+    return NextResponse.json(
+      { success: false, error: 'Error processing request' },
+      { status: 500 }
+    );
   }
 }

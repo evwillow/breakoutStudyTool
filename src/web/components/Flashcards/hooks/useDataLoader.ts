@@ -164,6 +164,15 @@ export const useDataLoader = ({
 
       cleanup();
 
+      // Set a timeout fallback to ensure loading doesn't get stuck
+      let loadingTimeout: NodeJS.Timeout | null = setTimeout(() => {
+        console.warn('Loading timeout reached, forcing loading to false');
+        setLoading(false);
+        setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
+        setLoadingStep("");
+        loadingTimeout = null;
+      }, 30000); // 30 second timeout
+
       try {
         setLoading(true);
         setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.INITIALIZING);
@@ -263,7 +272,9 @@ export const useDataLoader = ({
             })
           );
 
-          if (hasReadyFlashcard && currentFiles.length >= 3) {
+          // Show UI if we have at least one ready flashcard, or if we have any files at all
+          // This prevents the UI from being stuck in loading when we have data but fewer than 3 files
+          if (hasReadyFlashcard && currentFiles.length >= 1) {
             if (initialShuffleSeed === null) {
               let seed = 0;
               for (let i = 0; i < folderName.length; i++) {
@@ -448,11 +459,23 @@ export const useDataLoader = ({
             if (!fileResponse.ok) return null;
 
             const fileData = await fileResponse.json();
-            if (!fileData.success) return null;
+            if (!fileData.success) {
+              console.warn(`File ${file.fileName} returned unsuccessful response:`, fileData);
+              return null;
+            }
+
+            // The API returns { success: true, data: { data: jsonData, fileName, folder } }
+            // So we need to extract the actual JSON data from fileData.data.data
+            const actualData = fileData.data?.data ?? fileData.data;
+            
+            if (!actualData) {
+              console.warn(`File ${file.fileName} has no data in response:`, fileData);
+              return null;
+            }
 
             return {
               fileName: file.fileName,
-              data: fileData.data,
+              data: actualData,
               mimeType: file.mimeType,
               size: file.size,
               createdTime: file.createdTime,
@@ -492,9 +515,13 @@ export const useDataLoader = ({
               if (!fileResponse.ok) return null;
               const fileData = await fileResponse.json();
               if (!fileData.success) return null;
+              
+              // The API returns { success: true, data: { data: jsonData, fileName, folder } }
+              const actualData = fileData.data?.data ?? fileData.data;
+              
               return {
                 fileName: file.fileName,
-                data: fileData.data,
+                data: actualData,
                 mimeType: file.mimeType,
                 size: file.size,
                 createdTime: file.createdTime,
@@ -678,7 +705,20 @@ export const useDataLoader = ({
 
         setFlashcards(shuffledFlashcardData);
 
-        if (readyFlashcards.length > 0) {
+        // Clear the timeout since we're done loading
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          loadingTimeout = null;
+        }
+
+        // Always set loading to false when we have flashcards, even if none are "ready"
+        // This prevents the UI from being stuck in a loading state
+        if (flashcardData.length > 0) {
+          setLoading(false);
+          setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
+          setLoadingStep("");
+        } else {
+          // If we have no flashcards at all, set loading to false anyway to prevent stuck state
           setLoading(false);
           setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
           setLoadingStep("");
@@ -695,12 +735,12 @@ export const useDataLoader = ({
             setFlashcards(prevCards => updateFn(prevCards));
           });
         }
-
-        if (readyFlashcards.length === 0) {
-          setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.FINALIZING);
-          setLoadingStep("Finalizing dataset...");
-        }
       } catch (error) {
+        // Clear the timeout on error
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          loadingTimeout = null;
+        }
         setError(error instanceof Error ? error.message : ERROR_MESSAGES.DATA_FETCH_ERROR);
         setLoading(false);
         setLoadingProgress(0);
