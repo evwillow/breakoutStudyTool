@@ -9,15 +9,21 @@ import { useAuth } from "../Auth/hooks/useAuth"
 import { NavLink, TouchPosition } from './Header.types'
 
 /**
- * Header Component
- * 
- * Main application header that appears on all pages including the welcome page.
- * Features:
- * - Responsive design with logo and navigation links
- * - Enhanced mobile-friendly navigation with animated hamburger menu
- * - Sign out button for authenticated users
- * - Sign in button for non-authenticated users with auth modal
- * - Links to dummy pages for future development
+ * @component Header
+ * @overview Fixed site header that coordinates navigation, authentication affordances, and mobile menu ergonomics across the app.
+ * @usage ```tsx
+ * import Header from "@/components/Header"
+ *
+ * export default function Layout({ children }: { children: React.ReactNode }) {
+ *   return (
+ *     <>
+ *       <Header />
+ *       <main>{children}</main>
+ *     </>
+ *   )
+ * }
+ * ```
+ * @when Use on every top-level page requiring consistent navigation, user session controls, and mobile-friendly menu behavior. Accepts no props.
  */
 const Header: React.FC = () => {
   const router = useRouter()

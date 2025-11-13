@@ -5,19 +5,25 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import Script from 'next/script';
 import { GA_MEASUREMENT_ID, pageview } from '@/lib/gtag';
 
+/**
+ * @component GoogleAnalytics
+ * @overview Injects Google Analytics scripts and reports client-side route changes.
+ * @usage ```tsx
+ * // Place once in the root layout (client boundary)
+ * <GoogleAnalytics />
+ * ```
+ * @when Use in production builds when a GA measurement id exists; renders nothing otherwise.
+ */
 export default function GoogleAnalytics() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    console.log('GA_MEASUREMENT_ID:', GA_MEASUREMENT_ID);
     if (!GA_MEASUREMENT_ID) {
       console.warn('Google Analytics: No measurement ID found');
       return;
     }
-    
     const url = pathname + (searchParams?.toString() || '');
-    console.log('GA: Tracking page view for:', url);
     pageview(url);
   }, [pathname, searchParams]);
 

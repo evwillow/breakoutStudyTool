@@ -1,17 +1,14 @@
 "use client";
 
 /**
- * Tutorial Component
- * 
- * Interactive tutorial system for guiding new users through the breakout trading flashcard game.
- * Features:
- * - Custom tooltip system matching auth modal styling
- * - Mobile-responsive design
- * - Timer pause/resume functionality
- * - Skip functionality with helpful tooltip
- * - Completion tracking via API
- * - Keyboard navigation support
- * - Accessibility features
+ * @component Tutorial
+ * @overview Overlay walkthrough guiding new users through the breakout flashcard interface with contextual tooltips and gated interactions.
+ * @usage ```tsx
+ * import Tutorial from "@/components/Tutorial";
+ *
+ * <Tutorial isActive={show} onComplete={handleComplete} onSkip={handleSkip} timer={timerControls} />
+ * ```
+ * @when Trigger during onboarding or when the learner requests a refresher from the profile menu.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -27,6 +24,13 @@ interface TutorialStep {
   showTarget?: boolean; // If true, show the target element (make it visible) during this step
 }
 
+/**
+ * @property isActive Controls mounting and visibility of the tutorial.
+ * @property onComplete Invoked when the final step is acknowledged.
+ * @property onSkip Called when the user exits early via skip controls.
+ * @property onStepChange Optional callback for analytics—fires whenever the step index changes.
+ * @property timer Optional hooks into the round timer so the tutorial can pause/resume gameplay.
+ */
 interface TutorialProps {
   isActive: boolean;
   onComplete: () => void;
@@ -105,11 +109,17 @@ export default function Tutorial({
   onStepChange,
   timer,
 }: TutorialProps) {
+  /** Current tutorial step pointer. */
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  /** Toggles tooltip explaining the skip action. */
   const [showSkipTooltip, setShowSkipTooltip] = useState(false);
+  /** Indicates whether the tutorial waits for user interaction before advancing. */
   const [isWaitingForAction, setIsWaitingForAction] = useState(false);
+  /** Inline positioning for the tooltip portal. */
   const [tooltipPosition, setTooltipPosition] = useState<{ top: string; left: string; transform: string }>({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+  /** Rectangle highlight around the focused element. */
   const [highlightPosition, setHighlightPosition] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  /** Extra highlight area for selectable zones on the chart. */
   const [selectableAreaHighlight, setSelectableAreaHighlight] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);

@@ -1,17 +1,14 @@
 "use client";
 
 /**
- * StockChart Component
- * 
- * A comprehensive stock chart component that displays candlestick charts with volume,
- * moving averages, and interactive features for trading analysis.
- * 
- * Features:
- * - Candlestick chart with OHLC data
- * - Volume bars with color coding
- * - Multiple moving averages (SMA 10, 20, 50)
- * - Responsive design for mobile and desktop
- * - Optimized rendering with canvas for performance
+ * @component StockChart
+ * @overview High-performance SVG/canvas hybrid that visualizes OHLC candles, volume, and moving averages for study drills.
+ * @usage ```tsx
+ * import StockChart from "@/components/StockChart";
+ *
+ * <StockChart data={processedCandles} chartType="default" onChartClick={handleSelect} />
+ * ```
+ * @when Render inside study experiences or analytics views that require interactive market replays and tutorial overlays.
  */
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { scaleLinear, scalePoint } from "d3-scale";
@@ -492,8 +489,11 @@ const StockChart = React.memo<StockChartProps>(({
   dLabelRightEdge = null,
   dLabelCenterY = null
 }) => {
+  /** Tracks whether auth modal prompting appears when gated interactions trigger. */
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  /** Responsive breakpoint flag derived from container viewport to toggle compact rendering. */
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  /** Cached measurements governing SVG scales and redraw logic. */
   const [dimensions, setDimensions] = useState<ChartDimensions | null>(null);
   const containerRef = useRef<ContainerRef | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);

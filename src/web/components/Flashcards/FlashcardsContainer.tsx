@@ -1,15 +1,14 @@
 /**
- * Flashcards Container
- * 
- * Optimized main component for the stock trading flashcard application.
- * This replaces the monolithic 1567-line component with a clean, modular structure.
- * 
- * Key improvements:
- * - Separated concerns into focused custom hooks
- * - Eliminated memory leaks from timer management
- * - Reduced re-renders through proper memoization
- * - Improved error handling and loading states
- * - Better TypeScript support
+ * @component FlashcardsContainer
+ * @overview High-level orchestrator for the stock trading flashcard flow—coordinates data fetching, timers, chart playback, and tutorial overlays.
+ * @usage ```tsx
+ * import FlashcardsContainer from "@/components/Flashcards/FlashcardsContainer";
+ *
+ * export default function StudyPage() {
+ *   return <FlashcardsContainer />;
+ * }
+ * ```
+ * @when Use on the primary study experience page to present flashcards, handle round logging, and drive the training loop.
  */
 
 "use client";
@@ -50,6 +49,9 @@ declare global {
 const TypedChartSection = ChartSection as React.ComponentType<any>;
 const TypedFolderSection = FolderSection as React.ComponentType<any>;
 
+/**
+ * @property tutorialTrigger Optional flag forcing the tutorial carousel to replay.
+ */
 interface FlashcardsContainerProps {
   tutorialTrigger?: boolean;
 }
@@ -77,20 +79,33 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     autoSelectFirstFolder: true,
   });
 
-  // UI state (must be defined before gameState so callbacks can use them)
+  /** Controls auth modal visibility for gated actions. */
   const [showAuthModal, setShowAuthModal] = React.useState(false);
+  /** Toggles the round history sidebar/drawer. */
   const [showRoundHistory, setShowRoundHistory] = React.useState(false);
+  /** Callback setter provided to RoundHistory for refreshing results. */
   const [roundHistoryRefresh, setRoundHistoryRefresh] = React.useState<(() => void) | null>(null);
+  /** Current timer configuration used by ChartSection and timer hook. */
   const [timerDuration, setTimerDuration] = React.useState<number>(TIMER_CONFIG.INITIAL_DURATION);
+  /** Active round identifier when logging progress. */
   const [currentRoundId, setCurrentRoundId] = React.useState<string | null>(null);
+  /** Flag while creating a new custom round via API. */
   const [isCreatingRound, setIsCreatingRound] = React.useState(false);
+  /** Flag while fetching round list for selection. */
   const [isLoadingRounds, setIsLoadingRounds] = React.useState(false);
+  /** Cached round metadata for the round selector dialog. */
   const [availableRounds, setAvailableRounds] = React.useState<any[]>([]);
+  /** Controls visibility of the round selector modal. */
   const [showRoundSelector, setShowRoundSelector] = React.useState(false);
+  /** Input state when naming a new round. */
   const [roundNameInput, setRoundNameInput] = React.useState('');
+  /** Timestamp of the last match log to throttle refreshes. */
   const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
+  /** Count of matches logged in the current session. */
   const [matchLogCount, setMatchLogCount] = React.useState<number>(0);
+  /** Manual refresh counter to invalidate cached round history queries. */
   const [refreshCount, setRefreshCount] = React.useState<number>(0);
+  /** Drives whether tutorial overlay is visible. */
   const [showTutorial, setShowTutorial] = React.useState(false);
   
   // Ref to store handleNextCard for timer callback
@@ -104,13 +119,13 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     }
   }, []);
   
-  // Ref to store pending round ID and dataset to load after folder switch
+  /** Stores deferred round load requests when switching folders. */
   const pendingRoundRef = React.useRef<{ roundId: string; datasetName: string } | null>(null);
   
-  // Ref to track pause state from ChartSection (to prevent auto-advance when paused)
+  /** Keeps track of chart pause state to avoid auto-advancing while paused. */
   const isChartPausedRef = React.useRef<boolean>(false);
   
-  // Ref to prevent double-advance when both countdown and auto-advance timers fire
+  /** Prevents duplicate advancement when multiple timers fire simultaneously. */
   const hasAdvancedRef = React.useRef<boolean>(false);
 
   // Create a more reliable refresh function

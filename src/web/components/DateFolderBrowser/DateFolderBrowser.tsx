@@ -1,19 +1,14 @@
 "use client";
 
 /**
- * DateFolderBrowser.tsx
- * 
- * Component for browsing and displaying historical stock data files.
- * Features:
- * - Fetches and displays historical stock data files for the current stock
- * - Auto-expands items as user scrolls down over them
- * - Auto-closes items as user scrolls up past them (only auto-expanded items)
- * - Allows users to manually open and close dropdowns with their choices respected
- * - Supports multiple open dropdowns simultaneously
- * - Implements multiple fallback strategies to find relevant files
- * - Allows users to expand/collapse individual file charts
- * - Filters files to show only those with proper date formatting
- * - Parses and displays CSV data as interactive charts
+ * @component DateFolderBrowser
+ * @overview Auxiliary browser that surfaces additional historical setups for the currently selected stock, allowing learners to inspect previous days.
+ * @usage ```tsx
+ * import DateFolderBrowser from "@/components/DateFolderBrowser";
+ *
+ * <DateFolderBrowser session={session} currentStock={symbol} flashcards={cards} />
+ * ```
+ * @when Embed alongside the main chart to let users explore alternate datasets without leaving the drill experience.
  */
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import StockChart from "../StockChart";
@@ -25,15 +20,31 @@ import {
   FileRefsMap
 } from './DateFolderBrowser.types';
 
+/**
+ * @param props.session Auth session used to authorize folder fetches.
+ * @param props.currentStock Identifier (ticker + date) for the central chart.
+ * @param props.flashcards Available flashcard definitions for dataset lookups.
+ * @param props.currentFlashcard Selected flashcard to highlight in the browser.
+ * @param props.onChartExpanded Callback fired when a historical chart is opened or closed.
+ */
 const DateFolderBrowser: React.FC<DateFolderBrowserProps> = ({ session, currentStock, flashcards = [], currentFlashcard = null, onChartExpanded = null }) => {
+  /** Complete list of historical files resolved for the current stock. */
   const [allFiles, setAllFiles] = useState<PreviousSetupFile[]>([]);
+  /** Explicitly opened file identifiers (manually or auto expanded). */
   const [expandedFiles, setExpandedFiles] = useState<string[]>([]);
+  /** Cache of fetched CSV data keyed by file id. */
   const [fileData, setFileData] = useState<FileDataMap>({});
+  /** Error message surfaced in the UI when fetch fails. */
   const [error, setError] = useState<string | null>(null);
+  /** Developer-facing debug information rendered in the panel. */
   const [debugInfo, setDebugInfo] = useState<string>('');
+  /** Items currently intersecting the viewport (used for auto expand). */
   const [visibleItems, setVisibleItems] = useState<string[]>([]);
+  /** Tracks items auto-expanded via scroll so they can collapse when leaving view. */
   const [autoExpandedItems, setAutoExpandedItems] = useState<string[]>([]);
+  /** Items the user manually toggled to avoid auto-collapse. */
   const [manuallyControlledItems, setManuallyControlledItems] = useState<string[]>([]);
+  /** Loading flag while fetching folder data. */
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const fileRefs = useRef<FileRefsMap>({});
   const lastScrollY = useRef<number>(0);

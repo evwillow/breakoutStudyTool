@@ -1,6 +1,9 @@
 /**
- * Flashcard Data Hook
- * Handles data fetching, caching, and folder management
+ * @hook useFlashcardData
+ * @overview Fetches flashcard folders, loads card data, and exposes loading state for the flashcard study flow.
+ * @usage ```ts
+ * const { folders, flashcards, loading, error } = useFlashcardData({ autoSelectFirstFolder: true });
+ * ```
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -24,14 +27,21 @@ export function useFlashcardData({
   const { data: session, status } = useSession();
   
   // Data state
+  /** Available folder options retrieved from the filesystem/API. */
   const [folders, setFolders] = useState<any[]>([]);
+  /** Flashcards belonging to the currently selected folder. */
   const [flashcards, setFlashcards] = useState<FlashcardData[]>([]);
+  /** Currently selected folder key. */
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   
   // Loading state
+  /** Whether folder or card data is being fetched. */
   const [loading, setLoading] = useState(false);
+  /** Progress indicator (0-1) used for multi-step loading UI. */
   const [loadingProgress, setLoadingProgress] = useState(0);
+  /** Human-readable loading step. */
   const [loadingStep, setLoadingStep] = useState('');
+  /** Error message displayed in the UI when loading fails. */
   const [error, setError] = useState<string | null>(null);
   
   // Refs for cleanup

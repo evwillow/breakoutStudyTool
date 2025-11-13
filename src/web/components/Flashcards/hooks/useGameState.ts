@@ -1,6 +1,9 @@
 /**
- * Game State Hook
- * Manages game state, metrics, and user interactions
+ * @hook useGameState
+ * @overview Manages flashcard drill progression, chart selections, metrics, and callback orchestration.
+ * @usage ```ts
+ * const game = useGameState({ flashcardsLength: cards.length, onGameComplete });
+ * ```
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -53,18 +56,27 @@ export function useGameState({
   onGameComplete,
 }: UseGameStateOptions): UseGameStateReturn {
   // Core game state
+  /** Index of the currently active flashcard. */
   const [currentIndex, setCurrentIndex] = useState(0);
+  /** Stores whether the last answer was correct/incorrect for UI feedback. */
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  /** Disables answer buttons after submission. */
   const [disableButtons, setDisableButtons] = useState(false);
+  /** Shows overlay when timer expires before a selection. */
   const [showTimeUpOverlay, setShowTimeUpOverlay] = useState(false);
+  /** After-chart data supplied once drill completes. */
   const [afterChartData, setAfterChartData] = useState<any>(null);
   const [userSelectedButton, setUserSelectedButton] = useState<number | null>(null);
   const [correctAnswerButton, setCorrectAnswerButton] = useState<number | null>(null);
   
   // Coordinate-based selection state
+  /** User's chart selection coordinate. */
   const [userSelection, setUserSelection] = useState<ChartCoordinate | null>(null);
+  /** Actual target coordinate used for scoring visualizations. */
   const [targetPoint, setTargetPoint] = useState<ChartCoordinate | null>(null);
+  /** Distance (pixels) between guess and target. */
   const [distance, setDistance] = useState<number | null>(null);
+  /** Calculated accuracy score (0-100). */
   const [score, setScore] = useState<number | null>(null);
   
   // Game metrics

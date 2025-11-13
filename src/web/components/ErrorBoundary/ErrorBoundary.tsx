@@ -6,19 +6,23 @@ import { logger } from '@/lib/utils/logger';
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 import { ErrorFallback } from '@/components/FallbackUI';
 
+/**
+ * @component ErrorBoundary
+ * @overview Wrapper around `react-error-boundary` that logs with app context and renders a branded fallback.
+ * @usage ```tsx
+ * <ErrorBoundary boundaryId="study-layout">
+ *   <StudyLayout />
+ * </ErrorBoundary>
+ * ```
+ * @when Surround feature areas that must fail gracefully without tearing down the entire page.
+ */
 export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
-  /**
-   * Optional identifier for this error boundary instance
-   * Useful for debugging and error tracking
-   */
+  /** Optional identifier for this error boundary instance for logging. */
   boundaryId?: string;
-  /**
-   * Enable automatic error recovery attempts
-   * @default false
-   */
+  /** Enable automatic error recovery attempts. @default false */
   enableAutoRecovery?: boolean;
 }
 

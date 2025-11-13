@@ -1,11 +1,25 @@
 import React, { ReactNode } from 'react';
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 
+/**
+ * @module FallbackUI
+ * @overview Collection of reusable fallback components for error, loading, and empty states.
+ * @usage ```tsx
+ * import { NetworkErrorFallback, ErrorFallback } from "@/components/FallbackUI";
+ *
+ * <NetworkErrorFallback onRetry={reloadData} />
+ * ```
+ * @when Use when an API request fails, data cannot be loaded, or a boundary needs a friendly UI.
+ */
+
 // NetworkErrorFallback Component
 interface NetworkErrorFallbackProps {
   onRetry?: () => void;
 }
 
+/**
+ * Displays network/offline messaging with refresh + retry actions.
+ */
 export const NetworkErrorFallback: React.FC<NetworkErrorFallbackProps> = ({ onRetry }) => {
   return (
     <div className="p-4 my-4 border rounded-md bg-blue-50 border-blue-100 text-center">
@@ -56,6 +70,9 @@ interface LoadingErrorFallbackProps {
   onRetry?: () => void;
 }
 
+/**
+ * Shows a loading failure message, optionally exposing error details in development.
+ */
 export const LoadingErrorFallback: React.FC<LoadingErrorFallbackProps> = ({ error, onRetry }) => {
   return (
     <div className="p-4 my-4 border rounded-md bg-yellow-50 border-yellow-100 text-center">
@@ -118,6 +135,9 @@ interface EmptyStateFallbackProps {
   };
 }
 
+/**
+ * Communicates lack of data with optional icon and primary CTA.
+ */
 export const EmptyStateFallback: React.FC<EmptyStateFallbackProps> = ({
   title = 'No data found',
   message = 'There is no data to display at this time.',

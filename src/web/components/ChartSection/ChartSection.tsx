@@ -1,17 +1,14 @@
 "use client";
 
 /**
- * ChartSection Component
- * 
- * A comprehensive chart section that handles the display of stock charts with animations,
- * authentication modal, and action buttons for trading practice.
- * 
- * Features:
- * - Responsive chart display with mobile optimization
- * - Animated reveal of "after" data with precise timing
- * - Authentication modal integration
- * - Action buttons for user interaction
- * - Clean, borderless design with soft backgrounds for reduced eye strain
+ * @component ChartSection
+ * @overview Orchestrates the full drill experience: renders StockChart, coordinates timers, overlays, and tutorial affordances.
+ * @usage ```tsx
+ * import ChartSection from "@/components/ChartSection";
+ *
+ * <ChartSection orderedFiles={files} afterData={afterSegment} onChartClick={handleGuess} />
+ * ```
+ * @when Render inside study sessions where users need to analyze a chart, submit predictions, and review feedback animations.
  */
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import StockChart from "../StockChart";
@@ -26,7 +23,15 @@ import {
   StockInfo
 } from './ChartSection.types';
 
-// ChartScoreOverlay component - inlined to fix import issues
+/**
+ * @param props.score Percentage accuracy for the completed drill.
+ * @param props.accuracyTier Tier label derived from the score (see coordinate utils).
+ * @param props.show Controls visibility of the overlay (should align with feedback availability).
+ * @param props.onNext Callback invoked when the user continues to the next stock.
+ * @param props.isMobile Adjusts layout spacing for compact viewports.
+ * @param props.alwaysPaused Locks the countdown when timers are disabled.
+ * @param props.onPauseChange Notifies parent when the user toggles the pause state.
+ */
 const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({ score, accuracyTier, show, onNext, isMobile, alwaysPaused = false, onPauseChange = null }) => {
   const [countdown, setCountdown] = useState<number>(10);
   const [isPaused, setIsPaused] = useState<boolean>(alwaysPaused);
@@ -194,6 +199,27 @@ const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({ score, accuracyTi
   );
 };
 
+/**
+ * @param props.orderedFiles Ordered daily data with metadata for the primary chart.
+ * @param props.afterData Optional future candles revealed during animation.
+ * @param props.timer Remaining seconds on the round timer.
+ * @param props.pointsTextArray Optional annotation bullets describing scoring.
+ * @param props.feedback Drill feedback object signalling animation triggers.
+ * @param props.disabled Prevents interactions (e.g., during loading or review).
+ * @param props.isTimeUp Indicates timer expiry (disables chart selection and shows tooltip guidance).
+ * @param props.onAfterEffectComplete Callback invoked once the after-animation concludes and delay lapses.
+ * @param props.onChartClick Handler receiving user-selected coordinates.
+ * @param props.userSelection Latest user pick displayed on the chart.
+ * @param props.distance Pixel/objective distance from target used for tooltip copy.
+ * @param props.score Final accuracy percentage.
+ * @param props.targetPoint The correct solution coordinates for overlay comparison.
+ * @param props.onNextCard Advance-to-next-card callback from parent deck controller.
+ * @param props.timerDuration Configurable timer duration (0 pauses countdown).
+ * @param props.onTimerDurationChange Updates timer length from popup controls.
+ * @param props.onPauseStateChange Notifies external state when animation pause toggles.
+ * @param props.onDismissTooltip Dismiss handler for the selection guidance tooltip.
+ * @param props.onTimerPause Allows external timer to pause when animations run.
+ */
 const ChartSection: React.FC<ChartSectionProps> = ({
   orderedFiles,
   afterData,
@@ -219,9 +245,13 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   onDismissTooltip = null, // Callback to dismiss the selection tooltip
   onTimerPause = null, // Callback to pause the timer
 }) => {
+  /** Whether auth gating modal is visible when restricted interactions occur. */
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  /** Flags the reveal animation to render the post-breakout segment. */
   const [showAfterAnimation, setShowAfterAnimation] = useState<boolean>(false);
+  /** Tracks reveal progression for progress overlays. */
   const [progressPercentage, setProgressPercentage] = useState<number>(0);
+  /** Governs zoom animation percentage to synchronize StockChart scaling. */
   const [zoomPercentage, setZoomPercentage] = useState<number>(0);
   const isAnimationPausedRef = useRef<boolean>(false);
   const animationPauseRef = useRef<number | null>(null);
@@ -246,9 +276,13 @@ const ChartSection: React.FC<ChartSectionProps> = ({
       }
     }
   }, [isTimeUp, score, onDismissTooltip]);
+  /** Indicates the fixed observation window after reveal completes. */
   const [completionDelay, setCompletionDelay] = useState<boolean>(false);
+  /** True when zoom/reveal animation fully concludes. */
   const [afterAnimationComplete, setAfterAnimationComplete] = useState<boolean>(false);
+  /** Responsive breakpoint flag for layout adjustments. */
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  /** Prevents concurrent animations and helps pause timers. */
   const [animationInProgress, setAnimationInProgress] = useState<boolean>(false);
   
   // Pause timer when animation is in progress
@@ -257,8 +291,11 @@ const ChartSection: React.FC<ChartSectionProps> = ({
       onTimerPause();
     }
   }, [animationInProgress, onTimerPause]);
+  /** Controls timer duration dropdown visibility. */
   const [showTimerPopup, setShowTimerPopup] = useState<boolean>(false);
+  /** Toggles custom entry mode for timer duration. */
   const [showCustomInput, setShowCustomInput] = useState<boolean>(false);
+  /** Holds draft duration while editing. */
   const [customValue, setCustomValue] = useState<string>("");
   const [popupPosition, setPopupPosition] = useState<PopupPosition>({ top: '0px', left: '0px', right: 'auto', bottom: 'auto' });
   const customInputRef = useRef<HTMLInputElement | null>(null);
@@ -271,7 +308,9 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   const [dLabelRightEdge, setDLabelRightEdge] = useState<number | null>(null);
   const [dLabelCenterY, setDLabelCenterY] = useState<number | null>(null);
   const [smaLabelRightEdge, setSmaLabelRightEdge] = useState<number | null>(null);
+  /** Toggles the informational popup under the D label. */
   const [showInfoPopup, setShowInfoPopup] = useState<boolean>(false);
+  /** Holds whether the info popup stays pinned open for tutorial flows. */
   const [infoPopupPersistent, setInfoPopupPersistent] = useState<boolean>(false);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
   const infoButtonRef = useRef<HTMLButtonElement | null>(null);

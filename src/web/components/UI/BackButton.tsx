@@ -3,7 +3,12 @@
 import React from 'react';
 
 /**
- * Client component for navigating back in history
+ * @component BackButton
+ * @overview Minimal button that triggers `window.history.back()` for client navigation.
+ * @usage ```tsx
+ * <BackButton />
+ * ```
+ * @when Place on secondary pages where users should return to the previous view via browser history.
  */
 export default function BackButton() {
   return (

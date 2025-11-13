@@ -1,6 +1,9 @@
 /**
- * Timer Hook
- * Consolidated timer logic with proper cleanup and Page Visibility API support
+ * @hook useTimer
+ * @overview Provides a resilient countdown timer with pause/resume and visibility handling for flashcard sessions.
+ * @usage ```ts
+ * const { timer, start, pause, resume } = useTimer({ initialDuration: 60, onTimeUp });
+ * ```
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -23,7 +26,9 @@ export function useTimer({
   // Refs for precise timing
   const timerEndTimeRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  /** Tracks the timestamp of the last UI update to throttle re-renders. */
   const lastUpdateTimeRef = useRef<number>(0);
+  /** Stores the last displayed value to align state updates with resume/start logic. */
   const displayValueRef = useRef<number>(initialDuration);
 
   // Cleanup function

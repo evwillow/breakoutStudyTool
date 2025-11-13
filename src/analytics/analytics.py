@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
-Analytics Runner
+Module: Analytics Runner
 
-Usage:
-    python src/analytics/analytics.py [--visitors N] [--source SOURCE]
+Overview:
+    Launches the TypeScript analytics pipeline with environment configuration and optional
+    Google Analytics enrichment. Use this script when you need to regenerate analytics
+    summaries or refresh administrative dashboards from the command line.
+
+Usage Example:
+    python src/analytics/analytics.py --visitors 1200 --source organic
+
 """
 
 import subprocess

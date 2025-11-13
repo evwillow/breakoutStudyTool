@@ -1,7 +1,12 @@
 /**
- * Analytics Chart Components
+ * @module AnalyticsChart
+ * @overview Presentation primitives built on Recharts for rendering analytics dashboards (bars, lines, areas, donut, metric cards).
+ * @usage ```tsx
+ * import { BarChart, LineChart, DonutChart, MetricCard } from "@/components/Analytics/AnalyticsChart";
  *
- * Enhanced chart components using Recharts for better visualizations.
+ * <BarChart title="Weekly Signups" data={[{ label: "Week 1", value: 120 }]} />
+ * ```
+ * @when Use inside analytics dashboards or admin reports when you need consistent theming and tooltip behavior.
  */
 
 'use client';
@@ -24,6 +29,12 @@ import {
   Area,
 } from 'recharts';
 
+/**
+ * Shared props for the bar, line, and area chart wrappers.
+ * @property data Array of labeled numeric points rendered on the chart. Provide `label` and `value` fields; extra fields become available to tooltips.
+ * @property title Heading rendered above the chart.
+ * @property color Optional named palette key that aligns with Tailwind brand colors. Defaults to turquoise.
+ */
 interface ChartProps {
   data: { label: string; value: number; [key: string]: any }[];
   title: string;
@@ -91,6 +102,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+/**
+ * Renders a responsive bar chart with branded styling and hover tooltips.
+ */
 export function BarChart({ data, title, color = 'turquoise' }: ChartProps) {
   const colors = colorPalette[color as keyof typeof colorPalette] || colorPalette.turquoise;
   const chartData = data.map((item) => ({
@@ -131,6 +145,9 @@ export function BarChart({ data, title, color = 'turquoise' }: ChartProps) {
   );
 }
 
+/**
+ * Displays a smoothed trend line for time-series data with accentuated points.
+ */
 export function LineChart({ data, title, color = 'turquoise' }: ChartProps) {
   const colors = colorPalette[color as keyof typeof colorPalette] || colorPalette.turquoise;
   const chartData = data.map((item) => ({
@@ -168,6 +185,9 @@ export function LineChart({ data, title, color = 'turquoise' }: ChartProps) {
   );
 }
 
+/**
+ * Draws an area chart with gradient fill to emphasize cumulative magnitude across a series.
+ */
 export function AreaChartComponent({ data, title, color = 'turquoise' }: ChartProps) {
   const colors = colorPalette[color as keyof typeof colorPalette] || colorPalette.turquoise;
   const chartData = data.map((item) => ({
@@ -210,12 +230,21 @@ export function AreaChartComponent({ data, title, color = 'turquoise' }: ChartPr
   );
 }
 
+/**
+ * Props for the donut chart component.
+ * @property data Collection of segments with display `label`, numeric `value`, and CSS-compatible `color` token.
+ * @property title Heading for the chart block.
+ * @property centerText Optional caption displayed in the center of the donut along with the total.
+ */
 interface DonutChartProps {
   data: { label: string; value: number; color: string }[];
   title: string;
   centerText?: string;
 }
 
+/**
+ * Shows proportional breakdowns with a donut visualization and legend.
+ */
 export function DonutChart({ data, title, centerText }: DonutChartProps) {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   const chartData = data.map((item) => ({
@@ -301,6 +330,16 @@ export function DonutChart({ data, title, centerText }: DonutChartProps) {
   );
 }
 
+/**
+ * Props for the metric summary card.
+ * @property title Primary label for the metric.
+ * @property value Numeric or string value prominently rendered.
+ * @property subtitle Optional supporting text under the value.
+ * @property trend Optional delta indicator; pass percentage and direction flag.
+ * @property icon Optional React node rendered on the right side (e.g., hero icon).
+ * @property color Named gradient theme token. Defaults to turquoise.
+ * @property tooltip Optional hover copy describing the metric.
+ */
 interface MetricCardProps {
   title: string;
   value: string | number;
@@ -314,6 +353,9 @@ interface MetricCardProps {
   tooltip?: string;
 }
 
+/**
+ * Highlights a single KPI with gradient background, optional icon, and trend indicator.
+ */
 export function MetricCard({
   title,
   value,

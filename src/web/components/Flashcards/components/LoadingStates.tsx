@@ -1,21 +1,40 @@
 /**
- * Loading States Component
- * Handles various loading, error, and empty states for the flashcards application
+ * @module LoadingStates
+ * @overview Flashcard-specific loading, authentication, and error fallbacks for the study experience.
+ * @usage ```tsx
+ * import { LoadingStates } from "@/components/Flashcards/components/LoadingStates";
+ *
+ * <LoadingStates.DataLoading progress={0.6} step="Preparing charts" />
+ * ```
  */
 
 import React from 'react';
 
+/**
+ * @property progress Optional number (0-1) representing overall load progress.
+ * @property step Optional status string describing the current step.
+ * @property folder Optional folder name displayed under progress bar.
+ */
 interface DataLoadingProps {
   progress?: number;
   step?: string;
   folder?: string | null;
 }
 
+/**
+ * @property error Human-readable error message.
+ * @property onRetry Callback invoked when the user requests a retry.
+ */
 interface ErrorStateProps {
   error: string;
   onRetry: () => void;
 }
 
+/**
+ * @property title Optional heading, defaults to “Loading…”.
+ * @property message Optional supporting text.
+ * @property inline When true, renders without fullscreen padding.
+ */
 interface StandardLoadingProps {
   title?: string;
   message?: string;

@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * @component LandingDrillPreview
+ * @overview Landing-page teaser that simulates a breakout drill with preloaded candles and reveal animation.
+ * @usage ```tsx
+ * import LandingDrillPreview from "@/components/LandingPage/LandingDrillPreview";
+ *
+ * <LandingDrillPreview highlight />
+ * ```
+ * @when Place on marketing pages to demonstrate the interactive study flow without requiring authentication.
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import StockChart from "../StockChart";
 
@@ -12,6 +22,9 @@ interface Candle {
   volume: number;
 }
 
+/**
+ * @property highlight Optional ring effect used to emphasize the preview section.
+ */
 interface LandingDrillPreviewProps {
   highlight?: boolean;
 }
@@ -64,16 +77,25 @@ const formatTime = (totalSeconds: number) => {
 };
 
 const LandingDrillPreview: React.FC<LandingDrillPreviewProps> = ({ highlight }) => {
+  /** Historical candles displayed before the reveal animation. */
   const [beforeData, setBeforeData] = useState<Candle[]>([]);
+  /** Future candles revealed after the user triggers the demo. */
   const [afterData, setAfterData] = useState<Candle[]>([]);
+  /** Loading flag while fetching demo JSON. */
   const [dataLoading, setDataLoading] = useState(true);
+  /** Error message for fetch failures. */
   const [dataError, setDataError] = useState<string | null>(null);
 
+  /** Whether the reveal animation is currently running or complete. */
   const [isRevealed, setIsRevealed] = useState(false);
+  /** Animation progress percentage mirrored to StockChart props. */
   const [progress, setProgress] = useState(0);
+  /** Zoom level used to exaggerate the reveal animation. */
   const [zoom, setZoom] = useState(0);
+  /** Static feedback copy shown beneath the preview. */
   const [feedback, setFeedback] = useState<string>(PRESET_FEEDBACK);
 
+  /** Tracks the current requestAnimationFrame id for cleanup. */
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
