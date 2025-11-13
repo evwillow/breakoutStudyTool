@@ -27,7 +27,8 @@ This guide provides the high-signal context an AI assistant (or new engineer) ne
 
 - **Barrel Exports:** Many folders expose an `index.ts` or `index.js` to simplify imports. When adding a component/hook, update the relevant barrel.
 - **File Headers:** Every source file starts with a JSDoc-style header (`@fileoverview`, `@module`, `@dependencies`). Maintain this format for consistency.
-- **Client Components:** Files using React hooks must include the `"use client"` directive at the top (e.g., `ChartMagnifier`, `TimerDurationSelector`).
+- **Client Components:** Files using React hooks must include the "use client" directive at the top (e.g., `ChartMagnifier`, `TimerDurationSelector`).
+- **Modular Charts:** `components/StockChart/` now splits logic into `index.tsx`, `config.ts`, dedicated hooks (`useChartData`, `useChartScale`, `useChartInteraction`), render subcomponents, and utilities. Prefer extending these modules over embedding large helpers in-line.
 - **API Routes:** Live under `src/web/app/api/**`. Each route typically exports HTTP verb handlers (e.g., `GET`, `POST`) and relies on shared helpers under `src/web/app/api/_shared/` and `src/web/lib/`.
 - **Caching:** Local dataset APIs use `src/web/lib/cache/localDataCache.ts` for memoized directory/file reads.
 - **Documentation:** Keep docs in `docs/`, `src/web/components/README.md`, `src/web/app/api/README.md`, `lib/shared/README.md` aligned with code changes.
