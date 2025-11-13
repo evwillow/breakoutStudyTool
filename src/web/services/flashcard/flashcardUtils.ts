@@ -1,9 +1,9 @@
 /**
  * @fileoverview Client-safe utility functions for processing flashcard data.
  * @module src/web/services/flashcard/flashcardUtils.ts
- * @dependencies @/components/Flashcards/constants, @breakout-study-tool/shared
+ * @dependencies @/config/game.config, @breakout-study-tool/shared
  */
-import { FILE_PATTERNS, GAME_CONFIG } from '@/components/Flashcards/constants';
+import { FILE_PATTERNS, GAME_CONFIG } from '@/config/game.config';
 import type { FlashcardFile, FlashcardData, ProcessedFlashcardData } from '@breakout-study-tool/shared';
 
 export type { FlashcardFile, FlashcardData, ProcessedFlashcardData };

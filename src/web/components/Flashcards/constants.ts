@@ -1,44 +1,25 @@
 /**
- * @fileoverview Configuration constants for flashcard gameplay, timers, and file processing.
+ * @fileoverview Re-exports configuration constants from centralized config files.
  * @module src/web/components/Flashcards/constants.ts
- * @dependencies none
+ * @dependencies @/config/game.config
+ * 
+ * @deprecated This file is maintained for backward compatibility.
+ * New code should import directly from @/config/game.config
  */
-/**
- * Application Constants
- * Centralized configuration for the Flashcards application
- */
 
-// Timer Configuration
-export const TIMER_CONFIG = {
-  INITIAL_DURATION: 60,
-  UPDATE_INTERVAL: 1000,
-  ANIMATION_FRAME_THRESHOLD: 1000,
-} as const;
+// Re-export from centralized config
+export {
+  TIMER_CONFIG,
+  GAME_CONFIG,
+  ANIMATION_CONFIG,
+  API_CONFIG,
+  FILE_PATTERNS,
+  ERROR_MESSAGES,
+  LOADING_STATES,
+  type LoadingState,
+} from '@/config/game.config';
 
-// Game Configuration
-export const GAME_CONFIG = {
-  ACTION_BUTTONS: ["-5%", "0%", "20%", "50%"],
-  REQUIRED_FILES: ["D.json", "M.json"],
-  OPTIONAL_FILES: ["after.json", "points.json"],
-  MOBILE_BREAKPOINT: 1024,
-} as const;
-
-// Animation Configuration
-export const ANIMATION_CONFIG = {
-  INITIAL_DELAY: 1500,
-  ZOOM_DURATION: 1500,
-  REVEAL_DURATION: 1800,
-  OBSERVATION_DELAY: 5000,
-} as const;
-
-// API Configuration
-export const API_CONFIG = {
-  INITIAL_LOAD_LIMIT: 5,
-  RETRY_ATTEMPTS: 3,
-  TIMEOUT_DURATION: 30000,
-} as const;
-
-// UI Configuration
+// UI Configuration (component-specific, kept here)
 export const UI_CONFIG = {
   CONTAINER_MARGIN_TOP: "-20px",
   LOADING_PROGRESS_STEPS: {
@@ -48,32 +29,4 @@ export const UI_CONFIG = {
     FINALIZING: 90,
     COMPLETE: 100,
   },
-} as const;
-
-// File Processing
-export const FILE_PATTERNS = {
-  DAILY: /D\.json$/i,
-  MINUTE: /M\.json$/i,
-  AFTER: /after\.json$/i,
-  POINTS: /points\.json$/i,
-} as const;
-
-// Error Messages
-export const ERROR_MESSAGES = {
-  NO_FOLDER_SELECTED: "Please select a folder first",
-  NO_DATA_AVAILABLE: "No flashcard data found in this folder. Please try selecting a different folder.",
-  AUTHENTICATION_REQUIRED: "You need to be signed in to create a round",
-  USER_ID_MISSING: "User ID not found in session",
-  ROUND_CREATION_FAILED: "Failed to create new round",
-  DATA_FETCH_ERROR: "Error fetching file data",
-} as const;
-
-// Loading States
-export const LOADING_STATES = {
-  IDLE: 'idle',
-  LOADING: 'loading',
-  SUCCESS: 'success',
-  ERROR: 'error',
-} as const;
-
-export type LoadingState = typeof LOADING_STATES[keyof typeof LOADING_STATES]; 
+} as const; 

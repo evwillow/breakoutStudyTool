@@ -1,7 +1,7 @@
 /**
  * @fileoverview Coordinate utilities for converting selections and computing scoring metrics.
  * @module src/web/components/Flashcards/utils/coordinateUtils.ts
- * @dependencies @breakout-study-tool/shared
+ * @dependencies @breakout-study-tool/shared, @/config/game.config
  */
 /**
  * Coordinate and Distance Utilities
@@ -12,6 +12,7 @@
  */
 
 import type { ChartCoordinate } from '@breakout-study-tool/shared';
+import { SCORING_CONFIG } from '@/config/game.config';
 
 // Re-export for backward compatibility
 export type { ChartCoordinate };
@@ -142,14 +143,14 @@ export function calculateDistanceScore(
   const timeError = timeRangeSize > 0 ? timeDiff / timeRangeSize : 0;
   
   // Calculate price accuracy (0-100%) - PRIMARY METRIC
-  // Score is based almost entirely on price accuracy (95% weight)
-  // Time accuracy has minimal impact (5% weight) - just for recording
+  // Score is based almost entirely on price accuracy (configurable weight)
+  // Time accuracy has minimal impact - just for recording
   const priceAccuracy = Math.max(0, 100 * (1 - priceError));
   const timeAccuracy = Math.max(0, 100 * (1 - timeError));
   
-  // Weighted score: 95% price, 5% time
+  // Weighted score using configured weights
   // This ensures price prediction accuracy is the primary factor
-  const weightedScore = priceAccuracy * 0.95 + timeAccuracy * 0.05;
+  const weightedScore = priceAccuracy * SCORING_CONFIG.PRICE_WEIGHT + timeAccuracy * SCORING_CONFIG.TIME_WEIGHT;
   
   return {
     score: Math.round(weightedScore * 100) / 100,

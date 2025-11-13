@@ -3,6 +3,7 @@ import { getAdminSupabaseClient, testDatabaseConnection, validateDatabaseSchema 
 import { validateOrThrow, commonSchemas } from '@/app/api/_shared/utils/validation';
 import type { CreateRoundRequest, Round, LogMatchRequest, Match, HealthCheckResponse, ServiceStatus } from '@breakout-study-tool/shared';
 import { AppError, ErrorCodes, ValidationError } from '@/lib/utils/errorHandling';
+import { SCORING_CONFIG } from '@/config/game.config';
 
 interface CreateRoundResult extends Round {}
 
@@ -218,7 +219,7 @@ export async function logMatch(req: NextRequest): Promise<Match> {
   } else {
     const primaryAccuracy = validatedData.price_accuracy ?? validatedData.score;
     if (primaryAccuracy !== undefined) {
-      insertData.correct = primaryAccuracy >= 70;
+      insertData.correct = primaryAccuracy >= SCORING_CONFIG.CORRECT_THRESHOLD;
     }
   }
   if (validatedData.time_position !== undefined) {

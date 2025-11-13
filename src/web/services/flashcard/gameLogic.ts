@@ -1,5 +1,6 @@
 import type { ChartCoordinate, UseGameStateOptions } from '@breakout-study-tool/shared';
 import { calculateDistance, calculateDistanceScore } from '@/components/Flashcards/utils/coordinateUtils';
+import { SCORING_CONFIG } from '@/config/game.config';
 
 export { ChartCoordinate, UseGameStateOptions };
 
@@ -33,7 +34,7 @@ export function evaluateCoordinateSelection({
 
   const calculatedDistance = calculateDistance(coordinates, target);
   const scoreData = calculateDistanceScore(coordinates, target, priceRange, timeRange);
-  const isCorrect = scoreData.priceAccuracy >= 70;
+  const isCorrect = scoreData.priceAccuracy >= SCORING_CONFIG.CORRECT_THRESHOLD;
 
   return {
     distance: calculatedDistance,
