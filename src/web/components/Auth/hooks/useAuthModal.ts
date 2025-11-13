@@ -1,30 +1,34 @@
 /**
  * @fileoverview React context and hooks for controlling the authentication modal state.
- * @module src/web/components/Auth/hooks/useAuthModal.js
+ * @module src/web/components/Auth/hooks/useAuthModal.ts
  * @dependencies React
  */
 "use client";
 
-/**
- * Auth Modal State Management Hook
- * Replaces global window.openAuthModal with proper React state management
- */
+import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
 
-import { useState, useCallback, createContext, useContext } from 'react';
+interface AuthModalContextValue {
+  isOpen: boolean;
+  openModal: () => void;
+  closeModal: () => void;
+}
 
-// Create context for auth modal state
-const AuthModalContext = createContext();
+const AuthModalContext = createContext<AuthModalContextValue | undefined>(undefined);
+
+interface AuthModalProviderProps {
+  children: ReactNode;
+}
 
 /**
  * Provider component for auth modal context
  */
-export const AuthModalProvider = ({ children }) => {
+export const AuthModalProvider: React.FC<AuthModalProviderProps> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const openModal = useCallback(() => setIsOpen(true), []);
   const closeModal = useCallback(() => setIsOpen(false), []);
 
-  const value = {
+  const value: AuthModalContextValue = {
     isOpen,
     openModal,
     closeModal
@@ -39,9 +43,8 @@ export const AuthModalProvider = ({ children }) => {
 
 /**
  * Hook to access auth modal state and controls
- * @returns {Object} Modal state and control functions
  */
-export const useAuthModal = () => {
+export const useAuthModal = (): AuthModalContextValue => {
   const context = useContext(AuthModalContext);
   
   if (!context) {
@@ -53,7 +56,6 @@ export const useAuthModal = () => {
 
 /**
  * Simple hook for components that just need modal state
- * @returns {Object} Modal state and controls
  */
 export const useAuthModalState = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -66,4 +68,5 @@ export const useAuthModalState = () => {
     openModal,
     closeModal
   };
-}; 
+};
+

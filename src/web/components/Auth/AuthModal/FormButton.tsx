@@ -1,26 +1,26 @@
 /**
  * @fileoverview Reusable form button with loading and variant styling for auth modals.
- * @module src/web/components/Auth/AuthModal/FormButton.js
+ * @module src/web/components/Auth/AuthModal/FormButton.tsx
  * @dependencies React
  */
-/**
- * FormButton Component
- * 
- * Features:
- * - Consistent button styling
- * - Loading state with spinner
- * - Proper accessibility
- * - Disabled state handling
- */
+"use client";
 
 import React from 'react';
 
+export interface FormButtonProps {
+  type?: 'button' | 'submit' | 'reset';
+  disabled?: boolean;
+  isLoading?: boolean;
+  className?: string;
+  children: React.ReactNode;
+  onClick?: () => void;
+  variant?: 'primary' | 'secondary';
+}
+
 /**
  * FormButton component for consistent form buttons
- * @param {Object} props - Component props
- * @returns {JSX.Element} Form button with loading state
  */
-const FormButton = ({
+const FormButton: React.FC<FormButtonProps> = ({
   type = 'button',
   disabled = false,
   isLoading = false,
@@ -79,3 +79,4 @@ const FormButton = ({
 };
 
 export default FormButton;
+

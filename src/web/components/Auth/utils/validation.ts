@@ -1,34 +1,35 @@
 /**
  * @fileoverview Authentication validation helpers for emails, form inputs, and captcha checks.
- * @module src/web/components/Auth/utils/validation.js
+ * @module src/web/components/Auth/utils/validation.ts
  * @dependencies ./constants
  */
-/**
- * Authentication Validation Utilities
- * Centralized validation functions for auth forms
- */
+import { EMAIL_REGEX, ERROR_MESSAGES, type AuthMode } from './constants';
 
-import { EMAIL_REGEX, ERROR_MESSAGES } from './constants';
+export interface FormData {
+  email: string;
+  password: string;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  error: string | null;
+}
 
 /**
  * Validates email format
- * @param {string} email - Email to validate
- * @returns {boolean} - True if valid email format
  */
-export const validateEmail = (email) => {
+export const validateEmail = (email: string): boolean => {
   return EMAIL_REGEX.test(email);
 };
 
 /**
  * Validates form data for authentication
- * @param {Object} formData - Form data to validate
- * @param {string} formData.email - Email address
- * @param {string} formData.password - Password
- * @param {string} mode - Auth mode ('signin' or 'signup')
- * @param {string} captchaToken - Captcha token (required for signup)
- * @returns {Object} - Validation result with isValid and error
  */
-export const validateAuthForm = (formData, mode, captchaToken = null) => {
+export const validateAuthForm = (
+  formData: FormData,
+  mode: AuthMode,
+  captchaToken: string | null = null
+): ValidationResult => {
   const { email, password } = formData;
 
   if (!email || !password) {
@@ -65,4 +66,5 @@ export const validateAuthForm = (formData, mode, captchaToken = null) => {
     isValid: true,
     error: null
   };
-}; 
+};
+

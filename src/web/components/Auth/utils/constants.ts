@@ -1,17 +1,15 @@
 /**
  * @fileoverview Authentication string constants and configuration values used in auth UI.
- * @module src/web/components/Auth/utils/constants.js
+ * @module src/web/components/Auth/utils/constants.ts
  * @dependencies none
- */
-/**
- * Authentication Constants
- * Centralized constants for auth components
  */
 
 export const AUTH_MODES = {
   SIGNIN: 'signin',
   SIGNUP: 'signup'
-};
+} as const;
+
+export type AuthMode = typeof AUTH_MODES[keyof typeof AUTH_MODES];
 
 export const ERROR_MESSAGES = {
   INVALID_EMAIL: 'Please enter a valid email address',
@@ -24,11 +22,11 @@ export const ERROR_MESSAGES = {
   SIGNIN_AFTER_SIGNUP_ERROR: 'Error signing in after signup.',
   SERVER_ERROR: 'Server returned an invalid response.',
   UNKNOWN_ERROR: 'Unknown error'
-};
+} as const;
 
 export const SUCCESS_MESSAGES = {
   ACCOUNT_CREATED: 'Account created successfully! You are now logged in.'
-};
+} as const;
 
 export const UI_TEXT = {
   WELCOME_BACK: 'Welcome Back',
@@ -49,12 +47,13 @@ export const UI_TEXT = {
   GOOGLE_CONTINUE: 'Continue with Google',
   GOOGLE_SIGNIN: 'Sign in with Google',
   PASSWORD_HELP_TITLE: 'What you unlock',
-};
+} as const;
 
 export const DATABASE_ERROR_SOLUTIONS = [
   'Check if the database connection is working',
   'Verify if the database tables are set up correctly',
   'Try again later or contact support'
-];
+] as const;
 
-export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+

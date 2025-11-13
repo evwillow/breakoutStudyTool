@@ -1,32 +1,22 @@
 /**
  * @fileoverview Sign-out button component leveraging the custom auth hook.
- * @module src/web/components/Auth/AuthButtons/SignOutButton.js
+ * @module src/web/components/Auth/AuthButtons/SignOutButton.tsx
  * @dependencies React, ../hooks/useAuth, ../utils/constants
  */
 "use client";
-
-/**
- * SignOutButton Component
- * 
- * Features:
- * - Dedicated sign out functionality
- * - Uses custom auth hook
- * - Consistent styling and accessibility
- * - Proper error handling
- */
 
 import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { UI_TEXT } from '../utils/constants';
 
+export interface SignOutButtonProps {
+  className?: string;
+}
+
 /**
  * SignOutButton displays a button to sign out the user
- * 
- * @param {Object} props - Component props
- * @param {string} props.className - Additional CSS classes to apply to the button
- * @returns {JSX.Element} Sign out button
  */
-const SignOutButton = ({ className = "" }) => {
+const SignOutButton: React.FC<SignOutButtonProps> = ({ className = "" }) => {
   const { signOut } = useAuth();
   const [isSigningOut, setIsSigningOut] = React.useState(false);
 
@@ -75,3 +65,4 @@ const SignOutButton = ({ className = "" }) => {
 };
 
 export default SignOutButton;
+

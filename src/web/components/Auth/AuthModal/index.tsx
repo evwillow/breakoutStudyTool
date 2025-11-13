@@ -1,34 +1,49 @@
 /**
  * @fileoverview Authentication modal orchestrating sign-in/up forms, captcha, and system status checks.
- * @module src/web/components/Auth/AuthModal/index.js
+ * @module src/web/components/Auth/AuthModal/index.tsx
  * @dependencies React, react-dom, ../hooks/useAuth, ../utils/constants, ../utils/validation, ./SignInForm, ./SignUpForm, @hcaptcha/react-hcaptcha
  */
 "use client";
 
-/**
- * Optimized AuthModal Component
- * 
- * Features:
- * - Separated sign in and sign up forms
- * - Uses custom hooks for better state management
- * - Centralized constants and validation
- * - Improved accessibility and error handling
- * - Lazy loading of hCaptcha component
- */
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../hooks/useAuth';
-import { AUTH_MODES, UI_TEXT, ERROR_MESSAGES } from '../utils/constants';
-import { validateAuthForm } from '../utils/validation';
+import { AUTH_MODES, UI_TEXT, ERROR_MESSAGES, type AuthMode } from '../utils/constants';
+import { validateAuthForm, type FormData } from '../utils/validation';
 import SignInForm from './SignInForm';
 import SignUpForm from './SignUpForm';
 
 // Lazy load hCaptcha to improve initial bundle size
 const HCaptcha = React.lazy(() => import('@hcaptcha/react-hcaptcha'));
 
+interface SystemStatus {
+  state: 'ready' | 'monitoring';
+  message: string;
+}
+
+interface DatabaseTestResult {
+  success: boolean;
+  error?: string;
+}
+
+interface SignUpErrorData {
+  error?: string | { code?: number; message?: string; validationErrors?: Record<string, string> };
+  validationErrors?: Record<string, string>;
+  isPaused?: boolean;
+  tableIssue?: boolean;
+  details?: string;
+  message?: string;
+  success?: boolean;
+}
+
+export interface AuthModalProps {
+  open: boolean;
+  onClose: () => void;
+  initialMode?: AuthMode;
+}
+
 // Add database test function
-const testDatabaseConnection = async () => {
+const testDatabaseConnection = async (): Promise<DatabaseTestResult> => {
   try {
     console.log('🔍 Testing database connection...');
     const response = await fetch('/api/auth/test-db', {
@@ -36,32 +51,29 @@ const testDatabaseConnection = async () => {
       headers: { 'Content-Type': 'application/json' }
     });
     
-    const result = await response.json();
+    const result = await response.json() as DatabaseTestResult;
     console.log('📊 Database test result:', result);
     return result;
   } catch (error) {
     console.error('❌ Database test failed:', error);
-    return { success: false, error: error.message };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: errorMessage };
   }
 };
 
 /**
  * AuthModal component for user authentication
- * @param {Object} props - Component props
- * @param {boolean} props.open - Whether the modal is open
- * @param {Function} props.onClose - Callback to close the modal
- * @returns {JSX.Element|null} Auth modal or null if closed
  */
-const AuthModal = ({ open, onClose, initialMode }) => {
-  const [mode, setMode] = useState(initialMode || AUTH_MODES.SIGNIN);
-  const [formData, setFormData] = useState({ email: '', password: '' });
-  const [error, setError] = useState(null);
+const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => {
+  const [mode, setMode] = useState<AuthMode>(initialMode || AUTH_MODES.SIGNIN);
+  const [formData, setFormData] = useState<FormData>({ email: '', password: '' });
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [databaseError, setDatabaseError] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState(null);
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [systemStatus, setSystemStatus] = useState(null);
+  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
 
   const { signIn: signInWithCredentials, signInWithProvider, update } = useAuth();
   const isGoogleEnabled =
@@ -75,7 +87,6 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   // Reset form and mode when modal opens
   useEffect(() => {
     if (open) {
-      // Ensure mode is set correctly when modal opens
       const correctMode = initialMode || AUTH_MODES.SIGNIN;
       setMode(correctMode);
       setFormData({ email: '', password: '' });
@@ -87,10 +98,8 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   }, [open, initialMode]);
 
   // Reset form when mode changes (but modal is already open)
-  // This handles mode toggles while the modal is open
   useEffect(() => {
     if (open) {
-      // Only reset form if mode actually changed (not on initial mount)
       setFormData({ email: '', password: '' });
       setError(null);
       setDatabaseError(false);
@@ -126,12 +135,12 @@ const AuthModal = ({ open, onClose, initialMode }) => {
         if (result?.success) {
           setSystemStatus({
             state: 'ready',
-            message: 'You can sign up right away—we’re ready when you are.',
+            message: 'You can sign up right away—we're ready when you are.',
           });
         } else {
           setSystemStatus({
             state: 'monitoring',
-            message: 'If anything feels off, reach us on support and we’ll help immediately.',
+            message: 'If anything feels off, reach us on support and we'll help immediately.',
           });
         }
       })
@@ -139,7 +148,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
         if (!isActive) return;
         setSystemStatus({
           state: 'monitoring',
-          message: 'If anything feels off, reach us on support and we’ll help immediately.',
+          message: 'If anything feels off, reach us on support and we'll help immediately.',
         });
       });
 
@@ -148,9 +157,9 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     };
   }, [open]);
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError(null); // Clear error when user starts typing
+    if (error) setError(null);
     setFieldErrors(prev => {
       if (!prev || !prev[field]) return prev;
       const { [field]: _removed, ...rest } = prev;
@@ -158,7 +167,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     });
   };
 
-  const handleCaptchaVerify = (token) => {
+  const handleCaptchaVerify = (token: string) => {
     setCaptchaToken(token);
   };
 
@@ -166,17 +175,15 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     setCaptchaToken(null);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
     setDatabaseError(false);
     setIsLoading(true);
     setFieldErrors({});
 
-    // Capture current mode to prevent race conditions
     const currentMode = mode;
     
-    // Validate that mode is valid
     if (currentMode !== AUTH_MODES.SIGNIN && currentMode !== AUTH_MODES.SIGNUP) {
       console.error('Invalid auth mode:', currentMode);
       setError('An error occurred. Please refresh the page and try again.');
@@ -184,16 +191,14 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       return;
     }
 
-    // Validate form data with current mode
     const validation = validateAuthForm(formData, currentMode, captchaToken);
     if (!validation.isValid) {
-      setError(validation.error);
+      setError(validation.error || 'Validation failed');
       setIsLoading(false);
       return;
     }
 
     try {
-      // Double-check mode before calling handler to prevent confusion
       if (currentMode === AUTH_MODES.SIGNUP) {
         console.log('📝 Submitting signup form');
         await handleSignUp();
@@ -205,14 +210,14 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      setError(err.message || ERROR_MESSAGES.UNKNOWN_ERROR);
+      const errorMessage = err instanceof Error ? err.message : ERROR_MESSAGES.UNKNOWN_ERROR;
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSignUp = async () => {
-    // Safety check: ensure we're in signup mode
     if (mode !== AUTH_MODES.SIGNUP) {
       console.error('handleSignUp called but mode is:', mode);
       throw new Error('Invalid operation: not in signup mode');
@@ -230,10 +235,10 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     });
     
     const contentType = response.headers.get('content-type');
-    let responseData;
+    let responseData: SignUpErrorData | { success: boolean };
     
     if (contentType && contentType.includes('application/json')) {
-      responseData = await response.json();
+      responseData = await response.json() as SignUpErrorData | { success: boolean };
     } else {
       const errorText = await response.text();
       console.error('Signup error response:', errorText);
@@ -241,13 +246,11 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       return;
     }
     
-    // Check if response indicates an error (either !ok or success: false)
-    if (!response.ok || !responseData.success) {
-      await handleSignUpError(responseData);
+    if (!response.ok || !('success' in responseData) || !responseData.success) {
+      await handleSignUpError(responseData as SignUpErrorData);
       return;
     }
 
-    // Auto sign in after successful signup
     console.log('✅ Signup successful, attempting auto sign-in...');
     const signInResult = await signInWithCredentials({
       email: formData.email,
@@ -256,10 +259,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
 
     if (signInResult.error) {
       console.error('❌ Auto sign-in after signup failed:', signInResult.error);
-      // Don't throw error - account was created successfully
-      // Just show a message that they need to sign in manually
       setError('Account created successfully! Please sign in with your email and password.');
-      // Reset form so they can sign in
       setFormData({ email: formData.email, password: '' });
       setMode(AUTH_MODES.SIGNIN);
       setCaptchaToken(null);
@@ -268,26 +268,19 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       alert(ERROR_MESSAGES.SIGNUP_SUCCESS);
       await update();
       onClose();
-      // Redirect to study page with tutorial trigger for new users
-      // Check if user has completed tutorial (will be false for new users)
       window.location.href = '/study?tutorial=true';
     }
   };
 
-  const handleSignUpError = async (errorData) => {
+  const handleSignUpError = async (errorData: SignUpErrorData) => {
     console.log('🐛 Debug errorData:', errorData);
-    console.log('🐛 Debug errorData.error:', errorData.error);
-    console.log('🐛 Debug typeof errorData.error:', typeof errorData.error);
     
     setFieldErrors({});
 
-    // Check for validation errors first
-    const validationErrors = errorData.error?.validationErrors || errorData.validationErrors;
+    const validationErrors = (typeof errorData.error === 'object' && errorData.error?.validationErrors) || errorData.validationErrors;
     if (validationErrors && typeof validationErrors === 'object') {
-      // Format validation errors into a readable message
       const errorMessages = Object.entries(validationErrors)
         .map(([field, message]) => {
-          // Capitalize field name and format message
           const fieldName = field.charAt(0).toUpperCase() + field.slice(1);
           return `${fieldName}: ${message}`;
         });
@@ -314,7 +307,7 @@ const AuthModal = ({ open, onClose, initialMode }) => {
       }
     }
     
-    if (errorData.error === 'Invalid CAPTCHA') {
+    if (errorData.error === 'Invalid CAPTCHA' || (typeof errorData.error === 'string' && errorData.error === 'Invalid CAPTCHA')) {
       setError(ERROR_MESSAGES.CAPTCHA_FAILED);
       handleCaptchaReset();
     } else if (errorData.error && typeof errorData.error === 'string' && (
@@ -325,10 +318,10 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     )) {
       setDatabaseError(true);
       setError(errorData.error + (errorData.details ? `: ${errorData.details}` : ''));
-    } else if (errorData.error?.code === 4000 || errorData.error?.code === 4002 || errorData.error?.message === 'Please check your input and try again.' || errorData.message === 'Please check your input and try again.') {
-      // Handle generic validation errors - check if we have specific validation errors
+    } else if ((typeof errorData.error === 'object' && (errorData.error?.code === 4000 || errorData.error?.code === 4002)) || 
+               (typeof errorData.error === 'object' && errorData.error?.message === 'Please check your input and try again.') ||
+               errorData.message === 'Please check your input and try again.') {
       if (validationErrors && Object.keys(validationErrors).length > 0) {
-        // We already handled validation errors above, but if we get here, show a helpful message
         const errorMessages = Object.entries(validationErrors)
           .map(([field, message]) => {
             const fieldName = field === 'email' ? 'Email' : field === 'password' ? 'Password' : field.charAt(0).toUpperCase() + field.slice(1);
@@ -336,12 +329,10 @@ const AuthModal = ({ open, onClose, initialMode }) => {
           });
         setError(errorMessages.join('\n'));
       } else {
-        // Generic validation error without specific field errors
         setError('Please check your input. Email must be valid and your password needs at least 8 characters.');
       }
     } else {
-      // Convert error to string if it's not already
-      const errorMessage = errorData.error?.message || 
+      const errorMessage = (typeof errorData.error === 'object' && errorData.error?.message) || 
         (typeof errorData.error === 'string' ? errorData.error : null) ||
         errorData.message || 
         ERROR_MESSAGES.SIGNUP_FAILED;
@@ -350,7 +341,6 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   };
 
   const handleSignIn = async () => {
-    // Safety check: ensure we're in signin mode
     if (mode !== AUTH_MODES.SIGNIN) {
       console.error('handleSignIn called but mode is:', mode);
       throw new Error('Invalid operation: not in signin mode');
@@ -401,7 +391,6 @@ const AuthModal = ({ open, onClose, initialMode }) => {
         redirect: true,
       });
 
-      // With redirect true, NextAuth navigates away, so we shouldn't reach here.
       if (result?.error) {
         console.error('Google sign-in failed:', result.error);
       }
@@ -416,13 +405,11 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     const newMode = mode === AUTH_MODES.SIGNIN ? AUTH_MODES.SIGNUP : AUTH_MODES.SIGNIN;
     console.log('🔄 Toggling auth mode from', mode, 'to', newMode);
     setMode(newMode);
-    // Clear any errors when switching modes
     setError(null);
     setFieldErrors({});
   };
 
   const isSignup = mode === AUTH_MODES.SIGNUP;
-  // Ensure modal is always rendered when open, using portal for proper z-index stacking
   if (!open) return null;
 
   const modalContent = (
@@ -503,7 +490,6 @@ const AuthModal = ({ open, onClose, initialMode }) => {
     </div>
   );
 
-  // Use portal to render at document body level for proper z-index stacking
   if (typeof window !== 'undefined') {
     return createPortal(modalContent, document.body);
   }
@@ -511,4 +497,5 @@ const AuthModal = ({ open, onClose, initialMode }) => {
   return null;
 };
 
-export default AuthModal; 
+export default AuthModal;
+

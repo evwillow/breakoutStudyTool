@@ -1,26 +1,29 @@
 /**
  * @fileoverview Reusable form input with consistent styling and validation states for auth forms.
- * @module src/web/components/Auth/AuthModal/FormInput.js
+ * @module src/web/components/Auth/AuthModal/FormInput.tsx
  * @dependencies React
  */
-/**
- * FormInput Component
- * 
- * Features:
- * - Consistent styling across forms
- * - Proper accessibility with labels
- * - Controlled input handling
- * - Support for different input types
- */
+"use client";
 
 import React from 'react';
 
+export interface FormInputProps {
+  id: string;
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  autoComplete?: string;
+  placeholder?: string;
+  className?: string;
+  error?: string;
+}
+
 /**
  * FormInput component for consistent form inputs
- * @param {Object} props - Component props
- * @returns {JSX.Element} Form input with label
  */
-const FormInput = ({
+const FormInput: React.FC<FormInputProps> = ({
   id,
   label,
   type = 'text',
@@ -32,7 +35,7 @@ const FormInput = ({
   className = '',
   error
 }) => {
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
   };
 
@@ -81,4 +84,5 @@ const FormInput = ({
   );
 };
 
-export default FormInput; 
+export default FormInput;
+

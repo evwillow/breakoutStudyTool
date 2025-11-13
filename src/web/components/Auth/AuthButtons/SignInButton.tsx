@@ -1,31 +1,23 @@
 /**
  * @fileoverview Sign-in button component with themed styling and callback support.
- * @module src/web/components/Auth/AuthButtons/SignInButton.js
+ * @module src/web/components/Auth/AuthButtons/SignInButton.tsx
  * @dependencies React, ../utils/constants
  */
-/**
- * Optimized SignInButton Component
- * 
- * Features:
- * - Removes global window.openAuthModal dependency
- * - Uses proper React callback patterns
- * - Consistent styling and accessibility
- * - Reusable across the application
- */
+"use client";
 
 import React from 'react';
 import { UI_TEXT } from '../utils/constants';
 
+export interface SignInButtonProps {
+  onClick?: () => void;
+  className?: string;
+  variant?: 'default' | 'turquoise';
+}
+
 /**
  * SignInButton displays a button to trigger authentication
- * 
- * @param {Object} props - Component props
- * @param {Function} props.onClick - Callback function when button is clicked
- * @param {string} props.className - Additional CSS classes to apply to the button
- * @param {string} props.variant - Button variant ('default' | 'turquoise')
- * @returns {JSX.Element} Sign in button
  */
-const SignInButton = ({ 
+const SignInButton: React.FC<SignInButtonProps> = ({ 
   onClick, 
   className = "", 
   variant = "default" 
@@ -63,4 +55,5 @@ const SignInButton = ({
   );
 };
 
-export default SignInButton; 
+export default SignInButton;
+

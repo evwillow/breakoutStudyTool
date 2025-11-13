@@ -1,27 +1,23 @@
 /**
  * @fileoverview Error display panel for auth modals with optional troubleshooting steps.
- * @module src/web/components/Auth/AuthModal/ErrorDisplay.js
+ * @module src/web/components/Auth/AuthModal/ErrorDisplay.tsx
  * @dependencies React, next/link
  */
-/**
- * ErrorDisplay Component
- * 
- * Features:
- * - Consistent error styling
- * - Database error solutions
- * - Proper accessibility
- * - Conditional rendering
- */
+"use client";
 
 import React from 'react';
 import Link from 'next/link';
 
+export interface ErrorDisplayProps {
+  error: string | null;
+  databaseError?: boolean;
+  solutions?: readonly string[];
+}
+
 /**
  * ErrorDisplay component for showing errors and solutions
- * @param {Object} props - Component props
- * @returns {JSX.Element|null} Error display or null if no error
  */
-const ErrorDisplay = ({ error, databaseError, solutions = [] }) => {
+const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error, databaseError = false, solutions = [] }) => {
   if (!error) return null;
 
   return (
@@ -42,4 +38,5 @@ const ErrorDisplay = ({ error, databaseError, solutions = [] }) => {
   );
 };
 
-export default ErrorDisplay; 
+export default ErrorDisplay;
+

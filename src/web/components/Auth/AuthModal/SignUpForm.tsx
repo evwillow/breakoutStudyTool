@@ -1,41 +1,63 @@
 /**
- * @fileoverview Sign-in form component handling email flow, Google login, and validation messages.
- * @module src/web/components/Auth/AuthModal/SignInForm.js
- * @dependencies React, ../utils/constants, ./FormInput, ./FormButton, ./ErrorDisplay
+ * @fileoverview Sign-up form component with Google login, hCaptcha, and terms acknowledgement.
+ * @module src/web/components/Auth/AuthModal/SignUpForm.tsx
+ * @dependencies React, next/link, ../utils/constants, ./FormInput, ./FormButton, ./ErrorDisplay
  */
-/**
- * SignInForm Component
- * 
- * Features:
- * - Dedicated sign in form logic
- * - Reusable form components
- * - Proper accessibility
- * - Error handling display
- */
+"use client";
 
-import React from 'react';
+import React, { Suspense, type ComponentType } from 'react';
+import Link from 'next/link';
 import { UI_TEXT, DATABASE_ERROR_SOLUTIONS } from '../utils/constants';
 import FormInput from './FormInput';
 import FormButton from './FormButton';
 import ErrorDisplay from './ErrorDisplay';
 
+export interface SignUpFormProps {
+  formData: { email: string; password: string };
+  onInputChange: (field: string, value: string) => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  isLoading: boolean;
+  error: string | null;
+  databaseError: boolean;
+  fieldErrors?: Record<string, string>;
+  captchaToken: string | null;
+  onCaptchaVerify: (token: string) => void;
+  onCaptchaReset: () => void;
+  onToggleMode: () => void;
+  onGoogleSignIn: () => void;
+  isGoogleLoading: boolean;
+  isGoogleEnabled: boolean;
+  googleUnavailableMessage: string;
+  onTermsClick: () => void;
+  HCaptchaComponent: ComponentType<{
+    sitekey?: string;
+    onVerify: (token: string) => void;
+    onExpire: () => void;
+    onError: () => void;
+  }>;
+}
+
 /**
- * SignInForm component for user sign in
- * @param {Object} props - Component props
- * @returns {JSX.Element} Sign in form
+ * SignUpForm component for user registration
  */
-const SignInForm = ({
+const SignUpForm: React.FC<SignUpFormProps> = ({
   formData,
   onInputChange,
   onSubmit,
   isLoading,
   error,
   databaseError,
+  fieldErrors = {},
+  captchaToken,
+  onCaptchaVerify,
+  onCaptchaReset,
   onToggleMode,
   onGoogleSignIn,
   isGoogleLoading,
   isGoogleEnabled,
-  googleUnavailableMessage
+  googleUnavailableMessage,
+  onTermsClick,
+  HCaptchaComponent
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
@@ -45,7 +67,7 @@ const SignInForm = ({
           onClick={onGoogleSignIn}
           disabled={isLoading || isGoogleLoading || !isGoogleEnabled}
           className="flex w-full items-center justify-center gap-3 rounded-md border border-turquoise-200/60 bg-white py-2.5 text-sm font-medium text-turquoise-700 shadow-sm transition hover:border-turquoise-400 hover:bg-turquoise-50 focus:outline-none focus:ring-2 focus:ring-turquoise-500 disabled:cursor-not-allowed disabled:opacity-70"
-          aria-label={UI_TEXT.GOOGLE_SIGNIN}
+          aria-label={UI_TEXT.GOOGLE_CONTINUE}
           aria-busy={isGoogleLoading}
         >
           {isGoogleLoading ? (
@@ -90,7 +112,7 @@ const SignInForm = ({
               />
             </svg>
           )}
-          <span>{UI_TEXT.GOOGLE_SIGNIN}</span>
+          <span>{UI_TEXT.GOOGLE_CONTINUE}</span>
         </button>
         {!isGoogleEnabled && (
           <p className="text-xs text-turquoise-400/80">
@@ -105,24 +127,52 @@ const SignInForm = ({
       </div>
 
       <FormInput
-        id="signin-email"
+        id="signup-email"
         label={UI_TEXT.EMAIL_LABEL}
         type="email"
         value={formData.email}
         onChange={(value) => onInputChange('email', value)}
         required
         autoComplete="email"
+        error={fieldErrors?.email}
       />
 
       <FormInput
-        id="signin-password"
+        id="signup-password"
         label={UI_TEXT.PASSWORD_LABEL}
         type="password"
         value={formData.password}
         onChange={(value) => onInputChange('password', value)}
         required
-        autoComplete="current-password"
+        autoComplete="new-password"
+        error={fieldErrors?.password}
       />
+
+      {/* Terms of Service */}
+      <div className="flex flex-col items-center">
+        <p className="text-sm text-turquoise-400 mb-2 text-center">
+          {UI_TEXT.TERMS_TEXT}{' '}
+          <Link 
+            href="/terms" 
+            className="underline hover:text-turquoise-300 focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded"
+            onClick={onTermsClick}
+          >
+            {UI_TEXT.TERMS_LINK}
+          </Link>
+        </p>
+      </div>
+      
+      {/* hCaptcha component with lazy loading */}
+      <div className="flex justify-center">
+        <Suspense fallback={<div className="text-sm text-turquoise-400">Loading verification...</div>}>
+          <HCaptchaComponent
+            sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+            onVerify={onCaptchaVerify}
+            onExpire={onCaptchaReset}
+            onError={onCaptchaReset}
+          />
+        </Suspense>
+      </div>
 
       <ErrorDisplay 
         error={error} 
@@ -132,11 +182,11 @@ const SignInForm = ({
 
       <FormButton
         type="submit"
-        disabled={isLoading}
+        disabled={isLoading || !captchaToken}
         isLoading={isLoading}
         className="w-full"
       >
-        {UI_TEXT.SIGNIN_BUTTON}
+        {UI_TEXT.SIGNUP_BUTTON}
       </FormButton>
 
       <div className="text-center mt-4">
@@ -145,11 +195,12 @@ const SignInForm = ({
           onClick={onToggleMode}
           className="text-sm text-turquoise-400 hover:text-turquoise-300 focus:outline-none focus:underline"
         >
-          {UI_TEXT.SWITCH_TO_SIGNUP}
+          {UI_TEXT.SWITCH_TO_SIGNIN}
         </button>
       </div>
     </form>
   );
 };
 
-export default SignInForm; 
+export default SignUpForm;
+

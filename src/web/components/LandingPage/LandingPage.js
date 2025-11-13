@@ -19,7 +19,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
-import AuthModal from "../Auth/AuthModal";
+import { AuthModal } from "../Auth";
 import LandingDrillPreview from "./LandingDrillPreview";
 const FEATURE_NAMES = [
   "Daily breakout drills",
