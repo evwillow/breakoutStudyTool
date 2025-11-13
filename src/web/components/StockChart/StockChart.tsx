@@ -114,7 +114,6 @@ const getChartConfig = (isMobile: boolean, chartType: ChartType = 'default'): Ch
   return config;
 };
 
-
 /**
  * Calculate SMA for a given period - Completely rewritten for reliability
  * @param data - Array of price data objects
@@ -1176,10 +1175,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => {
-        const xPos = scales.xScale(stockData.length + i);
-        return xPos === undefined ? NaN : xPos;
-      })
+      .x((d, i) => scales.xScale(stockData.length + i))
       .y(d => {
         // Make sure we have a valid numeric value
         if (d.sma10 === null || d.sma10 === undefined || isNaN(Number(d.sma10))) {
@@ -1195,10 +1191,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => {
-        const xPos = scales.xScale(stockData.length + i);
-        return xPos === undefined ? NaN : xPos;
-      })
+      .x((d, i) => scales.xScale(stockData.length + i))
       .y(d => {
         // Make sure we have a valid numeric value
         if (d.sma20 === null || d.sma20 === undefined || isNaN(Number(d.sma20))) {
@@ -1214,10 +1207,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => {
-        const xPos = scales.xScale(stockData.length + i);
-        return xPos === undefined ? NaN : xPos;
-      })
+      .x((d, i) => scales.xScale(stockData.length + i))
       .y(d => {
         // Make sure we have a valid numeric value
         if (d.sma50 === null || d.sma50 === undefined || isNaN(Number(d.sma50))) {
@@ -1285,7 +1275,7 @@ const StockChart = React.memo<StockChartProps>(({
         const x = scales.xScale(i);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? (i * ((dimensions!.innerWidth) / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
+          ? (i * (dimensions.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1349,7 +1339,7 @@ const StockChart = React.memo<StockChartProps>(({
         const x = scales.xScale(i);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? (i * ((dimensions!.innerWidth) / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
+          ? (i * (dimensions.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1447,7 +1437,7 @@ const StockChart = React.memo<StockChartProps>(({
         const x = scales.xScale(index);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? ((offset + i) * ((dimensions!.innerWidth) / (stockData.length + afterStockData.length))) 
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length)))
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1516,7 +1506,7 @@ const StockChart = React.memo<StockChartProps>(({
         const x = scales.xScale(index);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? ((offset + i) * ((dimensions!.innerWidth) / (stockData.length + afterStockData.length))) 
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length))) 
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1563,7 +1553,7 @@ const StockChart = React.memo<StockChartProps>(({
     point.x = event.clientX;
     point.y = event.clientY;
     const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    if (!svgPoint || !dimensions) return;
+    if (!svgPoint) return;
     
     // Get chart coordinates (accounting for margins)
             const chartX = svgPoint.x - (dimensions.margin.left || 0);
@@ -1611,16 +1601,10 @@ const StockChart = React.memo<StockChartProps>(({
   // This must be after handleChartClick is defined
   useEffect(() => {
     if (containerRef.current) {
-      // Create a wrapper that converts React event to ChartCoordinate
-      const chartClickHandler: ChartClickHandler = (coordinate: ChartCoordinate) => {
-        // This is called directly with a coordinate, so we can call onChartClick directly
-        if (onChartClick) {
-          onChartClick(coordinate);
-        }
-      };
-      containerRef.current.handleChartClick = chartClickHandler;
+      containerRef.current.handleChartClick = handleChartClick;
+      handleChartClickRef.current = handleChartClick;
     }
-  }, [handleChartClick, onChartClick]);
+  }, [handleChartClick]);
 
   // Helper function to check if a position is in the selectable area
   const isInSelectableArea = useCallback((chartX: number): boolean => {
@@ -1678,7 +1662,7 @@ const StockChart = React.memo<StockChartProps>(({
         point.x = event.clientX;
         point.y = event.clientY;
         const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-        if (!svgPoint || !dimensions) return;
+        if (!svgPoint) return;
         
         const chartX = svgPoint.x - (dimensions.margin.left || 0);
         const lastDataIndex = stockData.length - 1;
@@ -1779,10 +1763,6 @@ const StockChart = React.memo<StockChartProps>(({
     return <div ref={containerRef} className="w-full h-full min-h-[400px] bg-black" />;
   }
 
-  // At this point, dimensions and scales are guaranteed to be non-null
-  const safeDimensions = dimensions;
-  const safeScales = scales;
-
   // Show a progress indicator during animation
   const progressIndicator = false; // Remove percentage display
   
@@ -1802,13 +1782,13 @@ const StockChart = React.memo<StockChartProps>(({
   // Mobile: 70% to give more space for selection, Desktop: 75%
   const DIVIDER_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
   
-  if (safeScales && safeDimensions && stockData.length > 0 && afterStockData.length > 0) {
+  if (scales && dimensions && stockData.length > 0 && afterStockData.length > 0) {
     // Calculate fixed position based on container width
     // Position is relative to the inner area (after left margin)
-    dividerLineX = safeDimensions.margin.left + (safeDimensions.innerWidth * DIVIDER_POSITION_PERCENT);
+    dividerLineX = dimensions.margin.left + (dimensions.innerWidth * DIVIDER_POSITION_PERCENT);
     
     // Background covers from divider to end of chart
-    darkBackgroundWidth = safeDimensions.width - dividerLineX;
+    darkBackgroundWidth = dimensions.width - dividerLineX;
   } else {
     dividerLineX = 0;
     darkBackgroundWidth = 0;
@@ -1840,10 +1820,10 @@ const StockChart = React.memo<StockChartProps>(({
           if (chartType === 'previous') {
             // Calculate extended width to match xScale range multiplier
             const xScaleRangeMultiplier = isMobile ? 1.1 : 1.25;
-            return safeDimensions.margin.left + safeDimensions.innerWidth * xScaleRangeMultiplier + safeDimensions.margin.right;
+            return dimensions.margin.left + dimensions.innerWidth * xScaleRangeMultiplier + dimensions.margin.right;
           }
-          return safeDimensions.width;
-        })()} ${safeDimensions.height}`}
+          return dimensions.width;
+        })()} ${dimensions.height}`}
         className={`w-full h-full transition-opacity duration-500 ease-in-out ${onChartClick && !disabled ? 'chart-selectable' : ''}`}
         preserveAspectRatio={
           tightPadding
@@ -1897,50 +1877,47 @@ const StockChart = React.memo<StockChartProps>(({
           <rect
             x={0}
             y={0}
-            width={safeDimensions.width}
-            height={safeDimensions.height}
+            width={dimensions.width}
+            height={dimensions.height}
             fill={backgroundColor}
           />
         )}
         
         {/* SMA Legend - Removed: Now rendered as HTML in ChartSection for D chart */}
-        {false && (showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && chartType !== 'hourly' && chartType !== 'H' && safeDimensions && (() => {
+        {false && (showSMA || forceShowSMA) && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && chartType !== 'hourly' && chartType !== 'H' && dimensions && (() => {
           // Calculate SMA label position
           // Position just to the right of the D label, at the top
           const labelWidth = 110;
-          const defaultX = Math.max((safeDimensions.margin?.left || 0) + 50, 50);
+          const defaultX = Math.max((dimensions.margin?.left || 0) + 50, 50);
           
           let smaLabelX = defaultX;
           // Position just to the right of D label if we have the edge
-          if (dLabelRightEdge !== null && dLabelRightEdge !== undefined && dLabelRightEdge > 0) {
+          if (dLabelRightEdge !== null && dLabelRightEdge > 0) {
             // Position just to the right of D label with small padding
-            const edge = dLabelRightEdge;
-            smaLabelX = edge + 8;
+            smaLabelX = dLabelRightEdge + 8;
             // Ensure it's not too far left
             if (smaLabelX < defaultX) {
               smaLabelX = defaultX;
             }
-          } else if (timerRightEdge !== null && timerRightEdge !== undefined && timerRightEdge > 0) {
+          } else if (timerRightEdge !== null && timerRightEdge > 0) {
             // Fallback: align right edge of label with timer's right edge
-            const edge = timerRightEdge;
-            smaLabelX = Math.max(edge - labelWidth, defaultX);
+            smaLabelX = Math.max(timerRightEdge - labelWidth, defaultX);
           }
           
           // Position at the top, aligned with D label and timer (same Y center as they are)
           // Use the D label's center Y if available, otherwise use default top position
           let smaLabelY: number;
-          if (dLabelCenterY !== null && dLabelCenterY !== undefined && dLabelCenterY > 0) {
+          if (dLabelCenterY !== null && dLabelCenterY > 0) {
             // Position SMA labels to align with D label's vertical center
             // For daily charts, SMA labels have 3 lines (10, 20, 50) with height 56px
             // The center of the label group is approximately at y="28" from the group origin
             // (rect starts at y="-6" with height 56, center is at y="22", but text center is around y="27")
             // We want the center of the SMA label (around y="27") to align with D label center
             const smaLabelCenterOffset = 27; // Approximate center of the 3-line SMA label
-            const centerY = dLabelCenterY;
-            smaLabelY = centerY - smaLabelCenterOffset;
+            smaLabelY = dLabelCenterY - smaLabelCenterOffset;
           } else {
             // Fallback: position at top
-            smaLabelY = Math.max((safeDimensions.margin?.top || 0) + 8, 8);
+            smaLabelY = Math.max((dimensions.margin?.top || 0) + 8, 8);
           }
           
           return (
@@ -2030,7 +2007,7 @@ const StockChart = React.memo<StockChartProps>(({
               x1={dividerLineX}
               y1={0}
               x2={dividerLineX}
-              y2={safeDimensions.height}
+              y2={dimensions.height}
               stroke="#00FFFF"
               strokeWidth={2.5}
               opacity={1}
@@ -2040,7 +2017,7 @@ const StockChart = React.memo<StockChartProps>(({
               x={dividerLineX}
               y={0}
               width={darkBackgroundWidth}
-              height={safeDimensions.height}
+              height={dimensions.height}
               fill="#1E2130"
               opacity={0.9} 
             />
@@ -2051,7 +2028,7 @@ const StockChart = React.memo<StockChartProps>(({
                 x={dividerLineX + darkBackgroundWidth - progressiveMaskWidth}
                 y={0}
                 width={progressiveMaskWidth}
-                height={safeDimensions.height}
+                height={dimensions.height}
                 fill={backgroundColor || "#000000"} 
                 opacity={1}
               />
@@ -2059,7 +2036,7 @@ const StockChart = React.memo<StockChartProps>(({
           </>
         )}
         
-        <g transform={`translate(${safeDimensions.margin.left || 0},${safeDimensions.margin.top || 0})`}>
+        <g transform={`translate(${dimensions.margin.left || 0},${dimensions.margin.top || 0})`}>
           {/* Price section */}
           <g transform={`translate(0, 0)`}>
             {/* SMA lines for main data */}
@@ -2130,7 +2107,7 @@ const StockChart = React.memo<StockChartProps>(({
                 )}
                 
                 {/* SMA lines for after data - only show if after data is visible and zoomed out */}
-                {safeScales.isZoomedOut && (showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
+                {scales.isZoomedOut && (showAfterAnimation || afterAnimationComplete) && visibleAfterData.length > 0 && chartType !== 'monthly' && chartType !== 'M' && chartType !== 'minute' && (
                   <>
                     {afterSma10Line && (hasSMA10 || chartType === 'hourly') && (
                       <path
@@ -2220,7 +2197,7 @@ const StockChart = React.memo<StockChartProps>(({
             )}
             
             {/* Candlesticks for after data - only show when zoomed out */}
-            {safeScales.isZoomedOut && showAfterAnimation && afterCandlesticks && afterCandlesticks.map((candle: CandlestickData, i: number) => (
+            {scales.isZoomedOut && showAfterAnimation && afterCandlesticks && afterCandlesticks.map((candle: CandlestickData, i: number) => (
               <g key={`after-${i}`}>
                 {!isNaN(candle.x) && !isNaN(candle.highY) && !isNaN(candle.lowY) && (
                   <line
@@ -2247,25 +2224,25 @@ const StockChart = React.memo<StockChartProps>(({
             ))}
 
             {/* User selection marker - only show if selection is after last data point */}
-            {userSelection && safeScales && (() => {
+            {userSelection && scales && (() => {
               const lastDataIndex = stockData.length - 1;
               const isFutureSelection = userSelection.x > lastDataIndex;
               
               if (!isFutureSelection) return null;
               
               // Calculate position for future selection (extrapolate from last data point)
-              const lastDataXPos = safeScales.xScale(lastDataIndex);
+              const lastDataXPos = scales.xScale(lastDataIndex);
               if (lastDataXPos === undefined) return null;
-              const step = safeScales.xScale.step();
+              const step = scales.xScale.step();
               const stepsBeyond = userSelection.x - lastDataIndex - 1;
               const futureXPos = lastDataXPos + (stepsBeyond + 1) * step;
-              const yPos = safeScales.priceScale(userSelection.y) + safeDimensions.margin.top;
+              const yPos = scales.priceScale(userSelection.y) + dimensions.margin.top;
               
               return (
                 <g>
                   {/* Clean, professional marker */}
                   <circle
-                    cx={futureXPos + safeDimensions.margin.left}
+                    cx={futureXPos + dimensions.margin.left}
                     cy={yPos}
                     r="4"
                     fill="#FFD700"
@@ -2278,7 +2255,7 @@ const StockChart = React.memo<StockChartProps>(({
             })()}
 
             {/* Target point marker (correct answer) - only show after user selection and if both are in future */}
-            {targetPoint && safeScales && userSelection && (() => {
+            {targetPoint && scales && userSelection && (() => {
               const lastDataIndex = stockData.length - 1;
               const isUserSelectionFuture = userSelection.x > lastDataIndex;
               const isTargetFuture = targetPoint.x > lastDataIndex;
@@ -2287,22 +2264,22 @@ const StockChart = React.memo<StockChartProps>(({
               if (!isUserSelectionFuture || !isTargetFuture) return null;
               
               // Calculate positions for future selections (extrapolate from last data point)
-              const lastDataXPos = safeScales.xScale(lastDataIndex);
+              const lastDataXPos = scales.xScale(lastDataIndex);
               if (lastDataXPos === undefined) return null;
-              const step = safeScales.xScale.step();
+              const step = scales.xScale.step();
               
               const userStepsBeyond = userSelection.x - lastDataIndex - 1;
               const userFutureXPos = lastDataXPos + (userStepsBeyond + 1) * step;
               
               const targetStepsBeyond = targetPoint.x - lastDataIndex - 1;
               const targetFutureXPos = lastDataXPos + (targetStepsBeyond + 1) * step;
-              const targetYPos = safeScales.priceScale(targetPoint.y) + safeDimensions.margin.top;
+              const targetYPos = scales.priceScale(targetPoint.y) + dimensions.margin.top;
               
               return (
                 <g>
                   {/* Clean, professional marker */}
                   <circle
-                    cx={targetFutureXPos + safeDimensions.margin.left}
+                    cx={targetFutureXPos + dimensions.margin.left}
                     cy={targetYPos}
                     r="4"
                     fill="#10B981"
@@ -2312,9 +2289,9 @@ const StockChart = React.memo<StockChartProps>(({
                   />
                   {/* Subtle connecting line */}
                   <line
-                    x1={userFutureXPos + safeDimensions.margin.left}
-                    y1={safeScales.priceScale(userSelection.y) + safeDimensions.margin.top}
-                    x2={targetFutureXPos + safeDimensions.margin.left}
+                    x1={userFutureXPos + dimensions.margin.left}
+                    y1={scales.priceScale(userSelection.y) + dimensions.margin.top}
+                    x2={targetFutureXPos + dimensions.margin.left}
                     y2={targetYPos}
                     stroke="#666666"
                     strokeWidth="1"
@@ -2326,12 +2303,12 @@ const StockChart = React.memo<StockChartProps>(({
             })()}
             
             {/* Visual divider line between historical data and future selection area */}
-            {onChartClick && !disabled && safeScales && stockData.length > 0 && (() => {
+            {onChartClick && !disabled && scales && stockData.length > 0 && (() => {
               // Fixed position: divider stays in same screen position
               // Mobile: lower percentage to give more space for selection
               // Desktop: slightly higher but still leaves good selection area
               const SEPARATOR_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
-              const dividerX = safeDimensions.margin.left + (safeDimensions.innerWidth * SEPARATOR_POSITION_PERCENT);
+              const dividerX = dimensions.margin.left + (dimensions.innerWidth * SEPARATOR_POSITION_PERCENT);
               
               return (
                 <g>
@@ -2339,7 +2316,7 @@ const StockChart = React.memo<StockChartProps>(({
                     x1={dividerX}
                     y1={0}
                     x2={dividerX}
-                    y2={safeDimensions.height}
+                    y2={dimensions.height}
                     stroke="#ffffff"
                     strokeWidth="1"
                     strokeDasharray="4,4"
@@ -2348,8 +2325,8 @@ const StockChart = React.memo<StockChartProps>(({
                   <rect
                     x={dividerX}
                     y={0}
-                    width={safeDimensions.width - dividerX}
-                    height={safeDimensions.height}
+                    width={dimensions.width - dividerX}
+                    height={dimensions.height}
                     fill="rgba(255, 255, 255, 0.02)"
                     pointerEvents="none"
                   />
@@ -2360,7 +2337,7 @@ const StockChart = React.memo<StockChartProps>(({
 
           {/* Volume section - hidden for previous charts */}
           {chartType !== 'previous' && (
-            <g transform={`translate(0, ${safeScales.priceHeight})`}>
+            <g transform={`translate(0, ${scales.priceHeight})`}>
               {/* Volume bars for main data */}
               {volumeBars && volumeBars.length > 0 ? (
                 <>
@@ -2377,13 +2354,13 @@ const StockChart = React.memo<StockChartProps>(({
                   ))}
                 </>
               ) : (
-                <text x="10" y={safeScales.priceHeight + 20} fill="white" fontSize="12">
+                <text x="10" y={scales.priceHeight + 20} fill="white" fontSize="12">
                   No volume bars to render
                 </text>
               )}
               
               {/* Volume bars for after data - only show when zoomed out */}
-              {safeScales.isZoomedOut && showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar: VolumeBarData, i: number) => (
+              {scales.isZoomedOut && showAfterAnimation && afterVolumeBars && afterVolumeBars.map((bar: VolumeBarData, i: number) => (
                 <rect
                   key={`after-vol-${i}`}
                   x={bar.x}

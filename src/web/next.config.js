@@ -26,6 +26,7 @@ const nextConfig = {
   // Performance optimizations
   webpack: (config, { dev, isServer }) => {
     // Optimize chunk splitting for better caching
+    // Simplified configuration to avoid CommonJS/ES module conflicts
     config.optimization.splitChunks = {
       chunks: 'all',
       maxInitialRequests: 25,
@@ -33,13 +34,6 @@ const nextConfig = {
       cacheGroups: {
         default: false,
         vendors: false,
-        // Framework chunk for React/Next.js core
-        framework: {
-          name: 'framework',
-          test: /[\\/]node_modules[\\/](@react|react|react-dom|next|scheduler)[\\/]/,
-          priority: 40,
-          enforce: true,
-        },
         // Chart libraries chunk
         charts: {
           name: 'charts',
