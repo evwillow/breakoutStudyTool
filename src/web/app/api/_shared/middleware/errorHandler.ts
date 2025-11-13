@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AppError, ErrorCodes } from '@/lib/utils/errorHandling';
 import { logger } from '@/lib/utils/logger';
-import { error as errorResponse } from '@/lib/api/responseHelpers';
 
 type ApiHandler = (req: NextRequest, context?: any) => Promise<Response>;
 
@@ -31,7 +30,20 @@ export function withErrorHandling(handler: ApiHandler): ApiHandler {
 
       // Execute the handler
       const rawResponse = await handler(req, context);
-      const response = NextResponse.from(rawResponse);
+      
+      // Convert Response to NextResponse if needed
+      let response: NextResponse;
+      if (rawResponse instanceof NextResponse) {
+        response = rawResponse;
+      } else {
+        // Convert standard Response to NextResponse
+        const body = await rawResponse.text();
+        response = new NextResponse(body, {
+          status: rawResponse.status,
+          statusText: rawResponse.statusText,
+          headers: rawResponse.headers,
+        });
+      }
       
       // Log successful completion
       const duration = Date.now() - startTime;
@@ -60,8 +72,9 @@ export function withErrorHandling(handler: ApiHandler): ApiHandler {
         ErrorCodes.UNEXPECTED_ERROR,
         error instanceof AppError ? error.httpStatus : 500
       );
-      const response = NextResponse.from(
-        errorResponse(appError.userMessage, appError.httpStatus)
+      const response = NextResponse.json(
+        { success: false, error: appError.userMessage },
+        { status: appError.httpStatus }
       );
       response.headers.set('X-Request-ID', requestId);
       return response;
@@ -85,8 +98,9 @@ export function withEnvironmentValidation(requiredVars: string[]) {
           { missingVars },
           'Service configuration error. Please contact support.'
         );
-        return NextResponse.from(
-          errorResponse(error.userMessage, error.httpStatus)
+        return NextResponse.json(
+          { success: false, error: error.userMessage },
+          { status: error.httpStatus }
         );
       }
 
@@ -110,8 +124,9 @@ export function withMethodValidation(allowedMethods: string[]) {
           `Method ${req.method} is not allowed for this endpoint.`
         );
         
-        return NextResponse.from(
-          errorResponse(error.userMessage, error.httpStatus)
+        return NextResponse.json(
+          { success: false, error: error.userMessage },
+          { status: error.httpStatus }
         );
       }
 
