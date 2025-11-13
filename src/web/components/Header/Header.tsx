@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Logo from "./Logo"
 import { AuthModal } from "../Auth"
 import { useAuth } from "../Auth/hooks/useAuth"
+import { NavLink, TouchPosition } from './Header.types'
 
 /**
  * Header Component
@@ -18,25 +19,25 @@ import { useAuth } from "../Auth/hooks/useAuth"
  * - Sign in button for non-authenticated users with auth modal
  * - Links to dummy pages for future development
  */
-const Header = () => {
+const Header: React.FC = () => {
   const router = useRouter()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authModalMode, setAuthModalMode] = useState('signin')
-  const { session, signOut: signOutUser } = useAuth()
-  const [scrolled, setScrolled] = useState(false)
-  const [headerHeight, setHeaderHeight] = useState(56) // Default to 3.5rem (56px)
-  const mobileMenuRef = useRef(null)
-  const userMenuRef = useRef(null)
-  const headerRef = useRef(null)
-  const hamburgerButtonRef = useRef(null)
-  const mobileMenuPanelRef = useRef(null)
-  const mobileMenuButtonsRef = useRef(null)
-  const [isSigningOut, setIsSigningOut] = useState(false)
-  const [pendingSignOut, setPendingSignOut] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false)
+  const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false)
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false)
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin')
+  const { session, signOut: signOutUser } = useAuth() as { session: { user?: { name?: string; email?: string } } | null; signOut: (options?: { callbackUrl?: string }) => Promise<void> }
+  const [scrolled, setScrolled] = useState<boolean>(false)
+  const [headerHeight, setHeaderHeight] = useState<number>(56) // Default to 3.5rem (56px)
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+  const userMenuRef = useRef<HTMLDivElement | null>(null)
+  const headerRef = useRef<HTMLElement | null>(null)
+  const hamburgerButtonRef = useRef<HTMLButtonElement | null>(null)
+  const mobileMenuPanelRef = useRef<HTMLDivElement | null>(null)
+  const mobileMenuButtonsRef = useRef<HTMLDivElement | null>(null)
+  const [isSigningOut, setIsSigningOut] = useState<boolean>(false)
+  const [pendingSignOut, setPendingSignOut] = useState<boolean>(false)
 
-  const handleSignOutRequest = useCallback(async () => {
+  const handleSignOutRequest = useCallback(async (): Promise<void> => {
     if (isSigningOut) {
       return
     }
@@ -62,7 +63,7 @@ const Header = () => {
 
   // Measure header height and update on resize/menu toggle
   useEffect(() => {
-    const updateHeaderHeight = () => {
+    const updateHeaderHeight = (): void => {
       if (headerRef.current) {
         // Since header is fixed at top: 0, use bottom position for exact placement
         // This accounts for borders, padding, and any height changes
@@ -89,7 +90,8 @@ const Header = () => {
   useEffect(() => {
     if (!headerRef.current) return
 
-    const updateHeaderHeight = () => {
+    const updateHeaderHeight = (): void => {
+      if (!headerRef.current) return
       const rect = headerRef.current.getBoundingClientRect()
       const exactBottom = Math.ceil(rect.bottom)
       setHeaderHeight(exactBottom)
@@ -99,7 +101,9 @@ const Header = () => {
     updateHeaderHeight()
     
     // Measure after DOM updates and border transition
-    let raf2, t1, t2
+    let raf2: number | null = null
+    let t1: NodeJS.Timeout | null = null
+    let t2: NodeJS.Timeout | null = null
     const raf1 = requestAnimationFrame(() => {
       updateHeaderHeight()
       raf2 = requestAnimationFrame(() => {
@@ -112,7 +116,7 @@ const Header = () => {
 
     return () => {
       if (raf1) cancelAnimationFrame(raf1)
-      if (raf2) cancelAnimationFrame(raf2)
+      if (raf2 !== null) cancelAnimationFrame(raf2)
       if (t1) clearTimeout(t1)
       if (t2) clearTimeout(t2)
     }
@@ -122,7 +126,7 @@ const Header = () => {
   useEffect(() => {
     if (!mobileMenuOpen || !mobileMenuPanelRef.current || !mobileMenuButtonsRef.current) return
 
-    const ensureButtonsVisible = () => {
+    const ensureButtonsVisible = (): void => {
       const panel = mobileMenuPanelRef.current
       const buttons = mobileMenuButtonsRef.current
       if (!panel || !buttons) return
@@ -201,7 +205,7 @@ const Header = () => {
 
   // Handle scroll effect for header
   useEffect(() => {
-    const handleScroll = () => {
+    const handleScroll = (): void => {
       if (typeof window === 'undefined') return
       setScrolled(window.scrollY > 10)
     }
@@ -213,8 +217,8 @@ const Header = () => {
   useEffect(() => {
     if (!mobileMenuOpen && !userMenuOpen) return // No menus open, no need to listen
     
-    const handleClickOutside = (event) => {
-      const target = event.target
+    const handleClickOutside = (event: MouseEvent | TouchEvent | Event): void => {
+      const target = event.target as Node | null
       
       // Don't close if clicking on the hamburger button itself
       if (hamburgerButtonRef.current && (
@@ -318,16 +322,18 @@ const Header = () => {
     if (!button) return
 
     let touchStartTime = 0
-    let touchStartPos = { x: 0, y: 0 }
+    let touchStartPos: TouchPosition = { x: 0, y: 0 }
     const TOUCH_MOVEMENT_THRESHOLD = 10 // pixels
     const MAX_TAP_DURATION = 300 // ms
 
-    const forceColor = () => {
-      button.style.color = 'rgb(75, 85, 99)' // text-gray-600
-      button.style.backgroundColor = 'transparent'
+    const forceColor = (): void => {
+      if (button) {
+        button.style.color = 'rgb(75, 85, 99)' // text-gray-600
+        button.style.backgroundColor = 'transparent'
+      }
     }
 
-    const toggleMenu = () => {
+    const toggleMenu = (): void => {
       setMobileMenuOpen(prev => {
         const newState = !prev
         // Force a re-render to ensure state is updated
@@ -341,7 +347,7 @@ const Header = () => {
       })
     }
 
-    const handleButtonClick = (e) => {
+    const handleButtonClick = (e: Event): void => {
       forceColor()
       e.preventDefault()
       e.stopPropagation()
@@ -349,13 +355,13 @@ const Header = () => {
       toggleMenu()
     }
 
-    const handleMouseDown = (e) => {
+    const handleMouseDown = (e: MouseEvent): void => {
       forceColor()
       e.stopPropagation()
       e.stopImmediatePropagation()
     }
 
-    const handleTouchStart = (e) => {
+    const handleTouchStart = (e: TouchEvent): void => {
       forceColor()
       e.stopPropagation()
       e.stopImmediatePropagation()
@@ -370,7 +376,7 @@ const Header = () => {
       }
     }
 
-    const handleTouchMove = (e) => {
+    const handleTouchMove = (e: TouchEvent): void => {
       // If user moves finger too much, cancel the tap
       if (e.touches && e.touches.length > 0) {
         const dx = Math.abs(e.touches[0].clientX - touchStartPos.x)
@@ -381,7 +387,7 @@ const Header = () => {
       }
     }
 
-    const handleTouchEnd = (e) => {
+    const handleTouchEnd = (e: TouchEvent): void => {
       forceColor()
       e.stopPropagation()
       e.stopImmediatePropagation()
@@ -398,7 +404,7 @@ const Header = () => {
       touchStartPos = { x: 0, y: 0 }
     }
 
-    const handleTouchCancel = () => {
+    const handleTouchCancel = (): void => {
       forceColor()
       touchStartTime = 0
       touchStartPos = { x: 0, y: 0 }
@@ -423,7 +429,7 @@ const Header = () => {
   }, [])
 
   // Navigation links for authenticated users
-  const navLinks = [
+  const navLinks: NavLink[] = [
     { name: "Study", href: "/" },
     { name: "Analytics", href: "/analytics" },
     { name: "Learn", href: "/learn" },
@@ -432,7 +438,7 @@ const Header = () => {
   ]
 
   // Navigation links for non-authenticated users
-  const publicNavLinks = [
+  const publicNavLinks: NavLink[] = [
     { name: "Support", href: "/support" }
   ]
 
@@ -440,7 +446,7 @@ const Header = () => {
   const displayedLinks = session ? navLinks : publicNavLinks
 
   // Function to handle scrolling to sections
-  const handleScrollTo = (e, id) => {
+  const handleScrollTo = (e: React.MouseEvent<HTMLAnchorElement>, id: string): void => {
     e.preventDefault()
     // Close mobile menu if open
     if (mobileMenuOpen) {
@@ -689,9 +695,10 @@ const Header = () => {
             }}
             onMouseDown={(e) => {
               // Prevent backdrop from interfering with header clicks
-              if (headerRef.current && (
-                headerRef.current === e.target || 
-                headerRef.current.contains(e.target)
+              const target = e.target as Node | null
+              if (headerRef.current && target && (
+                headerRef.current === target || 
+                headerRef.current.contains(target)
               )) {
                 e.preventDefault()
                 e.stopPropagation()
@@ -704,9 +711,10 @@ const Header = () => {
             }}
             onTouchStart={(e) => {
               // Prevent backdrop from interfering with header clicks
-              if (headerRef.current && (
-                headerRef.current === e.target || 
-                headerRef.current.contains(e.target)
+              const target = e.target as Node | null
+              if (headerRef.current && target && (
+                headerRef.current === target || 
+                headerRef.current.contains(target)
               )) {
                 e.preventDefault()
                 e.stopPropagation()
@@ -720,9 +728,10 @@ const Header = () => {
             }}
             onClick={(e) => {
               // Prevent backdrop from interfering with header clicks
-              if (headerRef.current && (
-                headerRef.current === e.target || 
-                headerRef.current.contains(e.target)
+              const target = e.target as Node | null
+              if (headerRef.current && target && (
+                headerRef.current === target || 
+                headerRef.current.contains(target)
               )) {
                 e.preventDefault()
                 e.stopPropagation()
@@ -866,7 +875,7 @@ const Header = () => {
         <AuthModal 
           open={showAuthModal} 
           onClose={() => setShowAuthModal(false)}
-          initialMode={authModalMode}
+          {...(authModalMode ? { initialMode: authModalMode } : {})}
         />
       )}
     </header>
