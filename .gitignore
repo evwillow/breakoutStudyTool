@@ -6,6 +6,9 @@ yarn-error.log*
 
 # Environment variables
 .env
+.env.*
+!.env.example
+!.env.template
 .env.local
 .env.development.local
 .env.test.local
@@ -118,12 +121,6 @@ build/Release
 /lib/
 !src/web/lib/
 
-# dotenv environment variable files
-.env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
 
 # Editor directories and files
 .vscode/
@@ -252,13 +249,22 @@ dmypy.json
 prisma/migrations/
 
 # Data Processing - raw data files (tracked via Git LFS)
-src/data-processing/data/
-src/data-processing/ds/
+# Ignore files but preserve directory structure and README files
+src/data-processing/data/**
+!src/data-processing/data/
+!src/data-processing/data/README.md
+src/data-processing/ds/**
+!src/data-processing/ds/
+!src/data-processing/ds/README.md
 
 # Data directory at root - JSON files tracked via Git LFS
-# Only ignore non-JSON files and build artifacts
+# Only ignore non-JSON files and build artifacts, but preserve directory structure
 data/**/*.json~*
 data/**/.DS_Store
+# Allow data directory, subdirectories, and README files to be tracked
+!data/
+!data/**/
+!data/**/README.md
 
 # Build artifacts (already have .next/ but being explicit)
 .next/

@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+// Load environment variables from root .env.local file
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env.local') });
+
 const nextConfig = {
   // Explicitly disable Pages Router directory scanning
   // We're using App Router exclusively
@@ -22,6 +26,8 @@ const nextConfig = {
   env: {
     // Enable mock database by default in development mode
     NEXT_PUBLIC_USE_MOCK_DB: process.env.NODE_ENV === 'development' ? 'true' : 'false',
+    // Expose Google Client ID to client-side (for UI checks)
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   },
   // Performance optimizations
   webpack: (config, { dev, isServer }) => {

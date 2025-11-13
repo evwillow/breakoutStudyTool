@@ -13,7 +13,8 @@ import type { NextRequest } from 'next/server';
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || [
   'https://breakouts.trade',
   'https://breakoutstudytool.com',
-  'http://localhost:3000', // Development only
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
 ];
 
 // Maximum request body size (1MB)
@@ -21,21 +22,30 @@ const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
 /**
  * Get the origin from request headers
+ * Returns null for same-origin requests (which don't need CORS)
  */
 function getOrigin(request: NextRequest): string | null {
-  return request.headers.get('origin') || 
-         request.headers.get('referer')?.split('/').slice(0, 3).join('/') || 
-         null;
+  // Same-origin requests don't include the origin header
+  // Only return origin for cross-origin requests
+  const originHeader = request.headers.get('origin');
+  if (originHeader) {
+    return originHeader;
+  }
+  
+  // For same-origin requests without origin header, return null
+  // This allows same-origin requests to pass through CORS checks
+  return null;
 }
 
 /**
  * Check if origin is allowed
  * SECURITY: Use exact string matching only to prevent regex injection
+ * In development, allow all localhost origins
  */
 function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
 
-  // In development, allow localhost
+  // In development, allow all localhost origins
   if (process.env.NODE_ENV === 'development') {
     if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
       return true;
@@ -156,6 +166,8 @@ export async function middleware(request: NextRequest) {
   // NOTE: Rate limiting is handled in individual API routes (Node.js runtime)
   if (pathname.startsWith('/api/')) {
     const origin = getOrigin(request);
+    // Same-origin requests don't have an origin header - allow them
+    // Only check CORS for cross-origin requests (when origin is present)
     if (origin && !isOriginAllowed(origin)) {
       const response = NextResponse.json(
         { success: false, error: { message: 'CORS policy violation' } },
