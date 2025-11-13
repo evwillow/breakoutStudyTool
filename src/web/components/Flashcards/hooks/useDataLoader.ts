@@ -32,6 +32,12 @@ export const useDataLoader = ({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const foldersCacheRef = useRef<FlashcardFolderRecord[]>([]);
+  const selectedFolderRef = useRef<string | null>(selectedFolder);
+
+  // Keep ref in sync with selectedFolder
+  useEffect(() => {
+    selectedFolderRef.current = selectedFolder;
+  }, [selectedFolder]);
 
   const getAbortController = useCallback(() => {
     if (!abortControllerRef.current) {
@@ -63,7 +69,8 @@ export const useDataLoader = ({
         updateFolders(data.folders);
 
         if (autoSelectFirstFolder && data.folders.length > 0) {
-          if (!selectedFolder) {
+          // Use ref to check current selectedFolder to avoid dependency issues
+          if (!selectedFolderRef.current) {
             setSelectedFolder(data.folders[0].name);
           }
         }
@@ -73,7 +80,7 @@ export const useDataLoader = ({
     } catch (error) {
       setError(error instanceof Error ? error.message : ERROR_MESSAGES.DATA_FETCH_ERROR);
     }
-  }, [autoSelectFirstFolder, selectedFolder, setSelectedFolder, updateFolders, setError]);
+  }, [autoSelectFirstFolder, updateFolders, setError, setSelectedFolder]);
 
   const loadMissingFilesInBackground = useCallback(
     async (
@@ -151,7 +158,7 @@ export const useDataLoader = ({
     async (targetFolder?: string) => {
       const folderName = targetFolder ?? selectedFolder;
 
-      if (!folderName || status !== "authenticated" || !session) {
+      if (!folderName) {
         return;
       }
 
@@ -702,8 +709,6 @@ export const useDataLoader = ({
     },
     [
       selectedFolder,
-      status,
-      session,
       cleanup,
       setLoading,
       setLoadingProgress,

@@ -1,56 +1,46 @@
 /**
- * @fileoverview Orchestrates the flashcard study workflow, including data loading, timers, and chart interactions.
+ * @fileoverview Thin orchestrator for flashcard study workflow.
  * @module src/web/components/Flashcards/FlashcardsContainer.tsx
- * @dependencies React, next-auth/react, next/navigation, ../Flashcards/utils/dataProcessors, ../Flashcards/hooks/useFlashcardData, ../Flashcards/hooks/useGameState, ../Flashcards/hooks/useTimer, ../Flashcards/constants, ../Auth, ../Tutorial, ./components/LoadingStates, ./components/ChartView, ./components/ControlPanel, ./components/RoundSelector
+ * @dependencies React, hooks, components
  */
 "use client";
 
-import React, { useMemo, useCallback, useEffect } from "react";
+import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 // Components
 import { DateFolderBrowser, LandingPage, RoundHistory } from "../";
 import { AuthModal } from "../Auth";
-import { LoadingStates } from "./components/LoadingStates";
 import Tutorial from "../Tutorial/Tutorial";
+import ChartView from "./components/ChartView";
+import ControlPanel from "./components/ControlPanel";
+import RoundSelector from "./components/RoundSelector";
+import DataLoadingState from "./components/DataLoadingState";
+import PredictionPanel from "./components/PredictionPanel";
 
 // Hooks
 import { useFlashcardData } from "./hooks/useFlashcardData";
 import { useGameState } from "./hooks/useGameState";
 import { useTimer } from "./hooks/useTimer";
+import { useRoundManagement } from "./hooks/useRoundManagement";
+import { useMatchLogging } from "./hooks/useMatchLogging";
+import { useTargetPoint } from "./hooks/useTargetPoint";
 
 // Utils
 import { processFlashcardData, extractStockName, FlashcardData } from "./utils/dataProcessors";
-import { GAME_CONFIG, UI_CONFIG, TIMER_CONFIG } from "./constants";
-import ChartView from "./components/ChartView";
-import ControlPanel from "./components/ControlPanel";
-import RoundSelector from "./components/RoundSelector";
+import { UI_CONFIG, TIMER_CONFIG } from "./constants";
+import { SCORING_CONFIG } from "@/config/game.config";
 
-declare global {
-  interface Window {
-    __roundCache?: Record<string, { rounds: any[]; fetchedAt: number }>;
-    __matchCache?: Record<string, any>;
-  }
-}
-
-// Type the imported JS components
-
-/**
- * @property tutorialTrigger Optional flag forcing the tutorial carousel to replay.
- */
 interface FlashcardsContainerProps {
   tutorialTrigger?: boolean;
 }
 
 export default function FlashcardsContainer({ tutorialTrigger = false }: FlashcardsContainerProps) {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  
-  // Track previous tutorial trigger to detect changes
-  // Initialize to false so any true value will be detected as a change
-  const prevTutorialTriggerRef = React.useRef<boolean>(false);
-  
+  const prevTutorialTriggerRef = useRef<boolean>(false);
+  const isChartPausedRef = useRef<boolean>(false);
+  const handleNextCardRef = useRef<(() => void) | null>(null);
+
   // Data management
   const {
     folders,
@@ -61,1308 +51,109 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     loadingStep,
     error,
     setSelectedFolder,
-    clearError,
-  } = useFlashcardData({
-    autoSelectFirstFolder: true,
-  });
+  } = useFlashcardData({ autoSelectFirstFolder: true });
 
-  /** Controls auth modal visibility for gated actions. */
-  const [showAuthModal, setShowAuthModal] = React.useState(false);
-  /** Toggles the round history sidebar/drawer. */
-  const [showRoundHistory, setShowRoundHistory] = React.useState(false);
-  /** Callback setter provided to RoundHistory for refreshing results. */
-  const [roundHistoryRefresh, setRoundHistoryRefresh] = React.useState<(() => void) | null>(null);
-  /** Current timer configuration used by ChartSection and timer hook. */
+  // Timer
   const [timerDuration, setTimerDuration] = React.useState<number>(TIMER_CONFIG.INITIAL_DURATION);
-  /** Active round identifier when logging progress. */
-  const [currentRoundId, setCurrentRoundId] = React.useState<string | null>(null);
-  /** Flag while creating a new custom round via API. */
-  const [isCreatingRound, setIsCreatingRound] = React.useState(false);
-  /** Flag while fetching round list for selection. */
-  const [isLoadingRounds, setIsLoadingRounds] = React.useState(false);
-  /** Cached round metadata for the round selector dialog. */
-  const [availableRounds, setAvailableRounds] = React.useState<any[]>([]);
-  /** Controls visibility of the round selector modal. */
-  const [showRoundSelector, setShowRoundSelector] = React.useState(false);
-  /** Input state when naming a new round. */
-  const [roundNameInput, setRoundNameInput] = React.useState('');
-  /** Timestamp of the last match log to throttle refreshes. */
-  const [lastMatchLogTime, setLastMatchLogTime] = React.useState<number>(0);
-  /** Count of matches logged in the current session. */
-  const [matchLogCount, setMatchLogCount] = React.useState<number>(0);
-  /** Manual refresh counter to invalidate cached round history queries. */
-  const [refreshCount, setRefreshCount] = React.useState<number>(0);
-  /** Drives whether tutorial overlay is visible. */
-  const [showTutorial, setShowTutorial] = React.useState(false);
   
-  // Ref to store handleNextCard for timer callback
-  const handleNextCardRef = React.useRef<(() => void) | null>(null);
-  const timeUpAdvanceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  const clearTimeUpAdvanceTimeout = React.useCallback(() => {
-    if (timeUpAdvanceTimeoutRef.current) {
-      clearTimeout(timeUpAdvanceTimeoutRef.current);
-      timeUpAdvanceTimeoutRef.current = null;
-    }
-  }, []);
-  
-  /** Stores deferred round load requests when switching folders. */
-  const pendingRoundRef = React.useRef<{ roundId: string; datasetName: string } | null>(null);
-  
-  /** Keeps track of chart pause state to avoid auto-advancing while paused. */
-  const isChartPausedRef = React.useRef<boolean>(false);
-  
-  /** Prevents duplicate advancement when multiple timers fire simultaneously. */
-  const hasAdvancedRef = React.useRef<boolean>(false);
-
-  // Create a more reliable refresh function
-  const triggerRoundHistoryRefresh = useCallback(() => {
-    const currentRefreshCount = refreshCount + 1;
-    setRefreshCount(currentRefreshCount);
-    
-    // Capture the refresh function to ensure it's available when setTimeout callback runs
-    const refreshFn = roundHistoryRefresh;
-    
-    if (refreshFn && typeof refreshFn === 'function') {
-      // Add a longer delay to ensure database has time to commit
-      // Also add a random delay to avoid race conditions
-      const delay = 1000 + Math.random() * 500; // 1-1.5 seconds
-      
-      setTimeout(() => {
-        // Double-check the function is still valid before calling
-        if (refreshFn && typeof refreshFn === 'function') {
-          refreshFn();
-        }
-      }, delay);
-    }
-  }, [roundHistoryRefresh, lastMatchLogTime, matchLogCount, refreshCount]);
-
-  // Game state management (initialize with flashcards length)
+  // Game state
   const gameState = useGameState({
     flashcardsLength: flashcards.length,
-    onCorrectAnswer: useCallback(() => {
-      // Answer logged
-    }, []),
-    onIncorrectAnswer: useCallback(() => {
-      // Answer logged
-    }, []),
-    onGameComplete: useCallback(async () => {
-      
-      // Mark round as completed if we have a round ID
-      if (currentRoundId) {
-        try {
-          const response = await fetch(`/api/game/rounds/${currentRoundId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              completed: true,
-            }),
-          });
-
-          let result;
-          let responseText: string = '';
-          try {
-            responseText = await response.text();
-            if (!responseText) {
-              console.error('Failed to update round: Empty response body', {
-                status: response.status,
-                statusText: response.statusText,
-                url: response.url,
-                roundId: currentRoundId,
-              });
-              return;
-            }
-            try {
-              result = JSON.parse(responseText);
-            } catch (parseError) {
-              console.error('Failed to update round: Invalid JSON response', {
-                status: response.status,
-                statusText: response.statusText,
-                parseError: parseError instanceof Error ? parseError.message : String(parseError),
-                responseText: responseText.substring(0, 200),
-                url: response.url,
-                roundId: currentRoundId,
-              });
-              return;
-            }
-          } catch (readError) {
-            console.error('Failed to update round: Could not read response', {
-              status: response.status,
-              statusText: response.statusText,
-              readError: readError instanceof Error ? readError.message : String(readError),
-              url: response.url,
-              roundId: currentRoundId,
-            });
-            return;
-          }
-
-          if (!response.ok) {
-            // API returns: { success: false, error: { code, message, details, validationErrors } }
-            const error = result?.error || {};
-            const errorMessage = error?.message || error?.details || result?.message || `HTTP ${response.status}: ${response.statusText}`;
-            const errorCode = error?.code || `HTTP_${response.status}`;
-            const validationErrors = error?.validationErrors || null;
-            
-            console.error('Failed to mark round as completed', {
-              status: response.status,
-              statusText: response.statusText,
-              message: errorMessage || 'Unknown error',
-              code: errorCode || 'UNKNOWN_ERROR',
-              validationErrors: validationErrors || undefined,
-              fullResult: result || null,
-              roundId: currentRoundId,
-            });
-          } else {
-            // Use the new refresh mechanism
-            triggerRoundHistoryRefresh();
-          }
-        } catch (error) {
-          console.error('Error updating round completion:', {
-            error: error instanceof Error ? error.message : String(error),
-            errorStack: error instanceof Error ? error.stack : undefined,
-            roundId: currentRoundId,
-          });
-        }
-      }
-    }, [currentRoundId, triggerRoundHistoryRefresh]),
+    onCorrectAnswer: () => {},
+    onIncorrectAnswer: () => {},
+    onGameComplete: async () => {},
   });
 
-  // Compute current flashcard using gameState's currentIndex
-  // This ensures proper synchronization when transitioning between stocks
-  // Prevent index changes during loading to avoid rapid flipping through stocks
-  const currentFlashcard = useMemo(() => {
-    // Don't update flashcard if we're still loading - prevents rapid flipping on refresh
-    // Check if flashcards are loaded but data might not be ready yet
-    const flashcardsLoaded = flashcards.length > 0;
-    const hasFlashcardData = flashcardsLoaded && flashcards.some(f => 
-      f.jsonFiles && f.jsonFiles.length > 0 && f.jsonFiles.every(file => file.data !== null && file.data !== undefined)
-    );
-    
-    if (loading || !flashcardsLoaded || !hasFlashcardData) {
-      // Return null during loading to prevent rapid changes
-      return null;
-    }
-    
-    const index = gameState.currentIndex;
-    // Ensure index is within bounds
-    const safeIndex = Math.max(0, Math.min(index, flashcards.length - 1));
-    const flashcard = flashcards[safeIndex] || null;
-    
-    // If index was out of bounds, reset it (but only if not loading)
-    if (index !== safeIndex && flashcards.length > 0 && !loading) {
-      console.warn(`⚠️ Current index ${index} out of bounds, resetting to ${safeIndex}`);
-      gameState.setCurrentIndex(safeIndex);
-    }
-    
-    return flashcard;
-  }, [gameState.currentIndex, flashcards, gameState, loading]);
-
-  // Process current flashcard data
-  const processedData = useMemo(() => {
-    const result = processFlashcardData(currentFlashcard);
-    return result;
-  }, [currentFlashcard, gameState.currentIndex]);
-
-  const currentFlashcardKey = useMemo(() => {
-    if (!currentFlashcard) {
-      return `index_${gameState.currentIndex}`;
-    }
-    const identifier = currentFlashcard.id || currentFlashcard.name || `index_${gameState.currentIndex}`;
-    return `${currentFlashcard.folderName || 'default'}::${identifier}`;
-  }, [currentFlashcard, gameState.currentIndex]);
-
-  const currentFlashcardReady = useMemo(() => {
-    if (!flashcards.length || !currentFlashcard) {
-      return false;
-    }
-
-    if (!currentFlashcard.jsonFiles || currentFlashcard.jsonFiles.length === 0) {
-      return false;
-    }
-
-    const filesLoaded = currentFlashcard.jsonFiles.every(file => file.data !== null && file.data !== undefined);
-    if (!filesLoaded) {
-      return false;
-    }
-
-    if (!processedData.orderedFiles.length) {
-      return false;
-    }
-
-    const orderedFilesLoaded = processedData.orderedFiles.every(file => file.data !== null && file.data !== undefined);
-    if (!orderedFilesLoaded) {
-      return false;
-    }
-
-    const hasPrimaryData = Array.isArray(processedData.orderedFiles[0]?.data) && processedData.orderedFiles[0].data.length > 0;
-    if (!hasPrimaryData) {
-      return false;
-    }
-
-    const afterDataValid = processedData.afterJsonData === null ||
-      (Array.isArray(processedData.afterJsonData) && processedData.afterJsonData.length >= 0);
-
-    return afterDataValid;
-  }, [flashcards, currentFlashcard, processedData]);
-
-  const [stabilizedFlashcard, setStabilizedFlashcard] = React.useState<FlashcardData | null>(null);
-  const [stabilizedData, setStabilizedData] = React.useState<ReturnType<typeof processFlashcardData>>({
-    orderedFiles: [],
-    afterJsonData: null,
-    pointsTextArray: [],
-  });
-  const stabilizedKeyRef = React.useRef<string | null>(null);
-
-  useEffect(() => {
-    if (loading || !currentFlashcardReady || !currentFlashcard) {
-      return;
-    }
-
-    const nextKey = currentFlashcardKey;
-    const nextData = processedData;
-
-    setStabilizedData(prevData => {
-      const prevKey = stabilizedKeyRef.current;
-      const prevLen = prevData?.orderedFiles?.[0]?.data?.length ?? 0;
-      const nextLen = nextData?.orderedFiles?.[0]?.data?.length ?? 0;
-
-      if (prevKey === nextKey) {
-        if (nextLen > prevLen) {
-          stabilizedKeyRef.current = nextKey;
-          setStabilizedFlashcard(currentFlashcard);
-          return nextData;
-        }
-        return prevData;
-      }
-
-      stabilizedKeyRef.current = nextKey;
-      setStabilizedFlashcard(currentFlashcard);
-      return nextData;
-    });
-  }, [loading, currentFlashcardReady, currentFlashcard, processedData, currentFlashcardKey]);
-
-  const hasStableMatch = stabilizedKeyRef.current === currentFlashcardKey && stabilizedFlashcard;
-
-  const activeFlashcard = currentFlashcardReady
-    ? (hasStableMatch ? stabilizedFlashcard : currentFlashcard)
-    : (stabilizedFlashcard ?? currentFlashcard);
-
-  const activeProcessedData = currentFlashcardReady
-    ? (hasStableMatch ? stabilizedData : processedData)
-    : (stabilizedFlashcard ? stabilizedData : processedData);
-
-  // Log match with coordinates
-  const logMatchWithCoordinates = useCallback(async (data: {
-    coordinates: { x: number; y: number };
-    targetPoint: { x: number; y: number };
-    distance: number;
-    score: number;
-    stockSymbol: string;
-    isCorrect: boolean;
-    priceAccuracy?: number;
-    timePosition?: number;
-    priceError?: number;
-    timeError?: number;
-  }) => {
-    if (!currentRoundId || !session?.user?.id) return;
-
-    // Build match data, filtering out undefined/null/NaN values
-    const matchData: any = {
-      round_id: currentRoundId,
-      stock_symbol: data.stockSymbol,
-      correct: Boolean(data.isCorrect), // Ensure it's always a boolean
-    };
-    
-    // Add numeric fields only if they are valid numbers
-    if (typeof data.coordinates.x === 'number' && !isNaN(data.coordinates.x)) {
-      matchData.user_selection_x = data.coordinates.x;
-    }
-    if (typeof data.coordinates.y === 'number' && !isNaN(data.coordinates.y)) {
-      matchData.user_selection_y = data.coordinates.y;
-    }
-    if (typeof data.targetPoint.x === 'number' && !isNaN(data.targetPoint.x)) {
-      matchData.target_x = data.targetPoint.x;
-    }
-    if (typeof data.targetPoint.y === 'number' && !isNaN(data.targetPoint.y)) {
-      matchData.target_y = data.targetPoint.y;
-    }
-    if (typeof data.distance === 'number' && !isNaN(data.distance)) {
-      matchData.distance = data.distance;
-    }
-    if (typeof data.score === 'number' && !isNaN(data.score)) {
-      matchData.score = data.score;
-    }
-    
-    // Add optional fields only if they are defined and not NaN
-    if (data.priceAccuracy !== undefined && !isNaN(data.priceAccuracy)) {
-      matchData.price_accuracy = data.priceAccuracy;
-    }
-    if (data.timePosition !== undefined && !isNaN(data.timePosition)) {
-      matchData.time_position = data.timePosition;
-    }
-    if (data.priceError !== undefined && !isNaN(data.priceError)) {
-      matchData.price_error = data.priceError;
-    }
-    if (data.timeError !== undefined && !isNaN(data.timeError)) {
-      matchData.time_error = data.timeError;
-    }
-
-    try {
-      console.log('[MATCHES CLIENT] Sending match data:', matchData);
-      const response = await fetch('/api/game/matches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(matchData),
-      });
-
-      if (!response.ok) {
-        // Try to get error details from response
-        let errorData = {};
-        let responseText = '';
-        try {
-          responseText = await response.text();
-          if (responseText) {
-            try {
-              errorData = JSON.parse(responseText);
-            } catch {
-              // If not JSON, use the text as error message
-              errorData = { message: responseText };
-            }
-          }
-        } catch (textError) {
-          console.error('[MATCHES CLIENT] Failed to read response text:', textError);
-        }
-        
-        // Only log error if there's meaningful error data
-        if (Object.keys(errorData).length > 0 || responseText) {
-          console.error('[MATCHES CLIENT] Failed to log match:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData,
-            responseText: responseText || 'No response text',
-            matchData: matchData // Log the data we tried to send for debugging
-          });
-        } else {
-          // Silent fail for empty errors to reduce console noise
-          console.warn('[MATCHES CLIENT] Match logging failed with status:', response.status);
-        }
-      } else {
-        setLastMatchLogTime(Date.now());
-        setMatchLogCount(prev => prev + 1);
-        triggerRoundHistoryRefresh();
-      }
-    } catch (error) {
-      console.error('[MATCHES CLIENT] Error logging match:', error);
-    }
-  }, [currentRoundId, session?.user?.id, triggerRoundHistoryRefresh]);
-
-  // Timer management - normal timer behavior, force selection on time up
-  // Note: forceSelection will be defined after targetPoint, priceRange, and timeRange
-  const forceSelectionRef = React.useRef<(() => void) | null>(null);
-  const timerRef = React.useRef<{ reset: (duration: number) => void; start: () => void; pause?: () => void } | null>(null);
-  
-  // Ref to access gameState in timer callback
-  const gameStateRef = React.useRef(gameState);
-  React.useEffect(() => {
-    gameStateRef.current = gameState;
-  }, [gameState]);
-
-  React.useEffect(() => {
-    if (gameState.score !== null && gameState.score !== undefined) {
-      clearTimeUpAdvanceTimeout();
-    }
-  }, [gameState.score, clearTimeUpAdvanceTimeout]);
+  // Create timer ref to avoid circular dependency
+  const timerRef = useRef<{ pause: () => void; reset: (duration: number) => void } | null>(null);
   
   const timer = useTimer({
-    initialDuration: TIMER_CONFIG.INITIAL_DURATION,
+    initialDuration: timerDuration,
     onTimeUp: useCallback(() => {
-      const currentGameState = gameStateRef.current;
-
-      if (currentGameState.score === null || currentGameState.score === undefined) {
-        // Show time-up overlay when timer runs out
-        // The overlay will auto-dismiss after 5 seconds and advance to next stock
-        currentGameState.setShowTimeUpOverlay(true);
-        clearTimeUpAdvanceTimeout();
-
-        timerRef.current?.pause?.();
-        if (timerDuration > 0 && timerRef.current?.reset) {
-          timerRef.current.reset(timerDuration);
-        }
-
-        // Note: Advance to next stock is now handled by handleTooltipDismiss
-        // when the tooltip auto-dismisses after 5 seconds
+      if (gameState.score === null || gameState.score === undefined) {
+        gameState.setShowTimeUpOverlay(true);
+        timerRef.current?.pause();
+        if (timerDuration > 0) timerRef.current?.reset(timerDuration);
       } else if (handleNextCardRef.current) {
-        // If user already made a selection, advance immediately
         handleNextCardRef.current();
       }
-    }, [clearTimeUpAdvanceTimeout, timerDuration]),
+    }, [gameState, timerDuration]),
     autoStart: false,
   });
 
-  // Update timer ref so onTimeUp callback can access timer methods
-  React.useEffect(() => {
+  // Update timer ref
+  useEffect(() => {
     timerRef.current = {
-      reset: timer.reset,
-      start: timer.start,
       pause: timer.pause,
+      reset: timer.reset,
     };
-  }, [timer.reset, timer.start, timer.pause]);
+  }, [timer.pause, timer.reset]);
 
-  const handleTooltipDismiss = React.useCallback((event?: { reason?: string }) => {
-    // Hide the overlay immediately for smooth transition
-    gameState.setShowTimeUpOverlay(false);
+  // Round management
+  const roundManagement = useRoundManagement(selectedFolder, gameState, timer, timerDuration);
 
-    if (event?.reason === 'manual-chart') {
-      clearTimeUpAdvanceTimeout();
-      if (timerDuration > 0) {
-        if (timerRef.current?.reset) {
-          timerRef.current.reset(timerDuration);
-        }
-        timerRef.current?.start?.();
-      }
-      // Don't advance on manual chart selection - user is making a selection
-      return;
+  // Match logging
+  const matchLogging = useMatchLogging(roundManagement.currentRoundId);
+
+  // Update game complete handler after round management is available
+  useEffect(() => {
+    if (roundManagement.currentRoundId && gameState.isGameComplete) {
+      fetch(`/api/game/rounds/${roundManagement.currentRoundId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: true }),
+      }).then(() => matchLogging.triggerRoundHistoryRefresh()).catch(console.error);
     }
+  }, [gameState.isGameComplete, roundManagement.currentRoundId, matchLogging]);
 
-    // When tooltip is dismissed (auto, click-outside, or any other reason), ALWAYS advance to next stock
-    clearTimeUpAdvanceTimeout();
-    
-    // Use requestAnimationFrame for smoother transitions, then advance after popup animation
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Always advance to next stock when popup is dismissed (except manual-chart)
-        if (handleNextCardRef.current) {
-          handleNextCardRef.current();
-        } else if (gameState && gameState.nextCard) {
-          // Fallback: use gameState directly
-          gameState.nextCard();
-          // Also reset and start timer if needed
-          if (selectedFolder && timerDuration > 0 && timerRef.current) {
-            timerRef.current.reset(timerDuration);
-            timerRef.current.start();
-          }
-        }
-      });
-    });
-  }, [gameState, clearTimeUpAdvanceTimeout, timerDuration, selectedFolder]);
+  // UI state
+  const [showAuthModal, setShowAuthModal] = React.useState(false);
+  const [showRoundHistory, setShowRoundHistory] = React.useState(false);
+  const [showTutorial, setShowTutorial] = React.useState(false);
 
-  // Track last loaded folder/userId to prevent repeated calls
-  const lastLoadedRef = React.useRef<{folder: string|null, userId: string|null}>({folder: null, userId: null});
+  // Current flashcard processing
+  // Don't block on loading - allow flashcard to be selected even if background loading is happening
+  const currentFlashcard = useMemo(() => {
+    if (flashcards.length === 0) return null;
+    const index = gameState.currentIndex;
+    const safeIndex = Math.max(0, Math.min(index, flashcards.length - 1));
+    return flashcards[safeIndex] || null;
+  }, [gameState.currentIndex, flashcards]);
 
-  // Generate automatic round name
-  const generateRoundName = useCallback(() => {
-    const date = new Date();
-    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    return `${dateStr} ${timeStr}`;
-  }, []);
+  const processedData = useMemo(() => processFlashcardData(currentFlashcard), [currentFlashcard]);
+  const { targetPoint, priceRange, timeRange } = useTargetPoint(processedData);
 
-  // Create a new round in the database
-  const createNewRound = useCallback(async (name?: string) => {
-    if (!session?.user?.id || !selectedFolder) {
-      console.warn('Cannot create round: missing user ID or selected folder', {
-        hasUserId: !!session?.user?.id,
-        selectedFolder
-      });
-      return null;
-    }
+  const activeFlashcard = currentFlashcard;
+  const activeProcessedData = processedData;
+  const currentFlashcardReady = useMemo(() => {
+    if (!flashcards.length || !currentFlashcard) return false;
+    if (!currentFlashcard.jsonFiles?.length) return false;
+    const filesLoaded = currentFlashcard.jsonFiles.every(f => f.data !== null && f.data !== undefined);
+    if (!filesLoaded || !processedData.orderedFiles.length) return false;
+    return Array.isArray(processedData.orderedFiles[0]?.data) && processedData.orderedFiles[0].data.length > 0;
+  }, [flashcards, currentFlashcard, processedData]);
 
-    setIsCreatingRound(true);
-    
-    try {
-      const requestData = {
-        dataset_name: selectedFolder,
-        user_id: session.user.id,
-        name: name || undefined,
-        completed: false,
-      };
-
-      const response = await fetch('/api/game/rounds', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestData),
-      });
-
-      let result;
-      let responseText: string = '';
-      try {
-        responseText = await response.text();
-        if (!responseText) {
-          console.error('Failed to create round: Empty response body', {
-            status: response.status,
-            statusText: response.statusText,
-            url: response.url,
-            requestData,
-          });
-          return null;
-        }
-        try {
-          result = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Failed to create round: Invalid JSON response', {
-            status: response.status,
-            statusText: response.statusText,
-            parseError: parseError instanceof Error ? parseError.message : String(parseError),
-            responseText: responseText.substring(0, 200),
-            url: response.url,
-            requestData,
-          });
-          return null;
-        }
-      } catch (readError) {
-        console.error('Failed to create round: Could not read response', {
-          status: response.status,
-          statusText: response.statusText,
-          readError: readError instanceof Error ? readError.message : String(readError),
-          url: response.url,
-          requestData,
-        });
-        return null;
-      }
-
-      if (!response.ok) {
-        // API returns: { success: false, error: { code, message, details, validationErrors } }
-        const error = result?.error || {};
-        const errorMessage = error?.message || error?.details || result?.message || `HTTP ${response.status}: ${response.statusText}`;
-        const errorCode = error?.code || `HTTP_${response.status}`;
-        const validationErrors = error?.validationErrors || null;
-        
-        console.error('Round creation failed', {
-          status: response.status,
-          statusText: response.statusText,
-          message: errorMessage || 'Unknown error',
-          code: errorCode || 'UNKNOWN_ERROR',
-          validationErrors: validationErrors || undefined,
-          fullResult: result || null,
-          requestData,
-        });
-        // Don't block the game from starting, just log the error
-        return null;
-      }
-
-      return result.data?.id || null;
-    } catch (error) {
-      console.error('Error creating round:', {
-        error: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : undefined,
-        userId: session.user.id,
-        selectedFolder
-      });
-      // Don't block the game from starting, just log the error
-      return null;
-    } finally {
-      setIsCreatingRound(false);
-    }
-  }, [session?.user?.id, selectedFolder]);
-
-  // Load recent rounds for the current dataset
-  const loadRecentRounds = useCallback(async (datasetName: string, autoCreateForTutorial = false) => {
-    // Validate user ID and dataset name
-    if (!session?.user?.id) {
-      console.error('loadRecentRounds: Missing user ID');
-      return;
-    }
-    if (!datasetName) {
-      console.error('loadRecentRounds: Missing dataset name');
-      return;
-    }
-
-    // Ensure cache is user-scoped
-    const userId = session.user.id;
-    const cacheKey = `${userId}_${datasetName}`;
-
-    if (!window.__roundCache) {
-      window.__roundCache = {};
-    }
-    const roundCache = window.__roundCache;
-
-    // Clear cache if user ID changed (prevent cross-user data leakage)
-    const cacheUserId = Object.keys(roundCache)[0]?.split('_')[0];
-    if (cacheUserId && cacheUserId !== userId) {
-      console.log('User ID changed, clearing round cache');
-      window.__roundCache = {};
-    }
-
-    // Skip cache if auto-creating for tutorial
-    if (!autoCreateForTutorial && roundCache[cacheKey]) {
-      const cached = roundCache[cacheKey];
-      // Verify cache is still valid (not expired and for correct user)
-      const cacheAge = Date.now() - cached.fetchedAt;
-      if (cacheAge < 30000) { // 30 second cache
-        setAvailableRounds(cached.rounds || []);
-        if (cached.rounds && cached.rounds.length > 0) {
-          const cachedMostRecent = cached.rounds.find((round: any) => !round.completed) || cached.rounds[0];
-          if (cachedMostRecent && !pendingRoundRef.current) {
-            setCurrentRoundId(cachedMostRecent.id);
-            timer.reset(timerDuration);
-            if (timerDuration > 0) {
-              requestAnimationFrame(() => timer.start());
-            }
-          }
-        }
-        setIsLoadingRounds(false);
-        return;
-      }
-    }
-
-    setIsLoadingRounds(true);
-    try {
-      // Ensure user ID is properly encoded in URL
-      const url = `/api/game/rounds?userId=${encodeURIComponent(userId)}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
-      const result = await response.json();
-
-      if (!response.ok) {
-        const message =
-          result?.error?.message ||
-          result?.error ||
-          result?.message ||
-          `Unexpected response (${response.status})`;
-        console.error('Failed to load rounds:', message, { result });
-        setAvailableRounds([]);
-        // Try to create a new round even if loading fails, so the game can still work
-        const autoName = generateRoundName();
-        const newRoundId = await createNewRound(autoName);
-        if (newRoundId) {
-          setCurrentRoundId(newRoundId);
-          // Timer will start automatically via useEffect when currentRoundId is set
-        }
-        return;
-      }
-
-      const rounds = result.data || [];
-      
-      // Validate that all rounds belong to the current user
-      const validRounds = rounds.filter((round: any) => {
-        if (round.user_id !== userId) {
-          console.warn(`Round ${round.id} belongs to different user (${round.user_id} vs ${userId}), filtering out`);
-          return false;
-        }
-        return true;
-      });
-      
-      setAvailableRounds(validRounds);
-      roundCache[cacheKey] = {
-        rounds: validRounds,
-        fetchedAt: Date.now(),
-      };
-
-      // Skip auto-loading if there's a pending round to load (user selected a specific round)
-      if (pendingRoundRef.current) {
-        console.log('Skipping auto-load - pending round will be loaded:', pendingRoundRef.current.roundId);
-        return;
-      }
-
-      // Auto-load the most recent incomplete round
-      const mostRecentIncomplete = rounds.find((round: any) => !round.completed);
-      
-      if (mostRecentIncomplete && !autoCreateForTutorial) {
-        const roundId = mostRecentIncomplete.id;
-        setCurrentRoundId(roundId);
-
-        if (!window.__matchCache) {
-          window.__matchCache = {};
-        }
-
-        const matchCacheKey = roundId;
-        const matchCache = window.__matchCache;
-
-        if (matchCache[matchCacheKey]?.matches) {
-          gameState.initializeFromMatches(matchCache[matchCacheKey].matches);
-        } else {
-          (async () => {
-            try {
-              const matchResponse = await fetch(`/api/game/matches?roundId=${roundId}`);
-              if (matchResponse.ok) {
-                const matchResult = await matchResponse.json();
-                const matches = matchResult.data || [];
-                if (matches.length > 0) {
-                  matchCache[matchCacheKey] = {
-                    matches,
-                    fetchedAt: Date.now(),
-                  };
-                  gameState.initializeFromMatches(matches);
-                }
-              }
-            } catch (error) {
-              console.error('Error loading matches for auto-loaded round:', error);
-            }
-          })();
-        }
-
-        // Immediately start timer for the active round
-        timer.reset(timerDuration);
-        if (timerDuration > 0) {
-          requestAnimationFrame(() => {
-            timer.start();
-          });
-        }
-      } else if (rounds.length > 0 && !autoCreateForTutorial) {
-        setShowRoundSelector(true);
-      } else {
-        // Automatically create a new round when none exist OR when autoCreateForTutorial is true
-        const autoName = generateRoundName();
-        const newRoundId = await createNewRound(autoName);
-        if (newRoundId) {
-          setCurrentRoundId(newRoundId);
-          timer.reset(timerDuration);
-          if (timerDuration > 0 && !autoCreateForTutorial) {
-            requestAnimationFrame(() => {
-              timer.start();
-            });
-          }
-        } else {
-          // Even if round creation fails, allow game to work (practice mode)
-          // Timer will start via the auto-start effect when flashcard loads
-          if (!autoCreateForTutorial) {
-            setShowRoundSelector(true);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error loading rounds:', error);
-      setAvailableRounds([]);
-      // Try to create a new round even if loading fails
-      const autoName = generateRoundName();
-      const newRoundId = await createNewRound(autoName);
-      if (newRoundId) {
-        setCurrentRoundId(newRoundId);
-        timer.reset(timerDuration);
-        if (timerDuration > 0 && !autoCreateForTutorial) {
-          requestAnimationFrame(() => {
-            timer.start();
-          });
-        }
-      } else {
-        if (!autoCreateForTutorial) {
-          setShowRoundSelector(true);
-        }
-      }
-    } finally {
-      setIsLoadingRounds(false);
-    }
-  }, [session?.user?.id, createNewRound, gameState, timer, timerDuration, generateRoundName]);
-
-  // Initialize tutorial if triggered and auto-create round
-  React.useEffect(() => {
-    // Detect when tutorial trigger changes from false to true (replay scenario)
-    const tutorialJustTriggered = tutorialTrigger && !prevTutorialTriggerRef.current;
-    
-    console.log('Tutorial effect running', { 
-      tutorialTrigger, 
-      tutorialJustTriggered,
-      prevTrigger: prevTutorialTriggerRef.current,
-      hasSession: !!session?.user?.id,
-      loading,
-      flashcardsCount: flashcards.length,
-      selectedFolder 
-    });
-    
-    // Reset tutorial state when trigger changes to false
-    if (!tutorialTrigger) {
-      // Reset the ref when trigger becomes false, so next true will be detected as new
-      if (prevTutorialTriggerRef.current) {
-        console.log('Tutorial trigger reset to false, resetting ref');
-        prevTutorialTriggerRef.current = false;
-      }
-      if (showTutorial) {
-        setShowTutorial(false);
-      }
-      return;
-    }
-
-    // Only proceed if we have all required conditions
-    if (!session?.user?.id || loading) {
-      console.log('Waiting for session or loading to complete');
-      // Don't update ref yet - wait until conditions are met
-      return;
-    }
-
-    // If flashcards aren't loaded yet, wait for them
-    if (flashcards.length === 0) {
-      console.log('Tutorial triggered but waiting for flashcards to load...');
-      // Don't update ref yet - wait until conditions are met
-      return;
-    }
-
-    // If folder isn't selected yet, wait for it
-    if (!selectedFolder) {
-      console.log('Tutorial triggered but waiting for folder selection...');
-      // Don't update ref yet - wait until conditions are met
-      return;
-    }
-
-    // All conditions met - now we can start the tutorial
-    // Update ref only when we're actually about to start the tutorial
-    const wasJustTriggered = tutorialJustTriggered;
-    if (wasJustTriggered) {
-      // Only update ref when we're actually starting (not when waiting)
-      prevTutorialTriggerRef.current = tutorialTrigger;
-    } else if (prevTutorialTriggerRef.current !== tutorialTrigger) {
-      // Handle case where trigger was already true but we're now ready
-      prevTutorialTriggerRef.current = tutorialTrigger;
-    }
-
-    console.log('Starting tutorial - all conditions met', { tutorialJustTriggered: wasJustTriggered });
-    
-    // If tutorial was just triggered (replay), reset tutorial state first
-    if (wasJustTriggered) {
-      console.log('Resetting tutorial state for replay');
-      setShowTutorial(false);
-      // Small delay to ensure state reset, then start tutorial
-      const timeout = setTimeout(() => {
-        console.log('Starting tutorial after replay reset');
-        setShowTutorial(true);
-      }, 200);
-      return () => {
-        clearTimeout(timeout);
-      };
-    }
-    
-    // Close round selector if open
-    setShowRoundSelector(false);
-    
-    // Auto-create round if needed (for new users)
-    if (!currentRoundId && selectedFolder) {
-      console.log('Auto-creating round for tutorial');
-      loadRecentRounds(selectedFolder, true); // true = auto-create for tutorial
-    }
-    
-    // Wait a bit for UI to render, then start tutorial
-    const timeout = setTimeout(() => {
-      console.log('Setting showTutorial to true');
-      setShowTutorial(true);
-    }, 1500);
-    
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, currentRoundId, loadRecentRounds]);
-
-  // Handle folder change
-  const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newFolder = e.target.value;
-    setSelectedFolder(newFolder);
-    // Reset game state BEFORE clearing flashcards to ensure clean state
-    gameState.resetGame();
-    // Reset timer to current duration setting
-    timer.reset(timerDuration);
-    setCurrentRoundId(null);
-    setShowRoundSelector(false);
-    
-    // Load recent rounds for the new folder
-    if (newFolder && session?.user?.id) {
-      loadRecentRounds(newFolder);
-    }
-  }, [setSelectedFolder, gameState, timer, timerDuration, session?.user?.id, loadRecentRounds]);
-
-  // Handle timer duration change
-  const handleTimerDurationChange = useCallback((duration: number) => {
-    setTimerDuration(duration);
-    timer.setDuration(duration);
-  }, [timer]);
-
-  // Handle creating a new round
-  const handleNewRound = useCallback(async () => {
-    if (!selectedFolder) {
-      return;
-    }
-
-    // Show round selector modal so user can optionally name the round
-    setRoundNameInput(''); // Clear any previous input
-    setShowRoundSelector(true);
-  }, [selectedFolder]);
-
-  // Handle confirming round creation from the modal
-  const handleConfirmNewRound = useCallback(async () => {
-    if (!selectedFolder) {
-      return;
-    }
-
-    // Generate automatic name and use it if user hasn't provided one
-    const name = roundNameInput.trim() || generateRoundName();
-
-    const roundId = await createNewRound(name);
-    
-    // Reset game and timer regardless of round creation result
-    gameState.resetGame();
-    timer.reset(timerDuration);
-    setRoundNameInput(''); // Clear input after creating
-    
-    if (roundId) {
-      setCurrentRoundId(roundId);
-      setShowRoundSelector(false);
-      // Timer will start automatically via useEffect when currentRoundId is set
-    } else {
-      console.error('Failed to create round - no round ID returned');
-      // Still allow the game to start even if round creation fails
-      setShowRoundSelector(false);
-    }
-  }, [selectedFolder, roundNameInput, generateRoundName, createNewRound, gameState, timer, timerDuration]);
-
-  const handleRoundNameChange = useCallback((value: string) => {
-    setRoundNameInput(value);
-  }, []);
-
-  const handleGenerateRoundNameClick = useCallback(() => {
-    setRoundNameInput(generateRoundName());
-  }, [generateRoundName]);
-
-  const handleRoundSelectorCancel = useCallback(() => {
-    setShowRoundSelector(false);
-    setRoundNameInput('');
-  }, []);
-
-  // Helper function to load round matches and initialize game state
-  const loadRoundMatches = useCallback(async (roundId: string) => {
-    setCurrentRoundId(roundId);
-    setShowRoundSelector(false);
-    pendingRoundRef.current = null; // Clear pending round
-    
-    // Reset game state first
-    gameState.resetGame();
-    timer.reset(timerDuration);
-    
-    // Fetch existing matches for this round and initialize game state
-    try {
-      const response = await fetch(`/api/game/matches?roundId=${roundId}`);
-      
-      if (response.ok) {
-        const result = await response.json();
-        const matches = result.data || [];
-        
-        // Initialize game state with existing matches
-        if (matches.length > 0) {
-          gameState.initializeFromMatches(matches);
-        }
-      } else {
-        console.error('Failed to fetch matches for round:', roundId);
-      }
-    } catch (error) {
-      console.error('Error fetching matches for round:', error);
-    }
-    
-    // Timer will start automatically via the useEffect that watches currentRoundId
-  }, [gameState, timer, timerDuration]);
-
-  // Handle selecting an existing round
-  const handleSelectRound = useCallback(async (roundId: string, datasetName?: string) => {
-    // If datasetName is provided and different from current folder, switch folders first
-    if (datasetName && datasetName !== selectedFolder) {
-      console.log(`Switching folder from ${selectedFolder} to ${datasetName} for round ${roundId}`);
-      
-      // Reset game state before switching folders
-      gameState.resetGame();
-      timer.reset(timerDuration);
-      setCurrentRoundId(null);
-      
-      // Store the round ID and dataset name to load after folder is ready
-      pendingRoundRef.current = { roundId, datasetName };
-      
-      // Switch folder - this will trigger flashcard loading
-      setSelectedFolder(datasetName);
-      
-      // The round will be loaded by the effect that watches for flashcards being ready
-      return;
-    }
-    
-    // If folder already matches, load the round directly
-    await loadRoundMatches(roundId);
-  }, [gameState, timer, timerDuration, selectedFolder, setSelectedFolder, loadRoundMatches]);
-
-  const handleRoundSelectorSelect = useCallback(
-    (roundId: string, datasetName: string) => {
-      setShowRoundSelector(false);
-      setRoundNameInput('');
-      handleSelectRound(roundId, datasetName);
-    },
-    [handleSelectRound]
-  );
-
-  // Handle next card with smooth transition
+  // Handlers
   const handleNextCard = useCallback(() => {
-    // Pause timer first to prevent any timer-related state updates
     timer.pause();
-    
-    // Reset game state - this clears all selection state (including feedback) and moves to next card
-    // State is reset first, then index is updated to ensure clean transition
     gameState.nextCard();
-    
-    // Reset timer to the current duration setting
     timer.reset(timerDuration);
-    
-    // Start timer for the new card after a delay to ensure state has fully updated
-    // This gives React time to process the state updates and re-render with new data
-    // Timer should work even without a round (for practice mode)
-    // Don't start if timerDuration is 0 (always pause mode)
-    // Use requestAnimationFrame for smoother transitions
-    requestAnimationFrame(() => {
+    if (selectedFolder && timerDuration > 0) {
       requestAnimationFrame(() => {
-        if (selectedFolder && timerDuration > 0) { // Only start if we have a folder selected (game is active) and duration > 0
-          timer.start();
-        }
+        requestAnimationFrame(() => timer.start());
       });
-    });
+    }
   }, [gameState, timer, timerDuration, selectedFolder]);
-  
-  // Store handleNextCard in ref for timer callback
-  React.useEffect(() => {
+
+  useEffect(() => {
     handleNextCardRef.current = handleNextCard;
   }, [handleNextCard]);
 
-  // Log match to database
-  const logMatch = useCallback(async (buttonIndex: number, isCorrect: boolean) => {
-    if (!currentRoundId || !activeFlashcard || !session?.user?.id) {
-      return; // Don't log if no active round or missing data
-    }
-
-    // Validate round ID format (must be a UUID)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(currentRoundId)) {
-      return;
-    }
-
-    // Extract stock symbol from current flashcard
-    const stockSymbol = extractStockName(activeFlashcard) || 'UNKNOWN';
-
-    const matchData = {
-      round_id: currentRoundId,
-      stock_symbol: stockSymbol,
-      user_selection: buttonIndex,
-      correct: isCorrect,
-    };
-
-
-    try {
-      const response = await fetch('/api/game/matches', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(matchData),
-      });
-
-      let result;
-      let responseText: string = '';
-      try {
-        responseText = await response.text();
-        if (!responseText) {
-          console.error('Failed to log match: Empty response body', {
-            status: response.status,
-            statusText: response.statusText,
-            url: response.url,
-          });
-          return;
-        }
-        try {
-          result = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Failed to log match: Invalid JSON response', {
-            status: response.status,
-            statusText: response.statusText,
-            parseError: parseError instanceof Error ? parseError.message : String(parseError),
-            responseText: responseText.substring(0, 200),
-            url: response.url,
-          });
-          return;
-        }
-      } catch (readError) {
-        console.error('Failed to log match: Could not read response', {
-          status: response.status,
-          statusText: response.statusText,
-          readError: readError instanceof Error ? readError.message : String(readError),
-          url: response.url,
-        });
-        return;
-      }
-
-      if (!response.ok) {
-        // API returns: { success: false, error: { code, message, details, validationErrors } }
-        const error = result?.error || {};
-        const errorMessage = error?.message || error?.details || result?.message || `HTTP ${response.status}: ${response.statusText}`;
-        const errorCode = error?.code || `HTTP_${response.status}`;
-        const validationErrors = error?.validationErrors || null;
-        
-        console.error('Failed to log match', {
-          status: response.status,
-          statusText: response.statusText,
-          message: errorMessage || 'Unknown error',
-          code: errorCode || 'UNKNOWN_ERROR',
-          validationErrors: validationErrors || undefined,
-          fullResult: result || null,
-          matchData: {
-            round_id: matchData.round_id,
-            stock_symbol: matchData.stock_symbol,
-            user_selection: matchData.user_selection,
-            correct: matchData.correct,
-          },
-        });
-      } else {
-        // Update match log tracking
-        setLastMatchLogTime(Date.now());
-        setMatchLogCount(prev => prev + 1);
-        triggerRoundHistoryRefresh();
-      }
-    } catch (error) {
-      console.error('Error logging match:', error instanceof Error ? error.message : String(error));
-    }
-  }, [currentRoundId, activeFlashcard, session?.user?.id, triggerRoundHistoryRefresh]);
-
-  // Handle selection with timer integration and match logging
-  const handleSelection = useCallback((buttonIndex: number) => {
-    gameState.handleSelection(buttonIndex, (isCorrect: boolean) => {
-      logMatch(buttonIndex, isCorrect);
-    });
-    timer.pause();
-  }, [gameState, timer, logMatch]);
-
-  // Calculate target point and ranges from data
-  const { targetPoint, priceRange, timeRange } = useMemo(() => {
-  if (!activeProcessedData.afterJsonData || !Array.isArray(activeProcessedData.afterJsonData) || activeProcessedData.afterJsonData.length === 0) {
-      return { targetPoint: null, priceRange: null, timeRange: null };
-    }
-    
-    const mainData = activeProcessedData.orderedFiles[0]?.data || [];
-    const mainDataLength = mainData.length;
-    
-    // Find peak close price in after data
-    let maxClose = -Infinity;
-    let maxIndex = -1;
-    let maxPrice = 0;
-    
-    activeProcessedData.afterJsonData.forEach((point: any, index: number) => {
-      const close = point.close || point.Close || point.CLOSE;
-      if (close && typeof close === 'number' && close > maxClose) {
-        maxClose = close;
-        maxIndex = index;
-        maxPrice = close;
-      }
-    });
-    
-    if (maxIndex === -1) return { targetPoint: null, priceRange: null, timeRange: null };
-    
-    // Calculate price range from all data (main + after)
-    const allPrices: number[] = [];
-    mainData.forEach((point: any) => {
-      const close = point.close || point.Close || point.CLOSE;
-      if (close && typeof close === 'number') allPrices.push(close);
-    });
-    activeProcessedData.afterJsonData.forEach((point: any) => {
-      const close = point.close || point.Close || point.CLOSE;
-      if (close && typeof close === 'number') allPrices.push(close);
-    });
-    
-    const priceMin = Math.min(...allPrices);
-    const priceMax = Math.max(...allPrices);
-    const pricePadding = (priceMax - priceMin) * 0.2; // 20% padding for extended selection
-    
-    // Calculate time range (extend beyond current data to allow future predictions)
-    const totalTimePoints = mainDataLength + activeProcessedData.afterJsonData.length;
-    const timeMin = 0;
-    const timeMax = totalTimePoints * 1.5; // Extend 50% beyond for future predictions
-    const timeIndex = mainDataLength + maxIndex;
-    
-    return {
-      targetPoint: {
-        x: timeIndex,
-        y: maxPrice,
-        chartX: 0,
-        chartY: 0,
-      },
-      priceRange: {
-        min: priceMin - pricePadding,
-        max: priceMax + pricePadding,
-      },
-      timeRange: {
-        min: timeMin,
-        max: timeMax,
-      }
-    };
-  }, [activeProcessedData.afterJsonData, activeProcessedData.orderedFiles]);
-
-  // Force selection when timer expires - selects at middle of selectable area
-  // Must be defined after targetPoint, priceRange, and timeRange
-  const forceSelection = useCallback(() => {
-    if (!targetPoint || !priceRange || !timeRange || gameState.score !== null) {
-      // Already have a selection or no target point available
-      return;
-    }
-    
-    const mainDataLength = activeProcessedData.orderedFiles[0]?.data?.length || 0;
-    
-    // Select at middle of the selectable time range (after last data point)
-    // Use middle of price range for Y coordinate
-    const selectableTimeMin = mainDataLength;
-    const selectableTimeMax = timeRange.max;
-    const forcedX = selectableTimeMin + Math.floor((selectableTimeMax - selectableTimeMin) / 2);
-    const forcedY = priceRange.min + (priceRange.max - priceRange.min) / 2;
-    
-    // Create coordinates object
-    const forcedCoordinates = {
-      x: forcedX,
-      y: forcedY,
-      chartX: 0, // Will be calculated by chart
-      chartY: 0, // Will be calculated by chart
-    };
-    
-    // Directly call gameState.handleCoordinateSelection (same as handleChartClick does)
-    gameState.handleCoordinateSelection(
-      forcedCoordinates,
-      (distance: number, score: number, scoreData?: any) => {
-        // Log match with coordinates
-        const stockSymbol = extractStockName(activeFlashcard) || 'UNKNOWN';
-        const isCorrect = scoreData?.priceAccuracy >= 70 || score >= 70;
-        
-        logMatchWithCoordinates({
-          coordinates: forcedCoordinates,
-          targetPoint,
-          distance,
-          score,
-          stockSymbol,
-          isCorrect,
-          priceAccuracy: scoreData?.priceAccuracy,
-          timePosition: scoreData?.timePosition,
-          priceError: scoreData?.priceError,
-          timeError: scoreData?.timeError,
-        });
-      },
-      targetPoint,
-      priceRange,
-      timeRange
-    );
-    timer.pause();
-  }, [targetPoint, priceRange, timeRange, gameState, activeProcessedData, activeFlashcard, timer, logMatchWithCoordinates]);
-
-  // Update the ref so timer can access forceSelection
-  React.useEffect(() => {
-    forceSelectionRef.current = forceSelection;
-  }, [forceSelection]);
-
-  // Handle chart coordinate selection
   const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
-    if (!targetPoint || !priceRange || !timeRange) {
-      return;
-    }
-    
-    // Verify selection is after the last data point
+    if (!targetPoint || !priceRange || !timeRange) return;
     const mainDataLength = activeProcessedData.orderedFiles[0]?.data?.length || 0;
+    if (coordinates.x <= mainDataLength - 1) return;
     
-    if (coordinates.x <= mainDataLength - 1) {
-      // Selection is not in the future - don't process
-      return;
-    }
-    
-    // Dispatch event for tutorial to detect valid selection (only after validation)
     if (showTutorial) {
       window.dispatchEvent(new CustomEvent('tutorial-selection-made'));
     }
@@ -1370,11 +161,9 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     gameState.handleCoordinateSelection(
       coordinates,
       (distance: number, score: number, scoreData?: any) => {
-        // Log match with coordinates
         const stockSymbol = extractStockName(activeFlashcard) || 'UNKNOWN';
-        const isCorrect = scoreData?.priceAccuracy >= 70 || score >= 70;
-        
-        logMatchWithCoordinates({
+        const isCorrect = (scoreData?.priceAccuracy ?? score) >= SCORING_CONFIG.CORRECT_THRESHOLD;
+        matchLogging.logMatchWithCoordinates({
           coordinates,
           targetPoint,
           distance,
@@ -1392,297 +181,124 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
       timeRange
     );
     timer.pause();
-  }, [gameState, timer, targetPoint, priceRange, timeRange, activeFlashcard, activeProcessedData, logMatchWithCoordinates, showTutorial]);
+  }, [gameState, timer, targetPoint, priceRange, timeRange, activeFlashcard, activeProcessedData, matchLogging, showTutorial]);
 
-  // Track the last round ID we've reset the timer for to prevent infinite loops
-  const lastResetRoundIdRef = React.useRef<string | null>(null);
-  
-  // Start timer when a round is selected
-  useEffect(() => {
-    if (
-      currentRoundId && 
-      !loading && 
-      selectedFolder && 
-      timerDuration > 0 &&
-      timer.isReady &&
-      !timer.isRunning &&
-      !gameState.showTimeUpOverlay &&
-      lastResetRoundIdRef.current !== currentRoundId // Only reset once per round
-    ) {
-      // Mark this round as reset
-      lastResetRoundIdRef.current = currentRoundId;
-      
-      // Reset and start timer when round is selected
-      timer.reset(timerDuration);
-      // Use requestAnimationFrame to ensure state is updated
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          timer.start();
-        });
-      });
-    }
-  }, [currentRoundId, loading, selectedFolder, timerDuration, timer.isReady, timer.isRunning, timer.reset, timer.start, gameState.showTimeUpOverlay]);
-
-  // Start timer when flashcard changes (new stock displayed)
-  // This ensures the timer starts when moving to a new stock
-  // Note: handleNextCard manages its own timer, so we only start if timer isn't already running
-  useEffect(() => {
-    if (
-      activeFlashcard && 
-      !loading && 
-      selectedFolder && 
-      timerDuration > 0 &&
-      timer.isReady &&
-      !timer.isRunning &&
-      currentRoundId && // Only auto-start if we have a round selected
-      !gameState.feedback &&
-      !gameState.showTimeUpOverlay
-    ) {
-      // Reset timer to the current duration and start it for new stock
-      timer.reset(timerDuration);
-      // Use requestAnimationFrame to ensure state is updated
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          timer.start();
-        });
-      });
-    }
-  }, [activeFlashcard, loading, selectedFolder, timerDuration, timer, currentRoundId, gameState.feedback, gameState.showTimeUpOverlay]);
-  
-  // Auto-advance 10 seconds after a selection is made (only if not paused)
-  // This works in sync with the countdown timer in ChartScoreOverlay
-  useEffect(() => {
-    // Only trigger if feedback is set (user made a selection)
-    if (gameState.feedback && gameState.score !== null && gameState.score !== undefined) {
-      // Reset advance flag when starting new timer
-      hasAdvancedRef.current = false;
-      
-      let autoAdvanceTimer: NodeJS.Timeout | null = null;
-      let elapsedTime = 0;
-      let startTime = Date.now();
-      let pauseStartTime: number | null = null;
-      const delayDuration = 10000; // 10 seconds after selection (matches countdown timer)
-      
-      const checkAndAdvance = () => {
-        // Check if paused - if so, track pause time and reschedule check
-        if (isChartPausedRef.current) {
-          if (pauseStartTime === null) {
-            // Just entered pause state - record when we paused
-            pauseStartTime = Date.now();
-          }
-          // Check again after a short delay to see if unpaused
-          autoAdvanceTimer = setTimeout(checkAndAdvance, 100);
-          return;
-        }
-        
-        // If we were paused, add the pause duration to elapsed time
-        if (pauseStartTime !== null) {
-          const pauseDuration = Date.now() - pauseStartTime;
-          startTime += pauseDuration; // Adjust start time to account for pause
-          pauseStartTime = null;
-        }
-        
-        // Calculate elapsed time (excluding paused time)
-        elapsedTime = Date.now() - startTime;
-        const remainingTime = delayDuration - elapsedTime;
-        
-        if (remainingTime <= 0) {
-          // Time is up, advance to next card (double-check we're not paused and haven't already advanced)
-          if (handleNextCardRef.current && !isChartPausedRef.current && !hasAdvancedRef.current) {
-            hasAdvancedRef.current = true;
-            handleNextCardRef.current();
-          }
-        } else {
-          // Schedule next check
-          autoAdvanceTimer = setTimeout(checkAndAdvance, Math.min(100, remainingTime));
-        }
-      };
-      
-      // Start checking
-      autoAdvanceTimer = setTimeout(checkAndAdvance, 100);
-      
-      return () => {
-        if (autoAdvanceTimer) {
-          clearTimeout(autoAdvanceTimer);
-        }
-      };
-    } else {
-      // Reset advance flag when feedback is cleared
-      hasAdvancedRef.current = false;
-    }
-  }, [gameState.feedback, gameState.score]);
-
-  // Always decide overlay visibility in a hook before any conditional returns
-  useEffect(() => {
-    if (!currentRoundId && selectedFolder && !isLoadingRounds) {
-      setShowRoundSelector(true);
-    }
-  }, [currentRoundId, selectedFolder, isLoadingRounds]);
-
-  // Extract stock name for DateFolderBrowser
-  const currentStock = useMemo(() => 
-    extractStockName(activeFlashcard),
-    [activeFlashcard]
-  );
-
-  // Ensure currentIndex stays within bounds when flashcards array changes
-  // But only adjust if not loading to prevent rapid flipping on refresh
-  useEffect(() => {
-    // Don't adjust index during loading - wait until data is fully loaded
-    if (loading) {
+  const handleTooltipDismiss = useCallback((event?: { reason?: string }) => {
+    gameState.setShowTimeUpOverlay(false);
+    if (event?.reason === 'manual-chart') {
+      if (timerDuration > 0) {
+        timer.reset(timerDuration);
+        timer.start();
+      }
       return;
     }
-    
-    // Check if flashcards have data loaded
-    const flashcardsHaveData = flashcards.length > 0 && flashcards.some(f => 
-      f.jsonFiles && f.jsonFiles.length > 0 && f.jsonFiles.every(file => file.data !== null && file.data !== undefined)
-    );
-    
-    if (!flashcardsHaveData) {
-      return;
-    }
-    
-    if (flashcards.length > 0 && gameState.currentIndex >= flashcards.length) {
-      gameState.setCurrentIndex(flashcards.length - 1);
-    } else if (flashcards.length > 0 && gameState.currentIndex < 0) {
-      gameState.setCurrentIndex(0);
-    }
-  }, [flashcards.length, gameState, loading]);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (handleNextCardRef.current) {
+          handleNextCardRef.current();
+        }
+      });
+    });
+  }, [gameState, timer, timerDuration]);
 
-  // Load rounds when folder is selected, but only if folder/userId actually changed
-  useEffect(() => {
-    if (
-      selectedFolder &&
-      session?.user?.id &&
-      !isLoadingRounds &&
-      (lastLoadedRef.current.folder !== selectedFolder || lastLoadedRef.current.userId !== session.user.id)
-    ) {
-      loadRecentRounds(selectedFolder);
-      lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
+  const handleFolderChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newFolder = e.target.value;
+    setSelectedFolder(newFolder);
+    gameState.resetGame();
+    timer.reset(timerDuration);
+    if (newFolder && session?.user?.id) {
+      roundManagement.loadRecentRounds(newFolder);
     }
-  }, [selectedFolder, session?.user?.id, loadRecentRounds, isLoadingRounds]);
+  }, [setSelectedFolder, gameState, timer, timerDuration, roundManagement, session?.user?.id]);
+
+  const handleTimerDurationChange = useCallback((duration: number) => {
+    setTimerDuration(duration);
+    timer.setDuration(duration);
+  }, [timer]);
+
+  // Timer effects
+  useEffect(() => {
+    if (roundManagement.currentRoundId && !loading && selectedFolder && timerDuration > 0 && 
+        timer.isReady && !timer.isRunning && !gameState.showTimeUpOverlay) {
+      timer.reset(timerDuration);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => timer.start());
+      });
+    }
+  }, [roundManagement.currentRoundId, loading, selectedFolder, timerDuration, timer, gameState.showTimeUpOverlay]);
+
+  useEffect(() => {
+    if (activeFlashcard && !loading && selectedFolder && timerDuration > 0 &&
+        timer.isReady && !timer.isRunning && roundManagement.currentRoundId &&
+        !gameState.feedback && !gameState.showTimeUpOverlay) {
+      timer.reset(timerDuration);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => timer.start());
+      });
+    }
+  }, [activeFlashcard, loading, selectedFolder, timerDuration, timer, roundManagement.currentRoundId, gameState.feedback, gameState.showTimeUpOverlay]);
 
   // Load pending round after flashcards are ready (when switching folders for a round)
   useEffect(() => {
-    const pendingRound = pendingRoundRef.current;
-    if (pendingRound && flashcards.length > 0 && !loading && selectedFolder === pendingRound.datasetName) {
-      console.log(`Flashcards ready, loading pending round: ${pendingRound.roundId} for dataset: ${pendingRound.datasetName}`);
-      loadRoundMatches(pendingRound.roundId);
+    if (flashcards.length > 0 && !loading && selectedFolder) {
+      roundManagement.loadPendingRoundIfReady(true, selectedFolder);
     }
-  }, [flashcards.length, loading, selectedFolder, loadRoundMatches]);
+  }, [flashcards.length, loading, selectedFolder, roundManagement]);
 
-  // Handle after effect completion - show after data but don't auto-advance
-  // Auto-advance is now handled by score overlay after user selection
-  const handleAfterEffectComplete = useCallback(() => {
-    // After effect complete - just mark it as done
-    // User will see their selection result and score overlay will handle next card
-  }, []);
+  // Show round selector when no round is selected
+  useEffect(() => {
+    if (!roundManagement.currentRoundId && selectedFolder && !roundManagement.isLoadingRounds) {
+      roundManagement.setShowRoundSelector(true);
+    }
+  }, [roundManagement.currentRoundId, selectedFolder, roundManagement.isLoadingRounds, roundManagement]);
+
+  // Tutorial effect
+  useEffect(() => {
+    if (!tutorialTrigger || !session?.user?.id || loading || flashcards.length === 0 || !selectedFolder) return;
+    const tutorialJustTriggered = tutorialTrigger && !prevTutorialTriggerRef.current;
+    if (tutorialJustTriggered) {
+      prevTutorialTriggerRef.current = true;
+      setShowTutorial(false);
+      setTimeout(() => setShowTutorial(true), 200);
+      if (!roundManagement.currentRoundId) {
+        roundManagement.loadRecentRounds(selectedFolder, true);
+      }
+      setTimeout(() => setShowTutorial(true), 1500);
+    }
+  }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, roundManagement]);
 
   // Show landing page for unauthenticated users
   if (status !== "authenticated" || !session) {
     return (
       <>
         <LandingPage onSignIn={() => setShowAuthModal(true)} />
-        {showAuthModal && (
-          <AuthModal 
-            open={showAuthModal} 
-            onClose={() => setShowAuthModal(false)} 
-          />
-        )}
+        {showAuthModal && <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />}
       </>
     );
   }
 
-  // Show data loading state - keep showing if loading OR if we have a folder selected but no data ready yet
-  // Check that we have actual usable data: flashcards exist, current flashcard exists, and it has data files with actual data
-  // Also verify the data is actually an array/object with content, not just an empty object
-  // Ensure ALL required files have their data loaded (not just file references)
-  const hasValidData = currentFlashcardReady;
-  
-  // Show loading screen if:
-  // 1. Session is not authenticated yet, OR
-  // 2. Actively loading, OR
-  // 3. We have a folder selected but no valid data ready yet, OR
-  // 4. We're initializing (no folder selected yet - this includes when folders are being fetched)
-  // This ensures seamless transition from study page loading screen with no gaps
-  // Also prevents any visual glitches by ensuring everything is loaded before rendering
-  const sessionNotReady = status !== "authenticated";
-  const hasNoDataReady = selectedFolder && !hasValidData;
-  const isInitializing = !selectedFolder && !error; // Initializing if no folder selected and no error yet
-  
-  // Always show loading screen if session isn't ready, we're loading, data isn't ready, or we're initializing
-  // This ensures NO partial renders - everything must be ready before showing UI
-  // Use smooth transitions for loading state
-  if (sessionNotReady || loading || hasNoDataReady || isInitializing) {
-    return (
-      <>
-        {/* Black background overlay covering entire page including header/footer */}
-        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading />
-        </div>
-      </>
-    );
+  // Loading/error states - only show full-page loading if actively loading initial data
+  // Allow UI to render and let ChartSection handle its own loading state
+  if (loading && flashcards.length === 0 && !selectedFolder) {
+    return <DataLoadingState loadingProgress={loadingProgress} loadingStep={loadingStep} selectedFolder={selectedFolder} loading={loading} error={error} isAuthenticated={true} />;
   }
 
-  // Handle error silently - show loading state instead of error page
-  if (error) {
-    return (
-      <>
-        {/* Black background overlay covering entire page including header/footer */}
-        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading />
-        </div>
-      </>
-    );
+  // Show error state only if there's a critical error and no data at all
+  if (error && selectedFolder && flashcards.length === 0) {
+    return <DataLoadingState loadingProgress={loadingProgress} loadingStep={loadingStep} selectedFolder={selectedFolder} loading={false} error={error} isAuthenticated={true} />;
   }
 
-  // Handle error silently - show loading state instead of error page
-  if (
-    (!flashcards.length ||
-    !activeFlashcard ||
-    activeProcessedData.orderedFiles.length === 0) &&
-    error
-  ) {
-    return (
-      <>
-        {/* Black background overlay covering entire page including header/footer */}
-        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }} />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300 ease-in-out" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading />
-        </div>
-      </>
-    );
-  }
-  
-  // If no data but no error, continue to render the main interface (will show folder selector)
-  
-  // Show round selection prompt when no round is selected
-
-  // Final safety check - ensure we have valid data before rendering
-  // This prevents any edge cases where we might have passed the loading check but data isn't actually ready
-  // Use smooth transition for loading state
-  if (!hasValidData) {
-    return (
-      <>
-        <div className="fixed inset-0 bg-black z-40 pointer-events-none transition-opacity duration-300" style={{ pointerEvents: 'none', opacity: 1 }} />
-        <div className="relative w-full h-[calc(100vh-14rem)] flex items-center justify-center p-4 bg-black z-50 overflow-hidden pointer-events-none transition-opacity duration-300" style={{ pointerEvents: 'none', opacity: 1 }}>
-          <LoadingStates.DataLoading />
-        </div>
-      </>
-    );
+  // If we have a selected folder but no flashcards yet, show loading (but only briefly)
+  // This prevents showing empty UI while data is being fetched
+  if (selectedFolder && flashcards.length === 0 && loading) {
+    return <DataLoadingState loadingProgress={loadingProgress} loadingStep={loadingStep} selectedFolder={selectedFolder} loading={loading} error={error} isAuthenticated={true} />;
   }
 
-  // Main game interface
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
       <div className="min-h-screen w-full flex justify-center items-center p-0 sm:p-4 md:p-6">
-        <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md sm:rounded-md overflow-hidden border border-transparent transition-all duration-300">
-          
-          {/* Chart Section and Folder Section - Side by side layout */}
+        <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-0 items-start">
-            {/* Chart Section - Left side */}
             <div className="w-full lg:w-4/5">
               <ChartView
                 orderedFiles={activeProcessedData.orderedFiles}
@@ -1692,7 +308,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
                 feedback={gameState.feedback}
                 disabled={gameState.disableButtons}
                 showTimeUp={gameState.showTimeUpOverlay && !showTutorial}
-                onAfterEffectComplete={handleAfterEffectComplete}
+                onAfterEffectComplete={() => {}}
                 onChartClick={handleChartClick}
                 userSelection={gameState.userSelection}
                 targetPoint={targetPoint}
@@ -1701,17 +317,21 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
                 onNextCard={handleNextCard}
                 timerDuration={timerDuration}
                 onTimerDurationChange={handleTimerDurationChange}
-                onPauseStateChange={(paused: boolean) => {
-                  isChartPausedRef.current = paused;
-                }}
-                onTimerPause={() => {
-                  timer.pause();
-                }}
+                onPauseStateChange={(paused: boolean) => { isChartPausedRef.current = paused; }}
+                onTimerPause={() => timer.pause()}
                 onDismissTooltip={handleTooltipDismiss}
               />
+              <PredictionPanel
+                userSelection={gameState.userSelection}
+                targetPoint={targetPoint}
+                distance={gameState.distance}
+                score={gameState.score}
+                feedback={gameState.feedback}
+                disabled={gameState.disableButtons}
+                onDismissTooltip={handleTooltipDismiss}
+                showTimeUp={gameState.showTimeUpOverlay && !showTutorial}
+              />
             </div>
-
-            {/* Folder Section - Right column with Points, Accuracy, and Rounds */}
             <div className="w-full lg:w-1/5">
               <ControlPanel
                 selectedFolder={selectedFolder}
@@ -1722,154 +342,74 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
                 matchCount={gameState.metrics.matchCount}
                 correctCount={gameState.metrics.correctCount}
                 onRoundHistory={() => setShowRoundHistory(true)}
-                onNewRound={handleNewRound}
-                isCreatingRound={isCreatingRound}
+                onNewRound={roundManagement.handleNewRound}
+                isCreatingRound={roundManagement.isCreatingRound}
               />
             </div>
           </div>
-          
-          {/* Date Folder Browser Section */}
           <div className="mt-4 lg:mt-2 mb-20">
-            <DateFolderBrowser 
-              session={session} 
-              currentStock={currentStock}
+            <DateFolderBrowser
+              session={session}
+              currentStock={extractStockName(activeFlashcard)}
               flashcards={flashcards as FlashcardData[]}
-            currentFlashcard={activeFlashcard}
+              currentFlashcard={activeFlashcard}
               onChartExpanded={() => {
-                // Only restart timer if it's not already running
-                // This prevents the timer from restarting when scrolling causes charts to re-enter view
-                if (timer.isRunning) {
-                  return; // Timer is already running, don't restart it
+                if (!timer.isRunning && timerDuration > 0) {
+                  timer.reset(timerDuration);
+                  timer.start();
                 }
-                // Ensure we have a valid duration
-                if (timerDuration <= 0) {
-                  return;
-                }
-                // Reset to the configured duration - this immediately sets state and ref
-                timer.reset(timerDuration);
-                // Start the timer immediately - reset() sets the state synchronously
-                // The start() function will use displayValueRef if timer state hasn't updated yet
-                timer.start();
               }}
             />
           </div>
-
-
-          {/* Round History Modal */}
-          {showRoundHistory && (
-            <RoundHistory
-              isOpen={showRoundHistory}
-              onClose={() => {
-                console.log('=== CLOSING ROUND HISTORY MODAL ===');
-                // Capture the refresh function in a variable before state update
-                const refreshFn = roundHistoryRefresh;
-                setShowRoundHistory(false);
-                // Refresh round history data when closing to ensure stats are up to date
-                if (refreshFn && typeof refreshFn === 'function') {
-                  console.log('Refreshing round history data when closing modal');
-                  // Add a small delay before refreshing to ensure any pending updates are complete
-                  setTimeout(() => {
-                    console.log('Executing refresh after modal close');
-                    // Double-check the function is still valid before calling
-                    if (refreshFn && typeof refreshFn === 'function') {
-                      refreshFn();
-                    } else {
-                      console.warn('Refresh function is no longer valid');
-                    }
-                  }, 500);
-                } else {
-                  console.log('No refresh function available to call');
-                }
-              }}
-              onLoadRound={(roundId: string, datasetName: string) => {
-                console.log("Loading round:", roundId, datasetName);
-                handleSelectRound(roundId, datasetName);
-                setShowRoundHistory(false);
-              }}
-              userId={session?.user?.id}
-              onRefresh={setRoundHistoryRefresh}
-            />
-          )}
         </div>
       </div>
 
-      {/* Global Styles for Animations */}
-      <style jsx global>{`
-        @keyframes pulse-slow {
-          0%, 100% {
-            opacity: 1;
-            box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.7);
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.95;
-            box-shadow: 0 0 15px 10px rgba(45, 212, 191, 0.35);
-            transform: scale(1.02);
-          }
-        }
-        
-        @keyframes glow {
-          0%, 100% {
-            text-shadow: 0 0 8px rgba(45, 212, 191, 0.7);
-            letter-spacing: normal;
-          }
-          50% {
-            text-shadow: 0 0 20px rgba(45, 212, 191, 1);
-            letter-spacing: 0.5px;
-          }
-        }
-        
-        .animate-pulse-slow {
-          animation: pulse-slow 2s infinite;
-        }
-        
-        .animate-glow {
-          animation: glow 2s infinite;
-        }
-      `}</style>
+      {showRoundHistory && (
+        <RoundHistory
+          isOpen={showRoundHistory}
+          onClose={() => {
+            setShowRoundHistory(false);
+            setTimeout(() => matchLogging.roundHistoryRefresh?.(), 500);
+          }}
+          onLoadRound={(roundId: string, datasetName: string) => {
+            roundManagement.handleSelectRound(roundId, datasetName);
+            setShowRoundHistory(false);
+          }}
+          userId={session?.user?.id}
+          onRefresh={matchLogging.setRoundHistoryRefresh}
+        />
+      )}
+
       <RoundSelector
-        isOpen={showRoundSelector}
-        roundName={roundNameInput}
-        availableRounds={availableRounds}
-        isCreatingRound={isCreatingRound}
-        onRoundNameChange={handleRoundNameChange}
-        onGenerateRoundName={handleGenerateRoundNameClick}
-        onCreateRound={handleConfirmNewRound}
-        onSelectRound={handleRoundSelectorSelect}
-        onCancel={handleRoundSelectorCancel}
+        isOpen={roundManagement.showRoundSelector}
+        roundName={roundManagement.roundNameInput}
+        availableRounds={roundManagement.availableRounds}
+        isCreatingRound={roundManagement.isCreatingRound}
+        onRoundNameChange={roundManagement.handleRoundNameChange}
+        onGenerateRoundName={() => roundManagement.setRoundNameInput(roundManagement.handleGenerateRoundName())}
+        onCreateRound={roundManagement.handleConfirmNewRound}
+        onSelectRound={roundManagement.handleRoundSelectorSelect}
+        onCancel={roundManagement.handleRoundSelectorCancel}
       />
 
-      {/* Tutorial */}
       <Tutorial
         key={`tutorial-${showTutorial}-${tutorialTrigger}`}
         isActive={showTutorial}
         onComplete={() => {
-          console.log('Tutorial completed');
           setShowTutorial(false);
-          // Resume timer if needed
-          if (timerDuration > 0 && !timer.isRunning) {
-            timer.start();
-          }
+          if (timerDuration > 0 && !timer.isRunning) timer.start();
         }}
         onSkip={() => {
-          console.log('Tutorial skipped');
           setShowTutorial(false);
-          // Resume timer if needed
-          if (timerDuration > 0 && !timer.isRunning) {
-            timer.start();
-          }
+          if (timerDuration > 0 && !timer.isRunning) timer.start();
         }}
         timer={{
           pause: timer.pause,
-          resume: () => {
-            if (timerDuration > 0) {
-              timer.start();
-            }
-          },
+          resume: () => { if (timerDuration > 0) timer.start(); },
           isRunning: timer.isRunning,
         }}
       />
-
     </div>
   );
-} 
+}
+
