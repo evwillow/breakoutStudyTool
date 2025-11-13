@@ -1175,7 +1175,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => scales.xScale(stockData.length + i))
+      .x((d, i) => scales.xScale(stockData.length + i) ?? 0)
       .y(d => {
         // Make sure we have a valid numeric value
         if (d.sma10 === null || d.sma10 === undefined || isNaN(Number(d.sma10))) {
@@ -1191,7 +1191,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => scales.xScale(stockData.length + i))
+      .x((d, i) => scales.xScale(stockData.length + i) ?? 0)
       .y(d => {
         // Make sure we have a valid numeric value
         if (d.sma20 === null || d.sma20 === undefined || isNaN(Number(d.sma20))) {
@@ -1207,7 +1207,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
     
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => scales.xScale(stockData.length + i))
+      .x((d, i) => scales.xScale(stockData.length + i) ?? 0)
       .y(d => {
         // Make sure we have a valid numeric value
         if (d.sma50 === null || d.sma50 === undefined || isNaN(Number(d.sma50))) {
@@ -1275,7 +1275,7 @@ const StockChart = React.memo<StockChartProps>(({
         const x = scales.xScale(i);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? (i * (dimensions.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
+          ? (i * (dimensions!.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1339,7 +1339,7 @@ const StockChart = React.memo<StockChartProps>(({
         const x = scales.xScale(i);
         // If x is undefined or NaN, use a simple fallback calculation
         const finalX = (x === undefined || isNaN(x)) 
-          ? (i * (dimensions.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
+          ? (i * (dimensions!.innerWidth / (scales.isZoomedOut ? stockData.length + afterStockData.length : stockData.length))) 
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1436,8 +1436,9 @@ const StockChart = React.memo<StockChartProps>(({
         const index = offset + i;
         const x = scales.xScale(index);
         // If x is undefined or NaN, use a simple fallback calculation
+        if (!dimensions) return null;
         const finalX = (x === undefined || isNaN(x)) 
-          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length)))
+          ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length))) 
           : x;
           
         const width = scales.xScale.step() * 0.8;
@@ -1505,6 +1506,7 @@ const StockChart = React.memo<StockChartProps>(({
         const index = offset + i;
         const x = scales.xScale(index);
         // If x is undefined or NaN, use a simple fallback calculation
+        if (!dimensions) return null;
         const finalX = (x === undefined || isNaN(x)) 
           ? ((offset + i) * (dimensions.innerWidth / (stockData.length + afterStockData.length))) 
           : x;
@@ -1556,7 +1558,7 @@ const StockChart = React.memo<StockChartProps>(({
     if (!svgPoint) return;
     
     // Get chart coordinates (accounting for margins)
-            const chartX = svgPoint.x - (dimensions.margin.left || 0);
+            const chartX = svgPoint.x - (dimensions!.margin.left || 0);
             const chartY = svgPoint.y - (dimensions.margin.top || 0);
     
     // Get the last data point index and position
@@ -1601,8 +1603,8 @@ const StockChart = React.memo<StockChartProps>(({
   // This must be after handleChartClick is defined
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.handleChartClick = handleChartClick;
-      handleChartClickRef.current = handleChartClick;
+      (containerRef.current as any).handleChartClick = handleChartClick;
+      handleChartClickRef.current = handleChartClick as any;
     }
   }, [handleChartClick]);
 
@@ -1632,7 +1634,7 @@ const StockChart = React.memo<StockChartProps>(({
       point.y = event.clientY;
       const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
       if (!svgPoint) return;
-      const chartX = svgPoint.x - (dimensions.margin.left || 0);
+      const chartX = svgPoint.x - (dimensions!.margin.left || 0);
       
       isInSelectableAreaRef.current = isInSelectableArea(chartX);
       isDraggingRef.current = true;
@@ -1664,7 +1666,7 @@ const StockChart = React.memo<StockChartProps>(({
         const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
         if (!svgPoint) return;
         
-        const chartX = svgPoint.x - (dimensions.margin.left || 0);
+        const chartX = svgPoint.x - (dimensions!.margin.left || 0);
         const lastDataIndex = stockData.length - 1;
         const lastDataCenterX = scales.xScale(lastDataIndex);
         if (lastDataCenterX === undefined) return;
@@ -1728,7 +1730,7 @@ const StockChart = React.memo<StockChartProps>(({
       point.y = touch.clientY;
       const svgPoint = point.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
       if (!svgPoint) return;
-      const chartX = svgPoint.x - (dimensions.margin.left || 0);
+      const chartX = svgPoint.x - (dimensions!.margin.left || 0);
       
       isInSelectableAreaRef.current = isInSelectableArea(chartX);
       isDraggingRef.current = true;
@@ -1888,36 +1890,36 @@ const StockChart = React.memo<StockChartProps>(({
           // Calculate SMA label position
           // Position just to the right of the D label, at the top
           const labelWidth = 110;
-          const defaultX = Math.max((dimensions.margin?.left || 0) + 50, 50);
+          const defaultX = Math.max((dimensions!.margin?.left || 0) + 50, 50);
           
           let smaLabelX = defaultX;
           // Position just to the right of D label if we have the edge
-          if (dLabelRightEdge !== null && dLabelRightEdge > 0) {
+          if (dLabelRightEdge !== null && dLabelRightEdge! > 0) {
             // Position just to the right of D label with small padding
-            smaLabelX = dLabelRightEdge + 8;
+            smaLabelX = dLabelRightEdge! + 8;
             // Ensure it's not too far left
             if (smaLabelX < defaultX) {
               smaLabelX = defaultX;
             }
-          } else if (timerRightEdge !== null && timerRightEdge > 0) {
+          } else if (timerRightEdge !== null && timerRightEdge! > 0) {
             // Fallback: align right edge of label with timer's right edge
-            smaLabelX = Math.max(timerRightEdge - labelWidth, defaultX);
+            smaLabelX = Math.max(timerRightEdge! - labelWidth, defaultX);
           }
           
           // Position at the top, aligned with D label and timer (same Y center as they are)
           // Use the D label's center Y if available, otherwise use default top position
           let smaLabelY: number;
-          if (dLabelCenterY !== null && dLabelCenterY > 0) {
+          if (dLabelCenterY !== null && dLabelCenterY! > 0) {
             // Position SMA labels to align with D label's vertical center
             // For daily charts, SMA labels have 3 lines (10, 20, 50) with height 56px
             // The center of the label group is approximately at y="28" from the group origin
             // (rect starts at y="-6" with height 56, center is at y="22", but text center is around y="27")
             // We want the center of the SMA label (around y="27") to align with D label center
             const smaLabelCenterOffset = 27; // Approximate center of the 3-line SMA label
-            smaLabelY = dLabelCenterY - smaLabelCenterOffset;
+            smaLabelY = dLabelCenterY! - smaLabelCenterOffset;
           } else {
             // Fallback: position at top
-            smaLabelY = Math.max((dimensions.margin?.top || 0) + 8, 8);
+            smaLabelY = Math.max((dimensions!.margin?.top || 0) + 8, 8);
           }
           
           return (

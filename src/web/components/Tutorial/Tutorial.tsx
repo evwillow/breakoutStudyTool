@@ -21,7 +21,7 @@ interface TutorialStep {
   id: string;
   target: string | null; // CSS selector or null for center of screen
   content: string;
-  placement?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  placement?: 'top' | 'bottom' | 'left' | 'right' | 'center' | string;
   interactive?: boolean; // If true, user must interact with target to continue
   waitForAction?: string; // Action to wait for (e.g., 'chart-click')
   showTarget?: boolean; // If true, show the target element (make it visible) during this step

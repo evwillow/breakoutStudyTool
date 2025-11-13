@@ -232,7 +232,10 @@ export function useTimer({
       // Only cleanup when timer is explicitly stopped
       cleanup();
     }
-  }, [isRunning, isPaused, handleVisibilityChange, cleanup, tick]);
+    // Only depend on isRunning and isPaused to avoid infinite loops
+    // The callbacks (handleVisibilityChange, cleanup, tick) are stable due to useCallback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning, isPaused]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -240,11 +243,14 @@ export function useTimer({
   }, [cleanup]);
 
   // Sync displayValue with timer state to ensure UI updates
+  // Only update when timer actually changes and timer is stopped
   useEffect(() => {
     if (!isRunning && !isPaused) {
       displayValueRef.current = timer;
     }
-  }, [timer, isRunning, isPaused]);
+    // Only run when timer value changes, not on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timer]);
 
   return {
     timer,

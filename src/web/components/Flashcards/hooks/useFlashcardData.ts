@@ -13,7 +13,7 @@ import type {
   UseFlashcardDataReturn, 
   UseFlashcardDataOptions 
 } from '@breakout-study-tool/shared';
-
+  
 // Re-export for backward compatibility
 export type { FolderOption, UseFlashcardDataReturn, UseFlashcardDataOptions };
 

@@ -9,10 +9,9 @@ import { calculateDistance, calculateDistanceScore } from '../utils/coordinateUt
 import type { 
   GameMetrics, 
   GameState, 
-  ChartCoordinate, 
-  UseGameStateReturn, 
-  UseGameStateOptions 
+  ChartCoordinate 
 } from '@breakout-study-tool/shared';
+import type { UseGameStateOptions } from '@breakout-study-tool/shared';
 
 // Re-export for backward compatibility
 export type { GameMetrics, GameState, ChartCoordinate, UseGameStateOptions };
@@ -45,12 +44,7 @@ export interface UseGameStateReturn extends GameState {
   isGameComplete: boolean;
 }
 
-export interface UseGameStateOptions {
-  flashcardsLength: number;
-  onCorrectAnswer?: () => void;
-  onIncorrectAnswer?: () => void;
-  onGameComplete?: () => void;
-}
+// UseGameStateOptions is imported from shared types above
 
 export function useGameState({
   flashcardsLength,

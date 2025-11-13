@@ -102,11 +102,12 @@ export function validateInput<T = any>(
     validatedData[field as keyof T] = value;
   }
 
-  return {
+  const result: ValidationResult<T> = {
     isValid: Object.keys(errors).length === 0,
-    data: validatedData,
-    errors
+    data: validatedData as T,
+    errors: Object.keys(errors).length > 0 ? Object.values(errors) : undefined
   };
+  return result;
 }
 
 /**

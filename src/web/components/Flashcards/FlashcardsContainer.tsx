@@ -1370,6 +1370,9 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     timer.pause();
   }, [gameState, timer, targetPoint, priceRange, timeRange, activeFlashcard, activeProcessedData, logMatchWithCoordinates, showTutorial]);
 
+  // Track the last round ID we've reset the timer for to prevent infinite loops
+  const lastResetRoundIdRef = React.useRef<string | null>(null);
+  
   // Start timer when a round is selected
   useEffect(() => {
     if (
@@ -1379,8 +1382,12 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
       timerDuration > 0 &&
       timer.isReady &&
       !timer.isRunning &&
-      !gameState.showTimeUpOverlay
+      !gameState.showTimeUpOverlay &&
+      lastResetRoundIdRef.current !== currentRoundId // Only reset once per round
     ) {
+      // Mark this round as reset
+      lastResetRoundIdRef.current = currentRoundId;
+      
       // Reset and start timer when round is selected
       timer.reset(timerDuration);
       // Use requestAnimationFrame to ensure state is updated
@@ -1390,7 +1397,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
         });
       });
     }
-  }, [currentRoundId, loading, selectedFolder, timerDuration, timer, gameState.showTimeUpOverlay]);
+  }, [currentRoundId, loading, selectedFolder, timerDuration, timer.isReady, timer.isRunning, timer.reset, timer.start, gameState.showTimeUpOverlay]);
 
   // Start timer when flashcard changes (new stock displayed)
   // This ensures the timer starts when moving to a new stock

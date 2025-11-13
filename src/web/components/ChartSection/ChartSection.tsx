@@ -279,7 +279,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   const delayStartTimeRef = useRef<number | null>(null);
   const debugIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastFeedbackRef = useRef<string | null>(null);
-  const chartRef = useRef<HTMLElement | null>(null);
+  const chartRef = useRef<HTMLDivElement & { handleChartClick?: (event: { clientX: number; clientY: number }) => void } | null>(null);
   const shouldStopAnimationRef = useRef<boolean>(false);
 
   // Check if device is mobile
@@ -353,9 +353,9 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   // Find chart container element for magnifier
   useEffect(() => {
     const findChartContainer = (): void => {
-      const container = document.querySelector('.stock-chart-container') as HTMLElement | null;
+      const container = document.querySelector('.stock-chart-container') as HTMLDivElement | null;
       if (container) {
-        chartRef.current = container;
+        chartRef.current = container as HTMLDivElement & { handleChartClick?: (event: { clientX: number; clientY: number }) => void };
       }
     };
     
@@ -438,7 +438,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
           
           let remainingDelay = 1500; // 1.5 seconds in milliseconds
           let pausedTime = 0;
-          let pauseStartTime = null;
+          let pauseStartTime: number | null = null;
           const delayStartTime = performance.now();
           
           const checkInitialDelay = (): void => {
@@ -498,7 +498,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
             const zoomDuration = 1500; // 1.5 seconds
             
             let pausedTime = 0;
-            let pauseStartTime = null;
+            let pauseStartTime: number | null = null;
             let lastTimestamp = startTime;
             
             const animateZoom = (timestamp: number): void => {
@@ -583,7 +583,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
             const revealDuration = 1800; // 1.8 seconds
             
             let pausedTime = 0;
-            let pauseStartTime = null;
+            let pauseStartTime: number | null = null;
             let lastTimestamp = startTime;
             
             const animateReveal = (timestamp: number): void => {
@@ -695,6 +695,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
         
         // Debug interval to track actual time elapsed (for development)
         debugIntervalRef.current = setInterval(() => {
+          if (!delayStartTimeRef.current) return;
           const elapsed = (Date.now() - delayStartTimeRef.current) / 1000;
           console.log(`Delay running: ${elapsed.toFixed(1)} seconds elapsed of 5 seconds total`);
         }, 1000);
@@ -706,7 +707,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
           
           let remainingDelay = 5000; // 5 seconds in milliseconds
           let pausedTime = 0;
-          let pauseStartTime = null;
+          let pauseStartTime: number | null = null;
           
           const checkDelay = (): void => {
             // Check if animation should be stopped (e.g., Next Stock button pressed)
@@ -750,6 +751,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
             }
             
             // Calculate elapsed time (excluding paused time)
+            if (!delayStartTimeRef.current) return;
             const elapsed = (Date.now() - delayStartTimeRef.current) - pausedTime;
             
             if (elapsed >= remainingDelay) {
@@ -921,7 +923,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   );
 
   const isPreset = useMemo(() => {
-    if (timerDuration === 0) return false;
+    if (timerDuration === null || timerDuration === 0) return false;
     return presetValues.includes(timerDuration);
   }, [timerDuration, presetValues]);
 
@@ -1545,7 +1547,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                   {/* Magnifying glass tool - properly integrated */}
                   {onChartClick && !disabled && score === null && !isTimeUp && (
                     <ChartMagnifier
-                      onSelection={(syntheticEvent) => {
+                      onSelection={(syntheticEvent: any) => {
                         console.log('[ChartSection] onSelection called with:', syntheticEvent);
                         // Use the exposed handleChartClick method from StockChart
                         // This works on both simulated and real mobile devices
@@ -1589,8 +1591,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                         }
                       }}
                       enabled={!disabled && score === null && !isTimeUp}
-                      chartElement={chartRef.current || null}
-                      mainDataLength={orderedFiles && orderedFiles[0]?.data ? orderedFiles[0].data.length : 0}
+                      chartElement={chartRef.current as any}
+                      mainDataLength={orderedFiles && orderedFiles[0]?.data && Array.isArray(orderedFiles[0].data) ? orderedFiles[0].data.length : 0}
                     />
                   )}
                   {/* Score overlay - appears after selection */}
@@ -1598,7 +1600,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                     <div data-tutorial-results>
                       <ChartScoreOverlay 
                         score={score}
-                        accuracyTier={getAccuracyTier(score)}
+                        accuracyTier={getAccuracyTier(score).tier}
                         show={true}
                         onNext={onNextCard}
                         isMobile={isMobile}
@@ -1618,16 +1620,16 @@ const ChartSection: React.FC<ChartSectionProps> = ({
               )}
             </div>
             {isTimeUp && score === null && (
-              <SelectionTooltip
-                show={true}
-                onDismiss={(event) => onDismissTooltip?.(event)}
-                style={{
+              React.createElement(SelectionTooltip as any, {
+                show: true,
+                onDismiss: (event: { reason: string }) => onDismissTooltip?.(event),
+                style: {
                   top: isMobile ? '12px' : '18px',
                   right: isMobile ? '12px' : '18px',
                   maxWidth: isMobile ? '200px' : '240px',
-                }}
-                durationSeconds={timerDuration}
-              />
+                },
+                durationSeconds: timerDuration
+              })
             )}
           </div>
         </div>

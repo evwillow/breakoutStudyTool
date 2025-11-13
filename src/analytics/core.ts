@@ -6,15 +6,15 @@
  */
 
 import { getAdminSupabaseClient } from '@/app/api/_shared/clients/supabase';
+// Import types from shared package using relative path
 import type { 
   UserSegment, 
   UserSegmentDefinition, 
   UserMetrics, 
   AnalyticsMetrics, 
-  DetailedUserAnalytics,
-  Round,
-  Match
-} from '@breakout-study-tool/shared';
+  DetailedUserAnalytics
+} from '../../lib/shared/src/types/analytics';
+import type { Round, Match } from '../../lib/shared/src/types/game';
 
 // Re-export for backward compatibility
 export type { 
@@ -27,56 +27,16 @@ export type {
   Match
 };
 
-/**
- * User Segment Definitions:
- * 
- * Power User (10+ rounds):
- *   - Definition: Users who have completed 10 or more rounds
- *   - Characteristics: Highly engaged, frequent users who represent the most valuable user base
- *   - Target: 5-10% of total user base indicates healthy engagement
- *   - Value: These users drive the most activity and are most likely to be long-term users
- * 
- * Active User (4-9 rounds):
- *   - Definition: Users who have completed 4-9 rounds
- *   - Characteristics: Regular users with moderate engagement, showing consistent interest
- *   - Target: 15-25% of total user base indicates good retention
- *   - Value: Strong candidates to become power users with proper engagement
- * 
- * Casual User (2-3 rounds):
- *   - Definition: Users who have completed 2-3 rounds
- *   - Characteristics: Occasional users with potential for growth
- *   - Target: 20-30% of total user base indicates healthy onboarding
- *   - Value: Need engagement strategies to convert to active users
- * 
- * One-Time User (1 round):
- *   - Definition: Users who have completed exactly 1 round
- *   - Characteristics: Trial users who need activation and re-engagement
- *   - Focus: Convert to casual or active users through better onboarding
- *   - Risk: High churn potential if not re-engaged quickly
- * 
- * Churned User (30+ days inactive):
- *   - Definition: Users with no activity in 30+ days (excluding brand new users)
- *   - Characteristics: Inactive users who may need win-back campaigns
- *   - Action: Analyze drop-off points and implement re-engagement strategies
- *   - Note: Only applies to users who were active before (not brand new signups)
- * 
- * New User (recent signup, no activity):
- *   - Definition: Users who signed up within last 7 days with no activity yet
- *   - Characteristics: Recently registered, still in onboarding phase
- *   - Focus: Quick activation to prevent early churn
- *   - Opportunity: Critical window for first engagement
- */
-export type UserSegment = 'power' | 'active' | 'casual' | 'one-time' | 'churned' | 'new';
-
-export interface UserSegmentDefinition {
-  type: UserSegment;
-  name: string;
-  description: string;
-  criteria: string;
-  targetPercentage?: { min: number; max: number };
-  color: string;
-  icon?: string;
+// Define User interface locally (matches database schema)
+export interface User {
+  id: string;
+  email: string;
+  email_verified: boolean;
+  created_at: string;
 }
+
+// Note: UserSegment, UserSegmentDefinition, UserMetrics, AnalyticsMetrics, and DetailedUserAnalytics
+// are imported from shared types above. The following are local constants and implementations.
 
 export const USER_SEGMENT_DEFINITIONS: Record<UserSegment, UserSegmentDefinition> = {
   power: {
@@ -129,66 +89,8 @@ export const USER_SEGMENT_DEFINITIONS: Record<UserSegment, UserSegmentDefinition
   },
 };
 
-export interface UserMetrics {
-  userId: string;
-  email: string;
-  segment: UserSegment;
-  totalRounds: number;
-  completedRounds: number;
-  totalMatches: number;
-  averageAccuracy: number;
-  daysSinceSignUp: number;
-  daysSinceLastActivity: number;
-  activationTime: number; // Days to first round
-  isActive: boolean; // Active in last 7 days
-  lastActivityDate: string | null;
-  signUpDate: string;
-}
-
-export interface AnalyticsMetrics {
-  // User metrics
-  totalUsers: number;
-  verifiedUsers: number;
-  activeUsers: number; // Active in last 7 days
-
-  // User segments
-  powerUsers: number;
-  activeUserSegment: number;
-  casualUsers: number;
-  oneTimeUsers: number;
-  churnedUsers: number;
-
-  // Engagement metrics
-  activationRate: number; // % users who complete first round
-  averageActivationTime: number; // Days to first round
-  completionRate: number; // % of started rounds that are completed
-  averageRoundsPerUser: number;
-  averageMatchesPerUser: number;
-  averageAccuracy: number;
-
-  // Retention metrics
-  day1Retention: number; // % returning after 1 day
-  day7Retention: number; // % returning within 7 days
-  day30Retention: number; // % returning within 30 days
-  weeklyActiveUsers: number;
-  monthlyActiveUsers: number;
-
-  // Funnel metrics
-  signUpToFirstRound: number; // Count
-  firstToSecondRoundRate: number; // %
-  secondToThirdRoundRate: number; // %
-  thirdToPowerUserRate: number; // %
-
-  // Dataset popularity
-  datasetUsage: Map<string, number>;
-
-  // Time-based trends
-  usersByWeek: Map<string, number>;
-  activityByWeek: Map<string, number>;
-}
-
-export interface DetailedUserAnalytics extends AnalyticsMetrics {
-  userDetails: UserMetrics[];
+// Extended DetailedUserAnalytics with additional fields for internal use
+export interface ExtendedDetailedUserAnalytics extends DetailedUserAnalytics {
   topPerformers: UserMetrics[];
   atRiskUsers: UserMetrics[];
 }
@@ -264,7 +166,7 @@ async function fetchAllData() {
 // ANALYTICS CALCULATIONS
 // ============================================================================
 
-export async function getDetailedAnalytics(): Promise<DetailedUserAnalytics> {
+export async function getDetailedAnalytics(): Promise<ExtendedDetailedUserAnalytics> {
   const { users, rounds, matches } = await fetchAllData();
 
   if (users.length === 0) {
@@ -513,7 +415,7 @@ export async function getDetailedAnalytics(): Promise<DetailedUserAnalytics> {
   };
 }
 
-function createEmptyAnalytics(): DetailedUserAnalytics {
+function createEmptyAnalytics(): ExtendedDetailedUserAnalytics {
   return {
     totalUsers: 0,
     verifiedUsers: 0,
