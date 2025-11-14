@@ -27,6 +27,16 @@ export async function GET(req: NextRequest) {
 
     const jsonData = await fetchLocalFile({ fileName });
 
+    // Log for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[local-data API] Serving file: ${fileName}`, {
+        hasData: jsonData !== null && jsonData !== undefined,
+        isArray: Array.isArray(jsonData),
+        dataLength: Array.isArray(jsonData) ? jsonData.length : 'N/A',
+        dataType: typeof jsonData,
+      });
+    }
+
     const response = NextResponse.json(
       {
         success: true,

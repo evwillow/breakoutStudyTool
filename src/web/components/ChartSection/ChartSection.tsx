@@ -18,7 +18,7 @@ import { useScoreCalculation } from "./hooks/useScoreCalculation";
 import type { ChartSectionProps, StockInfo, PopupPosition } from './ChartSection.types';
 
 const ChartSection: React.FC<ChartSectionProps> = ({
-  orderedFiles,
+  orderedFiles: rawOrderedFiles,
   afterData,
   timer,
   pointsTextArray = [],
@@ -41,6 +41,25 @@ const ChartSection: React.FC<ChartSectionProps> = ({
   onDismissTooltip = null,
   onTimerPause = null,
 }) => {
+  // Normalize orderedFiles to always be an array
+  const orderedFiles = useMemo(() => {
+    if (!rawOrderedFiles) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ChartSection] orderedFiles is null/undefined, normalizing to empty array');
+      }
+      return [];
+    }
+    if (!Array.isArray(rawOrderedFiles)) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[ChartSection] orderedFiles is not an array, normalizing', {
+          type: typeof rawOrderedFiles,
+          value: rawOrderedFiles,
+        });
+      }
+      return [];
+    }
+    return rawOrderedFiles;
+  }, [rawOrderedFiles]);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [showInfoPopup, setShowInfoPopup] = useState<boolean>(false);
@@ -238,58 +257,155 @@ const ChartSection: React.FC<ChartSectionProps> = ({
               className={`absolute inset-0 rounded-md overflow-hidden ${isTimeUp ? 'filter blur-sm' : ''} relative transition-opacity duration-500 ease-in-out`} 
               style={{ height: '100%', width: '100%' }}
             >
-              {orderedFiles && orderedFiles.length > 0 && orderedFiles[0]?.data ? (
-                <div data-tutorial-chart className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
-                  <StockChart 
-                    data={orderedFiles[0].data} 
-                    afterData={afterData}
-                    showAfterAnimation={scoreCalculation.showAfterAnimation}
-                    progressPercentage={scoreCalculation.progressPercentage}
-                    zoomPercentage={scoreCalculation.zoomPercentage}
-                    isInDelayPhase={scoreCalculation.completionDelay}
-                    afterAnimationComplete={scoreCalculation.afterAnimationComplete}
-                    showSMA={true}
-                    onChartClick={onChartClick}
-                    userSelection={userSelection}
-                    targetPoint={targetPoint}
-                    disabled={disabled || (score !== null && score !== undefined)}
-                    timerRightEdge={timerRightEdge}
-                    timerLeftEdge={timerLeftEdge}
-                    dLabelRightEdge={dLabelRightEdge}
-                    dLabelCenterY={dLabelCenterY}
-                  />
-                  
-                  <InteractionLayer
-                    interaction={interaction}
-                    onChartClick={onChartClick}
-                    disabled={disabled}
-                    score={score}
-                    isTimeUp={isTimeUp}
-                    orderedFiles={orderedFiles}
-                    onDismissTooltip={onDismissTooltip}
-                    timerDuration={timerDuration}
-                    isMobile={isMobile}
-                  />
-                  
-                  {score !== null && feedback && (
-                    <div data-tutorial-results>
-                      <ChartScoreOverlay 
-                        score={score}
-                        accuracyTier={getAccuracyTier(score).tier}
-                        show={true}
-                        onNext={onNextCard}
-                        isMobile={isMobile}
-                        alwaysPaused={timerDuration === 0}
-                        onPauseChange={handlePauseChange}
-                      />
+              {(() => {
+                // Validate chart data more thoroughly
+                // orderedFiles is already normalized to an array above
+                const hasOrderedFiles = orderedFiles.length > 0;
+                const firstFile = hasOrderedFiles ? orderedFiles[0] : null;
+                const hasData = firstFile && firstFile.data !== null && firstFile.data !== undefined;
+                const isDataArray = hasData && Array.isArray(firstFile.data);
+                const hasValidData = isDataArray && (firstFile.data as unknown[]).length > 0;
+
+                // Enhanced debugging
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('ChartSection: Chart data validation', {
+                    hasOrderedFiles,
+                    orderedFilesLength: orderedFiles?.length,
+                    firstFileName: firstFile?.fileName,
+                    hasData,
+                    isDataArray,
+                    hasValidData,
+                    dataType: typeof firstFile?.data,
+                    dataLength: Array.isArray(firstFile?.data) ? firstFile.data.length : 'N/A',
+                    firstDataPoint: Array.isArray(firstFile?.data) && firstFile.data.length > 0 ? firstFile.data[0] : null,
+                  });
+                }
+
+                if (!hasValidData) {
+                  // Try to normalize the data if it exists but isn't in the expected format
+                  if (hasData && firstFile.data && !isDataArray) {
+                    // Attempt to extract array from object structure
+                    const normalizedData = (() => {
+                      const data = firstFile.data;
+                      if (typeof data === 'object' && data !== null) {
+                        if ('value' in data && Array.isArray((data as { value: unknown[] }).value)) {
+                          return (data as { value: unknown[] }).value;
+                        }
+                        if ('data' in data && Array.isArray((data as { data: unknown[] }).data)) {
+                          return (data as { data: unknown[] }).data;
+                        }
+                        const values = Object.values(data);
+                        if (values.length > 0 && Array.isArray(values[0])) {
+                          return values[0];
+                        }
+                      }
+                      return null;
+                    })();
+
+                    if (normalizedData && Array.isArray(normalizedData) && normalizedData.length > 0) {
+                      // Data was successfully normalized, use it
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('[ChartSection] Data normalized successfully', {
+                          originalType: typeof firstFile.data,
+                          normalizedLength: normalizedData.length,
+                        });
+                      }
+                      return (
+                        <div data-tutorial-chart className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
+                          <StockChart 
+                            data={normalizedData} 
+                            afterData={afterData}
+                            showAfterAnimation={scoreCalculation.showAfterAnimation}
+                            progressPercentage={scoreCalculation.progressPercentage}
+                            zoomPercentage={scoreCalculation.zoomPercentage}
+                            isInDelayPhase={scoreCalculation.completionDelay}
+                            afterAnimationComplete={scoreCalculation.afterAnimationComplete}
+                            showSMA={true}
+                            onChartClick={onChartClick}
+                            userSelection={userSelection}
+                            targetPoint={targetPoint}
+                            disabled={disabled || (score !== null && score !== undefined)}
+                            timerRightEdge={timerRightEdge}
+                            timerLeftEdge={timerLeftEdge}
+                            dLabelRightEdge={dLabelRightEdge}
+                            dLabelCenterY={dLabelCenterY}
+                          />
+                          
+                          <InteractionLayer
+                            interaction={interaction}
+                            onChartClick={onChartClick}
+                            disabled={disabled}
+                            score={score}
+                            isTimeUp={isTimeUp}
+                            orderedFiles={orderedFiles}
+                            onDismissTooltip={onDismissTooltip}
+                            timerDuration={timerDuration}
+                            isMobile={isMobile}
+                          />
+                        </div>
+                      );
+                    }
+                  }
+
+                  return (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <div className="text-white/70 text-sm">
+                        {!hasOrderedFiles ? 'No files loaded' : 
+                         !hasData ? 'File data missing' :
+                         !isDataArray ? 'Data is not an array' :
+                         'Loading chart data...'}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-black rounded-md transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="text-white/50 text-sm">Loading chart...</div>
+                  );
+                }
+
+                return (
+                  <div data-tutorial-chart className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
+                    <StockChart 
+                      data={firstFile.data} 
+                      afterData={afterData}
+                      showAfterAnimation={scoreCalculation.showAfterAnimation}
+                      progressPercentage={scoreCalculation.progressPercentage}
+                      zoomPercentage={scoreCalculation.zoomPercentage}
+                      isInDelayPhase={scoreCalculation.completionDelay}
+                      afterAnimationComplete={scoreCalculation.afterAnimationComplete}
+                      showSMA={true}
+                      onChartClick={onChartClick}
+                      userSelection={userSelection}
+                      targetPoint={targetPoint}
+                      disabled={disabled || (score !== null && score !== undefined)}
+                      timerRightEdge={timerRightEdge}
+                      timerLeftEdge={timerLeftEdge}
+                      dLabelRightEdge={dLabelRightEdge}
+                      dLabelCenterY={dLabelCenterY}
+                    />
+                    
+                    <InteractionLayer
+                      interaction={interaction}
+                      onChartClick={onChartClick}
+                      disabled={disabled}
+                      score={score}
+                      isTimeUp={isTimeUp}
+                      orderedFiles={orderedFiles}
+                      onDismissTooltip={onDismissTooltip}
+                      timerDuration={timerDuration}
+                      isMobile={isMobile}
+                    />
                   </div>
+                );
+              })()}
+              
+              {score !== null && feedback && (
+                <div data-tutorial-results>
+                  <ChartScoreOverlay 
+                    score={score}
+                    accuracyTier={getAccuracyTier(score).tier}
+                    show={true}
+                    onNext={onNextCard}
+                    isMobile={isMobile}
+                    alwaysPaused={timerDuration === 0}
+                    onPauseChange={handlePauseChange}
+                  />
                 </div>
               )}
             </div>

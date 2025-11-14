@@ -33,6 +33,12 @@ export function isValidUUID(uuid: string): boolean {
 
 export function extractOrderedFiles(flashcardData: FlashcardData | null): FlashcardFile[] {
   if (!flashcardData?.jsonFiles) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[extractOrderedFiles] No jsonFiles in flashcardData', {
+        hasFlashcardData: !!flashcardData,
+        jsonFilesLength: flashcardData?.jsonFiles?.length,
+      });
+    }
     return [];
   }
 
@@ -40,21 +46,81 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
     const files = new Map<string, FlashcardFile>();
 
     for (const file of flashcardData.jsonFiles) {
+      // Log all files for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[extractOrderedFiles] Processing file', {
+          fileName: file.fileName,
+          hasData: !!file.data,
+          dataType: typeof file.data,
+          isArray: Array.isArray(file.data),
+          dataLength: Array.isArray(file.data) ? file.data.length : 'N/A',
+        });
+      }
+
       if (!file.fileName || !file.data) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[extractOrderedFiles] Skipping file (no fileName or data)', {
+            fileName: file.fileName,
+            hasData: !!file.data,
+            dataType: typeof file.data,
+            isArray: Array.isArray(file.data),
+          });
+        }
         continue;
       }
 
       const fileName = file.fileName;
       const baseFileName = fileName.split('/').pop() || fileName;
 
+      // Log pattern matching attempts
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[extractOrderedFiles] Testing patterns', {
+          fileName,
+          baseFileName,
+          matchesDAILY: FILE_PATTERNS.DAILY.test(baseFileName),
+          matchesMINUTE: FILE_PATTERNS.MINUTE.test(baseFileName),
+          DAILYPattern: FILE_PATTERNS.DAILY.toString(),
+          MINUTEPattern: FILE_PATTERNS.MINUTE.toString(),
+        });
+      }
+
       if (FILE_PATTERNS.DAILY.test(baseFileName)) {
         files.set('D', file);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[extractOrderedFiles] Found D.json file', {
+            fileName,
+            hasData: !!file.data,
+            isArray: Array.isArray(file.data),
+            dataLength: Array.isArray(file.data) ? file.data.length : 'N/A',
+          });
+        }
       } else if (FILE_PATTERNS.MINUTE.test(baseFileName)) {
         files.set('M', file);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[extractOrderedFiles] Found M.json file', {
+            fileName,
+            hasData: !!file.data,
+            isArray: Array.isArray(file.data),
+            dataLength: Array.isArray(file.data) ? file.data.length : 'N/A',
+          });
+        }
       }
     }
 
-    return ['D', 'M'].map(key => files.get(key)).filter(Boolean) as FlashcardFile[];
+    const result = ['D', 'M'].map(key => files.get(key)).filter(Boolean) as FlashcardFile[];
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[extractOrderedFiles] Result', {
+        resultLength: result.length,
+        hasDFile: !!result.find(f => f.fileName.includes('D.json')),
+        hasMFile: !!result.find(f => f.fileName.includes('M.json')),
+        dFileDataLength: result.find(f => f.fileName.includes('D.json'))?.data && Array.isArray(result.find(f => f.fileName.includes('D.json'))?.data) 
+          ? result.find(f => f.fileName.includes('D.json'))!.data.length 
+          : 'N/A',
+      });
+    }
+
+    return result;
   } catch (error) {
     console.error('Error processing ordered files:', error);
     return [];
@@ -124,64 +190,95 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
     return [];
   }
 
-  const pointsFile = flashcardData.jsonFiles.find(file => {
-    const baseFileName = file.fileName.split('/').pop() || file.fileName;
-    return FILE_PATTERNS.POINTS.test(baseFileName);
+  // Find points.json file with robust matching (similar to extractAfterJsonData)
+  let pointsFile = flashcardData.jsonFiles.find(file => {
+    const fileName = file.fileName.toLowerCase();
+    const fileNameParts = fileName.split(/[/\\]/);
+    const lastPart = fileNameParts[fileNameParts.length - 1];
+
+    return (
+      lastPart === 'points.json' ||
+      fileName.endsWith('/points.json') ||
+      fileName.endsWith('\\points.json') ||
+      (fileName.includes('points') && fileName.endsWith('.json'))
+    );
   });
+
+  // Fallback: try case-sensitive match
+  if (!pointsFile) {
+    pointsFile = flashcardData.jsonFiles.find(file => {
+      const baseFileName = file.fileName.split('/').pop() || file.fileName;
+      return FILE_PATTERNS.POINTS.test(baseFileName);
+    });
+  }
+
+  // Additional fallback: check for any file with "points" in the name
+  if (!pointsFile) {
+    pointsFile = flashcardData.jsonFiles.find(file => {
+      const fileName = file.fileName;
+      const fileNameParts = fileName.split(/[/\\]/);
+      const lastPart = fileNameParts[fileNameParts.length - 1]?.toLowerCase();
+      return lastPart === 'points.json';
+    });
+  }
 
   if (!pointsFile || !pointsFile.data) {
     return [];
   }
 
   try {
-    const jsonData = pointsFile.data;
+    let jsonData = pointsFile.data;
+
+    // Handle nested data structures (similar to after.json handling)
+    if (jsonData && typeof jsonData === 'object' && !Array.isArray(jsonData)) {
+      if ('value' in jsonData && Array.isArray((jsonData as { value: unknown[] }).value)) {
+        jsonData = (jsonData as { value: unknown[] }).value;
+      } else if (Array.isArray(Object.values(jsonData)[0])) {
+        jsonData = Object.values(jsonData)[0];
+      } else if ('data' in jsonData && Array.isArray((jsonData as { data: unknown[] }).data)) {
+        jsonData = (jsonData as { data: unknown[] }).data;
+      } else if ('points' in jsonData && Array.isArray((jsonData as { points: unknown[] }).points)) {
+        jsonData = (jsonData as { points: unknown[] }).points;
+      }
+    }
 
     if (Array.isArray(jsonData)) {
       return jsonData
         .map(item => {
           if (typeof item === 'string') {
-            return item;
+            return item.trim();
           }
           if (typeof item === 'object' && item !== null) {
+            // Try multiple property names
             const pointsValue =
-              item.points || item.point || item.text || item.label || item.name;
+              (item as PointsTextItem).points ||
+              (item as PointsTextItem).point ||
+              (item as PointsTextItem).text ||
+              (item as PointsTextItem).label ||
+              (item as PointsTextItem).name ||
+              (item as PointsTextItem).value;
+            
             if (typeof pointsValue === 'string') {
-              return pointsValue;
+              return pointsValue.trim();
             }
-            if (Object.keys(item).length === 1) {
+            
+            // If object has only one key, use that value
+            const keys = Object.keys(item);
+            if (keys.length === 1) {
               const firstValue = Object.values(item)[0];
               if (typeof firstValue === 'string') {
-                return firstValue;
+                return firstValue.trim();
               }
             }
           }
           return null;
         })
-        .filter(Boolean) as string[];
+        .filter((item): item is string => Boolean(item) && item.length > 0);
     }
 
-    if (
-      typeof jsonData === 'object' &&
-      jsonData !== null &&
-      'value' in jsonData &&
-      Array.isArray((jsonData as { value: unknown[] }).value)
-    ) {
-      const valueArray = (jsonData as { value: PointsTextItem[] }).value;
-      return valueArray
-        .map((item: PointsTextItem) => {
-          if (typeof item === 'string') {
-            return item;
-          }
-          if (typeof item === 'object' && item !== null) {
-            const pointsValue =
-              item.points || item.point || item.text || item.label || item.name;
-            if (typeof pointsValue === 'string') {
-              return pointsValue;
-            }
-          }
-          return null;
-        })
-        .filter(Boolean) as string[];
+    // Handle single string value
+    if (typeof jsonData === 'string') {
+      return [jsonData.trim()].filter(Boolean);
     }
 
     return [];

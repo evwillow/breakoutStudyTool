@@ -57,28 +57,103 @@ export const useDataLoader = ({
 
   const fetchFolders = useCallback(async () => {
     try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useDataLoader] fetchFolders: Starting folder fetch');
+      }
       const response = await fetch("/api/files/local-folders");
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Error fetching folders");
+        const errorMessage = errorData.message || "Error fetching folders";
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[useDataLoader] fetchFolders: API error', {
+            status: response.status,
+            statusText: response.statusText,
+            errorMessage,
+          });
+        }
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
-      if (data.success && Array.isArray(data.folders)) {
-        foldersCacheRef.current = data.folders;
-        updateFolders(data.folders);
+      let data;
+      try {
+        const responseText = await response.text();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] fetchFolders: Raw response text:', responseText.substring(0, 500));
+        }
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('[useDataLoader] fetchFolders: Failed to parse response', {
+          parseError,
+          status: response.status,
+          statusText: response.statusText,
+        });
+        throw new Error('Failed to parse API response');
+      }
 
-        if (autoSelectFirstFolder && data.folders.length > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useDataLoader] fetchFolders: Parsed API response', {
+          success: data.success,
+          hasData: !!data.data,
+          dataKeys: data.data ? Object.keys(data.data) : [],
+          foldersCount: Array.isArray(data.data?.folders) ? data.data.folders.length : Array.isArray(data.folders) ? data.folders.length : 0,
+          fullData: data,
+        });
+      }
+
+      // Handle both response formats: { success: true, data: { folders, totalFiles } } and { success: true, folders }
+      const folders = data.data?.folders ?? data.folders;
+      const totalFiles = data.data?.totalFiles ?? data.totalFiles;
+
+      if (data.success && Array.isArray(folders)) {
+        foldersCacheRef.current = folders;
+        updateFolders(folders);
+
+        if (autoSelectFirstFolder && folders.length > 0) {
           // Use ref to check current selectedFolder to avoid dependency issues
           if (!selectedFolderRef.current) {
-            setSelectedFolder(data.folders[0].name);
+            const firstFolderName = folders[0].name;
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] fetchFolders: Auto-selecting first folder', {
+                folderName: firstFolderName,
+                currentSelectedFolder: selectedFolderRef.current,
+              });
+            }
+            setSelectedFolder(firstFolderName);
+          } else {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] fetchFolders: Folder already selected, skipping auto-select', {
+                currentSelectedFolder: selectedFolderRef.current,
+              });
+            }
+          }
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] fetchFolders: Not auto-selecting', {
+              autoSelectFirstFolder,
+              foldersLength: folders.length,
+            });
           }
         }
       } else {
-        setError("Invalid folder data received from API");
+        const errorMessage = "Invalid folder data received from API";
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[useDataLoader] fetchFolders: Invalid data structure', {
+            success: data.success,
+            isArray: Array.isArray(data.folders),
+            data,
+          });
+        }
+        setError(errorMessage);
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : ERROR_MESSAGES.DATA_FETCH_ERROR);
+      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.DATA_FETCH_ERROR;
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[useDataLoader] fetchFolders: Exception', {
+          error: errorMessage,
+          errorObject: error,
+        });
+      }
+      setError(errorMessage);
     }
   }, [autoSelectFirstFolder, updateFolders, setError, setSelectedFolder]);
 
@@ -104,9 +179,12 @@ export const useDataLoader = ({
             const fileData = await fileResponse.json();
             if (!fileData.success) return null;
 
+            // The API returns { success: true, data: { data: jsonData, fileName, folder } }
+            const actualData = fileData.data?.data ?? fileData.data;
+
             return {
               fileName: file.fileName,
-              data: fileData.data
+              data: actualData
             };
           } catch {
             return null;
@@ -158,7 +236,19 @@ export const useDataLoader = ({
     async (targetFolder?: string) => {
       const folderName = targetFolder ?? selectedFolder;
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useDataLoader] fetchFlashcards called', {
+          targetFolder,
+          selectedFolder,
+          folderName,
+          hasFolderName: !!folderName,
+        });
+      }
+
       if (!folderName) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[useDataLoader] No folder name provided, aborting flashcard fetch');
+        }
         return;
       }
 
@@ -308,6 +398,16 @@ export const useDataLoader = ({
                 return essentialFiles.has(fileName);
               });
 
+              // Debug logging
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`[useDataLoader] Creating flashcard for ${stockDir}`, {
+                  stockFilesCount: stockFiles.length,
+                  fileNames: stockFiles.map(f => f.fileName),
+                  hasEssentialFile,
+                  filesWithData: stockFiles.filter(f => f.data !== null && f.data !== undefined).length,
+                });
+              }
+
               return {
                 id: stockDir,
                 name: stockDir,
@@ -318,6 +418,21 @@ export const useDataLoader = ({
             });
 
             const shuffledFlashcardData = shuffleArray(flashcardData);
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] Setting flashcards', {
+                flashcardCount: shuffledFlashcardData.length,
+                readyCount: shuffledFlashcardData.filter(f => f.isReady).length,
+                firstFlashcard: shuffledFlashcardData[0] ? {
+                  id: shuffledFlashcardData[0].id,
+                  name: shuffledFlashcardData[0].name,
+                  jsonFilesCount: shuffledFlashcardData[0].jsonFiles?.length,
+                  jsonFileNames: shuffledFlashcardData[0].jsonFiles?.map(f => f.fileName),
+                  hasData: shuffledFlashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
+                } : null,
+              });
+            }
+            
             setFlashcards(shuffledFlashcardData);
             setLoading(false);
             setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
@@ -468,9 +583,37 @@ export const useDataLoader = ({
             // So we need to extract the actual JSON data from fileData.data.data
             const actualData = fileData.data?.data ?? fileData.data;
             
+            // Debug logging
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[useDataLoader] Processing file: ${file.fileName}`, {
+                hasFileData: !!fileData,
+                hasData: !!fileData.data,
+                hasNestedData: !!fileData.data?.data,
+                actualDataType: typeof actualData,
+                isArray: Array.isArray(actualData),
+                dataLength: Array.isArray(actualData) ? actualData.length : 'N/A',
+                responseStructure: Object.keys(fileData),
+              });
+            }
+            
             if (!actualData) {
               console.warn(`File ${file.fileName} has no data in response:`, fileData);
               return null;
+            }
+            
+            // Ensure data is an array for chart files (D.json, M.json)
+            if (file.fileName.includes('D.json') || file.fileName.includes('M.json')) {
+              if (!Array.isArray(actualData)) {
+                console.warn(`File ${file.fileName} data is not an array:`, {
+                  type: typeof actualData,
+                  data: actualData,
+                });
+                return null;
+              }
+              if (actualData.length === 0) {
+                console.warn(`File ${file.fileName} data array is empty`);
+                return null;
+              }
             }
 
             return {
@@ -559,11 +702,15 @@ export const useDataLoader = ({
                   )}&folder=${encodeURIComponent(folderName)}`;
                   const fileResponse = await fetch(url, { signal: getAbortController().signal });
                   if (!fileResponse.ok) return null;
-                  const fileData = await fileResponse.json();
-                  if (!fileData.success) return null;
-                  return {
-                    fileName: file.fileName,
-                    data: fileData.data,
+            const fileData = await fileResponse.json();
+            if (!fileData.success) return null;
+            
+            // The API returns { success: true, data: { data: jsonData, fileName, folder } }
+            const actualData = fileData.data?.data ?? fileData.data;
+            
+            return {
+              fileName: file.fileName,
+              data: actualData,
                     mimeType: file.mimeType,
                     size: file.size,
                     createdTime: file.createdTime,
@@ -691,6 +838,16 @@ export const useDataLoader = ({
             return essentialFileNamesSet.has(fileName);
           });
 
+          // Debug logging
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[useDataLoader] Creating flashcard for ${stockDir} (fallback)`, {
+              stockFilesCount: stockFiles.length,
+              fileNames: stockFiles.map(f => f.fileName),
+              hasEssentialFile,
+              filesWithData: stockFiles.filter(f => f.data !== null && f.data !== undefined).length,
+            });
+          }
+
           return {
             id: stockDir,
             name: stockDir,
@@ -702,6 +859,20 @@ export const useDataLoader = ({
 
         const readyFlashcards = flashcardData.filter(f => f.isReady);
         const shuffledFlashcardData = shuffleArray(flashcardData);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Setting flashcards (fallback)', {
+            flashcardCount: shuffledFlashcardData.length,
+            readyCount: readyFlashcards.length,
+            firstFlashcard: shuffledFlashcardData[0] ? {
+              id: shuffledFlashcardData[0].id,
+              name: shuffledFlashcardData[0].name,
+              jsonFilesCount: shuffledFlashcardData[0].jsonFiles?.length,
+              jsonFileNames: shuffledFlashcardData[0].jsonFiles?.map(f => f.fileName),
+              hasData: shuffledFlashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
+            } : null,
+          });
+        }
 
         setFlashcards(shuffledFlashcardData);
 

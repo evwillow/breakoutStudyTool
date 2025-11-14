@@ -124,7 +124,30 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     return flashcards[safeIndex] || null;
   }, [gameState.currentIndex, flashcards]);
 
-  const processedData = useMemo(() => processFlashcardData(currentFlashcard), [currentFlashcard]);
+  const processedData = useMemo(() => {
+    const result = processFlashcardData(currentFlashcard);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[FlashcardsContainer] Processed data', {
+        flashcardsLength: flashcards.length,
+        hasCurrentFlashcard: !!currentFlashcard,
+        currentFlashcardJsonFiles: currentFlashcard?.jsonFiles?.length || 0,
+        orderedFilesLength: result.orderedFiles.length,
+        hasDFile: result.orderedFiles.some(f => f.fileName?.includes('D.json')),
+        dFileDataLength: result.orderedFiles.find(f => f.fileName?.includes('D.json'))?.data && Array.isArray(result.orderedFiles.find(f => f.fileName?.includes('D.json'))?.data)
+          ? result.orderedFiles.find(f => f.fileName?.includes('D.json'))!.data.length
+          : 'N/A',
+        hasAfterData: !!result.afterJsonData,
+        afterDataLength: Array.isArray(result.afterJsonData) ? result.afterJsonData.length : 'N/A',
+        currentFlashcardStructure: currentFlashcard ? {
+          id: currentFlashcard.id,
+          name: currentFlashcard.name,
+          jsonFilesCount: currentFlashcard.jsonFiles?.length,
+          jsonFileNames: currentFlashcard.jsonFiles?.map(f => f.fileName),
+        } : null,
+      });
+    }
+    return result;
+  }, [currentFlashcard, flashcards.length]);
   const { targetPoint, priceRange, timeRange } = useTargetPoint(processedData);
 
   const activeFlashcard = currentFlashcard;
@@ -134,7 +157,26 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     if (!currentFlashcard.jsonFiles?.length) return false;
     const filesLoaded = currentFlashcard.jsonFiles.every(f => f.data !== null && f.data !== undefined);
     if (!filesLoaded || !processedData.orderedFiles.length) return false;
-    return Array.isArray(processedData.orderedFiles[0]?.data) && processedData.orderedFiles[0].data.length > 0;
+    
+    // More thorough validation of chart data
+    const firstOrderedFile = processedData.orderedFiles[0];
+    if (!firstOrderedFile || !firstOrderedFile.data) return false;
+    
+    // Check if data is an array with content
+    const isArray = Array.isArray(firstOrderedFile.data);
+    if (!isArray) {
+      // Log for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Chart data is not an array:', {
+          type: typeof firstOrderedFile.data,
+          data: firstOrderedFile.data,
+          fileName: firstOrderedFile.fileName,
+        });
+      }
+      return false;
+    }
+    
+    return firstOrderedFile.data.length > 0;
   }, [flashcards, currentFlashcard, processedData]);
 
   // Handlers

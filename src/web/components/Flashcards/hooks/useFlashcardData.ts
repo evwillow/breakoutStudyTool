@@ -55,12 +55,24 @@ export function useFlashcardData(
   });
 
   useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useFlashcardData] Fetching folders');
+    }
     fetchFolders();
   }, [fetchFolders]);
 
   useEffect(() => {
     if (selectedFolder) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useFlashcardData] Selected folder changed, fetching flashcards', {
+          selectedFolder,
+        });
+      }
       fetchFlashcards(selectedFolder);
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useFlashcardData] No folder selected, not fetching flashcards');
+      }
     }
   }, [selectedFolder, fetchFlashcards]);
 
