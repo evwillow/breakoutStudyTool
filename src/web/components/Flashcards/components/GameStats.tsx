@@ -9,9 +9,7 @@ interface GameStatsProps {
 
 const GameStats: React.FC<GameStatsProps> = ({
   pointsTextArray,
-  accuracy,
-  matchCount,
-  correctCount
+  accuracy
 }) => {
   const safePoints = useMemo(() => {
     if (!pointsTextArray) return [];
@@ -25,11 +23,6 @@ const GameStats: React.FC<GameStatsProps> = ({
     }
     return [];
   }, [pointsTextArray]);
-
-  const matchSummary =
-    typeof matchCount === "number" && typeof correctCount === "number"
-      ? `${correctCount}/${matchCount}`
-      : null;
 
   return (
     <div className="flex flex-col gap-3 w-full">
@@ -55,13 +48,6 @@ const GameStats: React.FC<GameStatsProps> = ({
           <span className="text-sm font-medium text-white/90">Avg. Accuracy:</span>
           <span className="text-base font-semibold text-white">{accuracy}%</span>
         </div>
-
-        {matchSummary && (
-          <div className="flex items-center gap-2 bg-black/95 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
-            <span className="text-sm font-medium text-white/80">Matches Logged:</span>
-            <span className="text-sm font-semibold text-white/80">{matchSummary}</span>
-          </div>
-        )}
       </div>
     </div>
   );

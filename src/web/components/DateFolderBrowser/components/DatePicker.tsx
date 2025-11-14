@@ -7,7 +7,6 @@ interface DatePickerProps {
 }
 
 const OPTIONS: Array<{ label: string; value: DateFilterRange }> = [
-  { label: "All time", value: "all" },
   { label: "Last 6 months", value: "6m" },
   { label: "Last year", value: "1y" },
   { label: "Last 3 years", value: "3y" },

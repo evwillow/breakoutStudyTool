@@ -2,12 +2,10 @@
 
 import React, { useCallback, useState } from "react";
 import type { DateFolderBrowserProps } from "./DateFolderBrowser.types";
-import { DatePicker } from "./components/DatePicker";
 import { EmptyState } from "./components/EmptyState";
 import { FolderList } from "./components/FolderList";
 import { useFolderData } from "./hooks/useFolderData";
 import { useFolderNavigation } from "./hooks/useFolderNavigation";
-import { useDateFilter } from "./hooks/useDateFilter";
 
 const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
   const { session, currentStock, onChartExpanded } = props;
@@ -21,11 +19,6 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
     loadFileData,
     currentBreakoutDate
   } = useFolderData(props);
-
-  const { range, setRange, filteredFiles } = useDateFilter({
-    files,
-    currentBreakoutDate
-  });
 
   const { expandedIds, toggle, isExpanded } = useFolderNavigation(onChartExpanded);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -49,10 +42,6 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
     [fileData, isExpanded, loadFileData, toggle]
   );
 
-  const headerSubtitle = currentStock
-    ? `Historical setups for ${currentStock.replace(/_/g, " ")}`
-    : "Select a breakout to view past setups.";
-
   return (
     <div className="w-full pt-0 px-2 sm:px-6 md:px-10 pb-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -63,10 +52,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
             </svg>
             <span className="text-base font-semibold text-white/90">Previous Setups</span>
           </div>
-          <p className="text-white/60 text-sm mt-2">{headerSubtitle}</p>
         </div>
-
-        <DatePicker value={range} onChange={setRange} />
       </div>
 
       {!session && (
@@ -83,10 +69,10 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
         />
       )}
 
-      {session && !error && filteredFiles.length === 0 && !isLoading && (
+      {session && !error && files.length === 0 && !isLoading && (
         <EmptyState
           title="No previous setups found."
-          description="Try adjusting the date range or selecting a different breakout."
+          description="Try selecting a different breakout."
           hint={info || null}
         />
       )}
@@ -98,9 +84,9 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
         />
       )}
 
-      {session && filteredFiles.length > 0 && (
+      {session && files.length > 0 && (
         <FolderList
-          files={filteredFiles}
+          files={files}
           expandedIds={expandedIds}
           onToggle={handleToggle}
           loadingId={loadingId}

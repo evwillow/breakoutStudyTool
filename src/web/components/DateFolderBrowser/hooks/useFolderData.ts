@@ -120,6 +120,7 @@ export const useFolderData = ({
     const abortController = new AbortController();
 
     const fetchDirectories = async (): Promise<void> => {
+      if (!isMounted) return;
       setIsLoading(true);
       setError(null);
       setInfo("");
@@ -130,10 +131,27 @@ export const useFolderData = ({
           throw new Error(`Failed to fetch folders (${response.status})`);
         }
 
-        const data = await response.json();
-        const qualityFolder = data?.folders?.find?.(
+        const responseData = await response.json();
+        
+        // Handle both response formats: { success: true, data: { folders, totalFiles } } and { success: true, folders }
+        const folders = responseData.data?.folders ?? responseData.folders;
+        
+        if (!Array.isArray(folders)) {
+          throw new Error('Invalid response: folders is not an array');
+        }
+        
+        const qualityFolder = folders.find?.(
           (folder: { name: string }) => folder.name === QUALITY_BREAKOUTS_FOLDER
         );
+
+        if (!qualityFolder) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[useFolderData] quality_breakouts folder not found in response');
+          }
+          setInfo("No quality breakouts folder found.");
+          setIsLoading(false);
+          return;
+        }
 
         const filesArray: Array<{ fileName?: string; name?: string }> = Array.isArray(
           qualityFolder?.files
@@ -195,16 +213,21 @@ export const useFolderData = ({
             ? `Found ${nextFiles.length} previous setups`
             : "No previous setups found for this ticker."
         );
+        setIsLoading(false);
       } catch (err) {
-        if (!isMounted || (err as { name?: string })?.name === "AbortError") return;
+        if (!isMounted) return;
+        
+        const error = err as { name?: string };
+        if (error?.name === "AbortError") {
+          return;
+        }
+        
         const message = err instanceof Error ? err.message : "Unknown error";
+        console.error('[useFolderData] Error fetching directories:', err);
         setError(message);
         setFiles([]);
         setInfo("");
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
@@ -219,24 +242,41 @@ export const useFolderData = ({
   const loadFileData = useCallback(
     async (fileId: string) => {
       if (fileData[fileId]) return;
+      
       const target = files.find(file => file.id === fileId);
-      if (!target) return;
+      if (!target) {
+        console.warn(`[useFolderData] File not found: ${fileId}`);
+        return;
+      }
 
       const tryFetch = async (path: string) => {
-        const response = await fetch(
-          `/api/files/local-data?file=${encodeURIComponent(path)}&folder=${encodeURIComponent(
-            QUALITY_BREAKOUTS_FOLDER
-          )}`
-        );
-        if (!response.ok) return null;
-        const json = await response.json();
-        if (json?.success && Array.isArray(json.data)) {
-          return json.data;
+        try {
+          const response = await fetch(
+            `/api/files/local-data?file=${encodeURIComponent(path)}&folder=${encodeURIComponent(
+              QUALITY_BREAKOUTS_FOLDER
+            )}`
+          );
+          if (!response.ok) return null;
+          
+          const json = await response.json();
+          
+          // Handle API response structure: { success: true, data: { data: jsonData, fileName, folder } }
+          const actualData = json.data?.data ?? json.data;
+          
+          if (Array.isArray(actualData)) {
+            return actualData;
+          }
+          
+          // Fallback: check if json.data itself is an array (old format)
+          if (json?.success && Array.isArray(json.data)) {
+            return json.data;
+          }
+          
+          return null;
+        } catch (err) {
+          console.error(`[useFolderData] Error fetching ${path}:`, err);
+          return null;
         }
-        if (Array.isArray(json?.data)) {
-          return json.data;
-        }
-        return null;
       };
 
       const dPathUpper = `${target.path}/D.json`;
@@ -256,6 +296,9 @@ export const useFolderData = ({
         (flashcardEntry?.d ?? null);
 
       if (!Array.isArray(dData) || dData.length === 0) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[useFolderData] No valid D.json data found for ${fileId}`);
+        }
         return;
       }
 
@@ -265,7 +308,13 @@ export const useFolderData = ({
 
       const combined = Array.isArray(afterData) && afterData.length > 0 ? [...dData, ...afterData] : [...dData];
 
-      setFileData(prev => ({ ...prev, [fileId]: combined }));
+      if (combined.length > 0) {
+        setFileData(prev => ({ ...prev, [fileId]: combined }));
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`[useFolderData] Combined data is empty for ${fileId}`);
+        }
+      }
     },
     [files, fileData, flashcardCache]
   );
