@@ -113,11 +113,26 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
   // Update game complete handler after round management is available
   useEffect(() => {
     if (roundManagement.currentRoundId && gameState.isGameComplete) {
-      fetch(`/api/game/rounds/${roundManagement.currentRoundId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: true }),
-      }).then(() => matchLogging.triggerRoundHistoryRefresh()).catch(console.error);
+      const updateRound = async () => {
+        try {
+          const response = await fetch(`/api/game/rounds/${roundManagement.currentRoundId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed: true }),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to update round: ${response.status} ${response.statusText}`);
+          }
+          
+          matchLogging.triggerRoundHistoryRefresh();
+        } catch (error) {
+          // Silently fail - this is a non-critical operation
+          console.warn('Failed to mark round as completed:', error);
+        }
+      };
+      
+      updateRound();
     }
   }, [gameState.isGameComplete, roundManagement.currentRoundId, matchLogging]);
 

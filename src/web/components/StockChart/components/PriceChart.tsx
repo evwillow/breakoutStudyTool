@@ -122,6 +122,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
         />
       )}
 
+      {/* For D charts, show blue line and dark background overlay on after data */}
       {shouldShowDividerAndBackground && !backgroundColor && chartType !== "previous" && (
         <>
           <line
@@ -155,6 +156,9 @@ const PriceChart: React.FC<PriceChartProps> = ({
           )}
         </>
       )}
+
+      {/* For previous charts (historical setups), no blue line and no overlay */}
+      {/* Both d data and after data areas use container's bg-black/40 background */}
 
       <g transform={`translate(${dimensions.margin.left || 0},${dimensions.margin.top || 0})`}>
         <g transform="translate(0, 0)">
@@ -315,7 +319,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
             );
           })()}
 
-          {shouldShowDividerAndBackground && (() => {
+          {shouldShowDividerAndBackground && chartType !== "previous" && (() => {
             // Semi-transparent overlay on right side
             const relativeDividerX = dividerLineX - dimensions.margin.left;
             return (

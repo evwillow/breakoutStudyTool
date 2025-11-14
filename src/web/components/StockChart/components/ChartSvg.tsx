@@ -124,6 +124,8 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
       {backgroundColor && (
         <rect x={0} y={0} width={viewWidth} height={dimensions.height} fill={backgroundColor} />
       )}
+      
+      {/* For previous charts, no SVG background - let container's bg-black/40 show through to match label */}
 
       {/* Gray dotted line - always visible as a guide, same position as blue line */}
       {!shouldShowDividerAndBackground && chartType !== "previous" && (
@@ -139,6 +141,7 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
         />
       )}
 
+      {/* For D charts, show blue line and dark background overlay on after data */}
       {shouldShowDividerAndBackground && !backgroundColor && chartType !== "previous" && (
         <>
           <line
@@ -172,6 +175,9 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
           )}
         </>
       )}
+
+      {/* For previous charts (historical setups), no blue line and no overlay */}
+      {/* Both d data and after data areas use container's bg-black/40 background */}
 
       {layers}
     </svg>

@@ -33,8 +33,8 @@ export const FolderItem: React.FC<FolderItemProps> = ({
   }, [data, isLoading, onToggle, file.id]);
 
   return (
-    <div className="border border-white/30 rounded-lg overflow-hidden backdrop-blur-sm">
-      <div className="px-4 py-3 flex items-center justify-between text-left bg-black/40 backdrop-blur-sm">
+    <div className="border border-white/30 rounded-lg overflow-hidden backdrop-blur-sm bg-black/40">
+      <div className="px-4 py-3 flex items-center justify-between text-left">
         <div className="flex flex-col text-white">
           <span className="font-semibold text-sm sm:text-base">{relativeLabel || dateLabel}</span>
           {relativeLabel && (
@@ -43,7 +43,7 @@ export const FolderItem: React.FC<FolderItemProps> = ({
         </div>
       </div>
 
-      <div className="bg-black/40 backdrop-blur-sm overflow-hidden">
+      <div className="overflow-hidden">
         {isLoading && (
           <div className="flex items-center justify-center min-h-[320px] gap-3 text-white/60 text-sm">
             <LoadingSpinner size="md" />
