@@ -47,11 +47,11 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
       <div className="relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <div className="inline-flex items-center gap-2 bg-black/40 px-4 py-2 rounded-md border border-white/20">
+          <div className="inline-flex items-center gap-2 bg-black/40 px-4 py-2 rounded-md border border-white/30">
             <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-base font-semibold text-white/90">Previous Setups</span>
+            <span className="text-base font-semibold text-white/90">Historical Setups</span>
           </div>
         </div>
       </div>

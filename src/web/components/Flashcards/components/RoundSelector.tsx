@@ -35,8 +35,8 @@ const RoundSelector: React.FC<RoundSelectorProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm pointer-events-none">
-      <div className="relative bg-black/95 backdrop-blur-sm rounded-md shadow-xl max-w-md w-full p-6 pointer-events-auto border border-white/30">
-        <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/5 via-transparent to-transparent pointer-events-none rounded-md" />
+      <div className="relative bg-black/95 backdrop-blur-sm rounded-2xl shadow-[0_18px_40px_rgba(16,185,129,0.35)] max-w-md w-full p-6 pointer-events-auto border border-emerald-500/30">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none rounded-2xl" />
 
         <div className="relative z-10">
           <h3 className="text-xl font-semibold text-white mb-4">Choose Round</h3>
@@ -111,13 +111,13 @@ const RoundSelector: React.FC<RoundSelectorProps> = ({
             <button
               onClick={onCreateRound}
               disabled={isCreatingRound}
-              className="flex-1 bg-turquoise-500/20 hover:bg-turquoise-500/30 text-turquoise-400 hover:text-turquoise-300 px-4 py-2 rounded-md border border-turquoise-500/30 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all"
+              className="flex-1 px-6 py-3 rounded-full font-semibold text-base bg-emerald-500 text-slate-900 shadow-[0_18px_40px_rgba(16,185,129,0.35)] hover:shadow-[0_24px_70px_rgba(16,185,129,0.45)] transition transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-300/60 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-[0_18px_40px_rgba(16,185,129,0.35)]"
             >
               {isCreatingRound ? "Creating..." : "Start New Round"}
             </button>
             <button
               onClick={onCancel}
-              className="px-4 py-2 bg-black/95 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white rounded-md hover:bg-black/80 transition-all font-medium"
+              className="px-6 py-3 rounded-full font-semibold text-base border border-white/15 bg-white/5 text-white hover:bg-white/10 transition text-center backdrop-blur"
             >
               Cancel
             </button>

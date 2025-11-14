@@ -57,7 +57,7 @@ export const FolderItem: React.FC<FolderItemProps> = ({
           )}
 
           {!isLoading && data && (
-            <div className="min-h-[360px]" style={{ background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.6) 0%, rgba(15, 23, 42, 0.5) 50%, rgba(2, 6, 23, 0.6) 100%)' }}>
+            <div className="min-h-[360px] bg-black/40">
               <StockChart
                 data={data}
                 showSMA

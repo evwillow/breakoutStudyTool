@@ -59,8 +59,8 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
               const newPersistent = !infoPopupPersistent;
               onInfoPopupToggle(newPersistent, newPersistent || !showInfoPopup);
             }}
-            className={`inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-black/95 backdrop-blur-sm rounded-md shadow-lg transition-colors ${
-              infoPopupPersistent ? 'text-white/70' : 'text-white/70 hover:text-white/90 hover:bg-black/80'
+            className={`inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-md transition-colors ${
+              infoPopupPersistent ? 'text-white/70' : 'text-white/70 hover:text-white/90'
             }`}
             title="Stock Information"
           >
@@ -85,7 +85,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
           </div>
         </div>
         <div ref={timerHook.timerContainerRef} className="relative inline-flex items-center gap-1.5 sm:gap-2">
-          <div data-tutorial-timer className="inline-flex items-center gap-1.5 bg-black/40 backdrop-blur-sm pl-2.5 pr-3 sm:pl-3 sm:pr-3 py-1.5 sm:py-1 rounded-md border border-white/40 shadow-lg">
+          <div data-tutorial-timer className="inline-flex items-center gap-1.5 bg-black/40 backdrop-blur-sm pl-2.5 pr-3 sm:pl-3 sm:pr-3 py-1.5 sm:py-1 rounded-md border border-white/30 shadow-lg">
             <svg className="w-4 h-4 sm:w-4 sm:h-4 text-white/70 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
