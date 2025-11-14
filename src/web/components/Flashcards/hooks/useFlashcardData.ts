@@ -97,6 +97,30 @@ export function useFlashcardData(
     [fetchFlashcards, selectedFolder]
   );
 
+  // Shuffle flashcards randomly (truly random, not seeded)
+  const shuffleFlashcards = useCallback(() => {
+    setFlashcards(prevCards => {
+      if (prevCards.length <= 1) return prevCards;
+
+      // Fisher-Yates shuffle with Math.random() for true randomization
+      const shuffled = [...prevCards];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useFlashcardData] Flashcards shuffled', {
+          originalFirst: prevCards[0]?.id,
+          shuffledFirst: shuffled[0]?.id,
+          count: shuffled.length,
+        });
+      }
+
+      return shuffled;
+    });
+  }, []);
+
   const currentFlashcard = useMemo(
     () => flashcards[currentIndex] ?? null,
     [flashcards, currentIndex]
@@ -112,6 +136,7 @@ export function useFlashcardData(
     loadingStep,
     error,
     setSelectedFolder: handleSetSelectedFolder,
+    shuffleFlashcards,
     refetchFolders,
     refetchFlashcards,
     clearError

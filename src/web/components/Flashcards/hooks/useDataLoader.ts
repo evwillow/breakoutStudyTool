@@ -37,6 +37,8 @@ export const useDataLoader = ({
   const lastFetchedFolderRef = useRef<string | null>(null);
   const isBackgroundLoadingRef = useRef<boolean>(false);
   const backgroundLoadingFolderRef = useRef<string | null>(null);
+  // Track if flashcards have been shuffled for the current folder to prevent re-shuffling
+  const hasShuffledForFolderRef = useRef<string | null>(null);
 
   // Keep ref in sync with selectedFolder
   useEffect(() => {
@@ -299,7 +301,30 @@ export const useDataLoader = ({
         return;
       }
 
+      // Reset shuffle tracking when folder changes
+      // Do this BEFORE setting lastFetchedFolderRef to ensure we detect folder changes
+      const isNewFolder = lastFetchedFolderRef.current !== folderName;
+      if (isNewFolder) {
+        hasShuffledForFolderRef.current = null;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] New folder detected, resetting shuffle tracking', {
+            previousFolder: lastFetchedFolderRef.current,
+            newFolder: folderName,
+          });
+        }
+      }
+      
+      // CRITICAL: Always shuffle on first load (when hasShuffledForFolderRef is null)
+      // This ensures random order even if refs persist across hot reloads
+      if (hasShuffledForFolderRef.current === null) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] First load detected, will shuffle', { folderName });
+        }
+      }
+
       isFetchingRef.current = true;
+      // Store the previous folder before updating to check if we need to shuffle
+      const previousFolder = lastFetchedFolderRef.current;
       lastFetchedFolderRef.current = folderName;
       cleanup();
 
@@ -395,7 +420,28 @@ export const useDataLoader = ({
 
         const loadedFiles: LoadedFlashcardFile[] = [];
         let uiReady = false;
-        let initialShuffleSeed: number | null = null;
+        // Store previousFolder in a variable accessible to nested functions
+        const currentPreviousFolder = previousFolder;
+
+        // Use truly random shuffle - Math.random() for unpredictable order each load
+        // This ensures stocks are in different order every time you load the folder
+        const shuffleArray = <T,>(array: T[]): T[] => {
+          const shuffled = [...array];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] Shuffled array', {
+              originalFirst: array[0],
+              shuffledFirst: shuffled[0],
+              length: shuffled.length,
+            });
+          }
+
+          return shuffled;
+        };
 
         const checkAndShowUI = (currentFiles: LoadedFlashcardFile[]) => {
           if (uiReady) return;
@@ -422,32 +468,34 @@ export const useDataLoader = ({
           // Show UI if we have at least one ready flashcard, or if we have any files at all
           // This prevents the UI from being stuck in loading when we have data but fewer than 3 files
           if (hasReadyFlashcard && currentFiles.length >= 1) {
-            if (initialShuffleSeed === null) {
-              let seed = 0;
-              for (let i = 0; i < folderName.length; i++) {
-                seed = (seed << 5) - seed + folderName.charCodeAt(i);
-                seed |= 0;
-              }
-              initialShuffleSeed = Math.abs(seed);
-            }
-
-            let seedValue = initialShuffleSeed;
-            const seededRandom = () => {
-              seedValue = (seedValue * 9301 + 49297) % 233280;
-              return seedValue / 233280;
-            };
-
-            const shuffleArray = <T,>(array: T[]): T[] => {
-              const shuffled = [...array];
-              for (let i = shuffled.length - 1; i > 0; i--) {
-                const j = Math.floor(seededRandom() * (i + 1));
-                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-              }
-              return shuffled;
-            };
-
+            // Use the shared shuffleArray function created at the top of fetchFlashcards
+            // Always shuffle on first load for a folder - check if this is a new folder
             const stockEntries = Array.from(tempStockGroups.entries());
-            const shuffledStockEntries = shuffleArray(stockEntries);
+            // ALWAYS shuffle if we haven't shuffled for this folder yet (new folder or first time)
+            // This ensures random order on every page load/refresh
+            const shouldShuffle = hasShuffledForFolderRef.current !== folderName;
+            let shuffledStockEntries: typeof stockEntries;
+            if (shouldShuffle) {
+              shuffledStockEntries = shuffleArray(stockEntries);
+              // Mark as shuffled immediately to prevent re-shuffling
+              hasShuffledForFolderRef.current = folderName;
+            } else {
+              shuffledStockEntries = stockEntries; // Don't re-shuffle if already shuffled for this folder
+            }
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] Shuffling stocks (checkAndShowUI)', {
+                folderName,
+                previousFolder: currentPreviousFolder,
+                hasShuffledForFolder: hasShuffledForFolderRef.current,
+                shouldShuffle,
+                stockCount: stockEntries.length,
+                firstStockBefore: stockEntries[0]?.[0],
+                firstStockAfter: shuffledStockEntries[0]?.[0],
+                entriesBefore: stockEntries.slice(0, 3).map(([dir]) => dir),
+                entriesAfter: shuffledStockEntries.slice(0, 3).map(([dir]) => dir),
+              });
+            }
 
             const flashcardData = shuffledStockEntries.map(([stockDir, stockFiles]) => {
               const hasEssentialFile = stockFiles.some(f => {
@@ -474,23 +522,25 @@ export const useDataLoader = ({
               };
             });
 
-            const shuffledFlashcardData = shuffleArray(flashcardData);
-            
+            // flashcardData is already shuffled via shuffledStockEntries
+            // NO need to shuffle again - this was causing re-ordering
+
             if (process.env.NODE_ENV === 'development') {
               console.log('[useDataLoader] Setting flashcards', {
-                flashcardCount: shuffledFlashcardData.length,
-                readyCount: shuffledFlashcardData.filter(f => f.isReady).length,
-                firstFlashcard: shuffledFlashcardData[0] ? {
-                  id: shuffledFlashcardData[0].id,
-                  name: shuffledFlashcardData[0].name,
-                  jsonFilesCount: shuffledFlashcardData[0].jsonFiles?.length,
-                  jsonFileNames: shuffledFlashcardData[0].jsonFiles?.map(f => f.fileName),
-                  hasData: shuffledFlashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
+                flashcardCount: flashcardData.length,
+                readyCount: flashcardData.filter(f => f.isReady).length,
+                firstFlashcard: flashcardData[0] ? {
+                  id: flashcardData[0].id,
+                  name: flashcardData[0].name,
+                  jsonFilesCount: flashcardData[0].jsonFiles?.length,
+                  jsonFileNames: flashcardData[0].jsonFiles?.map(f => f.fileName),
+                  hasData: flashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
                 } : null,
               });
             }
-            
-            setFlashcards(shuffledFlashcardData);
+
+            setFlashcards(flashcardData);
+            // Note: shuffle flag is already set above if we shuffled
             setLoading(false);
             setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
             setLoadingStep("");
@@ -900,11 +950,9 @@ export const useDataLoader = ({
                         }
                       }
 
-                      const combinedCards = [...updatedCards];
-                      newCards.forEach(newCard => {
-                        const randomIndex = Math.floor(Math.random() * (combinedCards.length + 1));
-                        combinedCards.splice(randomIndex, 0, newCard);
-                      });
+                      // Append new cards to the end to maintain deterministic order
+                      // DO NOT use random insertion as it breaks the seeded shuffle order
+                      const combinedCards = [...updatedCards, ...newCards];
 
                       return combinedCards;
                     });
@@ -936,17 +984,35 @@ export const useDataLoader = ({
           }
         });
 
-        const shuffleArray = <T,>(array: T[]): T[] => {
-          const shuffled = [...array];
-          for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-          }
-          return shuffled;
-        };
-
+        // Use the same seeded shuffle from above (already defined at the top)
+        // DO NOT create a new unseeded shuffleArray here
+        // Always shuffle on first load for a folder - check if this is a new folder
         const stockEntries = Array.from(stockGroups.entries());
-        const shuffledStockEntries = shuffleArray(stockEntries);
+        // ALWAYS shuffle if we haven't shuffled for this folder yet (new folder or first time)
+        // This ensures random order on every page load/refresh
+        const shouldShuffle = hasShuffledForFolderRef.current !== folderName;
+        let shuffledStockEntries: typeof stockEntries;
+        if (shouldShuffle) {
+          shuffledStockEntries = shuffleArray(stockEntries);
+          // Mark as shuffled immediately to prevent re-shuffling
+          hasShuffledForFolderRef.current = folderName;
+        } else {
+          shuffledStockEntries = stockEntries; // Don't re-shuffle if already shuffled for this folder
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Shuffling stocks (fallback)', {
+            folderName,
+            previousFolder: currentPreviousFolder,
+            hasShuffledForFolder: hasShuffledForFolderRef.current,
+            shouldShuffle,
+            stockCount: stockEntries.length,
+            firstStockBefore: stockEntries[0]?.[0],
+            firstStockAfter: shuffledStockEntries[0]?.[0],
+            entriesBefore: stockEntries.slice(0, 3).map(([dir]) => dir),
+            entriesAfter: shuffledStockEntries.slice(0, 3).map(([dir]) => dir),
+          });
+        }
 
         const flashcardData = shuffledStockEntries.map(([stockDir, stockFiles]) => {
           const hasEssentialFile = stockFiles.some(f => {
@@ -974,23 +1040,25 @@ export const useDataLoader = ({
         });
 
         const readyFlashcards = flashcardData.filter(f => f.isReady);
-        const shuffledFlashcardData = shuffleArray(flashcardData);
+        // flashcardData is already shuffled via shuffledStockEntries
+        // NO need to shuffle again - this was causing re-ordering
 
         if (process.env.NODE_ENV === 'development') {
           console.log('[useDataLoader] Setting flashcards (fallback)', {
-            flashcardCount: shuffledFlashcardData.length,
+            flashcardCount: flashcardData.length,
             readyCount: readyFlashcards.length,
-            firstFlashcard: shuffledFlashcardData[0] ? {
-              id: shuffledFlashcardData[0].id,
-              name: shuffledFlashcardData[0].name,
-              jsonFilesCount: shuffledFlashcardData[0].jsonFiles?.length,
-              jsonFileNames: shuffledFlashcardData[0].jsonFiles?.map(f => f.fileName),
-              hasData: shuffledFlashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
+            firstFlashcard: flashcardData[0] ? {
+              id: flashcardData[0].id,
+              name: flashcardData[0].name,
+              jsonFilesCount: flashcardData[0].jsonFiles?.length,
+              jsonFileNames: flashcardData[0].jsonFiles?.map(f => f.fileName),
+              hasData: flashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
             } : null,
           });
         }
 
-        setFlashcards(shuffledFlashcardData);
+        setFlashcards(flashcardData);
+        // Note: shuffle flag is already set above if we shuffled
 
         // Clear the timeout since we're done loading
         if (loadingTimeout) {

@@ -66,11 +66,12 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     loadingStep,
     error,
     setSelectedFolder,
+    shuffleFlashcards,
   } = useFlashcardData({ autoSelectFirstFolder: true });
 
   // Timer
   const [timerDuration, setTimerDuration] = React.useState<number>(TIMER_CONFIG.INITIAL_DURATION);
-  
+
   // Game state
   const gameState = useGameState({
     flashcardsLength: flashcards.length,
@@ -78,6 +79,12 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     onIncorrectAnswer: () => {},
     onGameComplete: async () => {},
   });
+
+  // Keep gameState.nextCard in a ref to avoid stale closures
+  const gameStateNextCardRef = useRef(gameState.nextCard);
+  useEffect(() => {
+    gameStateNextCardRef.current = gameState.nextCard;
+  }, [gameState.nextCard]);
 
   // Create timer ref to avoid circular dependency
   const timerRef = useRef<{ pause: () => void; reset: (duration: number) => void } | null>(null);
@@ -207,15 +214,26 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
 
   // Handlers
   const handleNextCard = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[FlashcardsContainer] handleNextCard called', {
+        currentIndex: gameState.currentIndex,
+        flashcardsLength: flashcards.length,
+        hasNextCard: typeof gameStateNextCardRef.current === 'function',
+      });
+    }
+
     timer.pause();
-    gameState.nextCard();
+    // Use ref to get the latest nextCard function, avoiding stale closures
+    if (gameStateNextCardRef.current) {
+      gameStateNextCardRef.current();
+    }
     timer.reset(timerDuration);
     if (selectedFolder && timerDuration > 0) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => timer.start());
       });
     }
-  }, [gameState, timer, timerDuration, selectedFolder]);
+  }, [gameState.currentIndex, timer, timerDuration, selectedFolder, flashcards.length]);
 
   useEffect(() => {
     handleNextCardRef.current = handleNextCard;
@@ -287,6 +305,26 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     setTimerDuration(duration);
     timer.setDuration(duration);
   }, [timer]);
+
+  const handleShuffleStocks = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[FlashcardsContainer] Shuffling stocks');
+    }
+
+    // Shuffle the flashcards
+    shuffleFlashcards();
+
+    // Reset game state to start from the beginning
+    gameState.resetGame();
+
+    // Reset and restart timer
+    timer.reset(timerDuration);
+    if (selectedFolder && timerDuration > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => timer.start());
+      });
+    }
+  }, [shuffleFlashcards, gameState, timer, timerDuration, selectedFolder]);
 
   // Timer effects
   useEffect(() => {
@@ -474,6 +512,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
                 onRoundHistory={() => setShowRoundHistory(true)}
                 onNewRound={roundManagement.handleNewRound}
                 isCreatingRound={roundManagement.isCreatingRound}
+                onShuffleStocks={handleShuffleStocks}
               />
             </div>
           </div>
@@ -499,7 +538,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
           isOpen={showRoundHistory}
           onClose={() => {
             setShowRoundHistory(false);
-            setTimeout(() => matchLogging.roundHistoryRefresh?.(), 500);
+            setTimeout(() => matchLogging.triggerRoundHistoryRefresh(), 500);
           }}
           onLoadRound={(roundId: string, datasetName: string) => {
             roundManagement.handleSelectRound(roundId, datasetName);

@@ -97,9 +97,17 @@ export function useGameState({
   // Store flashcardsLength in state so it updates reactively when flashcards load
   const [trackedFlashcardsLength, setTrackedFlashcardsLength] = useState(flashcardsLength);
   
+  // Track if flashcards have been initialized to prevent rapid flipping on initial load
+  const hasInitializedRef = useRef<boolean>(false);
+  const lastFlashcardsLengthRef = useRef<number>(0);
+
   // Update tracked length when prop changes (flashcards loading dynamically)
   // Handle both increases (lazy loading) and resets (folder changes)
   useEffect(() => {
+    const wasEmpty = lastFlashcardsLengthRef.current === 0;
+    const isEmpty = flashcardsLength === 0;
+    const isFirstLoad = wasEmpty && !isEmpty && !hasInitializedRef.current;
+
     // Always update if length increases (lazy loading scenario)
     if (flashcardsLength > trackedFlashcardsLength) {
       setTrackedFlashcardsLength(flashcardsLength);
@@ -108,12 +116,44 @@ export function useGameState({
     // This prevents stale length when switching folders
     else if (flashcardsLength < trackedFlashcardsLength && flashcardsLength > 0) {
       setTrackedFlashcardsLength(flashcardsLength);
+      // Reset index when folder changes (length decreases)
+      setCurrentIndex(0);
+      hasInitializedRef.current = false;
     }
     // Reset to 0 if flashcards array is cleared
-    else if (flashcardsLength === 0 && trackedFlashcardsLength > 0) {
+    else if (isEmpty && trackedFlashcardsLength > 0) {
       setTrackedFlashcardsLength(0);
+      setCurrentIndex(0);
+      hasInitializedRef.current = false;
     }
-  }, [flashcardsLength, trackedFlashcardsLength]);
+
+    // On first load (flashcards go from 0 to >0), reset index to 0 and mark as initialized
+    if (isFirstLoad) {
+      setCurrentIndex(0);
+      hasInitializedRef.current = true;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useGameState] First load detected, resetting currentIndex to 0', {
+          flashcardsLength,
+          previousLength: lastFlashcardsLengthRef.current,
+        });
+      }
+    }
+
+    // Clamp currentIndex if it's out of bounds (e.g., if flashcards array changed)
+    if (flashcardsLength > 0 && currentIndex >= flashcardsLength) {
+      const clampedIndex = Math.max(0, flashcardsLength - 1);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useGameState] Clamping currentIndex', {
+          currentIndex,
+          flashcardsLength,
+          clampedIndex,
+        });
+      }
+      setCurrentIndex(clampedIndex);
+    }
+
+    lastFlashcardsLengthRef.current = flashcardsLength;
+  }, [flashcardsLength, trackedFlashcardsLength, currentIndex]);
   
   // Computed values
   // Accuracy is calculated as percentage of selections that are "correct"
@@ -254,6 +294,14 @@ export function useGameState({
   
   // Move to next card
   const nextCard = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useGameState] nextCard called', {
+        currentIndex,
+        flashcardsLength,
+        trackedFlashcardsLength,
+      });
+    }
+
     // Reset card-specific state FIRST to clear the current card's state
     // This ensures the UI updates immediately
     setFeedback(null);
@@ -266,16 +314,34 @@ export function useGameState({
     setTargetPoint(null);
     setDistance(null);
     setScore(null);
-    
+
+    // CRITICAL FIX: Use flashcardsLength prop directly instead of trackedFlashcardsLength
+    // trackedFlashcardsLength may lag behind due to useEffect timing, causing "next" to fail
+    // flashcardsLength is the actual current length from props, always up-to-date
+    const actualLength = flashcardsLength;
+
     // Then move to next card - use functional update to ensure we're using the latest index
-    if (trackedFlashcardsLength > 0) {
+    if (actualLength > 0) {
       setCurrentIndex(prev => {
         const nextIndex = prev + 1;
-        if (nextIndex < trackedFlashcardsLength) {
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useGameState] setCurrentIndex', {
+            prev,
+            nextIndex,
+            actualLength,
+            willAdvance: nextIndex < actualLength,
+          });
+        }
+
+        if (nextIndex < actualLength) {
           setCurrentMatchIndex(prevMatch => prevMatch + 1);
           return nextIndex;
         } else {
           // At the end of the deck, trigger game complete
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useGameState] At end of deck, triggering game complete');
+          }
           if (onGameComplete) {
             onGameComplete();
           }
@@ -284,9 +350,12 @@ export function useGameState({
       });
     } else if (onGameComplete) {
       // No flashcards but game complete callback exists
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useGameState] No flashcards, triggering game complete');
+      }
       onGameComplete();
     }
-  }, [trackedFlashcardsLength, onGameComplete]);
+  }, [flashcardsLength, onGameComplete, currentIndex, trackedFlashcardsLength]);
   
   // Initialize game state from existing matches
   const initializeFromMatches = useCallback((matches: Array<{ correct: boolean }>) => {
@@ -321,6 +390,8 @@ export function useGameState({
     setScore(null);
     // Reset tracked length to current flashcardsLength to sync with fresh data
     setTrackedFlashcardsLength(flashcardsLength);
+    // Reset initialization flag so first load logic can run again if needed
+    hasInitializedRef.current = false;
   }, [flashcardsLength]);
   
   return {
