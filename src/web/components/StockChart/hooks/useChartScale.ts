@@ -142,7 +142,8 @@ export const useChartScale = ({
 
       currentMin = minRange + (minCombined - minRange) * zoomFactor;
       currentMax = maxRange + (maxCombined - maxRange) * zoomFactor;
-    } else if (isDChart) {
+    } else if (isDChart || chartType === "previous") {
+      // For previous charts, include both stockData and afterStockData in the scale
       currentMin = combinedMin;
       currentMax = combinedMax;
       totalDataPoints = hasAfterData ? stockData.length + afterStockData.length : stockData.length;
@@ -206,10 +207,75 @@ export const useChartScale = ({
 
     let xScaleRangeMultiplier = isMobile ? 1.05 : 1.2;
     if (chartType === "previous") {
-      xScaleRangeMultiplier = isMobile ? 1.1 : 1.25;
+      // For previous charts, fit data within container width to prevent cutoff
+      xScaleRangeMultiplier = 1.0;
     }
 
     let xScaleRangeEnd = dimensions.innerWidth * xScaleRangeMultiplier;
+
+    // For previous charts, calculate optimal range to fit all data
+    if (chartType === "previous" && stockData.length > 0) {
+      const numDataPoints = stockData.length;
+      const dataIndices = Array.from(Array(numDataPoints).keys());
+      const lastDataIndex = numDataPoints - 1;
+      
+      // Calculate range that fits all data within container
+      let currentRange = dimensions.innerWidth;
+      let iterations = 0;
+      const maxIterations = 30;
+      let bestRange = currentRange;
+      let bestDifference = Infinity;
+
+      while (iterations < maxIterations) {
+        const testScale = scalePoint<number>()
+          .domain(dataIndices)
+          .range([0, currentRange])
+          .padding(xScalePadding);
+
+        const firstCenterX = testScale(0);
+        const lastCenterX = testScale(lastDataIndex);
+        if (lastCenterX === undefined || isNaN(lastCenterX) || firstCenterX === undefined || isNaN(firstCenterX)) {
+          currentRange = bestRange;
+          break;
+        }
+
+        const step = testScale.step();
+        const firstLeftEdge = firstCenterX - step * 0.4;
+        const lastRightEdge = lastCenterX + step * 0.4;
+
+        // Check if data fits within container (with small margin for the right gap)
+        const containerWidth = dimensions.innerWidth - (tightPadding ? 0 : 4); // Account for pr-1 gap
+        const firstDifference = Math.abs(firstLeftEdge - 0);
+        const lastDifference = Math.abs(lastRightEdge - containerWidth);
+        const totalDifference = firstDifference + lastDifference;
+
+        if (totalDifference < bestDifference) {
+          bestDifference = totalDifference;
+          bestRange = currentRange;
+        }
+
+        if (lastDifference < 0.5 && firstDifference < 0.5) {
+          xScaleRangeEnd = currentRange;
+          break;
+        }
+
+        // Adjust range to fit data
+        if (lastRightEdge > containerWidth) {
+          currentRange = currentRange * (containerWidth / lastRightEdge);
+        } else if (lastRightEdge < containerWidth * 0.95) {
+          currentRange = currentRange * (containerWidth / lastRightEdge);
+        }
+
+        if (currentRange <= 0 || currentRange > dimensions.innerWidth * 2 || !isFinite(currentRange)) {
+          currentRange = bestRange;
+          break;
+        }
+
+        iterations++;
+      }
+
+      xScaleRangeEnd = bestRange;
+    }
 
     if (chartType !== "previous" && stockData.length > 0) {
       const numMainDataPoints = stockData.length;

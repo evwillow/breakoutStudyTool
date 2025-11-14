@@ -85,7 +85,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       </div>
     </div>
 
-    <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-6 md:px-10 md:pr-10 lg:pl-2 gap-3 items-start w-full relative z-50">
+    <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-2 md:px-4 gap-3 items-start w-full relative z-50">
       <div className="w-full flex flex-row lg:flex-col items-start gap-3">
         <div className="flex-1 lg:flex-none lg:w-full min-w-0 basis-1/2 lg:basis-auto">
           <GameStats

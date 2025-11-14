@@ -24,6 +24,14 @@ export interface FileDataMap {
 }
 
 /**
+ * Combined file data with separate d and after data
+ */
+export interface CombinedFileData {
+  d: unknown[];
+  after: unknown[] | null;
+}
+
+/**
  * File refs mapping structure
  */
 export interface FileRefsMap {

@@ -1,6 +1,6 @@
 import React from "react";
 import dynamic from "next/dynamic";
-import type { PreviousSetupFile } from "../DateFolderBrowser.types";
+import type { PreviousSetupFile, CombinedFileData } from "../DateFolderBrowser.types";
 import { formatDisplayDate, formatRelativeDate } from "../utils/dateUtils";
 import { LoadingSpinner } from "@/components/UI/LoadingSpinner";
 
@@ -9,7 +9,7 @@ const StockChart = dynamic(() => import("../../StockChart"), { ssr: false });
 interface FolderItemProps {
   file: PreviousSetupFile;
   isExpanded: boolean;
-  onToggle: () => void;
+  onToggle: (fileId: string) => void;
   isLoading: boolean;
   data: unknown | null;
   currentBreakoutDate: Date | null;
@@ -17,7 +17,6 @@ interface FolderItemProps {
 
 export const FolderItem: React.FC<FolderItemProps> = ({
   file,
-  isExpanded,
   onToggle,
   isLoading,
   data,
@@ -26,50 +25,55 @@ export const FolderItem: React.FC<FolderItemProps> = ({
   const relativeLabel = formatRelativeDate(file.breakoutDate, currentBreakoutDate);
   const dateLabel = formatDisplayDate(file.breakoutDate);
 
+  // Load data on mount if not already loaded
+  React.useEffect(() => {
+    if (!data && !isLoading) {
+      onToggle(file.id);
+    }
+  }, [data, isLoading, onToggle, file.id]);
+
   return (
-    <div className="border border-white/30 rounded-lg overflow-hidden bg-black/40 backdrop-blur-sm">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-white/5 transition"
-      >
+    <div className="border border-white/30 rounded-lg overflow-hidden backdrop-blur-sm">
+      <div className="px-4 py-3 flex items-center justify-between text-left bg-black/40 backdrop-blur-sm">
         <div className="flex flex-col text-white">
           <span className="font-semibold text-sm sm:text-base">{relativeLabel || dateLabel}</span>
           {relativeLabel && (
             <span className="text-xs text-white/50 mt-0.5">{dateLabel}</span>
           )}
         </div>
-        <svg
-          className={`w-5 h-5 text-white/60 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+      </div>
 
-      {isExpanded && (
-        <div className="border-t border-white/30 bg-black/40 backdrop-blur-sm">
-          {isLoading && (
-            <div className="flex items-center justify-center min-h-[320px] gap-3 text-white/60 text-sm">
-              <LoadingSpinner size="md" />
-              <span>Loading chart…</span>
-            </div>
-          )}
+      <div className="bg-black/40 backdrop-blur-sm overflow-hidden pr-1">
+        {isLoading && (
+          <div className="flex items-center justify-center min-h-[320px] gap-3 text-white/60 text-sm">
+            <LoadingSpinner size="md" />
+            <span>Loading chart…</span>
+          </div>
+        )}
 
-          {!isLoading && data && (
-            <div className="min-h-[360px] bg-black/40 w-full">
-              <StockChart
-                data={data}
-                showSMA
-                chartType="previous"
-                backgroundColor="transparent"
-              />
-            </div>
-          )}
-        </div>
-      )}
+        {!isLoading && data && (
+          <div className="h-[360px] w-full overflow-hidden">
+            <StockChart
+              data={
+                (data as CombinedFileData)?.d && Array.isArray((data as CombinedFileData).d)
+                  ? (data as CombinedFileData).d
+                  : Array.isArray(data)
+                  ? data
+                  : null
+              }
+              afterData={
+                (data as CombinedFileData)?.after && Array.isArray((data as CombinedFileData).after)
+                  ? (data as CombinedFileData).after
+                  : null
+              }
+              showSMA
+              chartType="previous"
+              backgroundColor={null}
+              tightPadding={true}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

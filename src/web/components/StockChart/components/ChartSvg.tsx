@@ -51,12 +51,7 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
   progressiveMaskWidth,
   layers
 }) => {
-  const viewWidth =
-    chartType === "previous"
-      ? dimensions.margin.left +
-        dimensions.innerWidth * (isMobile ? 1.1 : 1.25) +
-        dimensions.margin.right
-      : dimensions.width;
+  const viewWidth = dimensions.width;
 
   return (
     <svg
@@ -119,7 +114,7 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
       </defs>
 
       {backgroundColor && (
-        <rect x={0} y={0} width={dimensions.width} height={dimensions.height} fill={backgroundColor} />
+        <rect x={0} y={0} width={viewWidth} height={dimensions.height} fill={backgroundColor} />
       )}
 
       {shouldShowDividerAndBackground && !backgroundColor && chartType !== "previous" && (

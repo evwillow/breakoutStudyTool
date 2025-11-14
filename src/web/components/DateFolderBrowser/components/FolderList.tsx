@@ -19,13 +19,13 @@ export const FolderList: React.FC<FolderListProps> = ({
   fileData,
   currentBreakoutDate
 }) => (
-  <div className="space-y-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
     {files.map(file => (
       <FolderItem
         key={file.id}
         file={file}
-        isExpanded={expandedIds.includes(file.id)}
-        onToggle={() => onToggle(file.id)}
+        isExpanded={false}
+        onToggle={onToggle}
         isLoading={loadingId === file.id && !fileData[file.id]}
         data={fileData[file.id] ?? null}
         currentBreakoutDate={currentBreakoutDate}

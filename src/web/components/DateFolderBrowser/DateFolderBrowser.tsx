@@ -5,7 +5,6 @@ import type { DateFolderBrowserProps } from "./DateFolderBrowser.types";
 import { EmptyState } from "./components/EmptyState";
 import { FolderList } from "./components/FolderList";
 import { useFolderData } from "./hooks/useFolderData";
-import { useFolderNavigation } from "./hooks/useFolderNavigation";
 
 const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
   const { session, currentStock, onChartExpanded } = props;
@@ -20,30 +19,33 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
     currentBreakoutDate
   } = useFolderData(props);
 
-  const { expandedIds, toggle, isExpanded } = useFolderNavigation(onChartExpanded);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [loadedFileIds, setLoadedFileIds] = useState<Set<string>>(new Set());
 
-  const handleToggle = useCallback(
+  // Load all files on mount
+  const handleLoadFile = useCallback(
     async (fileId: string) => {
-      const shouldExpand = !isExpanded(fileId);
-
-      if (shouldExpand && !fileData[fileId]) {
+      if (!fileData[fileId] && !loadingId) {
         setLoadingId(fileId);
         await loadFileData(fileId);
+        setLoadedFileIds(prev => new Set([...prev, fileId]));
         setLoadingId(prev => (prev === fileId ? null : prev));
       }
-
-      if (!shouldExpand) {
-        setLoadingId(prev => (prev === fileId ? null : prev));
-      }
-
-      toggle(fileId, shouldExpand);
     },
-    [fileData, isExpanded, loadFileData, toggle]
+    [fileData, loadFileData, loadingId]
   );
 
+  // Load all files when they change
+  React.useEffect(() => {
+    files.forEach(file => {
+      if (!fileData[file.id] && !loadedFileIds.has(file.id)) {
+        handleLoadFile(file.id);
+      }
+    });
+  }, [files, fileData, loadedFileIds, handleLoadFile]);
+
   return (
-    <div className="w-full pt-6 px-2 sm:px-6 md:px-10 pb-4 relative">
+    <div className="w-full pt-6 px-1 sm:px-2 md:px-4 pb-4 relative">
       <div className="relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
@@ -77,16 +79,18 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
       )}
 
       {session && isLoading && files.length === 0 && (
-        <EmptyState
-          title="Loading…"
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <EmptyState
+            title="Loading…"
+          />
+        </div>
       )}
 
       {session && files.length > 0 && (
         <FolderList
           files={files}
-          expandedIds={expandedIds}
-          onToggle={handleToggle}
+          expandedIds={[]}
+          onToggle={handleLoadFile}
           loadingId={loadingId}
           fileData={fileData}
           currentBreakoutDate={currentBreakoutDate}

@@ -220,9 +220,15 @@ export const useFolderData = ({
 
         const prefetchedData: FileDataMap = {};
         nextFiles.forEach(file => {
-          const combined = combineData(flashcardCache.get(file.directoryName));
-          if (combined) {
-            prefetchedData[file.id] = combined;
+          const flashcardEntry = flashcardCache.get(file.directoryName);
+          if (flashcardEntry) {
+            const cachedData = {
+              d: Array.isArray(flashcardEntry.d) ? flashcardEntry.d : [],
+              after: Array.isArray(flashcardEntry.after) ? flashcardEntry.after : null
+            };
+            if (cachedData.d.length > 0) {
+              prefetchedData[file.id] = cachedData;
+            }
           }
         });
 
@@ -337,10 +343,15 @@ export const useFolderData = ({
       const afterPath = `${target.path}/after.json`;
 
       const flashcardEntry = flashcardCache.get(target.directoryName);
-      const cachedCombined = combineData(flashcardEntry);
-      if (cachedCombined) {
-        setFileData(prev => ({ ...prev, [fileId]: cachedCombined }));
-        return;
+      if (flashcardEntry) {
+        const cachedData = {
+          d: Array.isArray(flashcardEntry.d) ? flashcardEntry.d : [],
+          after: Array.isArray(flashcardEntry.after) ? flashcardEntry.after : null
+        };
+        if (cachedData.d.length > 0) {
+          setFileData(prev => ({ ...prev, [fileId]: cachedData }));
+          return;
+        }
       }
 
       const dData =
@@ -359,15 +370,13 @@ export const useFolderData = ({
         (await tryFetch(afterPath)) ??
         (Array.isArray(flashcardEntry?.after) ? flashcardEntry?.after : null);
 
-      const combined = Array.isArray(afterData) && afterData.length > 0 ? [...dData, ...afterData] : [...dData];
+      // Store both d and after data separately so StockChart can process them correctly
+      const combinedData = {
+        d: dData,
+        after: Array.isArray(afterData) && afterData.length > 0 ? afterData : null
+      };
 
-      if (combined.length > 0) {
-        setFileData(prev => ({ ...prev, [fileId]: combined }));
-      } else {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn(`[useFolderData] Combined data is empty for ${fileId}`);
-        }
-      }
+      setFileData(prev => ({ ...prev, [fileId]: combinedData }));
     },
     [files, fileData, flashcardCache]
   );

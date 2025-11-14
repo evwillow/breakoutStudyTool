@@ -370,7 +370,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
   return (
     <div style={{ marginTop: UI_CONFIG.CONTAINER_MARGIN_TOP }}>
       <div className="min-h-screen w-full flex justify-center items-center p-0 sm:p-4 md:p-6">
-        <div className="w-full sm:max-w-[1000px] bg-transparent rounded-md overflow-hidden">
+        <div className="w-full sm:max-w-[1200px] bg-transparent rounded-md overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-0 items-start">
             <div className="w-full lg:w-4/5">
               <ChartView

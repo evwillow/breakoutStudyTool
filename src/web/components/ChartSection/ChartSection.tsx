@@ -219,7 +219,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
 
   return (
     <>
-      <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-6 md:px-10 lg:pr-2 gap-4 items-start w-full">
+      <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-2 md:px-4 gap-4 items-start w-full">
         <div className="w-full flex flex-col items-start rounded-md shadow-md p-0 py-1 lg:py-0 backdrop-blur-sm border border-white/10 relative overflow-hidden bg-black/40">
           <div
             className={chartContainerClasses}
