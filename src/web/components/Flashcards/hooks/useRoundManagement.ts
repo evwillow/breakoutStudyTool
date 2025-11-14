@@ -226,11 +226,9 @@ export function useRoundManagement(
     gameState.resetGame();
     timer.reset(timerDuration);
     setRoundNameInput('');
+    setShowRoundSelector(false);
     if (roundId) {
       setCurrentRoundId(roundId);
-      setShowRoundSelector(false);
-    } else {
-      setShowRoundSelector(false);
     }
   }, [selectedFolder, roundNameInput, generateRoundName, createNewRound, gameState, timer, timerDuration]);
 

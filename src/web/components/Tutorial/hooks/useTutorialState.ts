@@ -43,22 +43,34 @@ export function useTutorialState({
   const [isWaitingForAction, setIsWaitingForAction] = useState(false);
   const actionListenersRef = useRef<Map<string, () => void>>(new Map());
   const clickAnywhereTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevActiveRef = useRef<boolean>(false);
 
   const currentStep = TUTORIAL_STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === TUTORIAL_STEPS.length - 1;
 
-  // Reset tutorial to first step when it becomes active
+  // Reset tutorial to first step when it becomes active (or when reactivating)
   useEffect(() => {
-    if (isActive) {
+    const wasInactive = prevActiveRef.current === false;
+    const justBecameActive = isActive && wasInactive;
+    
+    // Only reset when tutorial first becomes active, not when step index changes
+    if (justBecameActive) {
+      // Reset to first step when tutorial starts or restarts
       setCurrentStepIndex(0);
       setShowSkipTooltip(false);
       setIsWaitingForAction(false);
-    } else {
-      setCurrentStepIndex(0);
-      setShowSkipTooltip(false);
-      setIsWaitingForAction(false);
+      // Clear any pending timeouts
+      if (clickAnywhereTimeoutRef.current) {
+        clearTimeout(clickAnywhereTimeoutRef.current);
+        clickAnywhereTimeoutRef.current = null;
+      }
+      // Clear all action listeners
+      actionListenersRef.current.forEach((cleanup) => cleanup());
+      actionListenersRef.current.clear();
     }
-  }, [isActive]);
+    
+    prevActiveRef.current = isActive;
+  }, [isActive]); // Removed currentStepIndex from dependencies
 
   // Pause timer when tutorial starts
   useEffect(() => {
@@ -73,6 +85,26 @@ export function useTutorialState({
       onStepChange(currentStepIndex);
     }
   }, [currentStepIndex, onStepChange]);
+
+  const handleComplete = useCallback(async () => {
+    try {
+      const response = await fetch('/api/user/tutorial-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: true }),
+      });
+
+      if (!response.ok) {
+        console.error('Failed to mark tutorial as completed');
+      }
+    } catch (error) {
+      console.error('Error marking tutorial as completed:', error);
+    }
+
+    if (timer) {
+      timer.resume();
+    }
+  }, [timer]);
 
   // Set up action listeners for interactive steps
   useEffect(() => {
@@ -108,6 +140,14 @@ export function useTutorialState({
             // Tooltip will be shown in the render
           }, 3000);
         }
+      } else if (step.waitForAction === 'next-card-click') {
+        const nextCardListener = () => {
+          handleAction();
+        };
+        window.addEventListener('tutorial-next-card-clicked', nextCardListener);
+        actionListenersRef.current.set('next-card-click', () => {
+          window.removeEventListener('tutorial-next-card-clicked', nextCardListener);
+        });
       }
     } else {
       setIsWaitingForAction(false);
@@ -127,35 +167,20 @@ export function useTutorialState({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, currentStepIndex]);
+  }, [isActive, currentStepIndex, handleComplete]);
 
   const handleNext = useCallback(() => {
-    if (currentStepIndex < TUTORIAL_STEPS.length - 1) {
-      setCurrentStepIndex(currentStepIndex + 1);
-    } else {
-      handleComplete();
-    }
-  }, [currentStepIndex]);
-
-  const handleComplete = useCallback(async () => {
-    try {
-      const response = await fetch('/api/user/tutorial-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: true }),
-      });
-
-      if (!response.ok) {
-        console.error('Failed to mark tutorial as completed');
+    setCurrentStepIndex((prevIndex) => {
+      const nextIndex = prevIndex + 1;
+      if (nextIndex < TUTORIAL_STEPS.length) {
+        return nextIndex;
+      } else {
+        // If we're at or past the last step, complete the tutorial
+        handleComplete();
+        return prevIndex;
       }
-    } catch (error) {
-      console.error('Error marking tutorial as completed:', error);
-    }
-
-    if (timer) {
-      timer.resume();
-    }
-  }, [timer]);
+    });
+  }, [handleComplete]);
 
   const handleSkip = useCallback(() => {
     setShowSkipTooltip(true);

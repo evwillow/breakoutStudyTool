@@ -5,7 +5,7 @@
  */
 "use client";
 
-import React, { useMemo, useCallback, useEffect, useRef } from "react";
+import React, { useMemo, useCallback, useEffect, useRef, useState } from "react";
 import { useOptimisticSession } from "@/lib/hooks/useOptimisticSession";
 
 // Helper to check for session cookie synchronously (cached per render)
@@ -314,20 +314,62 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     }
   }, [roundManagement.currentRoundId, selectedFolder, roundManagement.isLoadingRounds, roundManagement.roundsLoaded, roundManagement]);
 
-  // Tutorial effect
+  // Tutorial effect - handle tutorialTrigger prop (from URL params)
   useEffect(() => {
     if (!tutorialTrigger || !session?.user?.id || loading || flashcards.length === 0 || !selectedFolder) return;
     const tutorialJustTriggered = tutorialTrigger && !prevTutorialTriggerRef.current;
     if (tutorialJustTriggered) {
       prevTutorialTriggerRef.current = true;
+      // Reset tutorial state first
       setShowTutorial(false);
-      setTimeout(() => setShowTutorial(true), 200);
+      // Ensure we have a round for the tutorial
       if (!roundManagement.currentRoundId) {
         roundManagement.loadRecentRounds(selectedFolder, true);
       }
-      setTimeout(() => setShowTutorial(true), 1500);
+      // Start tutorial after a brief delay to ensure everything is ready
+      setTimeout(() => {
+        setShowTutorial(true);
+      }, 500);
     }
   }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, roundManagement]);
+
+  // Listen for replay-tutorial event
+  const [tutorialKey, setTutorialKey] = useState(0);
+  
+  useEffect(() => {
+    const handleReplayTutorial = () => {
+      // Reset tutorial state and force remount by changing key
+      setShowTutorial(false);
+      prevTutorialTriggerRef.current = false;
+      setTutorialKey(prev => prev + 1);
+      
+      // Ensure we have data loaded before starting tutorial
+      if (!session?.user?.id || loading || flashcards.length === 0 || !selectedFolder) {
+        // Wait a bit and try again
+        setTimeout(() => {
+          if (session?.user?.id && !loading && flashcards.length > 0 && selectedFolder) {
+            setShowTutorial(true);
+          }
+        }, 1000);
+        return;
+      }
+      
+      // Ensure we have a round
+      if (!roundManagement.currentRoundId && selectedFolder) {
+        roundManagement.loadRecentRounds(selectedFolder, true);
+      }
+      
+      // Start tutorial after a brief delay to ensure state is reset
+      setTimeout(() => {
+        setShowTutorial(true);
+      }, 300);
+    };
+
+    window.addEventListener('replay-tutorial', handleReplayTutorial);
+    return () => {
+      window.removeEventListener('replay-tutorial', handleReplayTutorial);
+    };
+  }, [session?.user?.id, loading, flashcards.length, selectedFolder, roundManagement]);
 
   // Check for session cookie immediately (memoized to prevent re-checking)
   const hasSessionCookie = useMemo(() => checkSessionCookie(), []);
@@ -465,23 +507,25 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
         onCancel={roundManagement.handleRoundSelectorCancel}
       />
 
-      <Tutorial
-        key={`tutorial-${showTutorial}-${tutorialTrigger}`}
-        isActive={showTutorial}
-        onComplete={() => {
-          setShowTutorial(false);
-          if (timerDuration > 0 && !timer.isRunning) timer.start();
-        }}
-        onSkip={() => {
-          setShowTutorial(false);
-          if (timerDuration > 0 && !timer.isRunning) timer.start();
-        }}
-        timer={{
-          pause: timer.pause,
-          resume: () => { if (timerDuration > 0) timer.start(); },
-          isRunning: timer.isRunning,
-        }}
-      />
+      {showTutorial && (
+        <Tutorial
+          key={`tutorial-${tutorialKey}`}
+          isActive={showTutorial}
+          onComplete={() => {
+            setShowTutorial(false);
+            if (timerDuration > 0 && !timer.isRunning) timer.start();
+          }}
+          onSkip={() => {
+            setShowTutorial(false);
+            if (timerDuration > 0 && !timer.isRunning) timer.start();
+          }}
+          timer={{
+            pause: timer.pause,
+            resume: () => { if (timerDuration > 0) timer.start(); },
+            isRunning: timer.isRunning,
+          }}
+        />
+      )}
     </div>
   );
 }

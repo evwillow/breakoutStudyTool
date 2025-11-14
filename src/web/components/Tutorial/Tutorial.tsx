@@ -33,6 +33,26 @@ export default function Tutorial({
 }: TutorialProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  
+  // Add click listener directly to window to catch button clicks before overlay
+  useEffect(() => {
+    if (!isActive) return;
+    
+    const handleWindowClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Check if click is on a tutorial button
+      if (target.closest('[data-tutorial-button]') && target.closest('[role="dialog"]')) {
+        // Let the button's own handler deal with it
+        return;
+      }
+    };
+    
+    // Use capture phase to catch events early
+    window.addEventListener('click', handleWindowClick, true);
+    return () => {
+      window.removeEventListener('click', handleWindowClick, true);
+    };
+  }, [isActive]);
 
   const tutorialState = useTutorialState({
     isActive,
@@ -142,12 +162,36 @@ export default function Tutorial({
 
   const tutorialContent = (
     <>
-      {/* Overlay */}
+      {/* Overlay - use CSS to exclude dialog area from pointer events */}
       <div
         ref={overlayRef}
         className="fixed inset-0 z-[9998] bg-turquoise-950/70 backdrop-blur-sm"
         aria-hidden="true"
         data-tutorial-active="true"
+        style={{ 
+          pointerEvents: 'auto',
+          // Use CSS to allow pointer events through for dialog
+        }}
+        onMouseDown={(e) => {
+          const target = e.target as HTMLElement;
+          // If clicking directly on overlay (not on any child), prevent it
+          if (target === overlayRef.current || target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          // Otherwise let it through
+        }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          // If clicking directly on overlay (not on any child), prevent it
+          if (target === overlayRef.current || target === e.currentTarget) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          // Otherwise let it through
+        }}
       />
 
       {/* Highlight overlay for target element */}
@@ -189,7 +233,11 @@ export default function Tutorial({
         isWaitingForAction={tutorialState.isWaitingForAction}
         showClickHint={!!tutorialState.clickAnywhereTimeoutRef.current}
         onNext={tutorialState.handleNext}
-        onPrevious={() => tutorialState.setCurrentStepIndex(tutorialState.currentStepIndex - 1)}
+        onPrevious={() => {
+          if (tutorialState.currentStepIndex > 0) {
+            tutorialState.setCurrentStepIndex(tutorialState.currentStepIndex - 1);
+          }
+        }}
         onSkip={handleSkip}
         onComplete={handleComplete}
         tooltipPosition={position.tooltipPosition}
@@ -204,8 +252,13 @@ export default function Tutorial({
               You can replay this tutorial anytime from your profile dropdown (click your name in the header)
             </p>
             <button
-              onClick={() => tutorialState.setShowSkipTooltip(false)}
-              className="mt-2 w-full text-xs text-white/70 hover:text-white underline focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded px-2 py-1"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                tutorialState.setShowSkipTooltip(false);
+              }}
+              className="mt-2 w-full text-xs text-white/70 hover:text-white underline focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded px-2 py-1 cursor-pointer"
+              type="button"
             >
               Dismiss
             </button>

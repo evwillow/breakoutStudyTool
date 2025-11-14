@@ -160,13 +160,31 @@ export const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({
             {/* Next Stock button */}
             {onNext && (
               <button
-                onClick={onNext}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Dispatch event for tutorial to detect
+                  window.dispatchEvent(new CustomEvent('tutorial-next-card-clicked'));
+                  if (onNext) {
+                    onNext();
+                  }
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
                 data-tutorial-next
-                className={`bg-turquoise-500/20 hover:bg-turquoise-500/30 text-turquoise-400 hover:text-turquoise-300 rounded-md font-medium transition-all border border-turquoise-500/30 ${
+                className={`bg-turquoise-500/20 hover:bg-turquoise-500/30 text-turquoise-400 hover:text-turquoise-300 rounded-md font-medium transition-all border border-turquoise-500/30 relative z-[10001] ${
                   isMobile 
                     ? 'px-3 py-1.5 text-xs' 
                     : 'px-3 py-1 text-xs whitespace-nowrap'
                 }`}
+                style={{ pointerEvents: 'auto', zIndex: 10001 }}
+                type="button"
               >
                 Next Stock
               </button>

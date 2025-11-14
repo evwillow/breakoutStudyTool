@@ -37,14 +37,51 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
   tooltipPosition,
   tooltipRef,
 }) => {
+  // Use useEffect to add direct click listener to Next button
+  const nextButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  
+  React.useEffect(() => {
+    if (!nextButtonRef.current) return;
+    
+    const button = nextButtonRef.current;
+    const handleClick = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (isLastStep) {
+        onComplete();
+      } else {
+        onNext();
+      }
+    };
+    
+    button.addEventListener('click', handleClick, true); // Use capture phase
+    return () => {
+      button.removeEventListener('click', handleClick, true);
+    };
+  }, [isLastStep, onComplete, onNext]);
+
   return (
     <div
       ref={tooltipRef}
       className="fixed z-[10000] max-w-sm sm:max-w-md"
-      style={tooltipPosition}
+      style={{
+        ...tooltipPosition,
+        pointerEvents: 'auto',
+        zIndex: 10001,
+      }}
       role="dialog"
       aria-labelledby="tutorial-title"
       aria-describedby="tutorial-content"
+      data-tutorial-button="true"
+      onClick={(e) => {
+        // Prevent clicks on tooltip from propagating to overlay
+        e.stopPropagation();
+      }}
+      onMouseDown={(e) => {
+        // Ensure mouse events work and don't reach overlay
+        e.stopPropagation();
+      }}
     >
       <div className="bg-soft-white/95 backdrop-blur-sm rounded-3xl border border-turquoise-200/60 shadow-2xl shadow-turquoise-950/20 p-4 sm:p-6">
         {/* Content */}
@@ -67,27 +104,78 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
         {/* Actions */}
         <div className="flex items-center justify-between gap-3">
           <button
-            onClick={onSkip}
-            className="text-sm text-turquoise-600 hover:text-turquoise-700 underline focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded px-2 py-1"
+            data-tutorial-button="true"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSkip();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="text-sm text-turquoise-600 hover:text-turquoise-700 underline focus:outline-none focus:ring-2 focus:ring-turquoise-500 rounded px-2 py-1 cursor-pointer relative z-[10001]"
             aria-label="Skip tutorial"
+            type="button"
+            style={{ pointerEvents: 'auto', zIndex: 10001 }}
           >
             Skip
           </button>
           <div className="flex gap-2">
             {stepIndex > 0 && !step.interactive && (
               <button
-                onClick={onPrevious}
-                className="px-4 py-2 text-sm font-medium text-turquoise-700 bg-turquoise-100 hover:bg-turquoise-200 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500"
+                data-tutorial-button="true"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onPrevious();
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="px-4 py-2 text-sm font-medium text-turquoise-700 bg-turquoise-100 hover:bg-turquoise-200 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 cursor-pointer relative z-[10001]"
                 aria-label="Previous step"
+                type="button"
+                style={{ pointerEvents: 'auto', zIndex: 10001 }}
               >
                 Previous
               </button>
             )}
             {!step.interactive && (
               <button
-                onClick={isLastStep ? onComplete : onNext}
-                className="px-4 py-2 text-sm font-medium text-white bg-turquoise-600 hover:bg-turquoise-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500"
+                ref={nextButtonRef}
+                data-tutorial-button="true"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Call handlers directly
+                  if (isLastStep) {
+                    onComplete();
+                  } else {
+                    onNext();
+                  }
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-turquoise-600 hover:bg-turquoise-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 cursor-pointer relative z-[10001]"
                 aria-label={isLastStep ? 'Complete tutorial' : 'Next step'}
+                type="button"
+                style={{ pointerEvents: 'auto', zIndex: 10001, position: 'relative' }}
               >
                 {isLastStep ? 'Complete' : 'Next'}
               </button>
