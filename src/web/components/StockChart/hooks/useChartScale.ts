@@ -411,12 +411,19 @@ export const useChartScale = ({
       xScaleRangeEnd = bestRange;
     }
 
+    // Calculate the final domain with padding
+    const finalMin = currentMin - (chartType === "previous" ? bottomPadding : pricePadding);
+    const finalMax = currentMax + (chartType === "previous" ? topPadding : pricePadding);
+    
+    // Safety check: ensure domain is valid and min < max
+    const safeMin = isFinite(finalMin) && !isNaN(finalMin) ? finalMin : currentMin;
+    const safeMax = isFinite(finalMax) && !isNaN(finalMax) ? finalMax : currentMax;
+    const safeDomainMin = safeMin < safeMax ? safeMin : currentMin;
+    const safeDomainMax = safeMax > safeMin ? safeMax : currentMax;
+
     return {
       priceScale: scaleLinear<number, number>()
-        .domain([
-          currentMin - (chartType === "previous" ? bottomPadding : pricePadding),
-          currentMax + (chartType === "previous" ? topPadding : pricePadding)
-        ])
+        .domain([safeDomainMin, safeDomainMax])
         .range([priceHeight, 0]),
       volumeScale: scaleLinear<number, number>()
         .domain([0, volumeMax + volumePadding])
