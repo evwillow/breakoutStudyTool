@@ -139,6 +139,18 @@ const PriceChart: React.FC<PriceChartProps> = ({
               opacity={1}
             />
           )}
+
+          {/* Gray dotted line - render AFTER background so it's visible on top */}
+          <line
+            x1={dividerLineX}
+            y1={0}
+            x2={dividerLineX}
+            y2={dimensions.height}
+            stroke="#ffffff"
+            strokeWidth={1.5}
+            strokeDasharray="4,4"
+            opacity={0.5}
+          />
         </>
       )}
 
@@ -301,33 +313,22 @@ const PriceChart: React.FC<PriceChartProps> = ({
             );
           })()}
 
-          {onChartClick && !disabled && stockData.length > 0 && (() => {
-            const SEPARATOR_POSITION_PERCENT = isMobile ? 0.7 : 0.75;
-            const dividerX = dimensions.margin.left + dimensions.innerWidth * SEPARATOR_POSITION_PERCENT;
-
+          {shouldShowDividerAndBackground && (() => {
+            // Semi-transparent overlay on right side
+            const relativeDividerX = dividerLineX - dimensions.margin.left;
             return (
-              <g>
-                <line
-                  x1={dividerX}
-                  y1={0}
-                  x2={dividerX}
-                  y2={dimensions.height}
-                  stroke="#ffffff"
-                  strokeWidth={1}
-                  strokeDasharray="4,4"
-                  opacity={0.3}
-                />
-                <rect
-                  x={dividerX}
-                  y={0}
-                  width={dimensions.width - dividerX}
-                  height={dimensions.height}
-                  fill="rgba(255, 255, 255, 0.02)"
-                  pointerEvents="none"
-                />
-              </g>
+              <rect
+                x={relativeDividerX}
+                y={0}
+                width={dimensions.innerWidth - relativeDividerX}
+                height={dimensions.innerHeight}
+                fill="rgba(255, 255, 255, 0.02)"
+                pointerEvents="none"
+              />
             );
           })()}
+          
+          {/* Note: Gray dotted line is rendered in ChartSvg.tsx at top level to avoid clipping */}
         </g>
       </g>
     </>

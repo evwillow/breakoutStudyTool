@@ -76,19 +76,21 @@ const MovingAverages: React.FC<MovingAveragesProps> = ({
     }
   };
 
-  // For previous charts, combine stockData and visibleAfterData into one continuous line
-  const combinedDataForPrevious = chartType === "previous" && visibleAfterData.length > 0
+  // For previous charts and D charts, combine stockData and visibleAfterData into one continuous line
+  const isDChart = chartType === "default" || chartType === "D";
+  const shouldCombineData = (chartType === "previous" || isDChart) && visibleAfterData.length > 0;
+  const combinedData = shouldCombineData
     ? [...stockData, ...visibleAfterData]
     : null;
 
   return (
     <>
-      {chartType === "previous" && combinedDataForPrevious ? (
-        // For previous charts, render combined lines that span all data
+      {shouldCombineData && combinedData ? (
+        // For previous charts and D charts, render combined lines that span all data (connected)
         <>
-          {renderLine(sma10Line, combinedDataForPrevious, CHART_CONFIG.COLORS.SMA10)}
-          {renderLine(sma20Line, combinedDataForPrevious, CHART_CONFIG.COLORS.SMA20)}
-          {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, combinedDataForPrevious, CHART_CONFIG.COLORS.SMA50)}
+          {renderLine(sma10Line, combinedData, CHART_CONFIG.COLORS.SMA10)}
+          {renderLine(sma20Line, combinedData, CHART_CONFIG.COLORS.SMA20)}
+          {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, combinedData, CHART_CONFIG.COLORS.SMA50)}
         </>
       ) : (
         // For other chart types, render main and after lines separately

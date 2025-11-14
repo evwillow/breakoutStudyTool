@@ -156,6 +156,18 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
               opacity={1}
             />
           )}
+
+          {/* Gray dotted line - render at top level, not clipped */}
+          <line
+            x1={dividerLineX}
+            y1={0}
+            x2={dividerLineX}
+            y2={dimensions.height}
+            stroke="#ffffff"
+            strokeWidth={1.5}
+            strokeDasharray="4,4"
+            opacity={0.5}
+          />
         </>
       )}
 

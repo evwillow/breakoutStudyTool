@@ -215,7 +215,8 @@ export const useChartScale = ({
     }
 
     // Use minimal padding to ensure data starts at left edge and ends at divider
-    const xScalePadding = tightPadding ? 0 : isMobile ? 0.01 : 0.02;
+    // For D charts, use even less padding to ensure SMAs start at left edge
+    const xScalePadding = tightPadding ? 0 : (isDChart ? 0 : (isMobile ? 0.01 : 0.02));
     const DIVIDER_POSITION_PERCENT = isMobile ? 0.7 : 0.75;
     const dividerPositionInChart = dimensions.innerWidth * DIVIDER_POSITION_PERCENT;
 
@@ -305,20 +306,32 @@ export const useChartScale = ({
       xScaleRangeEnd = finalRange;
     }
 
-    if (chartType !== "previous" && stockData.length > 0) {
+    // For D charts and non-previous charts, ensure data starts at left edge and ends at divider
+    if ((isDChart || chartType !== "previous") && stockData.length > 0) {
       const numMainDataPoints = stockData.length;
       const lastMainDataIndex = numMainDataPoints - 1;
       const mainDataIndices = Array.from(Array(numMainDataPoints).keys());
+      const hasAfterDataForDChart = isDChart && hasAfterData;
 
-      let currentRange = dividerPositionInChart * 1.15;
+      // For D charts, estimate candlestick width to position first candlestick at left edge
+      // We'll refine this in the iteration loop
+      const estimatedStep = dividerPositionInChart / Math.max(numMainDataPoints, 1);
+      const estimatedCandlestickHalfWidth = estimatedStep * 0.4;
+      
+      // Start with range that accounts for candlestick width offset for D charts
+      let currentRange = isDChart 
+        ? dividerPositionInChart * 1.15 + estimatedCandlestickHalfWidth
+        : dividerPositionInChart * 1.15;
       let iterations = 0;
       const maxIterations = 50;
       let bestRange = currentRange;
       let bestDifference = Infinity;
 
       while (iterations < maxIterations) {
+        // For D charts with after data, use combined indices to ensure continuity
+        const testDomain = hasAfterDataForDChart ? combinedIndices : mainDataIndices;
         const testScale = scalePoint<number>()
-          .domain(mainDataIndices)
+          .domain(testDomain)
           .range([0, currentRange])
           .padding(xScalePadding);
 
@@ -332,28 +345,85 @@ export const useChartScale = ({
         const step = testScale.step();
         const firstLeftEdge = firstCenterX - step * 0.4;
         const lastRightEdge = lastCenterX + step * 0.4;
-
-        // Check both: first point should start at 0, last point should end at divider
-        const firstDifference = Math.abs(firstLeftEdge - 0);
-        const lastDifference = Math.abs(lastRightEdge - dividerPositionInChart);
+        
+        // For D charts, ensure first candlestick's left edge is at 0 for continuous appearance
+        // Candlestick width is step * 0.8, so left edge = center - width/2 = center - step * 0.4
+        // We want left edge at 0, so center should be at step * 0.4
+        const candlestickHalfWidth = step * 0.4;
+        const firstCandlestickLeftEdge = firstCenterX - candlestickHalfWidth;
+        
+        // For D charts, check that first candlestick left edge is at 0 (for continuous flow from left)
+        // Check both: first candlestick left edge should be at 0, last point should end at divider
+        // Note: We'll offset the range later, so we need to account for that in the calculation
+        const firstDifference = isDChart ? Math.abs(firstCandlestickLeftEdge - 0) : Math.abs(firstLeftEdge - 0);
+        // For D charts, account for the range offset we'll apply (candlestickHalfWidth)
+        // The last point's right edge should be at dividerPositionInChart
+        // But since we'll offset range by candlestickHalfWidth, we need to adjust
+        const effectiveDividerPosition = isDChart 
+          ? dividerPositionInChart - candlestickHalfWidth 
+          : dividerPositionInChart;
+        const lastDifference = Math.abs(lastRightEdge - effectiveDividerPosition);
         const totalDifference = firstDifference + lastDifference;
 
-        if (totalDifference < bestDifference) {
-          bestDifference = totalDifference;
-          bestRange = currentRange;
+        // For D charts with after data, also check that after data starts at divider
+        let afterStartDifference = 0;
+        if (hasAfterDataForDChart && combinedIndices.length > numMainDataPoints) {
+          const firstAfterIndex = numMainDataPoints;
+          const firstAfterCenterX = testScale(firstAfterIndex);
+          if (firstAfterCenterX !== undefined && !isNaN(firstAfterCenterX)) {
+            const firstAfterLeftEdge = firstAfterCenterX - step * 0.4;
+            afterStartDifference = Math.abs(firstAfterLeftEdge - dividerPositionInChart);
+            // Add to total difference to ensure continuity
+            const adjustedTotalDifference = totalDifference + afterStartDifference;
+            if (adjustedTotalDifference < bestDifference) {
+              bestDifference = adjustedTotalDifference;
+              bestRange = currentRange;
+            }
+          }
+        } else {
+          if (totalDifference < bestDifference) {
+            bestDifference = totalDifference;
+            bestRange = currentRange;
+          }
         }
 
-        if (lastDifference < 0.01 && firstDifference < 0.01) {
+        if (lastDifference < 0.01 && firstDifference < 0.01 && afterStartDifference < 0.01) {
           xScaleRangeEnd = currentRange;
           break;
         }
 
-        // Adjust based on both constraints
-        const lastAdjustment = dividerPositionInChart / lastRightEdge;
-        // If firstLeftEdge is positive, we need to reduce the range to bring it closer to 0
-        // If firstLeftEdge is negative (shouldn't happen), we need to increase the range
-        const firstAdjustment = firstLeftEdge > 0 ? (dividerPositionInChart - firstLeftEdge) / dividerPositionInChart : 1.0;
-        const combinedAdjustment = (lastAdjustment + firstAdjustment) / 2;
+        // Adjust based on constraints
+        const lastAdjustment = effectiveDividerPosition / lastRightEdge;
+        // For D charts, adjust based on candlestick left edge to ensure continuous flow from left
+        // If first candlestick left edge > 0, we need to shift/adjust the range
+        const firstAdjustment = isDChart 
+          ? (firstCandlestickLeftEdge > 0.01 
+              ? (currentRange - firstCandlestickLeftEdge) / currentRange 
+              : (firstCandlestickLeftEdge < -0.01 
+                  ? currentRange / (currentRange - firstCandlestickLeftEdge) 
+                  : 1.0))
+          : (firstLeftEdge > 0 ? (dividerPositionInChart - firstLeftEdge) / dividerPositionInChart : 1.0);
+        
+        // For D charts with after data, also adjust based on after data position
+        let afterAdjustment = 1.0;
+        if (hasAfterDataForDChart && combinedIndices.length > numMainDataPoints) {
+          const firstAfterIndex = numMainDataPoints;
+          const firstAfterCenterX = testScale(firstAfterIndex);
+          if (firstAfterCenterX !== undefined && !isNaN(firstAfterCenterX)) {
+            const firstAfterLeftEdge = firstAfterCenterX - step * 0.4;
+            if (firstAfterLeftEdge < dividerPositionInChart) {
+              // After data starts too early, need to expand range
+              afterAdjustment = dividerPositionInChart / firstAfterLeftEdge;
+            } else if (firstAfterLeftEdge > dividerPositionInChart) {
+              // After data starts too late, need to shrink range
+              afterAdjustment = dividerPositionInChart / firstAfterLeftEdge;
+            }
+          }
+        }
+        
+        const combinedAdjustment = hasAfterDataForDChart 
+          ? (lastAdjustment + firstAdjustment + afterAdjustment) / 3
+          : (lastAdjustment + firstAdjustment) / 2;
         const newRange = currentRange * combinedAdjustment;
 
         if (newRange <= 0 || newRange > dimensions.innerWidth * 5 || !isFinite(newRange)) {
@@ -371,8 +441,9 @@ export const useChartScale = ({
         const maxExtendedIterations = 30;
 
         while (extendedIterations < maxExtendedIterations) {
+          const verifyDomain = hasAfterDataForDChart ? extendedIndices : extendedIndices;
           const verifyScale = scalePoint<number>()
-            .domain(extendedIndices)
+            .domain(verifyDomain)
             .range([0, extendedRange])
             .padding(xScalePadding);
 
@@ -385,17 +456,54 @@ export const useChartScale = ({
           const verifyStep = verifyScale.step();
           const verifyFirstLeftEdge = verifyFirstX - verifyStep * 0.4;
           const verifyRightEdge = verifyLastX + verifyStep * 0.4;
-          const verifyFirstDiff = Math.abs(verifyFirstLeftEdge - 0);
-          const verifyLastDiff = Math.abs(verifyRightEdge - dividerPositionInChart);
+          // For D charts, ensure first candlestick left edge is at 0 (for continuous flow from left)
+          const verifyCandlestickHalfWidth = verifyStep * 0.4;
+          const verifyFirstCandlestickLeftEdge = verifyFirstX - verifyCandlestickHalfWidth;
+          const verifyFirstDiff = isDChart ? Math.abs(verifyFirstCandlestickLeftEdge - 0) : Math.abs(verifyFirstLeftEdge - 0);
+          const verifyEffectiveDividerPosition = isDChart 
+            ? dividerPositionInChart - verifyCandlestickHalfWidth 
+            : dividerPositionInChart;
+          const verifyLastDiff = Math.abs(verifyRightEdge - verifyEffectiveDividerPosition);
 
-          if (verifyLastDiff < 0.01 && verifyFirstDiff < 0.01) {
+          // Check after data position for D charts
+          let verifyAfterDiff = 0;
+          if (hasAfterDataForDChart && extendedIndices.length > numMainDataPoints) {
+            const firstAfterIndex = numMainDataPoints;
+            const verifyFirstAfterX = verifyScale(firstAfterIndex);
+            if (verifyFirstAfterX !== undefined && !isNaN(verifyFirstAfterX)) {
+              const verifyFirstAfterLeftEdge = verifyFirstAfterX - verifyStep * 0.4;
+              verifyAfterDiff = Math.abs(verifyFirstAfterLeftEdge - dividerPositionInChart);
+            }
+          }
+
+          if (verifyLastDiff < 0.01 && verifyFirstDiff < 0.01 && verifyAfterDiff < 0.01) {
             bestRange = extendedRange;
             break;
           }
 
-          const verifyLastAdjustment = dividerPositionInChart / verifyRightEdge;
-          const verifyFirstAdjustment = verifyFirstLeftEdge > 0 ? (dividerPositionInChart - verifyFirstLeftEdge) / dividerPositionInChart : 1.0;
-          const verifyCombinedAdjustment = (verifyLastAdjustment + verifyFirstAdjustment) / 2;
+          const verifyLastAdjustment = verifyEffectiveDividerPosition / verifyRightEdge;
+          // For D charts, adjust based on candlestick left edge to ensure continuous flow from left
+          const verifyFirstAdjustment = isDChart
+            ? (verifyFirstCandlestickLeftEdge > 0.01 
+                ? (extendedRange - verifyFirstCandlestickLeftEdge) / extendedRange 
+                : (verifyFirstCandlestickLeftEdge < -0.01 
+                    ? extendedRange / (extendedRange - verifyFirstCandlestickLeftEdge) 
+                    : 1.0))
+            : (verifyFirstLeftEdge > 0 ? (dividerPositionInChart - verifyFirstLeftEdge) / dividerPositionInChart : 1.0);
+          
+          let verifyAfterAdjustment = 1.0;
+          if (hasAfterDataForDChart && extendedIndices.length > numMainDataPoints) {
+            const firstAfterIndex = numMainDataPoints;
+            const verifyFirstAfterX = verifyScale(firstAfterIndex);
+            if (verifyFirstAfterX !== undefined && !isNaN(verifyFirstAfterX)) {
+              const verifyFirstAfterLeftEdge = verifyFirstAfterX - verifyStep * 0.4;
+              verifyAfterAdjustment = dividerPositionInChart / verifyFirstAfterLeftEdge;
+            }
+          }
+          
+          const verifyCombinedAdjustment = hasAfterDataForDChart
+            ? (verifyLastAdjustment + verifyFirstAdjustment + verifyAfterAdjustment) / 3
+            : (verifyLastAdjustment + verifyFirstAdjustment) / 2;
           extendedRange = extendedRange * verifyCombinedAdjustment;
 
           if (extendedRange <= 0 || extendedRange > dimensions.innerWidth * 5 || !isFinite(extendedRange)) {
@@ -421,6 +529,21 @@ export const useChartScale = ({
     const safeDomainMin = safeMin < safeMax ? safeMin : currentMin;
     const safeDomainMax = safeMax > safeMin ? safeMax : currentMax;
 
+    // For D charts, ensure first candlestick's left edge and first SMA point are at 0
+    // With padding 0, first point's center will be at 0, so left edge will be at -candlestickHalfWidth
+    // To fix this, we offset the range so first point center is at candlestickHalfWidth, making left edge at 0
+    const rangeStart = isDChart && xScaleRangeEnd > 0 ? (() => {
+      // Calculate actual step size from the range
+      const estimatedStep = xScaleRangeEnd / Math.max(extendedIndices.length - 1, 1);
+      const candlestickHalfWidth = estimatedStep * 0.4;
+      // Range start should be candlestickHalfWidth so first point center is there, left edge at 0
+      return candlestickHalfWidth;
+    })() : 0;
+    // For D charts, adjust rangeEnd to account for the offset
+    // The positioning logic calculated xScaleRangeEnd for the effective divider position
+    // We need to add the offset to maintain correct positioning
+    const rangeEnd = xScaleRangeEnd + rangeStart;
+
     return {
       priceScale: scaleLinear<number, number>()
         .domain([safeDomainMin, safeDomainMax])
@@ -430,7 +553,7 @@ export const useChartScale = ({
         .range([volumeHeight, 0]),
       xScale: scalePoint<number>()
         .domain(extendedIndices)
-        .range([0, xScaleRangeEnd])
+        .range([rangeStart, rangeEnd])
         .padding(xScalePadding),
       priceHeight,
       volumeHeight,
