@@ -167,7 +167,8 @@ const PriceChart: React.FC<PriceChartProps> = ({
           {candlesticks.length > 0 ? (
             <>
               {candlesticks.map((candle, i) => {
-                const finalX = calculateMainX(i);
+                // Use the x position from geometry calculation to ensure alignment with SMAs
+                const finalX = candle.x !== undefined && !isNaN(candle.x) ? candle.x : calculateMainX(i);
 
                 return (
                 <g key={`main-${i}`}>
@@ -198,14 +199,14 @@ const PriceChart: React.FC<PriceChartProps> = ({
             </text>
           )}
 
-          {scales.isZoomedOut && showAfterAnimation &&
+          {((chartType === "previous") || (scales.isZoomedOut && showAfterAnimation)) &&
             afterCandlesticks.map((candle, i) => {
-              const index = stockData.length + i;
-              const finalX = calculateAfterX(index);
+              // Use the x position from geometry calculation to ensure alignment with SMAs
+              const finalX = candle.x !== undefined && !isNaN(candle.x) ? candle.x : calculateAfterX(stockData.length + i);
 
               return (
               <g key={`after-${i}`}>
-                {!isNaN(candle.x) && !isNaN(candle.highY) && !isNaN(candle.lowY) && (
+                {!isNaN(finalX) && !isNaN(candle.highY) && !isNaN(candle.lowY) && (
                   <line
                     x1={finalX}
                     y1={candle.highY}
@@ -215,7 +216,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
                     strokeWidth={1}
                   />
                 )}
-                {!isNaN(candle.x) && !isNaN(candle.openY) && !isNaN(candle.closeY) && (
+                {!isNaN(finalX) && !isNaN(candle.openY) && !isNaN(candle.closeY) && (
                   <rect
                     x={finalX - candle.width / 2}
                     y={Math.min(candle.openY, candle.closeY)}

@@ -76,24 +76,40 @@ const MovingAverages: React.FC<MovingAveragesProps> = ({
     }
   };
 
+  // For previous charts, combine stockData and visibleAfterData into one continuous line
+  const combinedDataForPrevious = chartType === "previous" && visibleAfterData.length > 0
+    ? [...stockData, ...visibleAfterData]
+    : null;
+
   return (
     <>
-      {renderLine(sma10Line, stockData, CHART_CONFIG.COLORS.SMA10)}
-      {renderLine(sma20Line, stockData, CHART_CONFIG.COLORS.SMA20)}
-      {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, stockData, CHART_CONFIG.COLORS.SMA50)}
+      {chartType === "previous" && combinedDataForPrevious ? (
+        // For previous charts, render combined lines that span all data
+        <>
+          {renderLine(sma10Line, combinedDataForPrevious, CHART_CONFIG.COLORS.SMA10)}
+          {renderLine(sma20Line, combinedDataForPrevious, CHART_CONFIG.COLORS.SMA20)}
+          {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, combinedDataForPrevious, CHART_CONFIG.COLORS.SMA50)}
+        </>
+      ) : (
+        // For other chart types, render main and after lines separately
+        <>
+          {renderLine(sma10Line, stockData, CHART_CONFIG.COLORS.SMA10)}
+          {renderLine(sma20Line, stockData, CHART_CONFIG.COLORS.SMA20)}
+          {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, stockData, CHART_CONFIG.COLORS.SMA50)}
 
-      {scales.isZoomedOut &&
-        (showAfterAnimation || afterAnimationComplete) &&
-        visibleAfterData.length > 0 &&
-        chartType !== "monthly" &&
-        chartType !== "M" &&
-        chartType !== "minute" && (
-          <>
-            {renderLine(afterSma10Line, visibleAfterData, CHART_CONFIG.COLORS.SMA10)}
-            {renderLine(afterSma20Line, visibleAfterData, CHART_CONFIG.COLORS.SMA20)}
-            {chartType !== "hourly" && chartType !== "H" && renderLine(afterSma50Line, visibleAfterData, CHART_CONFIG.COLORS.SMA50)}
-          </>
-        )}
+          {((scales.isZoomedOut && (showAfterAnimation || afterAnimationComplete))) &&
+            visibleAfterData.length > 0 &&
+            chartType !== "monthly" &&
+            chartType !== "M" &&
+            chartType !== "minute" && (
+              <>
+                {renderLine(afterSma10Line, visibleAfterData, CHART_CONFIG.COLORS.SMA10)}
+                {renderLine(afterSma20Line, visibleAfterData, CHART_CONFIG.COLORS.SMA20)}
+                {chartType !== "hourly" && chartType !== "H" && renderLine(afterSma50Line, visibleAfterData, CHART_CONFIG.COLORS.SMA50)}
+              </>
+            )}
+        </>
+      )}
     </>
   );
 };

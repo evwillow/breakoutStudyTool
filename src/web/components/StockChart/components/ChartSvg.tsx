@@ -68,7 +68,7 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
           : chartType === "hourly"
           ? "xMidYMid slice"
           : chartType === "previous"
-          ? "xMinYMid meet"
+          ? "xMidYMid meet"
           : "xMidYMid meet"
       }
       onClick={handleChartClick}
@@ -93,6 +93,14 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
       }}
     >
       <defs>
+        <clipPath id={`chart-clip-${chartType}`}>
+          <rect 
+            x={0} 
+            y={0} 
+            width={dimensions.width} 
+            height={dimensions.height} 
+          />
+        </clipPath>
         <style>
           {`
             @media (max-width: 768px) {

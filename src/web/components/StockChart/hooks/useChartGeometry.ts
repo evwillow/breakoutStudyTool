@@ -178,11 +178,14 @@ export const useChartGeometry = ({
   }, [scales, stockData, dimensions, zoomPercentage, afterStockData.length, chartType]);
 
   const afterCandlesticks = useMemo<CandlestickData[]>(() => {
+    // For previous charts, always show after data
+    const shouldShowAfter = chartType === "previous" 
+      ? visibleAfterData.length > 0
+      : scales?.isZoomedOut && showAfterAnimation && visibleAfterData.length > 0;
+    
     if (
       !scales ||
-      !scales.isZoomedOut ||
-      !showAfterAnimation ||
-      visibleAfterData.length === 0 ||
+      !shouldShowAfter ||
       !dimensions ||
       stockData.length === 0
     ) {
@@ -256,7 +259,7 @@ export const useChartGeometry = ({
         }
       })
       .filter((item): item is CandlestickData => item !== null);
-  }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, afterStockData.length]);
+  }, [scales, stockData.length, visibleAfterData, dimensions, showAfterAnimation, zoomPercentage, afterStockData.length, chartType]);
 
   const afterVolumeBars = useMemo<VolumeBarData[]>(() => {
     if (

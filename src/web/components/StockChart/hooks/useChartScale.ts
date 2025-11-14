@@ -61,7 +61,8 @@ export const useChartScale = ({
       const values: (number | null | undefined)[] = [
         d.high as number | undefined,
         d.low as number | undefined,
-        d.close as number | undefined
+        d.close as number | undefined,
+        d.open as number | undefined
       ];
 
       if (hasSMA10 && d.sma10 !== null && !isNaN(Number(d.sma10))) values.push(d.sma10 as number);
@@ -83,15 +84,18 @@ export const useChartScale = ({
     const mainMax = Math.max(...mainValues);
 
     const isDChart = chartType === "default" || chartType === "D";
+    const isPreviousChart = chartType === "previous";
     let afterMin = mainMin;
     let afterMax = mainMax;
 
-    if (afterStockData.length > 0 && !isDChart) {
+    // For previous charts and non-D charts, include after data in min/max calculation
+    if (afterStockData.length > 0 && (isPreviousChart || !isDChart)) {
       const afterValues = afterStockData.flatMap(d => {
         const values: (number | null | undefined)[] = [
           d.high as number | undefined,
           d.low as number | undefined,
-          d.close as number | undefined
+          d.close as number | undefined,
+          d.open as number | undefined
         ];
 
         if (hasSMA10 && d.sma10 !== null && !isNaN(Number(d.sma10))) values.push(d.sma10 as number);
@@ -114,11 +118,16 @@ export const useChartScale = ({
     let combinedMax: number;
 
     if (isDChart) {
+      // For D charts, use padding logic
       const mainRange = mainMax - mainMin;
       const paddingAbove = mainRange * 0.5;
       const paddingBelow = mainRange * 0.1;
       combinedMin = mainMin - paddingBelow;
       combinedMax = mainMax + paddingAbove;
+    } else if (isPreviousChart) {
+      // For previous charts, use exact min/max with no padding to fill vertical space
+      combinedMin = Math.min(mainMin, afterMin);
+      combinedMax = Math.max(mainMax, afterMax);
     } else {
       combinedMin = Math.min(mainMin, afterMin);
       combinedMax = Math.max(mainMax, afterMax);
@@ -156,7 +165,12 @@ export const useChartScale = ({
     }
 
     const priceRange = currentMax - currentMin;
-    const pricePadding = chartType === "previous" ? 0 : priceRange * 0.2;
+    // For previous charts, use asymmetric padding: significantly more on bottom to prevent overflow
+    // Top padding: 1%, Bottom padding: 12% to ensure low wicks, SMAs, and any edge cases stay within borders
+    // This aggressive bottom padding ensures nothing goes off the bottom edge
+    const topPadding = chartType === "previous" ? priceRange * 0.01 : priceRange * 0.2;
+    const bottomPadding = chartType === "previous" ? priceRange * 0.12 : priceRange * 0.2;
+    const pricePadding = topPadding; // Keep for backward compatibility, but we'll use both
 
     const volumeValues = stockData
       .map(d => {
@@ -205,76 +219,90 @@ export const useChartScale = ({
     const DIVIDER_POSITION_PERCENT = isMobile ? 0.7 : 0.75;
     const dividerPositionInChart = dimensions.innerWidth * DIVIDER_POSITION_PERCENT;
 
+    // For previous charts, use same logic as D chart but with a small right margin for readability
+    // Leave ~2-3% of container width as margin on the right for readability
+    const rightMarginPercent = chartType === "previous" ? 0.025 : 0; // 2.5% margin
+    const effectiveContainerWidth = dimensions.innerWidth * (1 - rightMarginPercent);
+    
     let xScaleRangeMultiplier = isMobile ? 1.05 : 1.2;
-    if (chartType === "previous") {
-      // For previous charts, fit data within container width to prevent cutoff
-      xScaleRangeMultiplier = 1.0;
-    }
+    let xScaleRangeEnd = effectiveContainerWidth * xScaleRangeMultiplier;
 
-    let xScaleRangeEnd = dimensions.innerWidth * xScaleRangeMultiplier;
-
-    // For previous charts, calculate optimal range to fit all data
+    // For previous charts, ensure data fills the space tightly with a small margin
     if (chartType === "previous" && stockData.length > 0) {
-      const numDataPoints = stockData.length;
-      const dataIndices = Array.from(Array(numDataPoints).keys());
-      const lastDataIndex = numDataPoints - 1;
+      const totalDataPoints = hasAfterData ? stockData.length + afterStockData.length : stockData.length;
+      const dataIndices = Array.from(Array(totalDataPoints).keys());
+      const lastDataIndex = totalDataPoints - 1;
       
-      // Calculate range that fits all data within container
-      let currentRange = dimensions.innerWidth;
-      let iterations = 0;
-      const maxIterations = 30;
-      let bestRange = currentRange;
-      let bestDifference = Infinity;
-
-      while (iterations < maxIterations) {
+      // Target: last point's right edge should be at 98% of effective width (leaving 2% margin for readability)
+      const targetRightEdgePercent = 0.98; // 98% of effective width
+      const targetRightEdge = effectiveContainerWidth * targetRightEdgePercent;
+      
+      // Start with a good approximation
+      const n = totalDataPoints;
+      let finalRange = n > 1 ? effectiveContainerWidth / (1 + 0.1 / (n - 1)) : effectiveContainerWidth;
+      
+      // Iterate to find precise range - ensure both first and last points are positioned correctly
+      for (let iter = 0; iter < 100; iter++) {
         const testScale = scalePoint<number>()
           .domain(dataIndices)
-          .range([0, currentRange])
+          .range([0, finalRange])
           .padding(xScalePadding);
-
+        
         const firstCenterX = testScale(0);
         const lastCenterX = testScale(lastDataIndex);
         if (lastCenterX === undefined || isNaN(lastCenterX) || firstCenterX === undefined || isNaN(firstCenterX)) {
-          currentRange = bestRange;
           break;
         }
-
+        
         const step = testScale.step();
-        const firstLeftEdge = firstCenterX - step * 0.4;
-        const lastRightEdge = lastCenterX + step * 0.4;
-
-        // Check if data fits within container (with small margin for the right gap)
-        const containerWidth = dimensions.innerWidth - (tightPadding ? 0 : 4); // Account for pr-1 gap
+        const firstLeftEdge = firstCenterX - (step * 0.4);
+        const lastRightEdge = lastCenterX + (step * 0.4);
+        
+        // Check both constraints: first point at 0, last point at target
         const firstDifference = Math.abs(firstLeftEdge - 0);
-        const lastDifference = Math.abs(lastRightEdge - containerWidth);
-        const totalDifference = firstDifference + lastDifference;
-
-        if (totalDifference < bestDifference) {
-          bestDifference = totalDifference;
-          bestRange = currentRange;
-        }
-
-        if (lastDifference < 0.5 && firstDifference < 0.5) {
-          xScaleRangeEnd = currentRange;
+        const lastDifference = targetRightEdge - lastRightEdge;
+        
+        // If both are within tolerance, we're done
+        if (firstDifference < 0.01 && Math.abs(lastDifference) < 0.1) {
           break;
         }
-
-        // Adjust range to fit data
-        if (lastRightEdge > containerWidth) {
-          currentRange = currentRange * (containerWidth / lastRightEdge);
-        } else if (lastRightEdge < containerWidth * 0.95) {
-          currentRange = currentRange * (containerWidth / lastRightEdge);
+        
+        // Adjust based on which constraint is further off
+        if (lastRightEdge < targetRightEdge) {
+          // Need to expand to reach target
+          const expansionRatio = targetRightEdge / lastRightEdge;
+          finalRange = finalRange * expansionRatio;
+        } else if (lastRightEdge > targetRightEdge) {
+          // Overshot - shrink
+          const shrinkRatio = targetRightEdge / lastRightEdge;
+          finalRange = finalRange * shrinkRatio;
         }
-
-        if (currentRange <= 0 || currentRange > dimensions.innerWidth * 2 || !isFinite(currentRange)) {
-          currentRange = bestRange;
+        
+        // Safety check
+        if (!isFinite(finalRange) || finalRange <= 0 || finalRange > effectiveContainerWidth * 3) {
+          finalRange = effectiveContainerWidth;
           break;
         }
-
-        iterations++;
+      }
+      
+      // Final verification - ensure we're very close to target
+      const verifyScale = scalePoint<number>()
+        .domain(dataIndices)
+        .range([0, finalRange])
+        .padding(xScalePadding);
+      const verifyFirstCenterX = verifyScale(0);
+      const verifyLastCenterX = verifyScale(lastDataIndex);
+      if (verifyLastCenterX !== undefined && !isNaN(verifyLastCenterX) && verifyFirstCenterX !== undefined && !isNaN(verifyFirstCenterX)) {
+        const verifyStep = verifyScale.step();
+        const verifyLastRightEdge = verifyLastCenterX + (verifyStep * 0.4);
+        if (verifyLastRightEdge < targetRightEdge) {
+          // One final expansion to get as close as possible
+          const finalExpansion = targetRightEdge / verifyLastRightEdge;
+          finalRange = finalRange * finalExpansion;
+        }
       }
 
-      xScaleRangeEnd = bestRange;
+      xScaleRangeEnd = finalRange;
     }
 
     if (chartType !== "previous" && stockData.length > 0) {
@@ -385,7 +413,10 @@ export const useChartScale = ({
 
     return {
       priceScale: scaleLinear<number, number>()
-        .domain([currentMin - pricePadding, currentMax + pricePadding])
+        .domain([
+          currentMin - (chartType === "previous" ? bottomPadding : pricePadding),
+          currentMax + (chartType === "previous" ? topPadding : pricePadding)
+        ])
         .range([priceHeight, 0]),
       volumeScale: scaleLinear<number, number>()
         .domain([0, volumeMax + volumePadding])
@@ -550,42 +581,69 @@ export const useChartScale = ({
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
 
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => scales.xScale(stockData.length + i) ?? 0)
+      .x((d, i) => {
+        const index = stockData.length + i;
+        const xPos = scales.xScale(index);
+        return xPos !== undefined && !isNaN(xPos) ? xPos : NaN;
+      })
       .y(d => {
         if (d.sma10 === null || d.sma10 === undefined || isNaN(Number(d.sma10))) {
           return NaN;
         }
         return scales.priceScale(d.sma10 as number);
       })
-      .defined(d => d.sma10 !== null && d.sma10 !== undefined && !isNaN(Number(d.sma10)));
+      .defined((d, i) => {
+        const index = stockData.length + i;
+        const isInDomain = scales.xScale.domain().includes(index);
+        const hasValidValue = d.sma10 !== null && d.sma10 !== undefined && !isNaN(Number(d.sma10));
+        return hasValidValue && isInDomain;
+      });
   }, [scales, stockData.length, afterStockData, visibleAfterData]);
 
   const afterSma20Line = useMemo<Line<ProcessedStockDataPoint> | null>(() => {
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
 
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => scales.xScale(stockData.length + i) ?? 0)
+      .x((d, i) => {
+        const index = stockData.length + i;
+        const xPos = scales.xScale(index);
+        return xPos !== undefined && !isNaN(xPos) ? xPos : NaN;
+      })
       .y(d => {
         if (d.sma20 === null || d.sma20 === undefined || isNaN(Number(d.sma20))) {
           return NaN;
         }
         return scales.priceScale(d.sma20 as number);
       })
-      .defined(d => d.sma20 !== null && d.sma20 !== undefined && !isNaN(Number(d.sma20)));
+      .defined((d, i) => {
+        const index = stockData.length + i;
+        const isInDomain = scales.xScale.domain().includes(index);
+        const hasValidValue = d.sma20 !== null && d.sma20 !== undefined && !isNaN(Number(d.sma20));
+        return hasValidValue && isInDomain;
+      });
   }, [scales, stockData.length, afterStockData, visibleAfterData]);
 
   const afterSma50Line = useMemo<Line<ProcessedStockDataPoint> | null>(() => {
     if (!scales || !afterStockData.length || !visibleAfterData.length) return null;
 
     return line<ProcessedStockDataPoint>()
-      .x((d, i) => scales.xScale(stockData.length + i) ?? 0)
+      .x((d, i) => {
+        const index = stockData.length + i;
+        const xPos = scales.xScale(index);
+        return xPos !== undefined && !isNaN(xPos) ? xPos : NaN;
+      })
       .y(d => {
         if (d.sma50 === null || d.sma50 === undefined || isNaN(Number(d.sma50))) {
           return NaN;
         }
         return scales.priceScale(d.sma50 as number);
       })
-      .defined(d => d.sma50 !== null && d.sma50 !== undefined && !isNaN(Number(d.sma50)));
+      .defined((d, i) => {
+        const index = stockData.length + i;
+        const isInDomain = scales.xScale.domain().includes(index);
+        const hasValidValue = d.sma50 !== null && d.sma50 !== undefined && !isNaN(Number(d.sma50));
+        return hasValidValue && isInDomain;
+      });
   }, [scales, stockData.length, afterStockData, visibleAfterData]);
 
   return {

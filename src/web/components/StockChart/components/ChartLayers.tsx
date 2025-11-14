@@ -91,7 +91,7 @@ const ChartLayers: React.FC<ChartLayersProps> = props => {
   } = props;
 
   return (
-    <>
+    <g clipPath={`url(#chart-clip-${chartType})`}>
       <ChartAxis chartType={chartType} scales={scales} dimensions={dimensions} />
       <PriceChart
         chartType={chartType}
@@ -136,7 +136,7 @@ const ChartLayers: React.FC<ChartLayersProps> = props => {
         CHART_CONFIG={CHART_CONFIG}
         backgroundColor={backgroundColor}
       />
-    </>
+    </g>
   );
 };
 

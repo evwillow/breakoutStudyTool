@@ -43,7 +43,7 @@ export const FolderItem: React.FC<FolderItemProps> = ({
         </div>
       </div>
 
-      <div className="bg-black/40 backdrop-blur-sm overflow-hidden pr-1">
+      <div className="bg-black/40 backdrop-blur-sm overflow-hidden">
         {isLoading && (
           <div className="flex items-center justify-center min-h-[320px] gap-3 text-white/60 text-sm">
             <LoadingSpinner size="md" />
@@ -70,6 +70,9 @@ export const FolderItem: React.FC<FolderItemProps> = ({
               chartType="previous"
               backgroundColor={null}
               tightPadding={true}
+              progressPercentage={100}
+              showAfterAnimation={true}
+              afterAnimationComplete={true}
             />
           </div>
         )}
