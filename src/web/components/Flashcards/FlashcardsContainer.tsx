@@ -6,7 +6,18 @@
 "use client";
 
 import React, { useMemo, useCallback, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useOptimisticSession } from "@/lib/hooks/useOptimisticSession";
+
+// Helper to check for session cookie synchronously (cached per render)
+function checkSessionCookie(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return document.cookie.includes('next-auth.session-token=') || 
+           document.cookie.includes('__Secure-next-auth.session-token=');
+  } catch {
+    return false;
+  }
+}
 
 // Components
 import { DateFolderBrowser, LandingPage, RoundHistory } from "../";
@@ -40,7 +51,7 @@ interface FlashcardsContainerProps {
 }
 
 export default function FlashcardsContainer({ tutorialTrigger = false }: FlashcardsContainerProps) {
-  const { data: session, status } = useSession();
+  const { data: session, status, isAuthenticated } = useOptimisticSession();
   const prevTutorialTriggerRef = useRef<boolean>(false);
   const isChartPausedRef = useRef<boolean>(false);
   const handleNextCardRef = useRef<(() => void) | null>(null);
@@ -291,12 +302,17 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     }
   }, [flashcards.length, loading, selectedFolder, roundManagement]);
 
-  // Show round selector when no round is selected
+  // Show round selector when no round is selected AND rounds have been loaded
   useEffect(() => {
-    if (!roundManagement.currentRoundId && selectedFolder && !roundManagement.isLoadingRounds) {
+    if (
+      !roundManagement.currentRoundId && 
+      selectedFolder && 
+      !roundManagement.isLoadingRounds &&
+      roundManagement.roundsLoaded // Only show after rounds have been loaded
+    ) {
       roundManagement.setShowRoundSelector(true);
     }
-  }, [roundManagement.currentRoundId, selectedFolder, roundManagement.isLoadingRounds, roundManagement]);
+  }, [roundManagement.currentRoundId, selectedFolder, roundManagement.isLoadingRounds, roundManagement.roundsLoaded, roundManagement]);
 
   // Tutorial effect
   useEffect(() => {
@@ -313,14 +329,25 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     }
   }, [tutorialTrigger, session?.user?.id, loading, flashcards.length, selectedFolder, roundManagement]);
 
-  // Show landing page for unauthenticated users
-  if (status !== "authenticated" || !session) {
+  // Check for session cookie immediately (memoized to prevent re-checking)
+  const hasSessionCookie = useMemo(() => checkSessionCookie(), []);
+
+  // CRITICAL: Never show landing page if we have a session cookie - this prevents the flash
+  // Even if status is "unauthenticated" temporarily, if we have a cookie, show the app
+  // The session will restore in the background
+  if (hasSessionCookie) {
+    // Continue rendering the app - session will load in background
+  } else if (status === "unauthenticated" && !isAuthenticated) {
+    // Only show landing page if we're confirmed unauthenticated AND have no session cookie
     return (
       <>
         <LandingPage onSignIn={() => setShowAuthModal(true)} />
         {showAuthModal && <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />}
       </>
     );
+  } else if (status === "loading") {
+    // Show nothing while loading if we don't have a session cookie
+    return null;
   }
 
   // Loading/error states - only show full-page loading if actively loading initial data

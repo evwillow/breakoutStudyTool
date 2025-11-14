@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useOptimisticSession } from "@/lib/hooks/useOptimisticSession";
 import { TIMER_CONFIG } from "@/config/game.config";
 
 declare global {
@@ -20,6 +20,7 @@ export interface UseRoundManagementReturn {
   isCreatingRound: boolean;
   isLoadingRounds: boolean;
   availableRounds: any[];
+  roundsLoaded: boolean; // Track if rounds have been loaded at least once
   showRoundSelector: boolean;
   roundNameInput: string;
   setShowRoundSelector: (show: boolean) => void;
@@ -44,13 +45,14 @@ export function useRoundManagement(
   timer: any,
   timerDuration: number
 ): UseRoundManagementReturn {
-  const { data: session } = useSession();
+  const { data: session } = useOptimisticSession();
   const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
   const [isCreatingRound, setIsCreatingRound] = useState(false);
   const [isLoadingRounds, setIsLoadingRounds] = useState(false);
   const [availableRounds, setAvailableRounds] = useState<any[]>([]);
   const [showRoundSelector, setShowRoundSelector] = useState(false);
   const [roundNameInput, setRoundNameInput] = useState('');
+  const [roundsLoaded, setRoundsLoaded] = useState(false); // Track if rounds have been loaded at least once
   const pendingRoundRef = useRef<{ roundId: string; datasetName: string } | null>(null);
   const lastLoadedRef = useRef<{ folder: string | null; userId: string | null }>({ folder: null, userId: null });
 
@@ -126,6 +128,7 @@ export function useRoundManagement(
       const cacheAge = Date.now() - cached.fetchedAt;
       if (cacheAge < 30000) {
         setAvailableRounds(cached.rounds || []);
+        setRoundsLoaded(true); // Mark that rounds have been loaded (from cache)
         const mostRecent = cached.rounds?.find((r: any) => !r.completed) || cached.rounds?.[0];
         if (mostRecent && !pendingRoundRef.current) {
           setCurrentRoundId(mostRecent.id);
@@ -138,7 +141,13 @@ export function useRoundManagement(
     setIsLoadingRounds(true);
     try {
       const url = `/api/game/rounds?userId=${encodeURIComponent(userId)}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
-      const response = await fetch(url, { method: 'GET', headers: { 'Cache-Control': 'no-cache' } });
+      const response = await fetch(url, { 
+        method: 'GET', 
+        headers: { 
+          'Accept': 'application/json',
+        },
+        keepalive: true,
+      });
       const result = await response.json();
 
       if (!response.ok) {
@@ -151,6 +160,7 @@ export function useRoundManagement(
       const rounds = result.data || [];
       const validRounds = rounds.filter((r: any) => r.user_id === userId);
       setAvailableRounds(validRounds);
+      setRoundsLoaded(true); // Mark that rounds have been loaded
       roundCache[cacheKey] = { rounds: validRounds, fetchedAt: Date.now() };
 
       if (pendingRoundRef.current) return;
@@ -273,6 +283,7 @@ export function useRoundManagement(
       !isLoadingRounds &&
       (lastLoadedRef.current.folder !== selectedFolder || lastLoadedRef.current.userId !== session.user.id)
     ) {
+      setRoundsLoaded(false); // Reset rounds loaded flag when folder changes
       loadRecentRounds(selectedFolder);
       lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
     }
@@ -290,6 +301,7 @@ export function useRoundManagement(
     isCreatingRound,
     isLoadingRounds,
     availableRounds,
+    roundsLoaded,
     showRoundSelector,
     roundNameInput,
     setShowRoundSelector,

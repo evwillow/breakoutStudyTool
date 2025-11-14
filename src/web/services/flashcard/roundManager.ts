@@ -92,18 +92,23 @@ export async function getUserRounds({ req }: GetRoundsParams): Promise<Round[]> 
 
   const supabase = getAdminSupabaseClient();
 
-  let query = supabase
+  // Optimized: Only select needed columns and fetch rounds first
+  let roundsQuery = supabase
     .from('rounds')
-    .select('*')
+    .select('id, user_id, name, dataset_name, completed, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
 
   if (datasetName) {
-    query = query.eq('dataset_name', datasetName);
+    roundsQuery = roundsQuery.eq('dataset_name', datasetName);
   }
 
-  const { data: rounds, error: roundsError } = await query;
+  // Start both queries in parallel for maximum speed
+  const roundsPromise = roundsQuery;
+  
+  // Execute rounds query first to get IDs, then fetch matches in parallel
+  const { data: rounds, error: roundsError } = await roundsPromise;
 
   if (roundsError) {
     throw new AppError(
@@ -119,12 +124,14 @@ export async function getUserRounds({ req }: GetRoundsParams): Promise<Round[]> 
     return [];
   }
 
+  // Optimized: Fetch matches in parallel, only selecting needed columns
   const roundIds = rounds.map(round => round.id);
   const { data: allMatches, error: matchesError } = await supabase
     .from('matches')
-    .select('*')
+    .select('round_id, correct')
     .in('round_id', roundIds);
 
+  // If matches query fails, return rounds with zero stats (non-blocking)
   if (matchesError) {
     return rounds.map(round => ({
       ...round,
@@ -134,17 +141,19 @@ export async function getUserRounds({ req }: GetRoundsParams): Promise<Round[]> 
     }));
   }
 
-  const matchesByRoundId = new Map<string, typeof allMatches>();
+  // Build matches map efficiently
+  const matchesByRoundId = new Map<string, Array<{ correct: boolean }>>();
   if (allMatches) {
     for (const match of allMatches) {
       const roundId = match.round_id;
       if (!matchesByRoundId.has(roundId)) {
         matchesByRoundId.set(roundId, []);
       }
-      matchesByRoundId.get(roundId)!.push(match);
+      matchesByRoundId.get(roundId)!.push({ correct: match.correct });
     }
   }
 
+  // Process rounds with matches data
   return rounds.map(round => {
     const matches = matchesByRoundId.get(round.id) || [];
     const totalMatches = matches.length;

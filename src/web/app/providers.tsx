@@ -167,6 +167,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         refetchInterval={0}
         refetchOnWindowFocus={false}
         refetchWhenOffline={false}
+        basePath="/api/auth"
       >
         <QueryProvider>
           {children}

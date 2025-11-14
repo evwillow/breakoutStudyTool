@@ -58,12 +58,8 @@ export const useRoundHistory = ({
     try {
       setLoading(true);
       setError(null);
-      console.log('=== ROUND HISTORY: FETCHING ROUNDS ===');
-      console.log('User ID:', userId);
-      console.log('Fetch time:', new Date().toISOString());
       
       if (!userId) {
-        console.error('RoundHistory: Missing user ID, cannot fetch rounds');
         setError("User ID not found. Please try logging in again.");
         setLoading(false);
         return;
@@ -73,58 +69,38 @@ export const useRoundHistory = ({
       const encodedUserId = encodeURIComponent(userId);
       const url = `/api/game/rounds?userId=${encodedUserId}`;
       
-      console.log('Fetching from URL:', url);
-      
+      // Optimized: Use fetch with keepalive and no unnecessary cache headers
+      // Allow browser caching for faster subsequent loads
       const fetchResponse = await fetch(url, {
         method: 'GET',
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+          'Accept': 'application/json',
+        },
+        // Use keepalive for faster requests
+        keepalive: true,
       });
       
-      const data = await fetchResponse.json();
-      
-      console.log('Response status:', fetchResponse.status);
-      console.log('Response headers:', Object.fromEntries(fetchResponse.headers.entries()));
-      console.log('Received data:', data);
-      
       if (!fetchResponse.ok) {
+        const data = await fetchResponse.json();
         const message =
           data?.error?.message ||
           data?.error ||
           data?.message ||
           `Unexpected response (${fetchResponse.status})`;
-        console.error('RoundHistory: Error fetching rounds:', message, { data });
         throw new Error(message || "Failed to fetch rounds");
       }
       
-      console.log('RoundHistory: Number of rounds found:', data.data?.length || 0);
+      const data = await fetchResponse.json();
       
       if (data.data && Array.isArray(data.data)) {
         // Validate that all rounds belong to the current user
         const validRounds = data.data.filter((round: Round) => {
-          if (round.user_id !== userId) {
-            console.warn(`RoundHistory: Round ${round.id} belongs to different user (${round.user_id} vs ${userId}), filtering out`);
-            return false;
-          }
-          return true;
+          return round.user_id === userId;
         });
-        
-        console.log('RoundHistory: First round details:', validRounds[0]);
-        if (validRounds[0]) {
-          console.log('RoundHistory: Accuracy:', validRounds[0].accuracy, 'Type:', typeof validRounds[0].accuracy);
-          console.log('RoundHistory: Correct Matches:', validRounds[0].correctMatches, 'Type:', typeof validRounds[0].correctMatches);
-          console.log('RoundHistory: Total Matches:', validRounds[0].totalMatches, 'Type:', typeof validRounds[0].totalMatches);
-        }
         setRounds(validRounds);
       } else {
-        console.warn('RoundHistory: No rounds array in response');
         setRounds([]);
       }
-      
-      console.log('=== END ROUND HISTORY FETCH ===');
     } catch (error) {
       console.error("Error fetching rounds:", error);
       setError(error instanceof Error ? error.message : "Failed to load rounds. Please try again.");

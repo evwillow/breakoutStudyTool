@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { signIn } from 'next-auth/react';
 import { useAuth } from '../hooks/useAuth';
 import { AUTH_MODES, UI_TEXT, ERROR_MESSAGES, type AuthMode } from '../utils/constants';
 import { validateAuthForm, type FormData } from '../utils/validation';
@@ -368,7 +369,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     if (!isGoogleEnabled) {
       setError(
         'Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable it.'
@@ -378,27 +379,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
 
     setError(null);
     setDatabaseError(false);
+    // Set loading optimistically - redirect happens immediately so this won't be visible
     setIsGoogleLoading(true);
 
-    try {
-      const callbackUrl =
-        typeof window !== 'undefined' && window.location
-          ? window.location.href
-          : undefined;
+    // Get callback URL immediately
+    const callbackUrl =
+      typeof window !== 'undefined' && window.location
+        ? window.location.href
+        : undefined;
 
-      const result = await signInWithProvider('google', {
-        callbackUrl,
-        redirect: true,
-      });
-
-      if (result?.error) {
-        console.error('Google sign-in failed:', result.error);
-      }
-    } catch (err) {
-      console.error('Google sign-in error:', err);
-    } finally {
-      setIsGoogleLoading(false);
-    }
+    // Call signIn directly from next-auth/react - it will redirect immediately
+    // No await needed - the redirect happens synchronously
+    signIn('google', {
+      callbackUrl,
+      redirect: true,
+    });
+    // Note: If redirect succeeds, we never reach here. If it fails, the page won't redirect
+    // and we can handle errors, but typically redirect: true always redirects.
   };
 
   const toggleMode = () => {

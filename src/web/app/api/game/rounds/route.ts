@@ -15,7 +15,10 @@ const handlePost = async (req: NextRequest) => {
 
 const handleGet = async (req: NextRequest) => {
   const result = await getUserRounds({ req });
-  return success(result);
+  const response = success(result);
+  // Add caching headers for faster subsequent loads (5 second cache)
+  response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=10');
+  return response;
 };
 
 export const POST = composeMiddleware(

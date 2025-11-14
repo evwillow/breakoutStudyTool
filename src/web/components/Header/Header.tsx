@@ -5,7 +5,7 @@
  */
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Logo from "./Logo"
 import { AuthModal, useAuth } from "../Auth"
 import Navigation from "./components/Navigation"
@@ -13,13 +13,28 @@ import UserMenu from "./components/UserMenu"
 import MobileMenu from "./components/MobileMenu"
 import AuthButtons from "./components/AuthButtons"
 import { NavLink, TouchPosition } from './Header.types'
+import { useOptimisticSession } from "@/lib/hooks/useOptimisticSession"
+
+// Helper to check for session cookie synchronously
+function checkSessionCookie(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return document.cookie.includes('next-auth.session-token=') || 
+           document.cookie.includes('__Secure-next-auth.session-token=');
+  } catch {
+    return false;
+  }
+}
 
 const Header: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false)
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false)
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false)
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin')
-  const { session, signOut: signOutUser } = useAuth() as { session: { user?: { name?: string; email?: string } } | null; signOut: (options?: { callbackUrl?: string }) => Promise<void> }
+  const { signOut: signOutUser } = useAuth() as { signOut: (options?: { callbackUrl?: string }) => Promise<void> }
+  const { data: session, isAuthenticated } = useOptimisticSession()
+  // Check for session cookie to prevent flash
+  const hasSessionCookie = useMemo(() => checkSessionCookie(), [])
   const [scrolled, setScrolled] = useState<boolean>(false)
   const [headerHeight, setHeaderHeight] = useState<number>(56)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
@@ -447,9 +462,10 @@ const Header: React.FC = () => {
 
           {/* Authentication / User menu */}
           <div className="justify-self-end flex items-center ml-1 sm:ml-2 relative pr-2 pt-1 max-[800px]:absolute max-[800px]:top-1 max-[800px]:right-2 max-[800px]:ml-0 max-[800px]:pr-0 z-[101]">
-            {session && !pendingSignOut ? (
+            {/* Show UserMenu if we have a session OR if we have a session cookie (prevents flash) */}
+            {(session || hasSessionCookie) && !pendingSignOut ? (
               <UserMenu
-                session={session}
+                session={session || { user: { name: '', email: '' } }} // Provide fallback session object if cookie exists but session hasn't loaded
                 scrolled={scrolled}
                 isOpen={userMenuOpen}
                 onToggle={() => setUserMenuOpen(v => !v)}
@@ -530,7 +546,7 @@ const Header: React.FC = () => {
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
         links={displayedLinks}
-        session={session}
+        session={session || (hasSessionCookie ? { user: { name: '', email: '' } } : null)}
         pendingSignOut={pendingSignOut}
         headerHeight={headerHeight}
         headerRef={headerRef}
