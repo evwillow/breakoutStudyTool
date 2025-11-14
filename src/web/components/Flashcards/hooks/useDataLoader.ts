@@ -33,6 +33,8 @@ export const useDataLoader = ({
   const abortControllerRef = useRef<AbortController | null>(null);
   const foldersCacheRef = useRef<FlashcardFolderRecord[]>([]);
   const selectedFolderRef = useRef<string | null>(selectedFolder);
+  const isFetchingRef = useRef<boolean>(false);
+  const lastFetchedFolderRef = useRef<string | null>(null);
 
   // Keep ref in sync with selectedFolder
   useEffect(() => {
@@ -163,6 +165,20 @@ export const useDataLoader = ({
       folderName: string,
       updateFlashcards: BackgroundUpdateFn
     ) => {
+      // Prevent background loading if we're already fetching the same folder
+      // Note: This is called after main fetch completes, so we check if a new fetch started
+      if (isFetchingRef.current && lastFetchedFolderRef.current === folderName) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Skipping background load - fetch in progress for same folder');
+        }
+        return;
+      }
+
+      // Safety check: ensure we have files to load
+      if (!missingFiles || missingFiles.length === 0) {
+        return;
+      }
+
       const BATCH_SIZE = 50;
 
       for (let i = 0; i < missingFiles.length; i += BATCH_SIZE) {
@@ -242,6 +258,8 @@ export const useDataLoader = ({
           selectedFolder,
           folderName,
           hasFolderName: !!folderName,
+          isFetching: isFetchingRef.current,
+          lastFetched: lastFetchedFolderRef.current,
         });
       }
 
@@ -252,6 +270,16 @@ export const useDataLoader = ({
         return;
       }
 
+      // Prevent multiple simultaneous fetches for the same folder
+      if (isFetchingRef.current && lastFetchedFolderRef.current === folderName) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[useDataLoader] Already fetching this folder, skipping duplicate call');
+        }
+        return;
+      }
+
+      isFetchingRef.current = true;
+      lastFetchedFolderRef.current = folderName;
       cleanup();
 
       // Set a timeout fallback to ensure loading doesn't get stuck
@@ -260,6 +288,7 @@ export const useDataLoader = ({
         setLoading(false);
         setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
         setLoadingStep("");
+        isFetchingRef.current = false; // Reset fetching flag on timeout
         loadingTimeout = null;
       }, 30000); // 30 second timeout
 
@@ -895,16 +924,33 @@ export const useDataLoader = ({
           setLoadingStep("");
         }
 
+        // Reset fetching flag after successful completion
+        isFetchingRef.current = false;
+
         const loadedFileNames = new Set(validFiles.map(f => f.fileName));
 
-        const missingFiles = selectedFolderData.files.filter(file => {
-          return !loadedFileNames.has(file.fileName);
+        const missingFiles = (selectedFolderData?.files || []).filter(file => {
+          return file && file.fileName && !loadedFileNames.has(file.fileName);
         });
 
         if (missingFiles.length > 0 || loadedFiles.length < files.length) {
-          loadMissingFilesInBackground(missingFiles, folderName, updateFn => {
-            setFlashcards(prevCards => updateFn(prevCards));
-          });
+          // Only call background loading if we have missing files and we're not fetching
+          if (missingFiles.length > 0 && !isFetchingRef.current) {
+            try {
+              loadMissingFilesInBackground(missingFiles, folderName, updateFn => {
+                setFlashcards(prevCards => {
+                  try {
+                    return updateFn(prevCards || []);
+                  } catch (err) {
+                    console.error('[useDataLoader] Error updating flashcards in background:', err);
+                    return prevCards || [];
+                  }
+                });
+              });
+            } catch (err) {
+              console.error('[useDataLoader] Error starting background file load:', err);
+            }
+          }
         }
       } catch (error) {
         // Clear the timeout on error
@@ -916,6 +962,8 @@ export const useDataLoader = ({
         setLoading(false);
         setLoadingProgress(0);
         setLoadingStep("");
+        // Reset fetching flag on error
+        isFetchingRef.current = false;
       }
     },
     [
@@ -927,9 +975,10 @@ export const useDataLoader = ({
       clearError,
       setError,
       updateFolders,
-      loadMissingFilesInBackground,
       setFlashcards,
       getAbortController
+      // Note: loadMissingFilesInBackground is intentionally omitted from dependencies
+      // because it has an empty dependency array and is stable
     ]
   );
 

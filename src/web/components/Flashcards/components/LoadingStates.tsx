@@ -14,6 +14,7 @@
  */
 
 import React from 'react';
+import { LoadingSpinner } from '@/components/UI/LoadingSpinner';
 
 /**
  * @property progress Optional number (0-1) representing overall load progress.
@@ -59,12 +60,7 @@ export const StandardLoading: React.FC<StandardLoadingProps> = ({
   return (
     <div className={containerClass}>
       <div className="flex flex-col justify-center items-center space-y-6 p-8 bg-black rounded-xl shadow-2xl max-w-md w-full border border-white">
-        <div className="relative">
-          <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-3 h-3 bg-turquoise-400 rounded-full"></div>
-          </div>
-        </div>
+        <LoadingSpinner size="xl" />
         <div className="text-center space-y-3">
           <h2 className="text-2xl font-bold text-white bg-gradient-to-r from-turquoise-400 to-turquoise-300 bg-clip-text text-transparent">
             {title}
@@ -89,7 +85,7 @@ export const AuthLoading: React.FC = () => (
 // Data loading state with progress
 export const DataLoading: React.FC<DataLoadingProps> = ({ progress, step, folder }) => (
   <div className="w-full h-[calc(100vh-14rem)] flex flex-col items-center justify-center bg-black gap-4">
-    <div className="animate-spin rounded-full h-14 w-14 border-4 border-turquoise-400 border-t-transparent border-r-turquoise-400 border-b-turquoise-400" />
+    <LoadingSpinner size="lg" />
     {(progress !== undefined || step || folder) && (
       <div className="flex flex-col items-center text-center text-sm text-turquoise-200 gap-1">
         {progress !== undefined && (

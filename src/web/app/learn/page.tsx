@@ -6,6 +6,7 @@
 "use client";
 
 import { useAuthRedirect } from "@/lib/hooks/useAuthRedirect";
+import { LoadingSpinner } from "@/components/UI/LoadingSpinner";
 
 /**
  * Learn Page
@@ -25,7 +26,7 @@ export default function LearnPage() {
         <div className="fixed inset-0 bg-black z-40" />
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="flex flex-col items-center space-y-6">
-            <div className="animate-spin rounded-md h-20 w-20 border-t-2 border-r-2 border-b-2 border-turquoise-400 border-t-transparent"></div>
+            <LoadingSpinner size="xl" />
             <p className="text-white text-lg">Loading...</p>
           </div>
         </div>

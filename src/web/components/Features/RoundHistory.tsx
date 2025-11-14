@@ -9,6 +9,7 @@ import React from "react";
 import { useRoundHistory } from "./hooks/useRoundHistory";
 import { RoundCard, RoundTableView } from "./components";
 import type { RoundHistoryProps } from "./RoundHistory.types";
+import { LoadingSpinner } from "@/components/UI/LoadingSpinner";
 
 /**
  * RoundHistory Component
@@ -69,7 +70,7 @@ const RoundHistory: React.FC<RoundHistoryProps> = ({ isOpen, onClose, onLoadRoun
           
           {loading ? (
             <div className="flex items-center justify-center w-full min-h-[400px] py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-turquoise-400 border-t-transparent"></div>
+              <LoadingSpinner size="md" />
             </div>
           ) : error ? (
             <div className="bg-red-900/50 border border-red-700/50 rounded-md p-4 flex items-start backdrop-blur-sm">

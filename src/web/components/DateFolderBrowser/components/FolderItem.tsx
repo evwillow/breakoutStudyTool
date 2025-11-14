@@ -2,6 +2,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 import type { PreviousSetupFile } from "../DateFolderBrowser.types";
 import { formatDisplayDate, formatRelativeDate } from "../utils/dateUtils";
+import { LoadingSpinner } from "@/components/UI/LoadingSpinner";
 
 const StockChart = dynamic(() => import("../../StockChart"), { ssr: false });
 
@@ -51,8 +52,9 @@ export const FolderItem: React.FC<FolderItemProps> = ({
       {isExpanded && (
         <div className="border-t border-white/30 bg-black/40 backdrop-blur-sm">
           {isLoading && (
-            <div className="flex items-center justify-center min-h-[320px] text-white/60 text-sm">
-              Loading chart…
+            <div className="flex items-center justify-center min-h-[320px] gap-3 text-white/60 text-sm">
+              <LoadingSpinner size="md" />
+              <span>Loading chart…</span>
             </div>
           )}
 
