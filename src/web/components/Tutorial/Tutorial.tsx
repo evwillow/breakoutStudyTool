@@ -78,34 +78,35 @@ export default function Tutorial({
     
     const updateOverlayMask = () => {
       if (!overlayRef.current) return;
-      
+
+      // Always use lighter overlay so UI elements remain accessible
+      overlayRef.current.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+
       const chartElement = document.querySelector('[data-tutorial-chart]');
       if (!chartElement) {
-        // If no chart found, make overlay very transparent to minimize tinting
-        overlayRef.current.style.backgroundColor = 'rgba(15, 23, 42, 0.3)';
+        // If no chart found, just use light overlay without clip-path
         overlayRef.current.style.clipPath = '';
         overlayRef.current.style.webkitClipPath = '';
         return;
       }
-      
+
       const chartRect = chartElement.getBoundingClientRect();
       // Check if chart has valid dimensions
       if (chartRect.width === 0 || chartRect.height === 0) {
-        overlayRef.current.style.backgroundColor = 'rgba(15, 23, 42, 0.3)';
         overlayRef.current.style.clipPath = '';
         overlayRef.current.style.webkitClipPath = '';
         return;
       }
-      
+
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      
+
       // Calculate percentages for clip-path
       const leftPct = (chartRect.left / viewportWidth) * 100;
       const rightPct = (chartRect.right / viewportWidth) * 100;
       const topPct = (chartRect.top / viewportHeight) * 100;
       const bottomPct = (chartRect.bottom / viewportHeight) * 100;
-      
+
       // Create a polygon that covers everything except the chart area
       // This creates a "frame" around the chart by going around it
       // Clamp values to ensure they're within 0-100%
@@ -113,7 +114,7 @@ export default function Tutorial({
       const rightPctClamped = Math.max(0, Math.min(100, rightPct));
       const topPctClamped = Math.max(0, Math.min(100, topPct));
       const bottomPctClamped = Math.max(0, Math.min(100, bottomPct));
-      
+
       const clipPath = `polygon(
         0% 0%,
         0% 100%,
@@ -126,10 +127,9 @@ export default function Tutorial({
         100% 100%,
         100% 0%
       )`;
-      
+
       overlayRef.current.style.clipPath = clipPath;
       overlayRef.current.style.webkitClipPath = clipPath;
-      overlayRef.current.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
     };
     
     // Small delay to ensure chart is rendered
@@ -259,26 +259,29 @@ export default function Tutorial({
         className="fixed inset-0 z-[9998]"
         aria-hidden="true"
         data-tutorial-active="true"
-        style={{ 
+        style={{
           pointerEvents: 'auto',
-          backgroundColor: 'rgba(15, 23, 42, 0.7)',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
           mixBlendMode: 'normal',
           // Clip-path will be set dynamically via useEffect
         }}
         onMouseDown={(e) => {
           const target = e.target as HTMLElement;
-          // Allow clicks on chart, dialog, and buttons to pass through
+          // Allow clicks on interactive elements to pass through
           const isChart = target.closest('[data-tutorial-chart]') || target.closest('svg') || target.tagName === 'svg';
           const isDialog = target.closest('[role="dialog"]');
           const isButton = target.tagName === 'BUTTON' || target.closest('button');
+          const isLink = target.tagName === 'A' || target.closest('a');
+          const isInput = target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA';
+          const isHeader = target.closest('header') || target.closest('nav');
           const isChartChild = target.closest('[data-tutorial-chart]') !== null;
-          
-          // If clicking on chart, dialog, or button, let it through
-          if (isChart || isChartChild || isDialog || isButton) {
+
+          // If clicking on interactive elements, let it through
+          if (isChart || isChartChild || isDialog || isButton || isLink || isInput || isHeader) {
             e.stopPropagation();
             return;
           }
-          
+
           // If clicking directly on overlay (not on any child), prevent it
           if (target === overlayRef.current || target === e.currentTarget) {
             e.preventDefault();
@@ -289,18 +292,21 @@ export default function Tutorial({
         }}
         onClick={(e) => {
           const target = e.target as HTMLElement;
-          // Allow clicks on chart, dialog, and buttons to pass through
+          // Allow clicks on interactive elements to pass through
           const isChart = target.closest('[data-tutorial-chart]') || target.closest('svg') || target.tagName === 'svg';
           const isDialog = target.closest('[role="dialog"]');
           const isButton = target.tagName === 'BUTTON' || target.closest('button');
+          const isLink = target.tagName === 'A' || target.closest('a');
+          const isInput = target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA';
+          const isHeader = target.closest('header') || target.closest('nav');
           const isChartChild = target.closest('[data-tutorial-chart]') !== null;
-          
-          // If clicking on chart, dialog, or button, let it through
-          if (isChart || isChartChild || isDialog || isButton) {
+
+          // If clicking on interactive elements, let it through
+          if (isChart || isChartChild || isDialog || isButton || isLink || isInput || isHeader) {
             e.stopPropagation();
             return;
           }
-          
+
           // If clicking directly on overlay (not on any child), prevent it
           if (target === overlayRef.current || target === e.currentTarget) {
             e.preventDefault();

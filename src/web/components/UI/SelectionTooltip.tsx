@@ -179,16 +179,14 @@ const SelectionTooltip: React.FC<SelectionTooltipProps> = ({ show, onDismiss, st
       )}
       <div
         data-selection-tooltip
-        className={`absolute z-[60] pointer-events-auto ${
+        className={`fixed z-[100] pointer-events-auto isolate ${
           isExiting
-            ? 'transition-all duration-250 ease-in opacity-0 translate-y-2 scale-95'
-            : 'transition-all duration-150 ease-out opacity-100 translate-y-0 scale-100'
+            ? 'transition-all duration-250 ease-in opacity-0 blur-sm translate-y-2 scale-95'
+            : 'transition-all duration-150 ease-out opacity-100 blur-0 translate-y-0 scale-100'
         }`}
         style={{
           ...tooltipStyle,
-          filter: 'none !important',
-          backdropFilter: 'none !important',
-          WebkitBackdropFilter: 'none !important'
+          filter: isExiting ? 'blur(4px)' : 'none'
         }}
         onClick={(event) => {
           // Stop propagation so clicking tooltip doesn't trigger backdrop
@@ -199,14 +197,7 @@ const SelectionTooltip: React.FC<SelectionTooltipProps> = ({ show, onDismiss, st
           event.stopPropagation();
         }}
       >
-      <div 
-        className="relative text-white font-semibold bg-black/95 px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg"
-        style={{
-          filter: 'none !important',
-          backdropFilter: 'none !important',
-          WebkitBackdropFilter: 'none !important'
-        }}
-      >
+      <div className="relative text-white font-semibold bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg">
         <div
           className="absolute"
           style={{
@@ -215,6 +206,7 @@ const SelectionTooltip: React.FC<SelectionTooltipProps> = ({ show, onDismiss, st
             width: '16px',
             height: '8px',
             background: 'rgba(0, 0, 0, 0.95)',
+            backdropFilter: 'blur(4px)',
             clipPath: 'polygon(0 0, 100% 0, 50% 100%)'
           }}
         />

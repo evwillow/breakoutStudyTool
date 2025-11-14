@@ -47,6 +47,7 @@ export function useTutorialPosition(
 
     const targetElement = document.querySelector(currentStep.target);
     if (!targetElement) {
+      console.warn(`[Tutorial] Target element not found: ${currentStep.target}`);
       setTooltipPosition({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
       setHighlightPosition(null);
       setSelectableAreaHighlight(null);
@@ -145,6 +146,18 @@ export function useTutorialPosition(
     const tooltipWidth = 384;
     const tooltipHeight = 250;
     const padding = 16;
+
+    // Check if element is actually visible in viewport
+    // If rect is completely off-screen or has invalid dimensions, fall back to center
+    if ((rect.width === 0 && rect.height === 0) || 
+        rect.top > viewportHeight || 
+        rect.bottom < 0 || 
+        rect.left > viewportWidth || 
+        rect.right < 0) {
+      // Element is not visible in viewport, fall back to center
+      setTooltipPosition({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+      return;
+    }
     
     if (currentStep.id !== 'making-selection') {
       setHighlightPosition({
@@ -221,6 +234,12 @@ export function useTutorialPosition(
           top = rect.bottom + 10;
           left = rect.left + rect.width / 2;
           transform = 'translate(-50%, 0)';
+          // Ensure tooltip won't go off bottom of viewport
+          if (top + tooltipHeight > viewportHeight - padding) {
+            // Try placing above instead
+            top = rect.top - 10;
+            transform = 'translate(-50%, -100%)';
+          }
           break;
         case 'left':
           top = rect.top + rect.height / 2;
@@ -292,18 +311,116 @@ export function useTutorialPosition(
       }
     }
 
+    // Ensure position values are valid (not NaN, not negative beyond reasonable bounds, not too large)
+    // Calculate the actual tooltip bounds based on transform
+    let actualTop = top;
+    let actualBottom = top;
+    let actualLeft = left;
+    let actualRight = left;
+    
+    if (transform.includes('translate(-50%, -100%)')) {
+      actualTop = top - tooltipHeight;
+      actualBottom = top;
+      actualLeft = left - tooltipWidth / 2;
+      actualRight = left + tooltipWidth / 2;
+    } else if (transform.includes('translate(-50%, 0)')) {
+      actualTop = top;
+      actualBottom = top + tooltipHeight;
+      actualLeft = left - tooltipWidth / 2;
+      actualRight = left + tooltipWidth / 2;
+    } else if (transform.includes('translate(-100%, -50%)')) {
+      actualTop = top - tooltipHeight / 2;
+      actualBottom = top + tooltipHeight / 2;
+      actualLeft = left - tooltipWidth;
+      actualRight = left;
+    } else if (transform.includes('translate(0, -50%)')) {
+      actualTop = top - tooltipHeight / 2;
+      actualBottom = top + tooltipHeight / 2;
+      actualLeft = left;
+      actualRight = left + tooltipWidth;
+    } else {
+      actualTop = top - tooltipHeight / 2;
+      actualBottom = top + tooltipHeight / 2;
+      actualLeft = left - tooltipWidth / 2;
+      actualRight = left + tooltipWidth / 2;
+    }
+    
+    // Adjust position if tooltip would go off-screen
+    if (actualTop < padding) {
+      top += (padding - actualTop);
+    }
+    if (actualBottom > viewportHeight - padding) {
+      top -= (actualBottom - (viewportHeight - padding));
+    }
+    if (actualLeft < padding) {
+      left += (padding - actualLeft);
+    }
+    if (actualRight > viewportWidth - padding) {
+      left -= (actualRight - (viewportWidth - padding));
+    }
+    
+    // Final validation - ensure values are reasonable and within viewport
+    // For fixed positioning, values must be relative to viewport (0 to viewportHeight/viewportWidth)
+    let validTop = top;
+    let validLeft = left;
+    
+    // Check if values are completely invalid
+    if (isNaN(top) || top < -1000 || top > viewportHeight + 1000) {
+      validTop = viewportHeight / 2;
+      transform = 'translate(-50%, -50%)';
+    } else {
+      // Clamp to viewport bounds
+      validTop = Math.max(0, Math.min(top, viewportHeight));
+    }
+    
+    if (isNaN(left) || left < -1000 || left > viewportWidth + 1000) {
+      validLeft = viewportWidth / 2;
+      transform = 'translate(-50%, -50%)';
+    } else {
+      // Clamp to viewport bounds
+      validLeft = Math.max(0, Math.min(left, viewportWidth));
+    }
+
+    // Double-check: if position seems way off (more than 2x viewport height), use center
+    if (validTop > viewportHeight * 2 || validTop < -viewportHeight) {
+      validTop = viewportHeight / 2;
+      validLeft = viewportWidth / 2;
+      transform = 'translate(-50%, -50%)';
+    }
+
+    // Debug logging
+    if (validTop > viewportHeight || validTop < 0) {
+      console.warn(`[Tutorial] Invalid top position: ${validTop}px (viewport height: ${viewportHeight}px)`, {
+        originalTop: top,
+        rect: targetElement.getBoundingClientRect(),
+        step: currentStep.id
+      });
+    }
+
     setTooltipPosition({ 
-      top: `${top}px`, 
-      left: `${left}px`, 
+      top: `${validTop}px`, 
+      left: `${validLeft}px`, 
       transform 
     });
   }, [currentStep]);
+
+  // Reset position when tutorial becomes inactive
+  useEffect(() => {
+    if (!isActive) {
+      setTooltipPosition({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+      setHighlightPosition(null);
+      setSelectableAreaHighlight(null);
+    }
+  }, [isActive]);
 
   // Update position on step change, scroll, and resize
   useEffect(() => {
     if (!isActive) return;
 
-    updateTooltipPosition();
+    // Use a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      updateTooltipPosition();
+    }, 50); // Increased delay to ensure DOM is fully ready
 
     const handleUpdate = () => {
       if (positionUpdateRef.current) {
@@ -320,6 +437,7 @@ export function useTutorialPosition(
     const interval = setInterval(handleUpdate, 100);
 
     return () => {
+      clearTimeout(timeoutId);
       window.removeEventListener('scroll', handleUpdate, true);
       window.removeEventListener('resize', handleUpdate);
       clearInterval(interval);

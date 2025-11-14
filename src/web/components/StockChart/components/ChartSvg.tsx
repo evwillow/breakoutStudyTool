@@ -125,6 +125,20 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
         <rect x={0} y={0} width={viewWidth} height={dimensions.height} fill={backgroundColor} />
       )}
 
+      {/* Gray dotted line - always visible as a guide, same position as blue line */}
+      {!shouldShowDividerAndBackground && chartType !== "previous" && (
+        <line
+          x1={dividerLineX}
+          y1={0}
+          x2={dividerLineX}
+          y2={dimensions.height}
+          stroke="#ffffff"
+          strokeWidth={1.5}
+          strokeDasharray="4,4"
+          opacity={0.5}
+        />
+      )}
+
       {shouldShowDividerAndBackground && !backgroundColor && chartType !== "previous" && (
         <>
           <line
@@ -156,18 +170,6 @@ const ChartSvg: React.FC<ChartSvgProps> = ({
               opacity={1}
             />
           )}
-
-          {/* Gray dotted line - render at top level, not clipped */}
-          <line
-            x1={dividerLineX}
-            y1={0}
-            x2={dividerLineX}
-            y2={dimensions.height}
-            stroke="#ffffff"
-            strokeWidth={1.5}
-            strokeDasharray="4,4"
-            opacity={0.5}
-          />
         </>
       )}
 

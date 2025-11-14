@@ -61,12 +61,39 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
     };
   }, [isLastStep, onComplete, onNext]);
 
+  // Ensure position values are valid
+  const topValue = tooltipPosition.top;
+  const leftValue = tooltipPosition.left;
+  const isPercentage = topValue.includes('%') || leftValue.includes('%');
+  
+  // If using pixel values, ensure they're reasonable
+  let safeTop = topValue;
+  let safeLeft = leftValue;
+  
+  if (!isPercentage) {
+    const topNum = parseFloat(topValue);
+    const leftNum = parseFloat(leftValue);
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    
+    // If position is way off, use center
+    if (isNaN(topNum) || topNum < 0 || topNum > viewportHeight * 2) {
+      safeTop = '50%';
+      safeLeft = '50%';
+    } else if (isNaN(leftNum) || leftNum < 0 || leftNum > viewportWidth * 2) {
+      safeTop = '50%';
+      safeLeft = '50%';
+    }
+  }
+
   return (
     <div
       ref={tooltipRef}
       className="fixed z-[10000] max-w-sm sm:max-w-md"
       style={{
-        ...tooltipPosition,
+        top: safeTop,
+        left: safeLeft,
+        transform: tooltipPosition.transform,
         pointerEvents: 'auto',
         zIndex: 10001,
       }}

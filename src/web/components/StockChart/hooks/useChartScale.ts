@@ -215,7 +215,7 @@ export const useChartScale = ({
     }
 
     // Use minimal padding to ensure data starts at left edge and ends at divider
-    // For D charts, use even less padding to ensure SMAs start at left edge
+    // For D charts, use zero padding to ensure first candle and SMAs touch the left edge
     const xScalePadding = tightPadding ? 0 : (isDChart ? 0 : (isMobile ? 0.01 : 0.02));
     const DIVIDER_POSITION_PERCENT = isMobile ? 0.7 : 0.75;
     const dividerPositionInChart = dimensions.innerWidth * DIVIDER_POSITION_PERCENT;
@@ -606,8 +606,11 @@ export const useChartScale = ({
 
     return line<ProcessedStockDataPoint>()
       .x((d, i) => {
-        const isInDomain = scales.xScale.domain().includes(i);
-        const xPos = isInDomain ? scales.xScale(i) : undefined;
+        // Find the original index in stockData to get correct x position
+        const originalIndex = stockData.indexOf(d);
+        const indexToUse = originalIndex >= 0 ? originalIndex : i;
+        const isInDomain = scales.xScale.domain().includes(indexToUse);
+        const xPos = isInDomain ? scales.xScale(indexToUse) : undefined;
         if (xPos === undefined) return NaN;
         return xPos;
       })
@@ -620,7 +623,9 @@ export const useChartScale = ({
       .defined((d, i) => {
         const hasValidValue =
           d.sma10 !== null && d.sma10 !== undefined && !isNaN(Number(d.sma10));
-        const isInDomain = scales.xScale.domain().includes(i);
+        const originalIndex = stockData.indexOf(d);
+        const indexToUse = originalIndex >= 0 ? originalIndex : i;
+        const isInDomain = scales.xScale.domain().includes(indexToUse);
         return hasValidValue && isInDomain;
       });
   }, [scales, stockData, shouldRenderSMA, chartType]);
@@ -654,8 +659,10 @@ export const useChartScale = ({
 
     return line<ProcessedStockDataPoint>()
       .x((d, i) => {
-        const isInDomain = scales.xScale.domain().includes(i);
-        const xPos = isInDomain ? scales.xScale(i) : undefined;
+        const originalIndex = stockData.indexOf(d);
+        const indexToUse = originalIndex >= 0 ? originalIndex : i;
+        const isInDomain = scales.xScale.domain().includes(indexToUse);
+        const xPos = isInDomain ? scales.xScale(indexToUse) : undefined;
         return xPos === undefined ? NaN : xPos;
       })
       .y(d => {
@@ -667,7 +674,9 @@ export const useChartScale = ({
       .defined((d, i) => {
         const hasValidValue =
           d.sma20 !== null && d.sma20 !== undefined && !isNaN(Number(d.sma20));
-        const isInDomain = scales.xScale.domain().includes(i);
+        const originalIndex = stockData.indexOf(d);
+        const indexToUse = originalIndex >= 0 ? originalIndex : i;
+        const isInDomain = scales.xScale.domain().includes(indexToUse);
         return hasValidValue && isInDomain;
       });
   }, [scales, stockData, shouldRenderSMA, chartType]);
@@ -689,8 +698,10 @@ export const useChartScale = ({
 
     return line<ProcessedStockDataPoint>()
       .x((d, i) => {
-        const isInDomain = scales.xScale.domain().includes(i);
-        const xPos = isInDomain ? scales.xScale(i) : undefined;
+        const originalIndex = stockData.indexOf(d);
+        const indexToUse = originalIndex >= 0 ? originalIndex : i;
+        const isInDomain = scales.xScale.domain().includes(indexToUse);
+        const xPos = isInDomain ? scales.xScale(indexToUse) : undefined;
         return xPos === undefined ? NaN : xPos;
       })
       .y(d => {
@@ -702,7 +713,9 @@ export const useChartScale = ({
       .defined((d, i) => {
         const hasValidValue =
           d.sma50 !== null && d.sma50 !== undefined && !isNaN(Number(d.sma50));
-        const isInDomain = scales.xScale.domain().includes(i);
+        const originalIndex = stockData.indexOf(d);
+        const indexToUse = originalIndex >= 0 ? originalIndex : i;
+        const isInDomain = scales.xScale.domain().includes(indexToUse);
         return hasValidValue && isInDomain;
       });
   }, [scales, stockData, shouldRenderSMA]);

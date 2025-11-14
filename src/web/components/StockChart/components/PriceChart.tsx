@@ -108,6 +108,20 @@ const PriceChart: React.FC<PriceChartProps> = ({
 
   return (
     <>
+      {/* Gray dotted line - always visible as a guide, same position as blue line */}
+      {!shouldShowDividerAndBackground && chartType !== "previous" && (
+        <line
+          x1={dividerLineX}
+          y1={0}
+          x2={dividerLineX}
+          y2={dimensions.height}
+          stroke="#ffffff"
+          strokeWidth={1.5}
+          strokeDasharray="4,4"
+          opacity={0.5}
+        />
+      )}
+
       {shouldShowDividerAndBackground && !backgroundColor && chartType !== "previous" && (
         <>
           <line
@@ -139,18 +153,6 @@ const PriceChart: React.FC<PriceChartProps> = ({
               opacity={1}
             />
           )}
-
-          {/* Gray dotted line - render AFTER background so it's visible on top */}
-          <line
-            x1={dividerLineX}
-            y1={0}
-            x2={dividerLineX}
-            y2={dimensions.height}
-            stroke="#ffffff"
-            strokeWidth={1.5}
-            strokeDasharray="4,4"
-            opacity={0.5}
-          />
         </>
       )}
 

@@ -386,22 +386,10 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                   </div>
                 );
               })()}
-              
-              <InteractionLayer
-                interaction={interaction}
-                onChartClick={onChartClick}
-                disabled={disabled}
-                score={score}
-                isTimeUp={isTimeUp}
-                orderedFiles={orderedFiles}
-                onDismissTooltip={onDismissTooltip}
-                timerDuration={timerDuration}
-                isMobile={isMobile}
-              />
-              
+
               {score !== null && feedback && (
                 <div data-tutorial-results>
-                  <ChartScoreOverlay 
+                  <ChartScoreOverlay
                     score={score}
                     accuracyTier={getAccuracyTier(score).tier}
                     show={true}
@@ -413,6 +401,19 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                 </div>
               )}
             </div>
+
+            {/* InteractionLayer moved outside blurred container so tooltip appears clearly */}
+            <InteractionLayer
+              interaction={interaction}
+              onChartClick={onChartClick}
+              disabled={disabled}
+              score={score}
+              isTimeUp={isTimeUp}
+              orderedFiles={orderedFiles}
+              onDismissTooltip={onDismissTooltip}
+              timerDuration={timerDuration}
+              isMobile={isMobile}
+            />
           </div>
         </div>
       </div>

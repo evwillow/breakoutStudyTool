@@ -73,7 +73,7 @@ export const useChartDimensions = ({
             top: 0,
             right: isMobileView ? 10 : 15,
             bottom: 0,
-            left: isMobileView ? 10 : 15
+            left: 0  // No left margin so first candle and SMAs touch left edge
           };
 
       const innerWidth = Math.max(containerWidth - margin.left - margin.right, 0);
