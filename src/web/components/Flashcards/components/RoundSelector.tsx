@@ -35,7 +35,7 @@ const RoundSelector: React.FC<RoundSelectorProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm pointer-events-none">
-      <div className="relative bg-black/95 backdrop-blur-sm rounded-2xl shadow-[0_18px_40px_rgba(16,185,129,0.35)] max-w-md w-full p-6 pointer-events-auto border border-emerald-500/30">
+      <div className="relative bg-black/40 backdrop-blur-sm rounded-2xl shadow-[0_18px_40px_rgba(16,185,129,0.35)] max-w-md w-full p-6 pointer-events-auto border border-white/30">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none rounded-2xl" />
 
         <div className="relative z-10">
@@ -57,11 +57,11 @@ const RoundSelector: React.FC<RoundSelectorProps> = ({
                 }}
                 placeholder="Auto-generated if left blank"
                 maxLength={100}
-                className="flex-1 px-3 py-2 bg-black/50 border border-white/30 rounded-md focus:border-turquoise-500 focus:outline-none focus:ring-1 focus:ring-turquoise-500 text-white text-sm placeholder:text-white/50"
+                className="flex-1 px-3 py-2 bg-black/40 border border-white/30 rounded-md focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-white text-sm placeholder:text-white/50"
               />
               <button
                 onClick={onGenerateRoundName}
-                className="px-3 py-2 bg-black/95 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white rounded-md text-sm font-medium transition-colors hover:bg-black/80"
+                className="px-3 py-2 bg-black/40 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white rounded-md text-sm font-medium transition-colors hover:bg-black/50"
                 title="Generate name"
               >
                 <svg
@@ -89,7 +89,7 @@ const RoundSelector: React.FC<RoundSelectorProps> = ({
                 {availableRounds.map(round => (
                   <div
                     key={round.id}
-                    className="flex items-center justify-between p-3 border border-white/30 rounded-md hover:bg-black/80 hover:border-white/50 cursor-pointer transition-all bg-black/95 backdrop-blur-sm"
+                    className="flex items-center justify-between p-3 border border-white/30 rounded-md hover:bg-black/50 hover:border-white/50 cursor-pointer transition-all bg-black/40 backdrop-blur-sm"
                     onClick={() => onSelectRound(round.id, round.dataset_name)}
                   >
                     <div className="flex-1">

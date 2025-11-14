@@ -125,7 +125,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
             y={0}
             width={darkBackgroundWidth}
             height={dimensions.height}
-            fill="rgba(2, 6, 23, 0.65)"
+            fill="rgba(0, 0, 0, 0.4)"
             opacity={1}
           />
 
@@ -135,7 +135,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
               y={0}
               width={progressiveMaskWidth}
               height={dimensions.height}
-              fill={backgroundColor || "rgba(2, 6, 23, 0.8)"}
+              fill={backgroundColor || "rgba(0, 0, 0, 0.5)"}
               opacity={1}
             />
           )}

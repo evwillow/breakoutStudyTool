@@ -25,7 +25,7 @@ export const RoundCard: React.FC<RoundCardProps> = ({
   deletingId,
 }) => {
   return (
-    <div className="border border-white/30 rounded-md p-2.5 mb-2 bg-black/95 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-white/50 transition-all duration-300">
+    <div className="border border-white/30 rounded-md p-2.5 mb-2 bg-black/40 backdrop-blur-sm shadow-md hover:shadow-lg hover:border-white/50 transition-all duration-300">
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="flex-1 min-w-0">
           {round.name ? (
@@ -47,7 +47,7 @@ export const RoundCard: React.FC<RoundCardProps> = ({
         <button
           onClick={() => onDeleteRound(round.id)}
           disabled={isDeleting && deletingId === round.id}
-          className="flex-shrink-0 px-2 py-1 bg-black/95 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white text-xs rounded-md shadow hover:bg-black/80 transition flex items-center justify-center disabled:opacity-50"
+          className="flex-shrink-0 px-2 py-1 bg-black/40 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white text-xs rounded-md shadow hover:bg-black/50 transition flex items-center justify-center disabled:opacity-50"
         >
           {isDeleting && deletingId === round.id ? (
             <svg className="animate-spin h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -80,8 +80,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
 
       {session && isLoading && files.length === 0 && (
         <EmptyState
-          title="Loading previous setups…"
-          description="Fetching historical files for this ticker."
+          title="Loading…"
         />
       )}
 

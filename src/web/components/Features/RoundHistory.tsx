@@ -51,9 +51,9 @@ const RoundHistory: React.FC<RoundHistoryProps> = ({ isOpen, onClose, onLoadRoun
       <div className="flex items-center justify-center min-h-screen px-4 py-8 sm:py-12">
         <div className="fixed inset-0 bg-black bg-opacity-70 transition-opacity"></div>
         
-        <div className="relative bg-black/95 backdrop-blur-sm rounded-md shadow-xl max-w-4xl w-full mx-auto p-4 sm:p-6 border border-white/30">
-          {/* Decorative gradient overlay - faint turquoise */}
-          <div className="absolute inset-0 bg-gradient-to-br from-turquoise-500/5 via-transparent to-transparent pointer-events-none rounded-md"></div>
+        <div className="relative bg-black/40 backdrop-blur-sm rounded-2xl shadow-[0_18px_40px_rgba(16,185,129,0.35)] max-w-4xl w-full mx-auto p-4 sm:p-6 border border-white/30">
+          {/* Decorative gradient overlay - faint emerald */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none rounded-2xl"></div>
           
           <div className="relative z-10 flex justify-between items-center border-b border-white/30 pb-4 mb-6">
             <h2 className="text-xl font-semibold text-white">Round History</h2>
@@ -88,7 +88,7 @@ const RoundHistory: React.FC<RoundHistoryProps> = ({ isOpen, onClose, onLoadRoun
               </div>
             </div>
           ) : rounds.length === 0 ? (
-            <div className="text-center py-10 bg-black/95 backdrop-blur-sm rounded-md border border-white/30">
+            <div className="text-center py-10 bg-black/40 backdrop-blur-sm rounded-md border border-white/30">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-white/70 mb-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
               </svg>

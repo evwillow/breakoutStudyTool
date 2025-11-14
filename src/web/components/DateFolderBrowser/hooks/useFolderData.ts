@@ -125,17 +125,35 @@ export const useFolderData = ({
       setError(null);
       setInfo("");
 
+      let timeoutId: NodeJS.Timeout | null = null;
       try {
+        // Add timeout to prevent hanging
+        timeoutId = setTimeout(() => {
+          if (!abortController.signal.aborted) {
+            abortController.abort();
+          }
+        }, 30000); // 30 second timeout
+
         const response = await fetch("/api/files/local-folders", { 
           signal: abortController.signal,
           credentials: 'include'
         });
         
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        
         if (!response.ok) {
           throw new Error(`Failed to fetch folders (${response.status})`);
         }
 
-        const responseData = await response.json();
+        let responseData;
+        try {
+          responseData = await response.json();
+        } catch (jsonError) {
+          throw new Error('Invalid JSON response from server');
+        }
         
         // Handle both response formats: { success: true, data: { folders, totalFiles } } and { success: true, folders }
         const folders = responseData.data?.folders ?? responseData.folders;
@@ -219,12 +237,25 @@ export const useFolderData = ({
         );
         setIsLoading(false);
       } catch (err) {
-        if (!isMounted) return;
+        // Clear timeout if it's still pending
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         
         const error = err as { name?: string; message?: string };
         
         // Silently handle abort errors (component unmounted or dependency changed)
         if (error?.name === "AbortError") {
+          // Component unmounted or dependency changed - don't update state
+          if (isMounted) {
+            setIsLoading(false);
+          }
+          return;
+        }
+        
+        // Don't update state if component is unmounted
+        if (!isMounted) {
           return;
         }
         

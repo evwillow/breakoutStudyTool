@@ -184,7 +184,10 @@ const SelectionTooltip: React.FC<SelectionTooltipProps> = ({ show, onDismiss, st
             ? 'transition-all duration-250 ease-in opacity-0 blur-sm translate-y-2 scale-95'
             : 'transition-all duration-150 ease-out opacity-100 blur-0 translate-y-0 scale-100'
         }`}
-        style={tooltipStyle}
+        style={{
+          ...tooltipStyle,
+          filter: isExiting ? 'blur(4px)' : 'none'
+        }}
         onClick={(event) => {
           // Stop propagation so clicking tooltip doesn't trigger backdrop
           event.stopPropagation();

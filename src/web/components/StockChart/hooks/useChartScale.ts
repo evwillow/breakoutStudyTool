@@ -199,7 +199,8 @@ export const useChartScale = ({
       }
     }
 
-    const xScalePadding = tightPadding ? 0 : isMobile ? 0.05 : 0.1;
+    // Use minimal padding to ensure data starts at left edge and ends at divider
+    const xScalePadding = tightPadding ? 0 : isMobile ? 0.01 : 0.02;
     const DIVIDER_POSITION_PERCENT = isMobile ? 0.7 : 0.75;
     const dividerPositionInChart = dimensions.innerWidth * DIVIDER_POSITION_PERCENT;
 
@@ -227,28 +228,39 @@ export const useChartScale = ({
           .range([0, currentRange])
           .padding(xScalePadding);
 
+        const firstCenterX = testScale(0);
         const lastCenterX = testScale(lastMainDataIndex);
-        if (lastCenterX === undefined || isNaN(lastCenterX)) {
+        if (lastCenterX === undefined || isNaN(lastCenterX) || firstCenterX === undefined || isNaN(firstCenterX)) {
           currentRange = bestRange;
           break;
         }
 
         const step = testScale.step();
+        const firstLeftEdge = firstCenterX - step * 0.4;
         const lastRightEdge = lastCenterX + step * 0.4;
 
-        const difference = Math.abs(lastRightEdge - dividerPositionInChart);
-        if (difference < bestDifference) {
-          bestDifference = difference;
+        // Check both: first point should start at 0, last point should end at divider
+        const firstDifference = Math.abs(firstLeftEdge - 0);
+        const lastDifference = Math.abs(lastRightEdge - dividerPositionInChart);
+        const totalDifference = firstDifference + lastDifference;
+
+        if (totalDifference < bestDifference) {
+          bestDifference = totalDifference;
           bestRange = currentRange;
         }
 
-        if (difference < 0.01) {
+        if (lastDifference < 0.01 && firstDifference < 0.01) {
           xScaleRangeEnd = currentRange;
           break;
         }
 
-        const adjustment = dividerPositionInChart / lastRightEdge;
-        const newRange = currentRange * adjustment;
+        // Adjust based on both constraints
+        const lastAdjustment = dividerPositionInChart / lastRightEdge;
+        // If firstLeftEdge is positive, we need to reduce the range to bring it closer to 0
+        // If firstLeftEdge is negative (shouldn't happen), we need to increase the range
+        const firstAdjustment = firstLeftEdge > 0 ? (dividerPositionInChart - firstLeftEdge) / dividerPositionInChart : 1.0;
+        const combinedAdjustment = (lastAdjustment + firstAdjustment) / 2;
+        const newRange = currentRange * combinedAdjustment;
 
         if (newRange <= 0 || newRange > dimensions.innerWidth * 5 || !isFinite(newRange)) {
           currentRange = bestRange;
@@ -270,22 +282,27 @@ export const useChartScale = ({
             .range([0, extendedRange])
             .padding(xScalePadding);
 
+          const verifyFirstX = verifyScale(0);
           const verifyLastX = verifyScale(lastMainDataIndex);
-          if (verifyLastX === undefined || isNaN(verifyLastX)) {
+          if (verifyLastX === undefined || isNaN(verifyLastX) || verifyFirstX === undefined || isNaN(verifyFirstX)) {
             break;
           }
 
           const verifyStep = verifyScale.step();
+          const verifyFirstLeftEdge = verifyFirstX - verifyStep * 0.4;
           const verifyRightEdge = verifyLastX + verifyStep * 0.4;
-          const verifyDiff = Math.abs(verifyRightEdge - dividerPositionInChart);
+          const verifyFirstDiff = Math.abs(verifyFirstLeftEdge - 0);
+          const verifyLastDiff = Math.abs(verifyRightEdge - dividerPositionInChart);
 
-          if (verifyDiff < 0.01) {
+          if (verifyLastDiff < 0.01 && verifyFirstDiff < 0.01) {
             bestRange = extendedRange;
             break;
           }
 
-          const verifyAdjustment = dividerPositionInChart / verifyRightEdge;
-          extendedRange = extendedRange * verifyAdjustment;
+          const verifyLastAdjustment = dividerPositionInChart / verifyRightEdge;
+          const verifyFirstAdjustment = verifyFirstLeftEdge > 0 ? (dividerPositionInChart - verifyFirstLeftEdge) / dividerPositionInChart : 1.0;
+          const verifyCombinedAdjustment = (verifyLastAdjustment + verifyFirstAdjustment) / 2;
+          extendedRange = extendedRange * verifyCombinedAdjustment;
 
           if (extendedRange <= 0 || extendedRange > dimensions.innerWidth * 5 || !isFinite(extendedRange)) {
             break;

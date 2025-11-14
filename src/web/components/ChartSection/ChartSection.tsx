@@ -331,18 +331,6 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                             dLabelRightEdge={dLabelRightEdge}
                             dLabelCenterY={dLabelCenterY}
                           />
-                          
-                          <InteractionLayer
-                            interaction={interaction}
-                            onChartClick={onChartClick}
-                            disabled={disabled}
-                            score={score}
-                            isTimeUp={isTimeUp}
-                            orderedFiles={orderedFiles}
-                            onDismissTooltip={onDismissTooltip}
-                            timerDuration={timerDuration}
-                            isMobile={isMobile}
-                          />
                         </div>
                       );
                     }
@@ -381,20 +369,21 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                       dLabelCenterY={dLabelCenterY}
                     />
                     
-                    <InteractionLayer
-                      interaction={interaction}
-                      onChartClick={onChartClick}
-                      disabled={disabled}
-                      score={score}
-                      isTimeUp={isTimeUp}
-                      orderedFiles={orderedFiles}
-                      onDismissTooltip={onDismissTooltip}
-                      timerDuration={timerDuration}
-                      isMobile={isMobile}
-                    />
                   </div>
                 );
               })()}
+              
+              <InteractionLayer
+                interaction={interaction}
+                onChartClick={onChartClick}
+                disabled={disabled}
+                score={score}
+                isTimeUp={isTimeUp}
+                orderedFiles={orderedFiles}
+                onDismissTooltip={onDismissTooltip}
+                timerDuration={timerDuration}
+                isMobile={isMobile}
+              />
               
               {score !== null && feedback && (
                 <div data-tutorial-results>

@@ -26,7 +26,7 @@ export const FolderItem: React.FC<FolderItemProps> = ({
   const dateLabel = formatDisplayDate(file.breakoutDate);
 
   return (
-    <div className="border border-white/20 rounded-lg overflow-hidden bg-black/80">
+    <div className="border border-white/30 rounded-lg overflow-hidden bg-black/40 backdrop-blur-sm">
       <button
         type="button"
         onClick={onToggle}
@@ -49,7 +49,7 @@ export const FolderItem: React.FC<FolderItemProps> = ({
       </button>
 
       {isExpanded && (
-        <div className="border-t border-white/10 bg-black/90">
+        <div className="border-t border-white/30 bg-black/40 backdrop-blur-sm">
           {isLoading && (
             <div className="flex items-center justify-center min-h-[320px] text-white/60 text-sm">
               Loading chart…
@@ -57,11 +57,12 @@ export const FolderItem: React.FC<FolderItemProps> = ({
           )}
 
           {!isLoading && data && (
-            <div className="min-h-[360px] bg-black/40">
+            <div className="min-h-[360px] bg-black/40 w-full">
               <StockChart
                 data={data}
                 showSMA
                 chartType="previous"
+                backgroundColor="transparent"
               />
             </div>
           )}

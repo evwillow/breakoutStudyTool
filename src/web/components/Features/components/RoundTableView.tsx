@@ -71,7 +71,7 @@ export const RoundTableView: React.FC<TableViewProps> = ({
                 <button
                   onClick={() => onDeleteRound(round.id)}
                   disabled={isDeleting && deletingId === round.id}
-                  className="inline-flex items-center px-3 py-1 bg-black/95 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white text-xs font-medium rounded-md hover:bg-black/80 transition disabled:opacity-50"
+                  className="inline-flex items-center px-3 py-1 bg-black/40 backdrop-blur-sm border border-white/30 text-white/90 hover:text-white text-xs font-medium rounded-md hover:bg-black/50 transition disabled:opacity-50"
                 >
                   {isDeleting && deletingId === round.id ? (
                     <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

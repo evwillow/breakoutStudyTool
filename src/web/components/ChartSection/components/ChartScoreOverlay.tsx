@@ -109,10 +109,10 @@ export const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({
         ? 'bottom-0 left-2 right-2' 
         : 'bottom-0 left-2 right-2'
     }`}>
-      <div className={`bg-black/95 backdrop-blur-sm border border-white/30 rounded-md shadow-lg pointer-events-auto relative overflow-hidden w-full flex flex-col ${
+      <div className={`bg-black/40 backdrop-blur-sm border border-white/30 rounded-md shadow-lg pointer-events-auto relative overflow-hidden w-full flex flex-col ${
         isMobile 
-          ? 'px-3 py-3' 
-          : 'px-3 py-3'
+          ? 'px-4 py-4' 
+          : 'px-4 py-5'
       }`}>
         <div className={`relative z-10 ${isMobile ? 'flex items-center justify-between gap-2' : 'flex items-center justify-between gap-3'}`}>
           {/* Left side: Score */}
@@ -147,10 +147,10 @@ export const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({
                   e.stopPropagation();
                   handlePauseToggle();
                 }}
-                className={`bg-black/95 backdrop-blur-sm hover:bg-black/80 text-white/90 hover:text-white rounded-md font-medium transition-all border border-white/30 relative z-20 ${
+                className={`bg-black/40 backdrop-blur-sm hover:bg-black/50 text-white/90 hover:text-white rounded-md font-medium transition-all border border-white/30 relative z-20 ${
                   isMobile 
-                    ? 'px-3 py-1.5 text-xs' 
-                    : 'px-2.5 py-1 text-xs whitespace-nowrap'
+                    ? 'px-3 py-2 text-xs' 
+                    : 'px-3 py-2 text-xs whitespace-nowrap'
                 }`}
                 type="button"
               >
