@@ -108,57 +108,7 @@ const PriceChart: React.FC<PriceChartProps> = ({
 
   return (
     <>
-      {/* Gray dotted line - always visible as a guide, same position as blue line */}
-      {!shouldShowDividerAndBackground && chartType !== "previous" && (
-        <line
-          x1={dividerLineX}
-          y1={0}
-          x2={dividerLineX}
-          y2={dimensions.height}
-          stroke="#ffffff"
-          strokeWidth={1.5}
-          strokeDasharray="4,4"
-          opacity={0.5}
-        />
-      )}
-
-      {/* For D charts, show blue line and dark background overlay on after data */}
-      {shouldShowDividerAndBackground && !backgroundColor && chartType !== "previous" && (
-        <>
-          <line
-            x1={dividerLineX}
-            y1={0}
-            x2={dividerLineX}
-            y2={dimensions.height}
-            stroke="#00FFFF"
-            strokeWidth={2.5}
-            opacity={1}
-          />
-
-          <rect
-            x={dividerLineX}
-            y={0}
-            width={darkBackgroundWidth}
-            height={dimensions.height}
-            fill="rgba(0, 0, 0, 0.4)"
-            opacity={1}
-          />
-
-          {progressiveMaskWidth > 0 && (
-            <rect
-              x={dividerLineX + darkBackgroundWidth - progressiveMaskWidth}
-              y={0}
-              width={progressiveMaskWidth}
-              height={dimensions.height}
-              fill={backgroundColor || "rgba(0, 0, 0, 0.5)"}
-              opacity={1}
-            />
-          )}
-        </>
-      )}
-
-      {/* For previous charts (historical setups), no blue line and no overlay */}
-      {/* Both d data and after data areas use container's bg-black/40 background */}
+      {/* Note: Divider lines and backgrounds are rendered in ChartSvg.tsx at top level to avoid clipping */}
 
       <g transform={`translate(${dimensions.margin.left || 0},${dimensions.margin.top || 0})`}>
         <g transform="translate(0, 0)">

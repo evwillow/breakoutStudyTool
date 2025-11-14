@@ -32,11 +32,18 @@ export function isValidUUID(uuid: string): boolean {
 }
 
 export function extractOrderedFiles(flashcardData: FlashcardData | null): FlashcardFile[] {
-  if (!flashcardData?.jsonFiles) {
+  if (!flashcardData) {
+    return [];
+  }
+  
+  // Ensure jsonFiles exists and is an array
+  if (!flashcardData.jsonFiles || !Array.isArray(flashcardData.jsonFiles)) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[extractOrderedFiles] No jsonFiles in flashcardData', {
         hasFlashcardData: !!flashcardData,
         jsonFilesLength: flashcardData?.jsonFiles?.length,
+        jsonFilesType: typeof flashcardData?.jsonFiles,
+        flashcardKeys: flashcardData ? Object.keys(flashcardData) : [],
       });
     }
     return [];

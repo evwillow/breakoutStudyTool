@@ -154,7 +154,22 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     if (flashcards.length === 0) return null;
     const index = gameState.currentIndex;
     const safeIndex = Math.max(0, Math.min(index, flashcards.length - 1));
-    return flashcards[safeIndex] || null;
+    const flashcard = flashcards[safeIndex] || null;
+    
+    // Validate flashcard structure
+    if (flashcard && (!flashcard.jsonFiles || !Array.isArray(flashcard.jsonFiles))) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[FlashcardsContainer] Invalid flashcard structure', {
+          flashcard,
+          hasJsonFiles: !!flashcard.jsonFiles,
+          jsonFilesType: typeof flashcard.jsonFiles,
+          flashcardKeys: Object.keys(flashcard),
+        });
+      }
+      return null;
+    }
+    
+    return flashcard;
   }, [gameState.currentIndex, flashcards]);
 
   const processedData = useMemo(() => {

@@ -72,6 +72,9 @@ export const useDataLoader = ({
 
   const cleanup = useCallback(() => {
     if (abortControllerRef.current) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useDataLoader] Cleaning up abort controller');
+      }
       abortControllerRef.current.abort();
       abortControllerRef.current = new AbortController();
     }
@@ -233,7 +236,26 @@ export const useDataLoader = ({
             if (!fileData.success) return null;
 
             // The API returns { success: true, data: { data: jsonData, fileName, folder } }
-            const actualData = fileData.data?.data ?? fileData.data;
+            // Check if data.data exists (nested structure) or if data is the actual data (flat structure)
+            let actualData = null;
+            
+            // First, try the nested structure (the expected format)
+            if (fileData.data && typeof fileData.data === 'object' && 'data' in fileData.data) {
+              actualData = fileData.data.data;
+            } 
+            // If that doesn't work, check if data itself is the array (fallback for different API formats)
+            else if (fileData.data && Array.isArray(fileData.data)) {
+              actualData = fileData.data;
+            }
+            // If data is an object but not the wrapper, it might be the actual data
+            else if (fileData.data && typeof fileData.data === 'object' && !fileData.data.fileName && !fileData.data.folder) {
+              actualData = fileData.data;
+            }
+            
+            if (actualData === null || actualData === undefined) {
+              console.warn(`File ${file.fileName} has no data in response`);
+              return null;
+            }
 
             return {
               fileName: file.fileName,
@@ -533,7 +555,19 @@ export const useDataLoader = ({
         };
 
         const checkAndShowUI = (currentFiles: LoadedFlashcardFile[]) => {
-          if (uiReady) return;
+          if (uiReady) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] checkAndShowUI: UI already ready, skipping');
+            }
+            return;
+          }
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] checkAndShowUI called', {
+              currentFilesCount: currentFiles.length,
+              currentFiles: currentFiles.map(f => ({ fileName: f?.fileName, hasData: !!f?.data })),
+            });
+          }
 
           const tempStockGroups = new Map<string, LoadedFlashcardFile[]>();
           currentFiles.forEach(file => {
@@ -545,6 +579,17 @@ export const useDataLoader = ({
               tempStockGroups.get(stockDir)!.push(file);
             }
           });
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] checkAndShowUI: Stock groups', {
+              stockGroupsCount: tempStockGroups.size,
+              stockGroups: Array.from(tempStockGroups.entries()).map(([dir, files]) => ({
+                dir,
+                fileCount: files.length,
+                fileNames: files.map(f => f.fileName),
+              })),
+            });
+          }
 
           const essentialFiles = new Set(["D.json", "M.json"]);
           const hasReadyFlashcard = Array.from(tempStockGroups.values()).some(stockFiles =>
@@ -650,7 +695,7 @@ export const useDataLoader = ({
                 id: stockDir,
                 name: stockDir,
                 folderName,
-                jsonFiles: stockFiles,
+                jsonFiles: Array.isArray(stockFiles) ? stockFiles : [],
                 isReady: hasEssentialFile
               };
             });
@@ -683,6 +728,13 @@ export const useDataLoader = ({
 
         const essentialNames = new Set(["D.json", "M.json"]);
         const dateFilePattern = /^[A-Za-z]{3}_\d{1,2}_\d{4}\.json$/;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Files available', {
+            totalFiles: files.length,
+            fileNames: files.slice(0, 10).map(f => f.fileName),
+          });
+        }
 
         const prioritizedFiles = [
           ...files.filter(file => {
@@ -754,17 +806,16 @@ export const useDataLoader = ({
           );
           reorderedPrioritizedFiles.push(...filesForStock);
         }
-        // Replace prioritizedFiles with the reordered version
-        const originalPrioritizedFiles = prioritizedFiles;
-        prioritizedFiles = reorderedPrioritizedFiles.length > 0
+        // Use reordered files if available, otherwise use original
+        const finalPrioritizedFiles = reorderedPrioritizedFiles.length > 0
           ? reorderedPrioritizedFiles
-          : originalPrioritizedFiles;
+          : prioritizedFiles;
 
         if (process.env.NODE_ENV === 'development') {
           console.log('[useDataLoader] Reordered prioritizedFiles to match shuffled stock order:', {
-            originalFirst5Stocks: originalPrioritizedFiles.slice(0, 5).map(f => f.fileName.split('/')[0]),
-            reorderedFirst5Stocks: prioritizedFiles.slice(0, 5).map(f => f.fileName.split('/')[0]),
-            totalFiles: prioritizedFiles.length,
+            originalFirst5Stocks: prioritizedFiles.slice(0, 5).map(f => f.fileName.split('/')[0]),
+            reorderedFirst5Stocks: finalPrioritizedFiles.slice(0, 5).map(f => f.fileName.split('/')[0]),
+            totalFiles: finalPrioritizedFiles.length,
           });
         }
 
@@ -809,9 +860,9 @@ export const useDataLoader = ({
         }
 
         if (quickBatch.length === 0) {
-          const fallbackCount = Math.min(QUICK_BATCH_FILE_TARGET, prioritizedFiles.length);
+          const fallbackCount = Math.min(QUICK_BATCH_FILE_TARGET, finalPrioritizedFiles.length);
           for (let i = 0; i < fallbackCount; i++) {
-            const file = prioritizedFiles[i];
+            const file = finalPrioritizedFiles[i];
             if (!quickBatchAdded.has(file.fileName)) {
               quickBatch.push(file);
               quickBatchAdded.add(file.fileName);
@@ -821,6 +872,14 @@ export const useDataLoader = ({
 
         const quickBatchFileNames = new Set(quickBatch.map(file => file.fileName));
 
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Starting quick batch fetch', {
+            quickBatchSize: quickBatch.length,
+            quickBatchFiles: quickBatch.map(f => f.fileName),
+            folderName,
+          });
+        }
+
         // Fetch all files in parallel for maximum speed
         const quickPromises = quickBatch.map(async file => {
           try {
@@ -828,22 +887,73 @@ export const useDataLoader = ({
               file.fileName
             )}&folder=${encodeURIComponent(folderName)}`;
 
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[useDataLoader] Fetching file: ${file.fileName}`, { url });
+            }
+
             // HTTP cache headers are set on the API route for fast loads
-            const fileResponse = await fetch(url, {
-              signal: getAbortController().signal
-            });
+            let fileResponse: Response;
+            try {
+              fileResponse = await fetch(url, {
+                signal: getAbortController().signal
+              });
+            } catch (fetchError: any) {
+              if (fetchError.name === 'AbortError') {
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn(`[useDataLoader] File fetch aborted: ${file.fileName}`);
+                }
+                return null;
+              }
+              if (process.env.NODE_ENV === 'development') {
+                console.error(`[useDataLoader] File fetch error: ${file.fileName}`, fetchError);
+              }
+              return null;
+            }
 
-            if (!fileResponse.ok) return null;
+            if (!fileResponse.ok) {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`[useDataLoader] File fetch failed: ${file.fileName}`, {
+                  status: fileResponse.status,
+                  statusText: fileResponse.statusText,
+                });
+              }
+              return null;
+            }
 
-            const fileData = await fileResponse.json();
+            let fileData: any;
+            try {
+              fileData = await fileResponse.json();
+            } catch (jsonError) {
+              if (process.env.NODE_ENV === 'development') {
+                console.error(`[useDataLoader] Failed to parse JSON for ${file.fileName}:`, jsonError);
+              }
+              return null;
+            }
+            
             if (!fileData.success) {
-              console.warn(`File ${file.fileName} returned unsuccessful response:`, fileData);
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`File ${file.fileName} returned unsuccessful response:`, fileData);
+              }
               return null;
             }
 
             // The API returns { success: true, data: { data: jsonData, fileName, folder } }
             // So we need to extract the actual JSON data from fileData.data.data
-            const actualData = fileData.data?.data ?? fileData.data;
+            // Check if data.data exists (nested structure) or if data is the actual data (flat structure)
+            let actualData = null;
+            
+            // First, try the nested structure (the expected format)
+            if (fileData.data && typeof fileData.data === 'object' && 'data' in fileData.data) {
+              actualData = fileData.data.data;
+            } 
+            // If that doesn't work, check if data itself is the array (fallback for different API formats)
+            else if (fileData.data && Array.isArray(fileData.data)) {
+              actualData = fileData.data;
+            }
+            // If data is an object but not the wrapper, it might be the actual data
+            else if (fileData.data && typeof fileData.data === 'object' && !fileData.data.fileName && !fileData.data.folder) {
+              actualData = fileData.data;
+            }
             
             // Debug logging
             if (process.env.NODE_ENV === 'development') {
@@ -855,30 +965,41 @@ export const useDataLoader = ({
                 isArray: Array.isArray(actualData),
                 dataLength: Array.isArray(actualData) ? actualData.length : 'N/A',
                 responseStructure: Object.keys(fileData),
+                dataKeys: fileData.data && typeof fileData.data === 'object' ? Object.keys(fileData.data) : [],
               });
             }
             
-            if (!actualData) {
-              console.warn(`File ${file.fileName} has no data in response:`, fileData);
+            if (actualData === null || actualData === undefined) {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`File ${file.fileName} has no data in response:`, {
+                  fileData,
+                  dataStructure: fileData.data,
+                  hasNestedData: !!fileData.data?.data,
+                });
+              }
               return null;
             }
             
             // Ensure data is an array for chart files (D.json, M.json)
             if (file.fileName.includes('D.json') || file.fileName.includes('M.json')) {
               if (!Array.isArray(actualData)) {
-                console.warn(`File ${file.fileName} data is not an array:`, {
-                  type: typeof actualData,
-                  data: actualData,
-                });
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn(`File ${file.fileName} data is not an array:`, {
+                    type: typeof actualData,
+                    data: actualData,
+                  });
+                }
                 return null;
               }
               if (actualData.length === 0) {
-                console.warn(`File ${file.fileName} data array is empty`);
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn(`File ${file.fileName} data array is empty`);
+                }
                 return null;
               }
             }
 
-            return {
+            const result = {
               fileName: file.fileName,
               data: actualData,
               mimeType: file.mimeType,
@@ -886,23 +1007,62 @@ export const useDataLoader = ({
               createdTime: file.createdTime,
               modifiedTime: file.modifiedTime
             };
-          } catch {
+
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[useDataLoader] Successfully loaded file: ${file.fileName}`, {
+                hasData: !!result.data,
+                dataLength: Array.isArray(result.data) ? result.data.length : 'N/A',
+              });
+            }
+
+            return result;
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error(`[useDataLoader] Error loading file: ${file.fileName}`, error);
+            }
             return null;
           }
         });
 
         const quickResults = await Promise.allSettled(quickPromises);
+        
+        if (process.env.NODE_ENV === 'development') {
+          const fulfilled = quickResults.filter(r => r.status === 'fulfilled').length;
+          const rejected = quickResults.filter(r => r.status === 'rejected').length;
+          console.log('[useDataLoader] Quick batch results', {
+            total: quickResults.length,
+            fulfilled,
+            rejected,
+            results: quickResults.map((r, i) => ({
+              index: i,
+              status: r.status,
+              fileName: quickBatch[i]?.fileName,
+              hasValue: r.status === 'fulfilled' && r.value !== null,
+            })),
+          });
+        }
+        
         const quickLoaded = quickResults
           .filter(
             (result): result is PromiseFulfilledResult<LoadedFlashcardFile | null> =>
               result.status === "fulfilled" && result.value !== null
           )
           .map(result => result.value as LoadedFlashcardFile);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Quick batch loaded', {
+            quickBatchSize: quickBatch.length,
+            quickLoadedCount: quickLoaded.length,
+            loadedFileNames: quickLoaded.map(f => f.fileName),
+            filesWithData: quickLoaded.filter(f => f.data !== null && f.data !== undefined).length,
+          });
+        }
+        
         loadedFiles.push(...quickLoaded);
 
         checkAndShowUI(loadedFiles);
 
-        const prioritizedRemainder = prioritizedFiles.filter(
+        const prioritizedRemainder = finalPrioritizedFiles.filter(
           file => !quickBatchFileNames.has(file.fileName)
         );
 
@@ -925,7 +1085,26 @@ export const useDataLoader = ({
               if (!fileData.success) return null;
               
               // The API returns { success: true, data: { data: jsonData, fileName, folder } }
-              const actualData = fileData.data?.data ?? fileData.data;
+              // Check if data.data exists (nested structure) or if data is the actual data (flat structure)
+              let actualData = null;
+              
+              // First, try the nested structure (the expected format)
+              if (fileData.data && typeof fileData.data === 'object' && 'data' in fileData.data) {
+                actualData = fileData.data.data;
+              } 
+              // If that doesn't work, check if data itself is the array (fallback for different API formats)
+              else if (fileData.data && Array.isArray(fileData.data)) {
+                actualData = fileData.data;
+              }
+              // If data is an object but not the wrapper, it might be the actual data
+              else if (fileData.data && typeof fileData.data === 'object' && !fileData.data.fileName && !fileData.data.folder) {
+                actualData = fileData.data;
+              }
+              
+              if (actualData === null || actualData === undefined) {
+                console.warn(`File ${file.fileName} has no data in response`);
+                return null;
+              }
               
               return {
                 fileName: file.fileName,
@@ -952,7 +1131,7 @@ export const useDataLoader = ({
         }
 
         const loadedFileNameSet = new Set(loadedFiles.map(file => file.fileName));
-        const remainingFiles = prioritizedFiles.filter(
+        const remainingFiles = finalPrioritizedFiles.filter(
           file => !loadedFileNameSet.has(file.fileName)
         );
 
@@ -1009,7 +1188,26 @@ export const useDataLoader = ({
                       if (!fileData.success) return null;
                       
                       // The API returns { success: true, data: { data: jsonData, fileName, folder } }
-                      const actualData = fileData.data?.data ?? fileData.data;
+                      // Check if data.data exists (nested structure) or if data is the actual data (flat structure)
+                      let actualData = null;
+                      
+                      // First, try the nested structure (the expected format)
+                      if (fileData.data && typeof fileData.data === 'object' && 'data' in fileData.data) {
+                        actualData = fileData.data.data;
+                      } 
+                      // If that doesn't work, check if data itself is the array (fallback for different API formats)
+                      else if (fileData.data && Array.isArray(fileData.data)) {
+                        actualData = fileData.data;
+                      }
+                      // If data is an object but not the wrapper, it might be the actual data
+                      else if (fileData.data && typeof fileData.data === 'object' && !fileData.data.fileName && !fileData.data.folder) {
+                        actualData = fileData.data;
+                      }
+                      
+                      if (actualData === null || actualData === undefined) {
+                        console.warn(`File ${file.fileName} has no data in response`);
+                        return null;
+                      }
                       
                       return {
                         fileName: file.fileName,

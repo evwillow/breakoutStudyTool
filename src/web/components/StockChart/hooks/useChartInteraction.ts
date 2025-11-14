@@ -130,7 +130,8 @@ export const useChartInteraction = ({
       const lastDataCenterX = scales.xScale(lastDataIndex);
       if (lastDataCenterX === undefined) return false;
       const step = scales.xScale.step();
-      const borderLineOffsetForCursor = isMobile ? 1.0 : 1.5;
+      // Reduced offset - selectable area starts just after the last candlestick
+      const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
       const lastDataRightEdge = lastDataCenterX + step / 2 + step * borderLineOffsetForCursor;
 
       return chartX > lastDataRightEdge;
@@ -197,7 +198,8 @@ export const useChartInteraction = ({
           const lastDataCenterX = scales.xScale(lastDataIndex);
           if (lastDataCenterX === undefined) return;
           const step = scales.xScale.step();
-          const borderLineOffsetForCursor = isMobile ? 1.0 : 1.5;
+          // Reduced offset - selectable area starts just after the last candlestick
+          const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
           const lastDataRightEdge = lastDataCenterX + step / 2 + step * borderLineOffsetForCursor;
 
           if (chartX <= lastDataRightEdge) {

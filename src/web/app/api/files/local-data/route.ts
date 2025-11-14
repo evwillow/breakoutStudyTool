@@ -25,7 +25,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const jsonData = await fetchLocalFile({ fileName });
+    let jsonData: unknown;
+    try {
+      jsonData = await fetchLocalFile({ fileName });
+    } catch (fileError: any) {
+      console.error(`[local-data API] Error fetching file: ${fileName}`, fileError);
+      return NextResponse.json(
+        { success: false, error: `Error reading file: ${fileError.message || 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
 
     // Log for debugging
     if (process.env.NODE_ENV === 'development') {
