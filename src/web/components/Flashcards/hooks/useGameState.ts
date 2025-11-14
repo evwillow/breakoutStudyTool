@@ -110,6 +110,13 @@ export function useGameState({
 
     // Always update if length increases (lazy loading scenario)
     if (flashcardsLength > trackedFlashcardsLength) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useGameState] Flashcards length increased:', {
+          previousLength: trackedFlashcardsLength,
+          newLength: flashcardsLength,
+          currentIndex,
+        });
+      }
       setTrackedFlashcardsLength(flashcardsLength);
     }
     // Also update if length decreases significantly (folder change scenario)
@@ -294,40 +301,39 @@ export function useGameState({
   
   // Move to next card
   const nextCard = useCallback(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useGameState] nextCard called', {
-        currentIndex,
-        flashcardsLength,
-        trackedFlashcardsLength,
-      });
-    }
+    // Use functional updates to avoid stale closures
+    setCurrentIndex(prevIndex => {
+      // Get current flashcardsLength from the latest value
+      const actualLength = flashcardsLength;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useGameState] nextCard called', {
+          prevIndex,
+          actualLength,
+          trackedFlashcardsLength,
+        });
+      }
 
-    // Reset card-specific state FIRST to clear the current card's state
-    // This ensures the UI updates immediately
-    setFeedback(null);
-    setDisableButtons(false);
-    setShowTimeUpOverlay(false);
-    setAfterChartData(null);
-    setUserSelectedButton(null);
-    setCorrectAnswerButton(null);
-    setUserSelection(null);
-    setTargetPoint(null);
-    setDistance(null);
-    setScore(null);
+      // Reset card-specific state FIRST to clear the current card's state
+      // This ensures the UI updates immediately
+      setFeedback(null);
+      setDisableButtons(false);
+      setShowTimeUpOverlay(false);
+      setAfterChartData(null);
+      setUserSelectedButton(null);
+      setCorrectAnswerButton(null);
+      setUserSelection(null);
+      setTargetPoint(null);
+      setDistance(null);
+      setScore(null);
 
-    // CRITICAL FIX: Use flashcardsLength prop directly instead of trackedFlashcardsLength
-    // trackedFlashcardsLength may lag behind due to useEffect timing, causing "next" to fail
-    // flashcardsLength is the actual current length from props, always up-to-date
-    const actualLength = flashcardsLength;
-
-    // Then move to next card - use functional update to ensure we're using the latest index
-    if (actualLength > 0) {
-      setCurrentIndex(prev => {
-        const nextIndex = prev + 1;
+      // Then move to next card
+      if (actualLength > 0) {
+        const nextIndex = prevIndex + 1;
 
         if (process.env.NODE_ENV === 'development') {
           console.log('[useGameState] setCurrentIndex', {
-            prev,
+            prevIndex,
             nextIndex,
             actualLength,
             willAdvance: nextIndex < actualLength,
@@ -345,17 +351,20 @@ export function useGameState({
           if (onGameComplete) {
             onGameComplete();
           }
-          return prev; // Stay at current index (last card)
+          return prevIndex; // Stay at current index (last card)
         }
-      });
-    } else if (onGameComplete) {
-      // No flashcards but game complete callback exists
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useGameState] No flashcards, triggering game complete');
+      } else {
+        // No flashcards but game complete callback exists
+        if (onGameComplete) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useGameState] No flashcards, triggering game complete');
+          }
+          onGameComplete();
+        }
+        return prevIndex;
       }
-      onGameComplete();
-    }
-  }, [flashcardsLength, onGameComplete, currentIndex, trackedFlashcardsLength]);
+    });
+  }, [flashcardsLength, onGameComplete, trackedFlashcardsLength]);
   
   // Initialize game state from existing matches
   const initializeFromMatches = useCallback((matches: Array<{ correct: boolean }>) => {

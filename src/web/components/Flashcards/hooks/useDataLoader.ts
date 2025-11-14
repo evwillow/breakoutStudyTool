@@ -38,11 +38,29 @@ export const useDataLoader = ({
   const isBackgroundLoadingRef = useRef<boolean>(false);
   const backgroundLoadingFolderRef = useRef<string | null>(null);
   // Track if flashcards have been shuffled for the current folder to prevent re-shuffling
+  // IMPORTANT: Always initialize to null on EVERY component mount to ensure shuffle happens
+  // This ref is intentionally NOT persistent across component remounts
   const hasShuffledForFolderRef = useRef<string | null>(null);
+  // Track if this is the first fetch ever (to force shuffle on initial page load)
+  const isFirstFetchRef = useRef<boolean>(true);
+
+  // Reset shuffle tracking on mount to ensure fresh shuffle on page load
+  useEffect(() => {
+    hasShuffledForFolderRef.current = null;
+    isFirstFetchRef.current = true;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useDataLoader] Component mounted, reset shuffle tracking to force shuffle on next load');
+    }
+  }, []); // Empty deps = runs only on mount
 
   // Keep ref in sync with selectedFolder
   useEffect(() => {
     selectedFolderRef.current = selectedFolder;
+    // CRITICAL: Reset shuffle tracking when folder changes to ensure shuffle happens
+    hasShuffledForFolderRef.current = null;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useDataLoader] Selected folder changed, reset shuffle tracking', { selectedFolder });
+    }
   }, [selectedFolder]);
 
   const getAbortController = useCallback(() => {
@@ -314,11 +332,25 @@ export const useDataLoader = ({
         }
       }
       
-      // CRITICAL: Always shuffle on first load (when hasShuffledForFolderRef is null)
-      // This ensures random order even if refs persist across hot reloads
+      // CRITICAL: ALWAYS shuffle on first load - reset the flag to force shuffle
+      // This ensures random order on every page load/refresh, regardless of ref state
+      const isFirstPageLoad = isFirstFetchRef.current;
+      if (isFirstPageLoad) {
+        hasShuffledForFolderRef.current = null; // Force shuffle on first page load
+        isFirstFetchRef.current = false;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] First page load detected, forcing shuffle', { 
+            folderName,
+            wasFirstFetch: isFirstPageLoad,
+            resetShuffleFlag: true,
+          });
+        }
+      }
+      
+      // ALWAYS reset shuffle flag if it's null (first time loading this folder)
       if (hasShuffledForFolderRef.current === null) {
         if (process.env.NODE_ENV === 'development') {
-          console.log('[useDataLoader] First load detected, will shuffle', { folderName });
+          console.log('[useDataLoader] Shuffle flag is null, will shuffle', { folderName });
         }
       }
 
@@ -414,8 +446,8 @@ export const useDataLoader = ({
         setLoadingStep("Optimizing chart data...");
 
         const files = selectedFolderData.files as FlashcardFolderFile[];
-        const INITIAL_STOCK_COUNT = 2;
-        const QUICK_BATCH_FILE_TARGET = 30; // Increased from 18 for faster initial load
+        const INITIAL_STOCK_COUNT = 10; // Increased from 2 to ensure variety in initial shuffle
+        const QUICK_BATCH_FILE_TARGET = 50; // Increased from 30 for faster initial load with more variety
         const BACKGROUND_BATCH_SIZE = 100; // Increased from 50 for faster background loading
 
         const loadedFiles: LoadedFlashcardFile[] = [];
@@ -426,17 +458,74 @@ export const useDataLoader = ({
         // Use truly random shuffle - Math.random() for unpredictable order each load
         // This ensures stocks are in different order every time you load the folder
         const shuffleArray = <T,>(array: T[]): T[] => {
+          if (array.length <= 1) return array;
+          
           const shuffled = [...array];
+          
+          // Fisher-Yates shuffle
           for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
           }
 
+          // CRITICAL: ALWAYS ensure the first element is different (if array has more than 1 element)
+          // This guarantees the first stock changes on every shuffle
+          if (array.length > 1) {
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            // Keep shuffling until first element changes, or force swap after max attempts
+            while (array[0] === shuffled[0] && attempts < maxAttempts) {
+              // Try another random shuffle of just the first few elements
+              const swapIndex = Math.floor(Math.random() * Math.min(shuffled.length, 10)) + 1;
+              [shuffled[0], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[0]];
+              attempts++;
+            }
+            
+            // If still the same after attempts, force swap with a guaranteed different element
+            if (array[0] === shuffled[0] && shuffled.length > 1) {
+              // Find first element that's different from original first
+              const differentIndex = shuffled.findIndex((item, idx) => idx > 0 && item !== array[0]);
+              if (differentIndex > 0) {
+                [shuffled[0], shuffled[differentIndex]] = [shuffled[differentIndex], shuffled[0]];
+              } else {
+                // Last resort: swap with last element
+                [shuffled[0], shuffled[shuffled.length - 1]] = [shuffled[shuffled.length - 1], shuffled[0]];
+              }
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('[useDataLoader] First element unchanged after shuffle, forcing swap', {
+                  originalFirst: array[0],
+                  newFirst: shuffled[0],
+                  attempts,
+                });
+              }
+            }
+          }
+
+          // Verify shuffle actually changed the order
+          const orderChanged = array.length > 1 && (
+            array[0] !== shuffled[0] || 
+            array[array.length - 1] !== shuffled[shuffled.length - 1]
+          );
+
           if (process.env.NODE_ENV === 'development') {
             console.log('[useDataLoader] Shuffled array', {
               originalFirst: array[0],
               shuffledFirst: shuffled[0],
+              originalLast: array[array.length - 1],
+              shuffledLast: shuffled[shuffled.length - 1],
               length: shuffled.length,
+              orderChanged,
+              originalOrder: array.slice(0, 5).map(([dir]) => dir),
+              shuffledOrder: shuffled.slice(0, 5).map(([dir]) => dir),
+            });
+          }
+
+          if (!orderChanged && array.length > 1) {
+            console.error('[useDataLoader] ERROR: Shuffle did not change order!', {
+              arrayLength: array.length,
+              firstThree: array.slice(0, 3).map(([dir]) => dir),
             });
           }
 
@@ -471,16 +560,60 @@ export const useDataLoader = ({
             // Use the shared shuffleArray function created at the top of fetchFlashcards
             // Always shuffle on first load for a folder - check if this is a new folder
             const stockEntries = Array.from(tempStockGroups.entries());
-            // ALWAYS shuffle if we haven't shuffled for this folder yet (new folder or first time)
+
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] Shuffle decision (checkAndShowUI)', {
+                folderName,
+                hasShuffledForFolder: hasShuffledForFolderRef.current,
+                stockEntriesLength: stockEntries.length,
+                condition1: hasShuffledForFolderRef.current !== folderName,
+                condition2: hasShuffledForFolderRef.current === null,
+              });
+            }
+
+            // ALWAYS shuffle on first load - force it regardless of ref state
             // This ensures random order on every page load/refresh
-            const shouldShuffle = hasShuffledForFolderRef.current !== folderName;
+            // Shuffle if: folder changed, never shuffled for this folder, or this is the first fetch ever
+            const shouldShuffle = stockEntries.length > 0 && (
+              hasShuffledForFolderRef.current !== folderName ||
+              hasShuffledForFolderRef.current === null
+            );
             let shuffledStockEntries: typeof stockEntries;
-            if (shouldShuffle) {
+            
+            // CRITICAL: Always shuffle on first load, no matter what
+            if (shouldShuffle && stockEntries.length > 0) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[useDataLoader] BEFORE SHUFFLE (checkAndShowUI)', {
+                  folderName,
+                  stockCount: stockEntries.length,
+                  firstThree: stockEntries.slice(0, 3).map(([dir]) => dir),
+                  hasShuffledForFolder: hasShuffledForFolderRef.current,
+                });
+              }
+              
               shuffledStockEntries = shuffleArray(stockEntries);
+              
               // Mark as shuffled immediately to prevent re-shuffling
               hasShuffledForFolderRef.current = folderName;
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[useDataLoader] AFTER SHUFFLE (checkAndShowUI)', {
+                  folderName,
+                  stockCount: shuffledStockEntries.length,
+                  firstThree: shuffledStockEntries.slice(0, 3).map(([dir]) => dir),
+                  changed: stockEntries[0]?.[0] !== shuffledStockEntries[0]?.[0],
+                });
+              }
             } else {
               shuffledStockEntries = stockEntries; // Don't re-shuffle if already shuffled for this folder
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('[useDataLoader] SKIPPING SHUFFLE (checkAndShowUI path)', {
+                  folderName,
+                  hasShuffledForFolder: hasShuffledForFolderRef.current,
+                  shouldShuffle,
+                  firstStock: stockEntries[0]?.[0],
+                });
+              }
             }
             
             if (process.env.NODE_ENV === 'development') {
@@ -595,6 +728,45 @@ export const useDataLoader = ({
             stockOrder.push(stockDir);
           }
         });
+
+        // CRITICAL: Shuffle stockOrder so initial batch is random from whole dataset
+        // This ensures we don't always load AA stocks alphabetically
+        if (stockOrder.length > 1) {
+          for (let i = stockOrder.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [stockOrder[i], stockOrder[j]] = [stockOrder[j], stockOrder[i]];
+          }
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] Shuffled stock order for initial batch:', {
+              totalStocks: stockOrder.length,
+              first10: stockOrder.slice(0, 10),
+            });
+          }
+        }
+
+        // CRITICAL: Re-order prioritizedFiles to match the shuffled stockOrder
+        // This ensures background loading also loads stocks in shuffled order
+        const reorderedPrioritizedFiles: FlashcardFolderFile[] = [];
+        for (const stockDir of stockOrder) {
+          const filesForStock = prioritizedFiles.filter(
+            file => file.fileName.startsWith(`${stockDir}/`)
+          );
+          reorderedPrioritizedFiles.push(...filesForStock);
+        }
+        // Replace prioritizedFiles with the reordered version
+        const originalPrioritizedFiles = prioritizedFiles;
+        prioritizedFiles = reorderedPrioritizedFiles.length > 0
+          ? reorderedPrioritizedFiles
+          : originalPrioritizedFiles;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Reordered prioritizedFiles to match shuffled stock order:', {
+            originalFirst5Stocks: originalPrioritizedFiles.slice(0, 5).map(f => f.fileName.split('/')[0]),
+            reorderedFirst5Stocks: prioritizedFiles.slice(0, 5).map(f => f.fileName.split('/')[0]),
+            totalFiles: prioritizedFiles.length,
+          });
+        }
 
         const quickBatchAdded = new Set<string>();
         const quickBatch: FlashcardFolderFile[] = [];
@@ -954,6 +1126,15 @@ export const useDataLoader = ({
                       // DO NOT use random insertion as it breaks the seeded shuffle order
                       const combinedCards = [...updatedCards, ...newCards];
 
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('[useDataLoader] Background loading added cards:', {
+                          previousLength: prevCards.length,
+                          newCardsAdded: newCards.length,
+                          newTotalLength: combinedCards.length,
+                          newStocks: newCards.map(c => c.name || c.id),
+                        });
+                      }
+
                       return combinedCards;
                     });
                   }
@@ -983,21 +1164,87 @@ export const useDataLoader = ({
             stockGroups.get(stockDir)!.push(file);
           }
         });
+        
+        // Log the order before any shuffle to see if it's alphabetical
+        if (process.env.NODE_ENV === 'development') {
+          const stockDirs = Array.from(stockGroups.keys());
+          console.log('[useDataLoader] Stock groups created (before shuffle)', {
+            count: stockDirs.length,
+            firstFive: stockDirs.slice(0, 5),
+            isAlphabetical: stockDirs.slice(0, 5).every((dir, i, arr) => 
+              i === 0 || dir >= arr[i - 1]
+            ),
+          });
+        }
+
+        // CRITICAL: If checkAndShowUI already set flashcards (uiReady is true), 
+        // don't overwrite them with unshuffled order from fallback path
+        if (uiReady) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] Skipping fallback - flashcards already set by checkAndShowUI', {
+              folderName,
+              stockCount: stockGroups.size,
+            });
+          }
+          // Still need to set loading to false and cleanup
+          if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+            loadingTimeout = null;
+          }
+          setLoading(false);
+          setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
+          setLoadingStep("");
+          isFetchingRef.current = false;
+          return;
+        }
 
         // Use the same seeded shuffle from above (already defined at the top)
         // DO NOT create a new unseeded shuffleArray here
         // Always shuffle on first load for a folder - check if this is a new folder
         const stockEntries = Array.from(stockGroups.entries());
-        // ALWAYS shuffle if we haven't shuffled for this folder yet (new folder or first time)
+        // ALWAYS shuffle on first load - force it regardless of ref state
         // This ensures random order on every page load/refresh
-        const shouldShuffle = hasShuffledForFolderRef.current !== folderName;
+        // Shuffle if: folder changed, never shuffled for this folder, or this is the first fetch ever
+        const shouldShuffle = stockEntries.length > 0 && (
+          hasShuffledForFolderRef.current !== folderName || 
+          hasShuffledForFolderRef.current === null
+        );
         let shuffledStockEntries: typeof stockEntries;
-        if (shouldShuffle) {
+        
+        // CRITICAL: Always shuffle on first load, no matter what
+        if (shouldShuffle && stockEntries.length > 0) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] BEFORE SHUFFLE (fallback path)', {
+              folderName,
+              stockCount: stockEntries.length,
+              firstThree: stockEntries.slice(0, 3).map(([dir]) => dir),
+              hasShuffledForFolder: hasShuffledForFolderRef.current,
+            });
+          }
+          
           shuffledStockEntries = shuffleArray(stockEntries);
+          
           // Mark as shuffled immediately to prevent re-shuffling
           hasShuffledForFolderRef.current = folderName;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] AFTER SHUFFLE (fallback path)', {
+              folderName,
+              stockCount: shuffledStockEntries.length,
+              firstThree: shuffledStockEntries.slice(0, 3).map(([dir]) => dir),
+              changed: stockEntries[0]?.[0] !== shuffledStockEntries[0]?.[0],
+            });
+          }
         } else {
           shuffledStockEntries = stockEntries; // Don't re-shuffle if already shuffled for this folder
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[useDataLoader] SKIPPING SHUFFLE (fallback path)', {
+              folderName,
+              hasShuffledForFolder: hasShuffledForFolderRef.current,
+              shouldShuffle,
+              firstStock: stockEntries[0]?.[0],
+            });
+          }
         }
         
         if (process.env.NODE_ENV === 'development') {

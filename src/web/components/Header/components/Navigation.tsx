@@ -36,6 +36,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           <Link
             key={link.name}
             href={link.href}
+            prefetch={true}
             className={`${scrolled ? "text-gray-800 hover:text-turquoise-600" : "text-white hover:text-turquoise-300"} font-medium transition-colors whitespace-nowrap px-1`}
           >
             {link.name}

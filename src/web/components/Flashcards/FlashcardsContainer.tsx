@@ -219,6 +219,8 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
         currentIndex: gameState.currentIndex,
         flashcardsLength: flashcards.length,
         hasNextCard: typeof gameStateNextCardRef.current === 'function',
+        nextIndex: gameState.currentIndex + 1,
+        canAdvance: gameState.currentIndex + 1 < flashcards.length,
       });
     }
 
@@ -226,6 +228,16 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     // Use ref to get the latest nextCard function, avoiding stale closures
     if (gameStateNextCardRef.current) {
       gameStateNextCardRef.current();
+
+      if (process.env.NODE_ENV === 'development') {
+        // Log after calling nextCard to see if index changed
+        setTimeout(() => {
+          console.log('[FlashcardsContainer] After nextCard', {
+            newCurrentIndex: gameState.currentIndex,
+            flashcardsLength: flashcards.length,
+          });
+        }, 0);
+      }
     }
     timer.reset(timerDuration);
     if (selectedFolder && timerDuration > 0) {
@@ -233,7 +245,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
         requestAnimationFrame(() => timer.start());
       });
     }
-  }, [gameState.currentIndex, timer, timerDuration, selectedFolder, flashcards.length]);
+  }, [timer, timerDuration, selectedFolder, flashcards.length, gameState.currentIndex]);
 
   useEffect(() => {
     handleNextCardRef.current = handleNextCard;

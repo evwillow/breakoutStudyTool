@@ -153,6 +153,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 <Link
                   key={link.name}
                   href={link.href}
+                  prefetch={true}
                   className="px-5 py-4 text-white hover:text-turquoise-300 hover:bg-turquoise-500/10 rounded-md font-semibold text-lg transition-all duration-200 active:scale-[0.98]"
                   onClick={onClose}
                 >

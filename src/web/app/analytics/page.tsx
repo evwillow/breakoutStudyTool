@@ -18,23 +18,16 @@ import { LoadingSpinner } from "@/components/UI/LoadingSpinner";
  * - Pattern analysis
  */
 export default function AnalyticsPage() {
-  const { session, isLoading } = useAuthRedirect();
+  const { session, isLoading, isAuthenticated } = useAuthRedirect();
   
+  // Only show loading if truly loading and no session cookie exists
+  // This allows instant navigation between pages
   if (isLoading) {
-    return (
-      <>
-        <div className="fixed inset-0 bg-black z-40" />
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="flex flex-col items-center space-y-6">
-            <LoadingSpinner size="xl" />
-            <p className="text-white text-lg">Loading...</p>
-          </div>
-        </div>
-      </>
-    );
+    return null;
   }
   
-  if (!session) return null;
+  // Only hide content if truly unauthenticated (redirect will happen)
+  if (!isAuthenticated) return null;
 
   return (
     <div className="w-full flex justify-center">
