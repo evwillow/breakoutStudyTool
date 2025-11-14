@@ -93,7 +93,6 @@ async function getStatSafe(filePath: string) {
   try {
     return await fs.stat(filePath);
   } catch (error) {
-    console.error("[localDataCache] Failed to stat file:", filePath, error);
     return null;
   }
 }
@@ -140,18 +139,18 @@ export async function getFolderIndex(): Promise<LocalFolder[]> {
           continue;
         }
 
+        // OPTIMIZATION: Skip fs.stat() calls to dramatically speed up folder indexing
+        // File metadata (size, timestamps) is not needed for flashcard loading
+        const now = new Date().toISOString();
         for (const jsonFile of jsonFiles) {
-          const filePath = path.join(stockDirPath, jsonFile);
-          const stats = await getStatSafe(filePath);
-
           folder.files.push({
             id: `${stockDir}_${jsonFile}`,
             name: stockDir,
             fileName: `${stockDir}/${jsonFile}`,
             mimeType: "application/json",
-            size: stats?.size ?? 0,
-            createdTime: stats?.birthtime.toISOString() ?? new Date(0).toISOString(),
-            modifiedTime: stats?.mtime.toISOString() ?? new Date(0).toISOString(),
+            size: 0, // Not needed for flashcards
+            createdTime: now, // Placeholder - not used
+            modifiedTime: now, // Placeholder - not used
           });
         }
       }

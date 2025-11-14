@@ -446,9 +446,9 @@ export const useDataLoader = ({
         setLoadingStep("Optimizing chart data...");
 
         const files = selectedFolderData.files as FlashcardFolderFile[];
-        const INITIAL_STOCK_COUNT = 10; // Increased from 2 to ensure variety in initial shuffle
-        const QUICK_BATCH_FILE_TARGET = 50; // Increased from 30 for faster initial load with more variety
-        const BACKGROUND_BATCH_SIZE = 100; // Increased from 50 for faster background loading
+        const INITIAL_STOCK_COUNT = 3; // Reduced from 5 for even faster initial load
+        const QUICK_BATCH_FILE_TARGET = 10; // Reduced from 25 - just enough for 3 stocks
+        const BACKGROUND_BATCH_SIZE = 150; // Increased from 100 for faster background loading
 
         const loadedFiles: LoadedFlashcardFile[] = [];
         let uiReady = false;
@@ -788,6 +788,8 @@ export const useDataLoader = ({
             addedForStock = true;
           };
 
+          // ONLY load essential files (D.json, M.json) for initial batch
+          // This makes the initial load MUCH faster
           stockFiles
             .filter(file => {
               const lastPart = (file.fileName.split("/").pop() || file.fileName).toLowerCase();
@@ -795,36 +797,15 @@ export const useDataLoader = ({
             })
             .forEach(tryAddFile);
 
-          const pointsFile = stockFiles.find(file => {
-            const lastPart = (file.fileName.split("/").pop() || file.fileName).toLowerCase();
-            return optionalPriorityLower.has(lastPart);
-          });
-          if (pointsFile) {
-            tryAddFile(pointsFile);
-          }
-
-          const afterFile = stockFiles.find(file => {
-            const lastPart = (file.fileName.split("/").pop() || file.fileName).toLowerCase();
-            return lastPart === afterFileNameLower;
-          });
-          if (afterFile) {
-            tryAddFile(afterFile);
-          }
-
-          stockFiles
-            .filter(file => {
-              const lastPart = file.fileName.split("/").pop() || file.fileName;
-              return dateFilePattern.test(lastPart);
-            })
-            .slice(0, 3)
-            .forEach(tryAddFile);
+          // Skip points, after, and date files for initial load - they'll be loaded in background
+          // This reduces initial load from ~6 files per stock to ~2 files per stock
 
           if (addedForStock) {
             stocksLoaded.add(stockDir);
           }
 
           if (quickBatch.length >= QUICK_BATCH_FILE_TARGET) break;
-          if (stocksLoaded.size >= INITIAL_STOCK_COUNT && quickBatch.length >= 6) break;
+          if (stocksLoaded.size >= INITIAL_STOCK_COUNT) break; // Simplified condition
         }
 
         if (quickBatch.length === 0) {
@@ -976,6 +957,14 @@ export const useDataLoader = ({
         );
 
         if (remainingFiles.length > 0) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] Starting background load', {
+              remainingFilesCount: remainingFiles.length,
+              batchSize: BACKGROUND_BATCH_SIZE,
+              estimatedBatches: Math.ceil(remainingFiles.length / BACKGROUND_BATCH_SIZE),
+            });
+          }
+
           // Prevent multiple background loads
           if (isBackgroundLoadingRef.current && backgroundLoadingFolderRef.current === folderName) {
             if (process.env.NODE_ENV === 'development') {
@@ -997,6 +986,14 @@ export const useDataLoader = ({
                     break;
                   }
 
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('[useDataLoader] Loading background batch', {
+                      batchNumber: Math.floor(i / BACKGROUND_BATCH_SIZE) + 1,
+                      filesInBatch: Math.min(BACKGROUND_BATCH_SIZE, remainingFiles.length - i),
+                      progress: `${i}/${remainingFiles.length}`,
+                    });
+                  }
+
                   const batch = remainingFiles.slice(i, i + BACKGROUND_BATCH_SIZE);
                   const batchPromises = batch.map(async file => {
                     try {
@@ -1004,7 +1001,7 @@ export const useDataLoader = ({
                         file.fileName
                       )}&folder=${encodeURIComponent(folderName)}`;
                       // HTTP cache headers are set on the API route for fast loads
-                      const fileResponse = await fetch(url, { 
+                      const fileResponse = await fetch(url, {
                         signal: getAbortController().signal
                       });
                       if (!fileResponse.ok) return null;

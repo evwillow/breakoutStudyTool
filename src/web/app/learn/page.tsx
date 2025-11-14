@@ -40,8 +40,8 @@ export default function LearnPage() {
     {
       title: "Core Qullamaggie Resources",
       items: [
-        { text: "Qullamaggie.net FAQ" },
-        { text: "Qullamaggie.net Blog Posts" },
+        { text: "Qullamaggie FAQ", url: "https://qullamaggie.com/faq" },
+        { text: "Qullamaggie Blog Posts", url: "https://qullamaggie.com/blog" },
         { text: "Qullamaggie – all videos – transcripts", url: "https://www.scribd.com/document/748079660/All-Qullamaggie-streams-transcripts" },
         { text: "Qullamaggie 2017 Playlist", url: "https://youtube.com/playlist?list=PLlDXlLt-_6KG_ftEoI4vEuumLu5K4esdT&si=iEAz0W_KPFlO3Wl4" },
         { text: "Qullamaggie 2019 Playlist", url: "https://youtube.com/playlist?list=PLlDXlLt-_6KFmtCJU9w99Gz8mpRy49sfh&si=7ZWCvJdMs6A86D5N" },
