@@ -393,7 +393,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
               />
             </div>
           </div>
-          <div className="mt-4 lg:mt-2 mb-20">
+          <div className="mt-0 mb-20">
             <DateFolderBrowser
               session={session}
               currentStock={extractStockName(activeFlashcard)}

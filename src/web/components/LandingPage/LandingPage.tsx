@@ -239,7 +239,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
             </p>
           </div>
 
-          <div className="w-full max-w-[420px] justify-self-start" id="demo">
+          <div className="w-full max-w-[420px] justify-self-start lg:-mt-8" id="demo">
             <LandingDrillPreview highlight={demoHighlight} />
           </div>
         </div>

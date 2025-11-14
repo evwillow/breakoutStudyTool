@@ -126,7 +126,11 @@ export const useFolderData = ({
       setInfo("");
 
       try {
-        const response = await fetch("/api/files/local-folders", { signal: abortController.signal });
+        const response = await fetch("/api/files/local-folders", { 
+          signal: abortController.signal,
+          credentials: 'include'
+        });
+        
         if (!response.ok) {
           throw new Error(`Failed to fetch folders (${response.status})`);
         }
@@ -217,13 +221,30 @@ export const useFolderData = ({
       } catch (err) {
         if (!isMounted) return;
         
-        const error = err as { name?: string };
+        const error = err as { name?: string; message?: string };
+        
+        // Silently handle abort errors (component unmounted or dependency changed)
         if (error?.name === "AbortError") {
           return;
         }
         
+        // Handle network errors more gracefully
+        if (error?.name === "TypeError" && error?.message?.includes("Failed to fetch")) {
+          // Network error - might be offline or API unavailable
+          setError("Unable to connect to server. Please check your connection.");
+          setFiles([]);
+          setInfo("");
+          setIsLoading(false);
+          return;
+        }
+        
         const message = err instanceof Error ? err.message : "Unknown error";
-        console.error('[useFolderData] Error fetching directories:', err);
+        
+        // Only log unexpected errors in development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[useFolderData] Error fetching directories:', err);
+        }
+        
         setError(message);
         setFiles([]);
         setInfo("");

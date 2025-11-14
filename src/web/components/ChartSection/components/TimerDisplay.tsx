@@ -49,7 +49,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
     <>
       <div className="absolute top-2 left-2 z-30 flex items-start gap-2 sm:gap-3">
         <div className="flex flex-col gap-1 items-center">
-          <div ref={dLabelRef} className="text-white font-semibold bg-black/95 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg">
+          <div ref={dLabelRef} className="text-white font-semibold bg-black/40 backdrop-blur-sm px-3 sm:px-2 py-1.5 sm:py-1 rounded-md text-lg sm:text-base border border-white/30 shadow-lg">
             D
           </div>
           <button
@@ -70,7 +70,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
           </button>
         </div>
         {/* SMA Labels */}
-        <div className="inline-flex flex-col gap-0.5 bg-black/95 backdrop-blur-sm px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md border border-white/30 shadow-lg">
+        <div className="inline-flex flex-col gap-0.5 bg-black/40 backdrop-blur-sm px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-md border border-white/30 shadow-lg">
           <div className="flex items-center gap-1.5">
             <div className="w-[18px] h-[2.5px] rounded-md" style={{ backgroundColor: '#00D4FF' }}></div>
             <span className="text-xs sm:text-sm text-white/90 font-medium whitespace-nowrap">10 SMA</span>
@@ -85,7 +85,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
           </div>
         </div>
         <div ref={timerHook.timerContainerRef} className="relative inline-flex items-center gap-1.5 sm:gap-2">
-          <div data-tutorial-timer className="inline-flex items-center gap-1.5 bg-black/80 backdrop-blur-sm pl-2.5 pr-3 sm:pl-3 sm:pr-3 py-1.5 sm:py-1 rounded-md border border-white/40 shadow-lg">
+          <div data-tutorial-timer className="inline-flex items-center gap-1.5 bg-black/40 backdrop-blur-sm pl-2.5 pr-3 sm:pl-3 sm:pr-3 py-1.5 sm:py-1 rounded-md border border-white/40 shadow-lg">
             <svg className="w-4 h-4 sm:w-4 sm:h-4 text-white/70 -ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>

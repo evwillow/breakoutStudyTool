@@ -215,12 +215,16 @@ const ChartSection: React.FC<ChartSectionProps> = ({
     };
   }, [showInfoPopup, infoPopupPersistent]);
 
-  const chartContainerClasses = `w-full relative rounded-md overflow-hidden shadow-lg bg-black border border-white/30 transition-all duration-300`;
+  const chartContainerClasses = `w-full relative rounded-md overflow-hidden shadow-lg border border-white/30 backdrop-blur-sm transition-all duration-300`;
 
   return (
     <>
       <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-6 md:px-10 lg:pr-2 gap-4 items-start w-full">
-        <div className="w-full flex flex-col items-start bg-transparent rounded-md shadow-md p-0 py-1 lg:py-0">
+        <div className="w-full flex flex-col items-start rounded-md shadow-md p-0 py-1 lg:py-0 backdrop-blur-sm border border-white/10 relative overflow-hidden"
+             style={{
+               background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.6) 0%, rgba(15, 23, 42, 0.5) 50%, rgba(2, 6, 23, 0.6) 100%)',
+               boxShadow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+             }}>
           <div
             className={chartContainerClasses}
             style={{ 
@@ -231,7 +235,8 @@ const ChartSection: React.FC<ChartSectionProps> = ({
               margin: 0, 
               padding: 0, 
               boxSizing: 'border-box', 
-              overflow: 'hidden' 
+              overflow: 'hidden',
+              background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.6) 0%, rgba(15, 23, 42, 0.5) 50%, rgba(2, 6, 23, 0.6) 100%)'
             }}
             onClickCapture={handleChartAreaClickCapture}
           >

@@ -241,12 +241,16 @@ const LandingDrillPreview: React.FC<LandingDrillPreviewProps> = ({ highlight }) 
           <span>Breakout drill demo</span>
         </div>
 
-        <div className="rounded-xl border border-white/12 bg-black/45 backdrop-blur-sm overflow-hidden w-full">
+        <div className="rounded-xl border border-white/12 backdrop-blur-sm overflow-hidden w-full relative"
+             style={{
+               background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.8) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(2, 6, 23, 0.8) 100%)',
+               boxShadow: 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.3)'
+             }}>
           <div className="px-4 py-2 flex items-center justify-between text-xs uppercase tracking-[0.32em] text-white/45 border-b border-white/12 bg-black/45">
             <span>{STOCK_SYMBOL}</span>
             <span>Historical replay</span>
           </div>
-          <div className="relative w-full select-none aspect-square bg-black/45" style={{ touchAction: 'pan-y' }}>
+          <div className="relative w-full select-none aspect-square" style={{ touchAction: 'pan-y', background: 'linear-gradient(135deg, rgba(2, 6, 23, 0.6) 0%, rgba(15, 23, 42, 0.5) 50%, rgba(2, 6, 23, 0.6) 100%)' }}>
             {dataError ? (
               <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-white/70 text-sm text-center px-6">
                 {dataError}
