@@ -7,7 +7,7 @@ import type { TutorialStep } from '../tutorialSteps';
 export const nextCardStep: TutorialStep = {
   id: 'next-card',
   target: '[data-tutorial-next]',
-  content: "After reviewing your results, click Next Stock to move to the next breakout pattern. Practice regularly to improve your pattern recognition skills.",
+  content: "Click Next Stock to move to the next pattern. Keep practicing to improve your skills.",
   placement: 'top',
   interactive: true,
   waitForAction: 'next-card-click',

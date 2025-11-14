@@ -61,33 +61,70 @@ export function useTutorialPosition(
       const svgElement = chartContainer.querySelector('svg');
       if (svgElement) {
         const svgRect = svgElement.getBoundingClientRect();
-        const isMobile = window.innerWidth < 768;
-        const dividerPositionPercent = isMobile ? 0.70 : 0.75;
         const chartWidth = svgRect.width;
         const chartHeight = svgRect.height;
-        const selectableStartX = chartWidth * dividerPositionPercent;
         
-        const dividerLine = svgElement.querySelector('line[data-divider]') || 
-                           Array.from(svgElement.querySelectorAll('line')).find(line => {
-                             const x1 = parseFloat(line.getAttribute('x1') || '0');
-                             const x2 = parseFloat(line.getAttribute('x2') || '0');
-                             return x1 === x2 && x1 > chartWidth * 0.65 && x1 < chartWidth * 0.80;
-                           });
+        // Find the divider line (cyan vertical line) - it's the one that's vertical and in the right position
+        const allLines = Array.from(svgElement.querySelectorAll('line'));
+        let dividerLine: Element | null = null;
+        let dividerX = 0;
         
-        let finalSelectableStartX = selectableStartX;
-        if (dividerLine) {
-          const dividerX = parseFloat(dividerLine.getAttribute('x1') || String(selectableStartX));
-          finalSelectableStartX = dividerX;
+        // Look for the cyan divider line (stroke="#00FFFF" or similar)
+        for (const line of allLines) {
+          const x1 = parseFloat(line.getAttribute('x1') || '0');
+          const x2 = parseFloat(line.getAttribute('x2') || '0');
+          const stroke = line.getAttribute('stroke') || '';
+          const strokeWidth = parseFloat(line.getAttribute('strokeWidth') || '0');
+          
+          // Check if it's a vertical line (x1 === x2) and in the right position (70-80% of width)
+          // Also check for cyan color or thick stroke (divider line)
+          if (x1 === x2 && x1 > chartWidth * 0.65 && x1 < chartWidth * 0.85) {
+            // Prefer cyan line, but accept any vertical line in the right range
+            if (stroke.includes('00FFFF') || stroke.includes('cyan') || strokeWidth >= 2) {
+              dividerLine = line;
+              dividerX = x1;
+              break;
+            } else if (!dividerLine) {
+              // Fallback to first vertical line in range
+              dividerLine = line;
+              dividerX = x1;
+            }
+          }
         }
+        
+        // If no divider line found, use the dashed line from PriceChart or calculate from data
+        if (!dividerLine) {
+          // Look for dashed line (the selectable area indicator)
+          for (const line of allLines) {
+            const strokeDasharray = line.getAttribute('stroke-dasharray') || line.getAttribute('strokeDasharray') || '';
+            const x1 = parseFloat(line.getAttribute('x1') || '0');
+            const x2 = parseFloat(line.getAttribute('x2') || '0');
+            if (x1 === x2 && strokeDasharray && x1 > chartWidth * 0.65) {
+              dividerX = x1;
+              break;
+            }
+          }
+        }
+        
+        // Fallback: use percentage if no line found
+        if (dividerX === 0) {
+          const isMobile = window.innerWidth < 768;
+          const dividerPositionPercent = isMobile ? 0.70 : 0.75;
+          dividerX = chartWidth * dividerPositionPercent;
+        }
+        
+        // Calculate position relative to viewport
+        const selectableStartX = dividerX;
         
         setSelectableAreaHighlight({
           top: svgRect.top,
-          left: svgRect.left + finalSelectableStartX,
-          width: chartWidth - finalSelectableStartX,
+          left: svgRect.left + selectableStartX,
+          width: chartWidth - selectableStartX,
           height: chartHeight,
         });
         setHighlightPosition(null);
       } else {
+        // Fallback if no SVG found
         const isMobile = window.innerWidth < 768;
         const dividerPositionPercent = isMobile ? 0.70 : 0.75;
         setSelectableAreaHighlight({

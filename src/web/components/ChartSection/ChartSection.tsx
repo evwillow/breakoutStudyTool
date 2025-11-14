@@ -312,7 +312,15 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                         });
                       }
                       return (
-                        <div data-tutorial-chart className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
+                        <div 
+                          data-tutorial-chart 
+                          className="absolute inset-0 transition-opacity duration-500 ease-in-out" 
+                          style={{ 
+                            opacity: 1,
+                            isolation: 'isolate',
+                            zIndex: 9999,
+                          }}
+                        >
                           <StockChart 
                             data={normalizedData} 
                             afterData={afterData}
@@ -349,7 +357,13 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                 }
 
                 return (
-                  <div data-tutorial-chart className="absolute inset-0 transition-opacity duration-500 ease-in-out" style={{ opacity: 1 }}>
+                  <div 
+                    data-tutorial-chart 
+                    className="absolute inset-0 transition-opacity duration-500 ease-in-out" 
+                    style={{ 
+                      opacity: 1,
+                    }}
+                  >
                     <StockChart 
                       data={firstFile.data} 
                       afterData={afterData}

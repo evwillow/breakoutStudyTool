@@ -7,7 +7,7 @@ import type { TutorialStep } from '../tutorialSteps';
 export const timerExplanationStep: TutorialStep = {
   id: 'timer-explanation',
   target: '[data-tutorial-timer]',
-  content: "The timer keeps your practice sessions fast-paced. You have limited time to analyze and make your prediction. This builds quick decision-making skills essential for trading.",
+  content: "The timer adds pressure. You have limited time to analyze and make your prediction. This builds quick decision-making skills.",
   placement: 'bottom',
 };
 

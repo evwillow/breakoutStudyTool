@@ -66,6 +66,96 @@ export default function Tutorial({
     tutorialState.currentStepIndex
   );
 
+  // Calculate overlay clip-path to exclude chart area
+  useEffect(() => {
+    if (!isActive || !overlayRef.current) {
+      if (overlayRef.current) {
+        overlayRef.current.style.clipPath = '';
+        overlayRef.current.style.webkitClipPath = '';
+      }
+      return;
+    }
+    
+    const updateOverlayMask = () => {
+      if (!overlayRef.current) return;
+      
+      const chartElement = document.querySelector('[data-tutorial-chart]');
+      if (!chartElement) {
+        // If no chart found, make overlay very transparent to minimize tinting
+        overlayRef.current.style.backgroundColor = 'rgba(15, 23, 42, 0.3)';
+        overlayRef.current.style.clipPath = '';
+        overlayRef.current.style.webkitClipPath = '';
+        return;
+      }
+      
+      const chartRect = chartElement.getBoundingClientRect();
+      // Check if chart has valid dimensions
+      if (chartRect.width === 0 || chartRect.height === 0) {
+        overlayRef.current.style.backgroundColor = 'rgba(15, 23, 42, 0.3)';
+        overlayRef.current.style.clipPath = '';
+        overlayRef.current.style.webkitClipPath = '';
+        return;
+      }
+      
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Calculate percentages for clip-path
+      const leftPct = (chartRect.left / viewportWidth) * 100;
+      const rightPct = (chartRect.right / viewportWidth) * 100;
+      const topPct = (chartRect.top / viewportHeight) * 100;
+      const bottomPct = (chartRect.bottom / viewportHeight) * 100;
+      
+      // Create a polygon that covers everything except the chart area
+      // This creates a "frame" around the chart by going around it
+      // Clamp values to ensure they're within 0-100%
+      const leftPctClamped = Math.max(0, Math.min(100, leftPct));
+      const rightPctClamped = Math.max(0, Math.min(100, rightPct));
+      const topPctClamped = Math.max(0, Math.min(100, topPct));
+      const bottomPctClamped = Math.max(0, Math.min(100, bottomPct));
+      
+      const clipPath = `polygon(
+        0% 0%,
+        0% 100%,
+        ${leftPctClamped}% 100%,
+        ${leftPctClamped}% ${bottomPctClamped}%,
+        ${rightPctClamped}% ${bottomPctClamped}%,
+        ${rightPctClamped}% ${topPctClamped}%,
+        ${leftPctClamped}% ${topPctClamped}%,
+        ${leftPctClamped}% 100%,
+        100% 100%,
+        100% 0%
+      )`;
+      
+      overlayRef.current.style.clipPath = clipPath;
+      overlayRef.current.style.webkitClipPath = clipPath;
+      overlayRef.current.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
+    };
+    
+    // Small delay to ensure chart is rendered
+    const timeoutId = setTimeout(updateOverlayMask, 100);
+    
+    const resizeObserver = new ResizeObserver(updateOverlayMask);
+    const chartElement = document.querySelector('[data-tutorial-chart]');
+    if (chartElement) {
+      resizeObserver.observe(chartElement);
+    }
+    
+    window.addEventListener('resize', updateOverlayMask);
+    window.addEventListener('scroll', updateOverlayMask, true);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateOverlayMask);
+      window.removeEventListener('scroll', updateOverlayMask, true);
+      if (overlayRef.current) {
+        overlayRef.current.style.clipPath = '';
+        overlayRef.current.style.webkitClipPath = '';
+      }
+    };
+  }, [isActive, tutorialState.currentStepIndex]);
+
   // Handle keyboard navigation
   useEffect(() => {
     if (!isActive) return;
@@ -135,6 +225,7 @@ export default function Tutorial({
     }
   }, [isActive]);
 
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -162,18 +253,32 @@ export default function Tutorial({
 
   const tutorialContent = (
     <>
-      {/* Overlay - use CSS to exclude dialog area from pointer events */}
+      {/* Overlay - clip-path excludes chart area to prevent tinting */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 z-[9998] bg-turquoise-950/70 backdrop-blur-sm"
+        className="fixed inset-0 z-[9998]"
         aria-hidden="true"
         data-tutorial-active="true"
         style={{ 
           pointerEvents: 'auto',
-          // Use CSS to allow pointer events through for dialog
+          backgroundColor: 'rgba(15, 23, 42, 0.7)',
+          mixBlendMode: 'normal',
+          // Clip-path will be set dynamically via useEffect
         }}
         onMouseDown={(e) => {
           const target = e.target as HTMLElement;
+          // Allow clicks on chart, dialog, and buttons to pass through
+          const isChart = target.closest('[data-tutorial-chart]') || target.closest('svg') || target.tagName === 'svg';
+          const isDialog = target.closest('[role="dialog"]');
+          const isButton = target.tagName === 'BUTTON' || target.closest('button');
+          const isChartChild = target.closest('[data-tutorial-chart]') !== null;
+          
+          // If clicking on chart, dialog, or button, let it through
+          if (isChart || isChartChild || isDialog || isButton) {
+            e.stopPropagation();
+            return;
+          }
+          
           // If clicking directly on overlay (not on any child), prevent it
           if (target === overlayRef.current || target === e.currentTarget) {
             e.preventDefault();
@@ -184,6 +289,18 @@ export default function Tutorial({
         }}
         onClick={(e) => {
           const target = e.target as HTMLElement;
+          // Allow clicks on chart, dialog, and buttons to pass through
+          const isChart = target.closest('[data-tutorial-chart]') || target.closest('svg') || target.tagName === 'svg';
+          const isDialog = target.closest('[role="dialog"]');
+          const isButton = target.tagName === 'BUTTON' || target.closest('button');
+          const isChartChild = target.closest('[data-tutorial-chart]') !== null;
+          
+          // If clicking on chart, dialog, or button, let it through
+          if (isChart || isChartChild || isDialog || isButton) {
+            e.stopPropagation();
+            return;
+          }
+          
           // If clicking directly on overlay (not on any child), prevent it
           if (target === overlayRef.current || target === e.currentTarget) {
             e.preventDefault();
@@ -205,6 +322,8 @@ export default function Tutorial({
             height: `${position.highlightPosition.height}px`,
             animation: 'pulse 2s ease-in-out infinite',
             filter: 'none',
+            mixBlendMode: 'normal',
+            backgroundColor: 'transparent',
           }}
         />
       )}
@@ -212,7 +331,7 @@ export default function Tutorial({
       {/* Selectable area highlight for chart selection step */}
       {position.selectableAreaHighlight && (
         <div
-          className="fixed z-[9999] pointer-events-none border-2 border-turquoise-500 rounded-lg shadow-2xl shadow-turquoise-500/50 bg-turquoise-500/10"
+          className="fixed z-[9999] pointer-events-none border-2 border-turquoise-500 rounded-lg shadow-2xl shadow-turquoise-500/50"
           style={{
             top: `${position.selectableAreaHighlight.top}px`,
             left: `${position.selectableAreaHighlight.left}px`,
@@ -220,6 +339,8 @@ export default function Tutorial({
             height: `${position.selectableAreaHighlight.height}px`,
             animation: 'pulse 2s ease-in-out infinite',
             filter: 'none',
+            mixBlendMode: 'normal',
+            backgroundColor: 'transparent',
           }}
         />
       )}
@@ -278,10 +399,91 @@ export default function Tutorial({
             box-shadow: 0 0 20px 10px rgba(45, 212, 191, 0.35);
           }
         }
-        /* Prevent blur on chart and highlighted areas during tutorial */
-        [data-tutorial-active] [data-tutorial-chart],
+        /* Prevent blur and color changes on chart and highlighted areas during tutorial */
+        /* Use isolation to create a new stacking context and prevent backdrop blur */
+        [data-tutorial-active] [data-tutorial-chart] {
+          isolation: isolate !important;
+          position: relative !important;
+          z-index: 9999 !important;
+          filter: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          color: inherit !important;
+          background-color: inherit !important;
+        }
         [data-tutorial-active] [data-tutorial-chart] * {
           filter: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          color: inherit !important;
+          background-color: inherit !important;
+        }
+        [data-tutorial-active] [data-tutorial-results],
+        [data-tutorial-active] [data-tutorial-results] *,
+        [data-tutorial-active] [data-tutorial-timer],
+        [data-tutorial-active] [data-tutorial-timer] *,
+        [data-tutorial-active] [data-tutorial-next],
+        [data-tutorial-active] [data-tutorial-next] *,
+        [data-tutorial-active] [data-tutorial-button],
+        [data-tutorial-active] [data-tutorial-button] *,
+        [data-tutorial-active] [role="dialog"],
+        [data-tutorial-active] [role="dialog"] * {
+          filter: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          color: inherit !important;
+          background-color: inherit !important;
+        }
+        /* Ensure tutorial tooltip itself is not blurred */
+        [role="dialog"][data-tutorial-button],
+        [role="dialog"][data-tutorial-button] * {
+          filter: none !important;
+          backdrop-filter: none !important;
+          -webkit-backdrop-filter: none !important;
+          color: inherit !important;
+          background-color: inherit !important;
+        }
+        /* Prevent overlay from changing colors of elements */
+        [data-tutorial-active="true"] {
+          mix-blend-mode: normal !important;
+        }
+        /* The overlay is rendered in a portal, so it's always visually on top */
+        /* To prevent tinting, we need to ensure elements create their own stacking context */
+        /* and use CSS to prevent the overlay's background from affecting them */
+        body[data-tutorial-active] [data-tutorial-chart] {
+          position: relative !important;
+          z-index: 9999 !important;
+          isolation: isolate !important;
+          pointer-events: auto !important;
+          transform: translateZ(0) !important;
+          will-change: transform !important;
+          /* Create a new stacking context that's above the overlay */
+          background: transparent !important;
+        }
+        /* Use box-shadow inset to "cut out" the overlay effect */
+        body[data-tutorial-active] [data-tutorial-chart]::before {
+          content: '' !important;
+          position: absolute !important;
+          inset: 0 !important;
+          z-index: -1 !important;
+          background: inherit !important;
+          pointer-events: none !important;
+        }
+        body[data-tutorial-active] [data-tutorial-chart] svg,
+        body[data-tutorial-active] [data-tutorial-chart] svg * {
+          pointer-events: auto !important;
+        }
+        body[data-tutorial-active] [data-tutorial-results],
+        body[data-tutorial-active] [data-tutorial-timer],
+        body[data-tutorial-active] [data-tutorial-next] {
+          position: relative !important;
+          z-index: 9999 !important;
+          pointer-events: auto !important;
+          isolation: isolate !important;
+        }
+        body[data-tutorial-active] [role="dialog"] {
+          position: relative !important;
+          z-index: 10001 !important;
         }
       `}</style>
     </>

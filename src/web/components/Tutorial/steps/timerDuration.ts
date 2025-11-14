@@ -7,7 +7,7 @@ import type { TutorialStep } from '../tutorialSteps';
 export const timerDurationStep: TutorialStep = {
   id: 'timer-duration',
   target: '[data-tutorial-timer-duration]',
-  content: "Adjust the timer duration to match your skill level. Shorter timers increase difficulty and build faster reflexes. Start with longer durations and work your way down.",
+  content: "Adjust the timer to match your skill level. Shorter timers are harder. Start with longer durations and work your way down.",
   placement: 'bottom',
 };
 

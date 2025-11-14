@@ -7,7 +7,7 @@ import type { TutorialStep } from '../tutorialSteps';
 export const completionStep: TutorialStep = {
   id: 'completion',
   target: '[data-tutorial-profile]',
-  content: "Great job! You can replay this tutorial anytime from your profile dropdown menu. Happy trading!",
+  content: "You're all set! You can replay this tutorial anytime from your profile menu. Happy practicing!",
   placement: 'bottom',
 };
 
