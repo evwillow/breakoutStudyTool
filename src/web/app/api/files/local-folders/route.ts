@@ -58,7 +58,10 @@ export async function GET(_req: NextRequest) {
       totalFiles: responseData.totalFiles,
     });
     
-    return success(responseData);
+    const response = success(responseData);
+    // Add aggressive caching - folders don't change often
+    response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=600');
+    return response;
   } catch (err: any) {
     console.error('[local-folders API] Exception caught:', err);
     console.error('[local-folders API] Error type:', typeof err);

@@ -69,15 +69,13 @@ export const useRoundHistory = ({
       const encodedUserId = encodeURIComponent(userId);
       const url = `/api/game/rounds?userId=${encodedUserId}`;
       
-      // Optimized: Use fetch with keepalive and no unnecessary cache headers
-      // Allow browser caching for faster subsequent loads
+      // HTTP cache headers are set on the API route for fast loads
       const fetchResponse = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
         },
-        // Use keepalive for faster requests
-        keepalive: true,
+        keepalive: true
       });
       
       if (!fetchResponse.ok) {

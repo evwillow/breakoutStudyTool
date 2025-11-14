@@ -233,7 +233,7 @@ export const useFolderData = ({
         setInfo(
           nextFiles.length > 0
             ? `Found ${nextFiles.length} previous setups`
-            : "No previous setups found for this ticker."
+            : ""
         );
         setIsLoading(false);
       } catch (err) {
@@ -303,6 +303,7 @@ export const useFolderData = ({
 
       const tryFetch = async (path: string) => {
         try {
+          // HTTP cache headers are set on the API route for fast loads
           const response = await fetch(
             `/api/files/local-data?file=${encodeURIComponent(path)}&folder=${encodeURIComponent(
               QUALITY_BREAKOUTS_FOLDER

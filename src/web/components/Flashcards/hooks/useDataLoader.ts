@@ -35,6 +35,8 @@ export const useDataLoader = ({
   const selectedFolderRef = useRef<string | null>(selectedFolder);
   const isFetchingRef = useRef<boolean>(false);
   const lastFetchedFolderRef = useRef<string | null>(null);
+  const isBackgroundLoadingRef = useRef<boolean>(false);
+  const backgroundLoadingFolderRef = useRef<string | null>(null);
 
   // Keep ref in sync with selectedFolder
   useEffect(() => {
@@ -62,7 +64,10 @@ export const useDataLoader = ({
       if (process.env.NODE_ENV === 'development') {
         console.log('[useDataLoader] fetchFolders: Starting folder fetch');
       }
-      const response = await fetch("/api/files/local-folders");
+      // HTTP cache headers are set on the API route for fast loads
+      const response = await fetch("/api/files/local-folders", {
+        credentials: 'include'
+      });
       if (!response.ok) {
         const errorData = await response.json();
         const errorMessage = errorData.message || "Error fetching folders";
@@ -165,6 +170,14 @@ export const useDataLoader = ({
       folderName: string,
       updateFlashcards: BackgroundUpdateFn
     ) => {
+      // Prevent multiple background loads for the same folder
+      if (isBackgroundLoadingRef.current && backgroundLoadingFolderRef.current === folderName) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useDataLoader] Skipping background load - already loading for this folder');
+        }
+        return;
+      }
+
       // Prevent background loading if we're already fetching the same folder
       // Note: This is called after main fetch completes, so we check if a new fetch started
       if (isFetchingRef.current && lastFetchedFolderRef.current === folderName) {
@@ -178,6 +191,10 @@ export const useDataLoader = ({
       if (!missingFiles || missingFiles.length === 0) {
         return;
       }
+
+      // Mark background loading as in progress
+      isBackgroundLoadingRef.current = true;
+      backgroundLoadingFolderRef.current = folderName;
 
       const BATCH_SIZE = 50;
 
@@ -244,6 +261,10 @@ export const useDataLoader = ({
           });
         }
       }
+
+      // Reset background loading flag when done
+      isBackgroundLoadingRef.current = false;
+      backgroundLoadingFolderRef.current = null;
     },
     []
   );
@@ -305,7 +326,10 @@ export const useDataLoader = ({
         let fetchedFromNetwork = false;
 
         if (!foldersPayload || foldersPayload.length === 0) {
-          const response = await fetch(`/api/files/local-folders`);
+          // HTTP cache headers are set on the API route for fast loads
+          const response = await fetch(`/api/files/local-folders`, {
+            credentials: 'include'
+          });
 
           if (!response.ok) {
             const errorData = await response.json();
@@ -330,7 +354,11 @@ export const useDataLoader = ({
 
         if (!selectedFolderData || !selectedFolderData.files || selectedFolderData.files.length === 0) {
           if (!fetchedFromNetwork) {
-            const response = await fetch(`/api/files/local-folders`);
+            // Use cache: 'force-cache' for faster loads
+            const response = await fetch(`/api/files/local-folders`, {
+              cache: 'force-cache',
+              next: { revalidate: 300 } // Revalidate every 5 minutes
+            });
 
             if (!response.ok) {
               const errorData = await response.json();
@@ -362,8 +390,8 @@ export const useDataLoader = ({
 
         const files = selectedFolderData.files as FlashcardFolderFile[];
         const INITIAL_STOCK_COUNT = 2;
-        const QUICK_BATCH_FILE_TARGET = 18;
-        const BACKGROUND_BATCH_SIZE = 50;
+        const QUICK_BATCH_FILE_TARGET = 30; // Increased from 18 for faster initial load
+        const BACKGROUND_BATCH_SIZE = 100; // Increased from 50 for faster background loading
 
         const loadedFiles: LoadedFlashcardFile[] = [];
         let uiReady = false;
@@ -590,12 +618,14 @@ export const useDataLoader = ({
 
         const quickBatchFileNames = new Set(quickBatch.map(file => file.fileName));
 
+        // Fetch all files in parallel for maximum speed
         const quickPromises = quickBatch.map(async file => {
           try {
             const url = `/api/files/local-data?file=${encodeURIComponent(
               file.fileName
             )}&folder=${encodeURIComponent(folderName)}`;
 
+            // HTTP cache headers are set on the API route for fast loads
             const fileResponse = await fetch(url, {
               signal: getAbortController().signal
             });
@@ -683,7 +713,10 @@ export const useDataLoader = ({
               const url = `/api/files/local-data?file=${encodeURIComponent(
                 file.fileName
               )}&folder=${encodeURIComponent(folderName)}`;
-              const fileResponse = await fetch(url, { signal: getAbortController().signal });
+              // HTTP cache headers are set on the API route for fast loads
+              const fileResponse = await fetch(url, { 
+                signal: getAbortController().signal
+              });
               if (!fileResponse.ok) return null;
               const fileData = await fileResponse.json();
               if (!fileData.success) return null;
@@ -721,115 +754,169 @@ export const useDataLoader = ({
         );
 
         if (remainingFiles.length > 0) {
-          (async () => {
-            for (let i = 0; i < remainingFiles.length; i += BACKGROUND_BATCH_SIZE) {
-              const batch = remainingFiles.slice(i, i + BACKGROUND_BATCH_SIZE);
-              const batchPromises = batch.map(async file => {
-                try {
-                  const url = `/api/files/local-data?file=${encodeURIComponent(
-                    file.fileName
-                  )}&folder=${encodeURIComponent(folderName)}`;
-                  const fileResponse = await fetch(url, { signal: getAbortController().signal });
-                  if (!fileResponse.ok) return null;
-            const fileData = await fileResponse.json();
-            if (!fileData.success) return null;
-            
-            // The API returns { success: true, data: { data: jsonData, fileName, folder } }
-            const actualData = fileData.data?.data ?? fileData.data;
-            
-            return {
-              fileName: file.fileName,
-              data: actualData,
-                    mimeType: file.mimeType,
-                    size: file.size,
-                    createdTime: file.createdTime,
-                    modifiedTime: file.modifiedTime
-                  };
-                } catch {
-                  return null;
-                }
-              });
+          // Prevent multiple background loads
+          if (isBackgroundLoadingRef.current && backgroundLoadingFolderRef.current === folderName) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[useDataLoader] Skipping inline background load - already in progress');
+            }
+          } else {
+            // Mark background loading as starting
+            isBackgroundLoadingRef.current = true;
+            backgroundLoadingFolderRef.current = folderName;
 
-              const batchResults = await Promise.allSettled(batchPromises);
-              const batchLoaded = batchResults
-                .filter(
-                  (result): result is PromiseFulfilledResult<LoadedFlashcardFile | null> =>
-                    result.status === "fulfilled" && result.value !== null
-                )
-                .map(result => result.value as LoadedFlashcardFile);
+            (async () => {
+              try {
+                for (let i = 0; i < remainingFiles.length; i += BACKGROUND_BATCH_SIZE) {
+                  // Check if we should abort (folder changed or fetch started)
+                  if (isFetchingRef.current || lastFetchedFolderRef.current !== folderName) {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log('[useDataLoader] Aborting inline background load - folder changed or new fetch started');
+                    }
+                    break;
+                  }
 
-              if (batchLoaded.length > 0) {
-                loadedFiles.push(...batchLoaded);
+                  const batch = remainingFiles.slice(i, i + BACKGROUND_BATCH_SIZE);
+                  const batchPromises = batch.map(async file => {
+                    try {
+                      const url = `/api/files/local-data?file=${encodeURIComponent(
+                        file.fileName
+                      )}&folder=${encodeURIComponent(folderName)}`;
+                      // HTTP cache headers are set on the API route for fast loads
+                      const fileResponse = await fetch(url, { 
+                        signal: getAbortController().signal
+                      });
+                      if (!fileResponse.ok) return null;
+                      const fileData = await fileResponse.json();
+                      if (!fileData.success) return null;
+                      
+                      // The API returns { success: true, data: { data: jsonData, fileName, folder } }
+                      const actualData = fileData.data?.data ?? fileData.data;
+                      
+                      return {
+                        fileName: file.fileName,
+                        data: actualData,
+                        mimeType: file.mimeType,
+                        size: file.size,
+                        createdTime: file.createdTime,
+                        modifiedTime: file.modifiedTime
+                      };
+                    } catch {
+                      return null;
+                    }
+                  });
 
-                setFlashcards(prevCards => {
-                  const updatedCards = prevCards.map(card => {
-                    const stockDir = card.name || card.id;
-                    const newFiles = batchLoaded.filter(
-                      f => f && f.fileName.startsWith(`${stockDir}/`)
-                    );
+                  const batchResults = await Promise.allSettled(batchPromises);
+                  const batchLoaded = batchResults
+                    .filter(
+                      (result): result is PromiseFulfilledResult<LoadedFlashcardFile | null> =>
+                        result.status === "fulfilled" && result.value !== null
+                    )
+                    .map(result => result.value as LoadedFlashcardFile);
 
-                    if (newFiles.length > 0) {
-                      const existingFileNames = new Set(card.jsonFiles.map(f => f.fileName));
-                      const uniqueNewFiles = newFiles.filter(
-                        f => !existingFileNames.has(f.fileName)
-                      );
+                  if (batchLoaded.length > 0) {
+                    loadedFiles.push(...batchLoaded);
 
-                      const hasEssentialFile = [...card.jsonFiles, ...uniqueNewFiles].some(f => {
-                        const fileName = f.fileName.split("/").pop() || f.fileName;
-                        return essentialFileNamesSet.has(fileName);
+                    // Use functional update with early return to prevent infinite loops
+                    setFlashcards(prevCards => {
+                      // Early return if no cards exist
+                      if (!prevCards || prevCards.length === 0) {
+                        return prevCards;
+                      }
+
+                      const updatedCards = prevCards.map(card => {
+                        const stockDir = card.name || card.id;
+                        const newFiles = batchLoaded.filter(
+                          f => f && f.fileName.startsWith(`${stockDir}/`)
+                        );
+
+                        if (newFiles.length > 0) {
+                          const existingFileNames = new Set(card.jsonFiles.map(f => f.fileName));
+                          const uniqueNewFiles = newFiles.filter(
+                            f => !existingFileNames.has(f.fileName)
+                          );
+
+                          // Only update if there are actually new files
+                          if (uniqueNewFiles.length === 0) {
+                            return card;
+                          }
+
+                          const hasEssentialFile = [...card.jsonFiles, ...uniqueNewFiles].some(f => {
+                            const fileName = f.fileName.split("/").pop() || f.fileName;
+                            return essentialFileNamesSet.has(fileName);
+                          });
+
+                          return {
+                            ...card,
+                            jsonFiles: [...card.jsonFiles, ...uniqueNewFiles],
+                            isReady: hasEssentialFile
+                          };
+                        }
+
+                        return card;
                       });
 
-                      return {
-                        ...card,
-                        jsonFiles: [...card.jsonFiles, ...uniqueNewFiles],
-                        isReady: hasEssentialFile
-                      };
-                    }
-
-                    return card;
-                  });
-
-                  const existingStockDirs = new Set(
-                    updatedCards.map(card => card.name || card.id)
-                  );
-                  const stockGroups = new Map<string, LoadedFlashcardFile[]>();
-                  batchLoaded.forEach(file => {
-                    if (file) {
-                      const stockDir = file.fileName.split("/")[0];
-                      if (!existingStockDirs.has(stockDir)) {
-                        if (!stockGroups.has(stockDir)) {
-                          stockGroups.set(stockDir, []);
+                      const existingStockDirs = new Set(
+                        updatedCards.map(card => card.name || card.id)
+                      );
+                      const stockGroups = new Map<string, LoadedFlashcardFile[]>();
+                      batchLoaded.forEach(file => {
+                        if (file) {
+                          const stockDir = file.fileName.split("/")[0];
+                          if (!existingStockDirs.has(stockDir)) {
+                            if (!stockGroups.has(stockDir)) {
+                              stockGroups.set(stockDir, []);
+                            }
+                            stockGroups.get(stockDir)!.push(file);
+                          }
                         }
-                        stockGroups.get(stockDir)!.push(file);
+                      });
+
+                      const newCards = Array.from(stockGroups.entries()).map(([stockDir, stockFiles]) => {
+                        const hasEssentialFile = stockFiles.some(f => {
+                          const fileName = f.fileName.split("/").pop() || f.fileName;
+                          return essentialFileNamesSet.has(fileName);
+                        });
+                        return {
+                          id: stockDir,
+                          name: stockDir,
+                          folderName,
+                          jsonFiles: stockFiles,
+                          isReady: hasEssentialFile
+                        };
+                      });
+
+                      // Only update if there are new cards or actual changes
+                      if (newCards.length === 0) {
+                        // Check if any cards were actually updated
+                        const hasChanges = updatedCards.some((card, index) => {
+                          const original = prevCards[index];
+                          if (!original) return true;
+                          return card.jsonFiles.length !== original.jsonFiles.length ||
+                                 card.isReady !== original.isReady;
+                        });
+
+                        if (!hasChanges) {
+                          return prevCards; // No changes, return previous to prevent re-render
+                        }
                       }
-                    }
-                  });
 
-                  const newCards = Array.from(stockGroups.entries()).map(([stockDir, stockFiles]) => {
-                    const hasEssentialFile = stockFiles.some(f => {
-                      const fileName = f.fileName.split("/").pop() || f.fileName;
-                      return essentialFileNamesSet.has(fileName);
+                      const combinedCards = [...updatedCards];
+                      newCards.forEach(newCard => {
+                        const randomIndex = Math.floor(Math.random() * (combinedCards.length + 1));
+                        combinedCards.splice(randomIndex, 0, newCard);
+                      });
+
+                      return combinedCards;
                     });
-                    return {
-                      id: stockDir,
-                      name: stockDir,
-                      folderName,
-                      jsonFiles: stockFiles,
-                      isReady: hasEssentialFile
-                    };
-                  });
-
-                  const combinedCards = [...updatedCards];
-                  newCards.forEach(newCard => {
-                    const randomIndex = Math.floor(Math.random() * (combinedCards.length + 1));
-                    combinedCards.splice(randomIndex, 0, newCard);
-                  });
-
-                  return combinedCards;
-                });
+                  }
+                }
+              } finally {
+                // Always reset background loading flag when done
+                isBackgroundLoadingRef.current = false;
+                backgroundLoadingFolderRef.current = null;
               }
-            }
-          })();
+            })();
+          }
         }
 
         const validFiles = toFlashcardFiles(loadedFiles);
@@ -935,7 +1022,8 @@ export const useDataLoader = ({
 
         if (missingFiles.length > 0 || loadedFiles.length < files.length) {
           // Only call background loading if we have missing files and we're not fetching
-          if (missingFiles.length > 0 && !isFetchingRef.current) {
+          // Also check if background loading is already in progress
+          if (missingFiles.length > 0 && !isFetchingRef.current && !isBackgroundLoadingRef.current) {
             try {
               loadMissingFilesInBackground(missingFiles, folderName, updateFn => {
                 setFlashcards(prevCards => {
@@ -949,6 +1037,9 @@ export const useDataLoader = ({
               });
             } catch (err) {
               console.error('[useDataLoader] Error starting background file load:', err);
+              // Reset background loading flag on error
+              isBackgroundLoadingRef.current = false;
+              backgroundLoadingFolderRef.current = null;
             }
           }
         }

@@ -26,9 +26,9 @@ interface LocalDataCache {
   fileCache: Map<string, FileCacheEntry>;
 }
 
-// Optimized cache TTLs for faster data loading
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes (increased from 5)
-const FILE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes (increased from 10)
+// Optimized cache TTLs for faster data loading - increased for better performance
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes (increased from 10)
+const FILE_CACHE_TTL_MS = 60 * 60 * 1000; // 60 minutes (increased from 30)
 
 // Priority order: env variable > root data/ > legacy paths
 // Note: In Next.js, process.cwd() is the project root (where package.json is)

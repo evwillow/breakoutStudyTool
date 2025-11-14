@@ -126,7 +126,8 @@ export function useRoundManagement(
     if (!autoCreateForTutorial && roundCache[cacheKey]) {
       const cached = roundCache[cacheKey];
       const cacheAge = Date.now() - cached.fetchedAt;
-      if (cacheAge < 30000) {
+      // Increased cache time from 30s to 5 minutes for faster loads
+      if (cacheAge < 5 * 60 * 1000) {
         setAvailableRounds(cached.rounds || []);
         setRoundsLoaded(true); // Mark that rounds have been loaded (from cache)
         const mostRecent = cached.rounds?.find((r: any) => !r.completed) || cached.rounds?.[0];
@@ -141,12 +142,13 @@ export function useRoundManagement(
     setIsLoadingRounds(true);
     try {
       const url = `/api/game/rounds?userId=${encodeURIComponent(userId)}&datasetName=${encodeURIComponent(datasetName)}&limit=5`;
+      // HTTP cache headers are set on the API route for fast loads
       const response = await fetch(url, { 
         method: 'GET', 
         headers: { 
           'Accept': 'application/json',
         },
-        keepalive: true,
+        keepalive: true
       });
       const result = await response.json();
 

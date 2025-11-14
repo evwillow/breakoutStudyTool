@@ -16,8 +16,8 @@ const handlePost = async (req: NextRequest) => {
 const handleGet = async (req: NextRequest) => {
   const result = await getUserRounds({ req });
   const response = success(result);
-  // Add caching headers for faster subsequent loads (5 second cache)
-  response.headers.set('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=10');
+  // Add aggressive caching for faster loads - rounds don't change frequently
+  response.headers.set('Cache-Control', 'public, max-age=30, s-maxage=30, stale-while-revalidate=60');
   return response;
 };
 

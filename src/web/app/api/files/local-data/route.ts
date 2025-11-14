@@ -49,7 +49,8 @@ export async function GET(req: NextRequest) {
       {
         status: 200,
         headers: {
-          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+          // Aggressive caching - files rarely change
+          'Cache-Control': 'public, max-age=7200, s-maxage=7200, stale-while-revalidate=86400'
         }
       }
     );

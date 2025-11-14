@@ -72,9 +72,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
 
       {session && !error && files.length === 0 && !isLoading && (
         <EmptyState
-          title="No previous setups found."
-          description="Try selecting a different breakout."
-          hint={info || null}
+          title="No setups found"
         />
       )}
 
