@@ -78,9 +78,12 @@ export function useTutorialState({
     // Reset hideTooltipOnStep4 when step changes away from step 4
     useEffect(() => {
       if (currentStep?.id !== 'making-selection') {
+        console.log('[Tutorial State] Step changed away from making-selection, resetting hideTooltipOnStep4. Current step:', currentStep?.id, 'index:', currentStepIndex);
         setHideTooltipOnStep4(false);
+      } else {
+        console.log('[Tutorial State] On making-selection step, hideTooltipOnStep4:', hideTooltipOnStep4);
       }
-    }, [currentStep?.id]);
+    }, [currentStep?.id, currentStepIndex]);
 
   // Pause timer when tutorial starts
   useEffect(() => {
@@ -125,13 +128,25 @@ export function useTutorialState({
       setIsWaitingForAction(true);
 
       const handleAction = () => {
+        console.log('[Tutorial State] handleAction called, moving to next step');
         setIsWaitingForAction(false);
+        // Immediately reset hideTooltipOnStep4 so tooltip can show on next step
+        setHideTooltipOnStep4(false);
+        console.log('[Tutorial State] hideTooltipOnStep4 reset to false in handleAction');
         setTimeout(() => {
-          if (currentStepIndex < TUTORIAL_STEPS.length - 1) {
-            setCurrentStepIndex(currentStepIndex + 1);
-          } else {
-            handleComplete();
-          }
+          // Use functional update to ensure we have the latest step index
+          setCurrentStepIndex((prevIndex) => {
+            const nextIndex = prevIndex + 1;
+            console.log('[Tutorial State] Moving from step', prevIndex, 'to step', nextIndex, 'step id:', TUTORIAL_STEPS[nextIndex]?.id);
+            if (nextIndex < TUTORIAL_STEPS.length) {
+              return nextIndex;
+            } else {
+              // If we're at or past the last step, complete the tutorial
+              console.log('[Tutorial State] Last step reached, completing tutorial');
+              handleComplete();
+              return prevIndex;
+            }
+          });
         }, 500);
       };
 
@@ -143,29 +158,48 @@ export function useTutorialState({
           
           const checkAndProceed = () => {
             // Wait for both selection AND animation to complete before moving to next step
+            console.log('[Tutorial State] checkAndProceed called:', {
+              selectionMade,
+              animationComplete,
+              bothComplete: selectionMade && animationComplete
+            });
             if (selectionMade && animationComplete) {
+              console.log('[Tutorial State] Both selection and animation complete, proceeding to next step');
               handleAction();
+            } else {
+              console.log('[Tutorial State] Waiting for:', {
+                needSelection: !selectionMade,
+                needAnimation: !animationComplete
+              });
             }
           };
           
           const selectionListener = () => {
-            console.log('[Tutorial State] Selection made on step 4');
+            console.log('[Tutorial State] Selection made on step 4, hiding tooltip');
             selectionMade = true;
             // Hide tooltip temporarily so user can see the animation
             setHideTooltipOnStep4(true);
+            console.log('[Tutorial State] hideTooltipOnStep4 set to true');
             // Don't proceed yet - wait for animation
             checkAndProceed();
           };
           
           // Listen for after animation complete
           const animationListener = () => {
-            console.log('[Tutorial State] After animation complete on step 4');
+            console.log('[Tutorial State] After animation complete event received on step 4');
             animationComplete = true;
+            // Tooltip will show again when we move to step 5 (hideTooltipOnStep4 resets on step change)
+            // But ensure it's reset now so tooltip can show if needed
+            setHideTooltipOnStep4(false);
+            console.log('[Tutorial State] hideTooltipOnStep4 reset to false after animation');
+            console.log('[Tutorial State] Calling checkAndProceed after animation complete');
             checkAndProceed();
           };
           
+          console.log('[Tutorial State] Setting up event listeners for step 4 (chart-click)');
           window.addEventListener('tutorial-selection-made', selectionListener, { capture: true });
           window.addEventListener('tutorial-after-animation-complete', animationListener, { capture: true });
+          console.log('[Tutorial State] Event listeners registered for tutorial-selection-made and tutorial-after-animation-complete');
           
           actionListenersRef.current.set('chart-click', () => {
             window.removeEventListener('tutorial-selection-made', selectionListener, { capture: true });

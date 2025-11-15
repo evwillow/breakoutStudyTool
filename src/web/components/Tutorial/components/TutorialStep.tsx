@@ -129,20 +129,24 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
       }
 
       if (needsAdjustment) {
-        // Calculate safe position
+        console.log('[TutorialStep] Tooltip needs adjustment, enforcing viewport bounds');
+        // Calculate safe position with AGGRESSIVE clamping
         let targetTop = rect.top;
         let targetLeft = rect.left;
         let targetTransform = tooltipPosition.transform;
 
-        // Adjust vertical - ALWAYS ensure it's FULLY visible, can cover things if needed
-        // Check if any part is off screen and adjust accordingly
+        // AGGRESSIVE vertical clamping - ensure top >= padding
         if (rect.top < padding) {
-          // Top is above viewport - move it down
+          console.log('[TutorialStep] Clamping top:', rect.top, '->', padding);
           targetTop = padding;
           targetTransform = 'translate(-50%, 0)';
-        } else if (rect.bottom > viewportHeight - padding) {
-          // Bottom is below viewport - move it up
-          const maxTop = Math.max(padding, viewportHeight - tooltipHeight - padding);
+        }
+        
+        // AGGRESSIVE vertical clamping - ensure bottom <= viewportHeight - padding
+        const calculatedBottom = targetTop + tooltipHeight;
+        if (calculatedBottom > viewportHeight - padding) {
+          console.log('[TutorialStep] Clamping bottom:', calculatedBottom, '->', viewportHeight - padding);
+          const maxTop = Math.max(padding, viewportHeight - padding - tooltipHeight);
           targetTop = maxTop;
           targetTransform = 'translate(-50%, 0)';
         }
@@ -152,7 +156,7 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
         const finalBottom = finalTop + tooltipHeight;
         if (finalBottom > viewportHeight - padding) {
           // Still off screen at bottom, force it to fit
-          targetTop = Math.max(padding, viewportHeight - tooltipHeight - padding);
+          targetTop = Math.max(padding, viewportHeight - padding - tooltipHeight);
           targetTransform = 'translate(-50%, 0)';
         }
         if (finalTop < padding) {
@@ -161,14 +165,30 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
           targetTransform = 'translate(-50%, 0)';
         }
 
-        // Adjust horizontal
+        // AGGRESSIVE horizontal clamping
         if (targetTransform.includes('translate(-50%')) {
           const centerX = targetLeft;
           const halfWidth = tooltipWidth / 2;
-          if (centerX - halfWidth < padding) {
+          const leftEdge = centerX - halfWidth;
+          const rightEdge = centerX + halfWidth;
+          
+          // Ensure left edge >= padding
+          if (leftEdge < padding) {
+            console.log('[TutorialStep] Clamping left edge:', leftEdge, '->', padding);
             targetLeft = padding + halfWidth;
-          } else if (centerX + halfWidth > viewportWidth - padding) {
+          }
+          // Ensure right edge <= viewportWidth - padding
+          else if (rightEdge > viewportWidth - padding) {
+            console.log('[TutorialStep] Clamping right edge:', rightEdge, '->', viewportWidth - padding);
             targetLeft = viewportWidth - padding - halfWidth;
+          }
+        } else {
+          // For other transforms, ensure left and right edges are visible
+          if (rect.left < padding) {
+            targetLeft = padding;
+          }
+          if (rect.right > viewportWidth - padding) {
+            targetLeft = viewportWidth - padding - tooltipWidth;
           }
         }
 
@@ -177,6 +197,7 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
           left: `${targetLeft}px`,
           transform: targetTransform
         };
+        console.log('[TutorialStep] Adjusted position:', adjustedPos);
         // Only update if position actually changed
         const currentTop = parseFloat(viewportPosition.top) || 0;
         const currentLeft = parseFloat(viewportPosition.left) || 0;

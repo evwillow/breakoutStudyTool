@@ -215,6 +215,11 @@ export default function Tutorial({
     };
   }, [isActive, tutorialState.currentStepIndex, tutorialState.currentStep]);
 
+  // Log hideTooltipOnStep4 changes for debugging
+  useEffect(() => {
+    console.log('[Tutorial] hideTooltipOnStep4 changed:', tutorialState.hideTooltipOnStep4, 'step:', tutorialState.currentStep?.id);
+  }, [tutorialState.hideTooltipOnStep4, tutorialState.currentStep?.id]);
+
   // Add data attribute to body when tutorial is active and prevent scrolling
   useEffect(() => {
     if (isActive) {
@@ -251,6 +256,14 @@ export default function Tutorial({
   if (!isActive || !tutorialState.currentStep) {
     return null;
   }
+
+  // Debug: Log current step info
+  console.log('[Tutorial] Rendering step:', {
+    stepIndex: tutorialState.currentStepIndex,
+    stepId: tutorialState.currentStep.id,
+    hideTooltipOnStep4: tutorialState.hideTooltipOnStep4,
+    shouldShowTooltip: !tutorialState.hideTooltipOnStep4
+  });
 
 
   const handleComplete = () => {
