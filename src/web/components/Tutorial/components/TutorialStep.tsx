@@ -61,41 +61,212 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
     };
   }, [isLastStep, onComplete, onNext]);
 
-  // Ensure position values are valid
-  const topValue = tooltipPosition.top;
-  const leftValue = tooltipPosition.left;
-  const isPercentage = topValue.includes('%') || leftValue.includes('%');
-  
-  // If using pixel values, ensure they're reasonable
-  let safeTop = topValue;
-  let safeLeft = leftValue;
-  
-  if (!isPercentage) {
-    const topNum = parseFloat(topValue);
-    const leftNum = parseFloat(leftValue);
-    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
-    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    
-    // If position is way off, use center
-    if (isNaN(topNum) || topNum < 0 || topNum > viewportHeight * 2) {
-      safeTop = '50%';
-      safeLeft = '50%';
-    } else if (isNaN(leftNum) || leftNum < 0 || leftNum > viewportWidth * 2) {
-      safeTop = '50%';
-      safeLeft = '50%';
+  // State to track the actual viewport-relative position - start with safe center position
+  const [viewportPosition, setViewportPosition] = React.useState<{ top: string; left: string; transform: string }>(() => {
+    if (typeof window !== 'undefined') {
+      return {
+        top: `${window.innerHeight / 2}px`,
+        left: `${window.innerWidth / 2}px`,
+        transform: 'translate(-50%, -50%)'
+      };
     }
-  }
+    return tooltipPosition;
+  });
+
+  // CRITICAL: After render, check actual position and force it into viewport
+  React.useEffect(() => {
+    if (!tooltipRef.current) {
+      console.warn('[TutorialStep] enforceViewportBounds: tooltipRef.current is null');
+      return;
+    }
+
+    const enforceViewportBounds = () => {
+      const element = tooltipRef.current!;
+      const rect = element.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const padding = 16;
+      const tooltipWidth = rect.width || 384;
+      const tooltipHeight = rect.height || 250;
+
+      // Check if tooltip is way off screen or has invalid dimensions
+      const isWayOffScreen = rect.top > viewportHeight || rect.top < -viewportHeight || 
+                             rect.bottom > viewportHeight * 1.5 || rect.bottom < -viewportHeight ||
+                             rect.width === 0 || rect.height === 0;
+
+      // Check if tooltip needs adjustment
+      const needsAdjustment = rect.top < padding || 
+                              rect.bottom > viewportHeight - padding ||
+                              rect.left < padding ||
+                              rect.right > viewportWidth - padding;
+
+      // Only log if there's an issue to reduce console spam
+      if (isWayOffScreen || needsAdjustment) {
+        console.log('[TutorialStep] enforceViewportBounds called:', {
+          rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+          viewport: { width: viewportWidth, height: viewportHeight },
+          currentPosition: viewportPosition,
+        });
+      }
+
+      // If way off screen or invalid, force to center of viewport
+      if (isWayOffScreen) {
+        console.warn('[TutorialStep] Tooltip is way off screen, forcing to center:', {
+          isWayOffScreen,
+          rectTop: rect.top,
+          viewportHeight,
+          rectWidth: rect.width,
+          rectHeight: rect.height,
+        });
+        const centerPos = {
+          top: `${viewportHeight / 2}px`,
+          left: `${viewportWidth / 2}px`,
+          transform: 'translate(-50%, -50%)'
+        };
+        setViewportPosition(centerPos);
+        console.log('[TutorialStep] Set to center position:', centerPos);
+        return;
+      }
+
+      if (needsAdjustment) {
+        // Calculate safe position
+        let targetTop = rect.top;
+        let targetLeft = rect.left;
+        let targetTransform = tooltipPosition.transform;
+
+        // Adjust vertical - ALWAYS ensure it's FULLY visible, can cover things if needed
+        // Check if any part is off screen and adjust accordingly
+        if (rect.top < padding) {
+          // Top is above viewport - move it down
+          targetTop = padding;
+          targetTransform = 'translate(-50%, 0)';
+        } else if (rect.bottom > viewportHeight - padding) {
+          // Bottom is below viewport - move it up
+          const maxTop = Math.max(padding, viewportHeight - tooltipHeight - padding);
+          targetTop = maxTop;
+          targetTransform = 'translate(-50%, 0)';
+        }
+        
+        // Double-check: ensure the entire tooltip is visible
+        const finalTop = parseFloat(`${targetTop}`) || 0;
+        const finalBottom = finalTop + tooltipHeight;
+        if (finalBottom > viewportHeight - padding) {
+          // Still off screen at bottom, force it to fit
+          targetTop = Math.max(padding, viewportHeight - tooltipHeight - padding);
+          targetTransform = 'translate(-50%, 0)';
+        }
+        if (finalTop < padding) {
+          // Still off screen at top, force it to top
+          targetTop = padding;
+          targetTransform = 'translate(-50%, 0)';
+        }
+
+        // Adjust horizontal
+        if (targetTransform.includes('translate(-50%')) {
+          const centerX = targetLeft;
+          const halfWidth = tooltipWidth / 2;
+          if (centerX - halfWidth < padding) {
+            targetLeft = padding + halfWidth;
+          } else if (centerX + halfWidth > viewportWidth - padding) {
+            targetLeft = viewportWidth - padding - halfWidth;
+          }
+        }
+
+        const adjustedPos = {
+          top: `${targetTop}px`,
+          left: `${targetLeft}px`,
+          transform: targetTransform
+        };
+        // Only update if position actually changed
+        const currentTop = parseFloat(viewportPosition.top) || 0;
+        const currentLeft = parseFloat(viewportPosition.left) || 0;
+        if (Math.abs(currentTop - targetTop) > 1 || Math.abs(currentLeft - targetLeft) > 1 || viewportPosition.transform !== targetTransform) {
+          setViewportPosition(adjustedPos);
+        }
+      } else {
+        // Tooltip is fully visible, use calculated position from hook
+        // Only update if position actually changed to avoid infinite loops
+        const currentTop = parseFloat(viewportPosition.top) || 0;
+        const currentLeft = parseFloat(viewportPosition.left) || 0;
+        const calcTop = parseFloat(tooltipPosition.top) || 0;
+        const calcLeft = parseFloat(tooltipPosition.left) || 0;
+        
+        // Only update if calculated position is significantly different (more than 10px)
+        if (Math.abs(currentTop - calcTop) > 10 || Math.abs(currentLeft - calcLeft) > 10) {
+          setViewportPosition(tooltipPosition);
+        }
+        // Otherwise keep current position to avoid unnecessary re-renders
+      }
+    };
+
+    // Check immediately and after a delay to ensure it works
+    enforceViewportBounds();
+    const timeout1 = setTimeout(enforceViewportBounds, 0);
+    const timeout2 = setTimeout(enforceViewportBounds, 50);
+    const rafId = requestAnimationFrame(enforceViewportBounds);
+
+    // Also check on scroll and resize (throttled)
+    let scrollTimeout: NodeJS.Timeout | null = null;
+    const throttledEnforce = () => {
+      if (scrollTimeout) return;
+      scrollTimeout = setTimeout(() => {
+        enforceViewportBounds();
+        scrollTimeout = null;
+      }, 16); // ~60fps
+    };
+
+    window.addEventListener('scroll', throttledEnforce, true);
+    window.addEventListener('resize', throttledEnforce);
+
+    return () => {
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', throttledEnforce, true);
+      window.removeEventListener('resize', throttledEnforce);
+    };
+  }, [tooltipPosition]); // Remove viewportPosition from deps to prevent infinite loop
+
+  // Always use viewport position (starts with safe center, then adjusts)
+  const finalPosition = viewportPosition;
+
+  // Reduced debug logging - only log on step changes or issues
+  React.useEffect(() => {
+    if (tooltipRef.current) {
+      const rect = tooltipRef.current.getBoundingClientRect();
+      const computed = window.getComputedStyle(tooltipRef.current);
+      
+      // Only log if there's a problem
+      const isInViewport = rect.top >= 0 && rect.top < window.innerHeight && 
+                          rect.left >= 0 && rect.left < window.innerWidth;
+      
+      if (!isInViewport || computed.position !== 'fixed') {
+        console.warn('[TutorialStep] Issue detected:', {
+          stepId: step.id,
+          isInViewport,
+          position: computed.position,
+          rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+        });
+      }
+    }
+  }, [step.id]); // Only log on step changes
 
   return (
     <div
       ref={tooltipRef}
-      className="fixed z-[10000] max-w-sm sm:max-w-md"
+      className="fixed z-[10000] w-[calc(100vw-2rem)] max-w-sm sm:max-w-md mx-4 sm:mx-0 rounded-2xl sm:rounded-3xl overflow-hidden"
       style={{
-        top: safeTop,
-        left: safeLeft,
-        transform: tooltipPosition.transform,
+        top: finalPosition.top,
+        left: finalPosition.left,
+        transform: finalPosition.transform,
         pointerEvents: 'auto',
         zIndex: 10001,
+        visibility: 'visible',
+        opacity: 1,
+        display: 'block',
+        position: 'fixed !important' as any,
+        isolation: 'isolate',
       }}
       role="dialog"
       aria-labelledby="tutorial-title"
@@ -110,7 +281,12 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
         e.stopPropagation();
       }}
     >
-      <div className="bg-soft-white/95 backdrop-blur-sm rounded-3xl border border-turquoise-200/60 shadow-2xl shadow-turquoise-950/20 p-4 sm:p-6">
+      <div 
+        className="bg-soft-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl border border-turquoise-200/60 shadow-2xl shadow-turquoise-950/20 p-4 sm:p-6 h-full" 
+        style={{ 
+          isolation: 'isolate',
+        }}
+      >
         {/* Content */}
         <div className="mb-4">
           <h3 id="tutorial-title" className="text-lg font-semibold text-turquoise-900 mb-2">
@@ -215,4 +391,5 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
 };
 
 export default TutorialStepComponent;
+
 

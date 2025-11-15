@@ -26,6 +26,7 @@ export interface UseTutorialStateReturn {
   isWaitingForAction: boolean;
   showSkipTooltip: boolean;
   setShowSkipTooltip: (show: boolean) => void;
+  hideTooltipOnStep4: boolean;
   handleNext: () => void;
   handleComplete: () => void;
   handleSkip: () => void;
@@ -41,6 +42,7 @@ export function useTutorialState({
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [showSkipTooltip, setShowSkipTooltip] = useState(false);
   const [isWaitingForAction, setIsWaitingForAction] = useState(false);
+  const [hideTooltipOnStep4, setHideTooltipOnStep4] = useState(false);
   const actionListenersRef = useRef<Map<string, () => void>>(new Map());
   const clickAnywhereTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevActiveRef = useRef<boolean>(false);
@@ -48,29 +50,37 @@ export function useTutorialState({
   const currentStep = TUTORIAL_STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === TUTORIAL_STEPS.length - 1;
 
-  // Reset tutorial to first step when it becomes active (or when reactivating)
-  useEffect(() => {
-    const wasInactive = prevActiveRef.current === false;
-    const justBecameActive = isActive && wasInactive;
-    
-    // Only reset when tutorial first becomes active, not when step index changes
-    if (justBecameActive) {
-      // Reset to first step when tutorial starts or restarts
-      setCurrentStepIndex(0);
-      setShowSkipTooltip(false);
-      setIsWaitingForAction(false);
-      // Clear any pending timeouts
-      if (clickAnywhereTimeoutRef.current) {
-        clearTimeout(clickAnywhereTimeoutRef.current);
-        clickAnywhereTimeoutRef.current = null;
+    // Reset tutorial to first step when it becomes active (or when reactivating)
+    useEffect(() => {
+      const wasInactive = prevActiveRef.current === false;
+      const justBecameActive = isActive && wasInactive;
+      
+      // Only reset when tutorial first becomes active, not when step index changes
+      if (justBecameActive) {
+        // Reset to first step when tutorial starts or restarts
+        setCurrentStepIndex(0);
+        setShowSkipTooltip(false);
+        setIsWaitingForAction(false);
+        setHideTooltipOnStep4(false);
+        // Clear any pending timeouts
+        if (clickAnywhereTimeoutRef.current) {
+          clearTimeout(clickAnywhereTimeoutRef.current);
+          clickAnywhereTimeoutRef.current = null;
+        }
+        // Clear all action listeners
+        actionListenersRef.current.forEach((cleanup) => cleanup());
+        actionListenersRef.current.clear();
       }
-      // Clear all action listeners
-      actionListenersRef.current.forEach((cleanup) => cleanup());
-      actionListenersRef.current.clear();
-    }
+      
+      prevActiveRef.current = isActive;
+    }, [isActive]); // Removed currentStepIndex from dependencies
     
-    prevActiveRef.current = isActive;
-  }, [isActive]); // Removed currentStepIndex from dependencies
+    // Reset hideTooltipOnStep4 when step changes away from step 4
+    useEffect(() => {
+      if (currentStep?.id !== 'making-selection') {
+        setHideTooltipOnStep4(false);
+      }
+    }, [currentStep?.id]);
 
   // Pause timer when tutorial starts
   useEffect(() => {
@@ -128,12 +138,38 @@ export function useTutorialState({
       if (step.waitForAction === 'chart-click') {
         const chart = document.querySelector('[data-tutorial-chart]');
         if (chart) {
-          const selectionListener = () => {
-            handleAction();
+          let selectionMade = false;
+          let animationComplete = false;
+          
+          const checkAndProceed = () => {
+            // Wait for both selection AND animation to complete before moving to next step
+            if (selectionMade && animationComplete) {
+              handleAction();
+            }
           };
-          window.addEventListener('tutorial-selection-made', selectionListener);
+          
+          const selectionListener = () => {
+            console.log('[Tutorial State] Selection made on step 4');
+            selectionMade = true;
+            // Hide tooltip temporarily so user can see the animation
+            setHideTooltipOnStep4(true);
+            // Don't proceed yet - wait for animation
+            checkAndProceed();
+          };
+          
+          // Listen for after animation complete
+          const animationListener = () => {
+            console.log('[Tutorial State] After animation complete on step 4');
+            animationComplete = true;
+            checkAndProceed();
+          };
+          
+          window.addEventListener('tutorial-selection-made', selectionListener, { capture: true });
+          window.addEventListener('tutorial-after-animation-complete', animationListener, { capture: true });
+          
           actionListenersRef.current.set('chart-click', () => {
-            window.removeEventListener('tutorial-selection-made', selectionListener);
+            window.removeEventListener('tutorial-selection-made', selectionListener, { capture: true });
+            window.removeEventListener('tutorial-after-animation-complete', animationListener, { capture: true });
           });
 
           clickAnywhereTimeoutRef.current = setTimeout(() => {
@@ -202,6 +238,7 @@ export function useTutorialState({
     isWaitingForAction,
     showSkipTooltip,
     setShowSkipTooltip,
+    hideTooltipOnStep4,
     handleNext,
     handleComplete,
     handleSkip,

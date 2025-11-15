@@ -415,41 +415,64 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
 
   // Listen for replay-tutorial event
   const [tutorialKey, setTutorialKey] = useState(0);
-  
+
   useEffect(() => {
     const handleReplayTutorial = () => {
-      // Reset tutorial state and force remount by changing key
+      console.log('[FlashcardsContainer] Replay tutorial requested', {
+        hasSession: !!session?.user?.id,
+        loading,
+        flashcardsLength: flashcards.length,
+        selectedFolder,
+        hasRound: !!roundManagement.currentRoundId
+      });
+
+      // Scroll to top first (instant for immediate positioning)
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      
+      // First, cleanly stop the current tutorial
       setShowTutorial(false);
       prevTutorialTriggerRef.current = false;
-      setTutorialKey(prev => prev + 1);
-      
-      // Ensure we have data loaded before starting tutorial
+
+      // Check if we have all prerequisites
       if (!session?.user?.id || loading || flashcards.length === 0 || !selectedFolder) {
-        // Wait a bit and try again
+        console.log('[FlashcardsContainer] Missing prerequisites for tutorial restart, waiting...');
+        // Wait for data to load and scroll to complete
         setTimeout(() => {
+          // Ensure we're at top
+          window.scrollTo({ top: 0, behavior: 'instant' });
           if (session?.user?.id && !loading && flashcards.length > 0 && selectedFolder) {
+            console.log('[FlashcardsContainer] Prerequisites ready, starting tutorial');
+            setTutorialKey(prev => prev + 1);
             setShowTutorial(true);
+          } else {
+            console.warn('[FlashcardsContainer] Prerequisites still not ready after 1s delay');
           }
         }, 1000);
         return;
       }
-      
+
       // Ensure we have a round
       if (!roundManagement.currentRoundId && selectedFolder) {
+        console.log('[FlashcardsContainer] Loading round for tutorial');
         roundManagement.loadRecentRounds(selectedFolder, true);
       }
-      
-      // Start tutorial after a brief delay to ensure state is reset
+
+      // Force remount by changing key, then start tutorial
+      // Wait a bit for scroll to complete and DOM to settle
+      setTutorialKey(prev => prev + 1);
       setTimeout(() => {
+        // Ensure we're at top before starting
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        console.log('[FlashcardsContainer] Starting tutorial (key:', tutorialKey + 1, ')');
         setShowTutorial(true);
-      }, 300);
+      }, 300); // Give time for scroll to complete
     };
 
     window.addEventListener('replay-tutorial', handleReplayTutorial);
     return () => {
       window.removeEventListener('replay-tutorial', handleReplayTutorial);
     };
-  }, [session?.user?.id, loading, flashcards.length, selectedFolder, roundManagement]);
+  }, [session?.user?.id, loading, flashcards.length, selectedFolder, roundManagement, tutorialKey]);
 
   // Check for session cookie immediately (memoized to prevent re-checking)
   const hasSessionCookie = useMemo(() => checkSessionCookie(), []);
@@ -503,7 +526,12 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
                 feedback={gameState.feedback}
                 disabled={gameState.disableButtons}
                 showTimeUp={gameState.showTimeUpOverlay && !showTutorial}
-                onAfterEffectComplete={() => {}}
+                onAfterEffectComplete={() => {
+                  // Dispatch event for tutorial to detect animation completion
+                  if (showTutorial) {
+                    window.dispatchEvent(new CustomEvent('tutorial-after-animation-complete'));
+                  }
+                }}
                 onChartClick={handleChartClick}
                 userSelection={gameState.userSelection}
                 targetPoint={targetPoint}
