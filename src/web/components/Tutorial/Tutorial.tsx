@@ -367,8 +367,14 @@ export default function Tutorial({
     stepIndex: tutorialState.currentStepIndex,
     stepId: tutorialState.currentStep.id,
     hideTooltipOnStep4: tutorialState.hideTooltipOnStep4,
-    shouldShowTooltip: !tutorialState.hideTooltipOnStep4
+    shouldShowTooltip: !tutorialState.hideTooltipOnStep4,
+    willRenderTooltip: !tutorialState.hideTooltipOnStep4
   });
+
+  // CRITICAL: Log when tooltip is hidden on step 4
+  if (tutorialState.currentStep.id === 'making-selection' && tutorialState.hideTooltipOnStep4) {
+    console.log('[Tutorial] ====== TOOLTIP HIDDEN ON STEP 4 (selection made) ======');
+  }
 
 
   const handleComplete = () => {
@@ -396,20 +402,8 @@ export default function Tutorial({
           mixBlendMode: 'normal',
           // Clip-path will be set dynamically via useEffect
         }}
-        onMouseDown={(e) => {
+        onMouseDown={tutorialState.currentStep?.id === 'making-selection' ? undefined : (e) => {
           const target = e.target as HTMLElement;
-          
-          // CRITICAL: For making-selection step, allow ALL chart clicks through
-          if (tutorialState.currentStep?.id === 'making-selection') {
-            const isChart = target.closest('[data-tutorial-chart]') || 
-                           target.closest('svg') || 
-                           target.tagName === 'svg' ||
-                           target.closest('[data-tutorial-chart]') !== null;
-            if (isChart) {
-              // Don't prevent or stop - let it pass through completely
-              return;
-            }
-          }
           
           // Allow clicks on interactive elements to pass through
           const isChart = target.closest('[data-tutorial-chart]') || target.closest('svg') || target.tagName === 'svg';
@@ -434,21 +428,8 @@ export default function Tutorial({
           }
           // Otherwise let it through
         }}
-        onClick={(e) => {
+        onClick={tutorialState.currentStep?.id === 'making-selection' ? undefined : (e) => {
           const target = e.target as HTMLElement;
-          
-          // CRITICAL: For making-selection step, allow ALL chart clicks through
-          if (tutorialState.currentStep?.id === 'making-selection') {
-            const isChart = target.closest('[data-tutorial-chart]') || 
-                           target.closest('svg') || 
-                           target.tagName === 'svg' ||
-                           target.closest('[data-tutorial-chart]') !== null;
-            if (isChart) {
-              // Don't prevent or stop - let it pass through completely
-              console.log('[Tutorial] Chart click allowed through overlay on making-selection step');
-              return;
-            }
-          }
           
           // Allow clicks on interactive elements to pass through
           const isChart = target.closest('[data-tutorial-chart]') || target.closest('svg') || target.tagName === 'svg';

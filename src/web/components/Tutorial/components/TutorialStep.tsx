@@ -278,6 +278,9 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
     }
   }, [step.id]); // Only log on step changes
 
+  // For making-selection step, disable pointer events on tooltip to allow chart clicks
+  const isMakingSelectionStep = step?.id === 'making-selection';
+  
   return (
     <div
       ref={tooltipRef}
@@ -286,7 +289,8 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
         top: finalPosition.top,
         left: finalPosition.left,
         transform: finalPosition.transform,
-        pointerEvents: 'auto',
+        // CRITICAL: Disable pointer events on step 4 to allow chart clicks through
+        pointerEvents: isMakingSelectionStep ? 'none' : 'auto',
         zIndex: 10001,
         visibility: 'visible',
         opacity: 1,
@@ -298,11 +302,11 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
       aria-labelledby="tutorial-title"
       aria-describedby="tutorial-content"
       data-tutorial-button="true"
-      onClick={(e) => {
+      onClick={isMakingSelectionStep ? undefined : (e) => {
         // Prevent clicks on tooltip from propagating to overlay
         e.stopPropagation();
       }}
-      onMouseDown={(e) => {
+      onMouseDown={isMakingSelectionStep ? undefined : (e) => {
         // Ensure mouse events work and don't reach overlay
         e.stopPropagation();
       }}

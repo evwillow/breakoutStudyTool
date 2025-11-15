@@ -6,6 +6,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import type { TutorialStep } from '../tutorialSteps';
 
 export interface UseTutorialPositionReturn {
@@ -46,9 +47,27 @@ export function useTutorialPosition(
   const currentStepIdRef = useRef<string | undefined>(undefined);
   const tooltipLockedRef = useRef<boolean>(false); // Lock tooltip position after initial load
   const lastTooltipPositionRef = useRef<{ top: string; left: string; transform: string } | null>(null);
+  const selectionMadeOnStep4Ref = useRef<boolean>(false); // Track if selection was made on step 4 to prevent re-setting highlight
 
   const updateTooltipPosition = useCallback((skipHighlight: boolean = false) => {
     skipHighlightUpdateRef.current = skipHighlight;
+
+    // CRITICAL: Check if selection was made on step 4 FIRST, before ANY other logic
+    // If selection was made, ensure highlights are cleared and NEVER re-set
+    if (currentStep?.id === 'making-selection' && selectionMadeOnStep4Ref.current) {
+      console.log('[Tutorial Position] updateTooltipPosition called but selection already made on step 4, ensuring highlights cleared and skipping ALL highlight logic');
+      // IMMEDIATELY clear highlights using flushSync to prevent any re-setting
+      flushSync(() => {
+        setSelectableAreaHighlight(null);
+        setHighlightPosition(null);
+      });
+      lastHighlightPositionRef.current = null;
+      highlightLockedRef.current = true;
+      // Skip ALL subsequent highlight logic - only handle tooltip positioning if needed
+      // For step 4, tooltip is hidden anyway, so we can return early
+      return;
+    }
+
     if (!currentStep) {
       const viewportHeight = window.innerHeight;
       const viewportWidth = window.innerWidth;
@@ -65,11 +84,18 @@ export function useTutorialPosition(
     // Log step changes and unlock tooltip on step change
     const stepChanged = lastStepIdRef.current !== currentStep.id;
     if (stepChanged) {
-      console.log('[Tutorial Position] Step changed, unlocking tooltip position:', currentStep.id);
+      console.log('[Tutorial Position] ====== STEP CHANGED ======', 'new step:', currentStep.id);
       lastStepIdRef.current = currentStep.id;
       currentStepIdRef.current = currentStep.id; // Also update currentStepIdRef for highlight logic
       tooltipLockedRef.current = false; // Unlock tooltip on step change
       lastTooltipPositionRef.current = null;
+      highlightLockedRef.current = false; // ALWAYS unlock highlight on step change
+
+      // CRITICAL: Reset selection tracking when ENTERING step 4
+      if (currentStep.id === 'making-selection') {
+        console.log('[Tutorial Position] ====== ENTERING STEP 4: Resetting selectionMadeOnStep4Ref to FALSE ======');
+        selectionMadeOnStep4Ref.current = false;
+      }
     }
 
     if (currentStep.placement === 'center' || !currentStep.target) {
@@ -130,25 +156,23 @@ export function useTutorialPosition(
     // Special handling for making-selection step
     // Only set selectableAreaHighlight if not locked (i.e., selection hasn't been made yet)
     if (currentStep.id === 'making-selection') {
-      // Check if highlight is locked - if so, selection was made, don't re-set highlight
-      if (highlightLockedRef.current) {
-        console.log('[Tutorial Position] Step 4 highlight is locked (selection made), ensuring highlights are cleared');
-        // Ensure it's cleared using functional updates
-        setSelectableAreaHighlight((prev) => {
-          if (prev !== null) {
-            console.log('[Tutorial Position] Clearing selectableAreaHighlight (was locked):', prev);
-            return null;
-          }
-          return prev;
+      // CRITICAL: Check if selection was made - if so, NEVER re-set highlight
+      // Use both highlightLockedRef and selectionMadeOnStep4Ref for double-check
+      console.log('[Tutorial Position] STEP 4: Checking locks - highlightLocked:', highlightLockedRef.current, 'selectionMade:', selectionMadeOnStep4Ref.current, 'skipHighlight:', skipHighlight);
+      if (highlightLockedRef.current || selectionMadeOnStep4Ref.current) {
+        console.log('[Tutorial Position] Step 4 selection already made (locked:', highlightLockedRef.current, 'selectionMade:', selectionMadeOnStep4Ref.current, '), ensuring highlights are cleared and NOT re-set');
+        // Ensure it's cleared using direct state updates (immediate)
+        // Use flushSync to force immediate update
+        flushSync(() => {
+          setSelectableAreaHighlight(null);
+          setHighlightPosition(null);
         });
-        setHighlightPosition((prev) => {
-          if (prev !== null) {
-            console.log('[Tutorial Position] Clearing highlightPosition (was locked):', prev);
-            return null;
-          }
-          return prev;
-        });
-      } else {
+        lastHighlightPositionRef.current = null;
+        // Don't proceed to set highlight - skip to tooltip positioning
+        // Continue to tooltip positioning only (skip the else block)
+      } else if (!skipHighlight) {
+        // Only set highlight if skipHighlight is false AND selection hasn't been made
+        console.log('[Tutorial Position] ====== STEP 4: Entering selectable area highlight block (skipHighlight:', skipHighlight, ') ======');
         const chartContainer = targetElement.closest('[data-tutorial-chart]') || targetElement;
         const chartRect = chartContainer.getBoundingClientRect();
         
@@ -205,6 +229,14 @@ export function useTutorialPosition(
           const selectableStartX = dividerX;
           const selectableWidth = chartWidth - selectableStartX;
 
+          console.log('[Tutorial Position] ====== STEP 4: SETTING SELECTABLE AREA HIGHLIGHT ======', {
+            top: svgRect.top,
+            left: svgRect.left + selectableStartX,
+            width: selectableWidth,
+            height: chartHeight,
+            dividerX: dividerX,
+            selectableStartX: selectableStartX
+          });
           setSelectableAreaHighlight({
             top: svgRect.top,
             left: svgRect.left + selectableStartX,
@@ -225,6 +257,7 @@ export function useTutorialPosition(
           setHighlightPosition(null);
         }
       }
+      // If selection was made, we've already cleared highlights above, so skip setting them
     } else {
       setSelectableAreaHighlight(null);
     }
@@ -703,6 +736,7 @@ export function useTutorialPosition(
       // Reset locks when tutorial becomes inactive
       tooltipLockedRef.current = false;
       highlightLockedRef.current = false;
+      selectionMadeOnStep4Ref.current = false;
       lastTooltipPositionRef.current = null;
       lastHighlightPositionRef.current = null;
     }
@@ -716,6 +750,16 @@ export function useTutorialPosition(
     // Unlock both on step change
     tooltipLockedRef.current = false;
     highlightLockedRef.current = false;
+    // CRITICAL: Reset selection tracking when step changes to making-selection
+    // This ensures fresh state when entering step 4
+    if (currentStep?.id === 'making-selection') {
+      // Reset when entering step 4 to allow highlight to be set
+      selectionMadeOnStep4Ref.current = false;
+      highlightLockedRef.current = false;
+    } else {
+      // Clear when leaving step 4
+      selectionMadeOnStep4Ref.current = false;
+    }
     updateTooltipPosition(false); // Allow highlight update on initial load
     
     // Lock highlight and tooltip after a short delay to ensure they're set
@@ -923,16 +967,17 @@ export function useTutorialPosition(
       const stepId = currentStepIdRef.current;
       // Only clear if we're on making-selection step
       if (stepId === 'making-selection') {
-        console.log('[Tutorial Position] Selection made event received, clearing highlight for step 4');
-        // Lock highlight immediately to prevent any re-updates
+        console.log('[Tutorial Position] Selection made event received on step 4, clearing highlight IMMEDIATELY');
+        // CRITICAL: Set refs FIRST before any state updates to prevent race conditions
+        selectionMadeOnStep4Ref.current = true;
         highlightLockedRef.current = true;
-        // Clear highlights immediately - use direct state updates for immediate effect
-        setSelectableAreaHighlight(null);
-        setHighlightPosition(null);
+        // Clear highlights IMMEDIATELY using flushSync to force synchronous update
+        flushSync(() => {
+          setSelectableAreaHighlight(null);
+          setHighlightPosition(null);
+        });
         lastHighlightPositionRef.current = null;
-        console.log('[Tutorial Position] Highlights cleared immediately after selection (direct state update)');
-        // Also call clearHighlight to ensure everything is cleared
-        clearHighlight();
+        console.log('[Tutorial Position] Highlights cleared IMMEDIATELY after selection (flushSync, selectionMadeOnStep4Ref set to true)');
       } else {
         console.log('[Tutorial Position] Selection made event received but not on step 4, current step:', stepId);
       }
@@ -942,7 +987,7 @@ export function useTutorialPosition(
     return () => {
       window.removeEventListener('tutorial-selection-made', handleSelection, { capture: true });
     };
-  }, [isActive, clearHighlight]);
+  }, [isActive]);
 
   return {
     tooltipPosition,

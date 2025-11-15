@@ -61,8 +61,11 @@ export function useScoreCalculation({
 
   // Handle zoom animation and data reveal
   useEffect(() => {
+    console.log('[useScoreCalculation] Effect triggered - feedback:', feedback, 'afterData:', !!afterData, 'hasAfterDataArray:', Array.isArray(afterData) && afterData.length > 0);
+
     if (!feedback) {
       if (lastFeedbackRef.current !== null) {
+        console.log('[useScoreCalculation] Feedback cleared, resetting animation state');
         lastFeedbackRef.current = null;
         setAnimationInProgress(false);
         setShowAfterAnimation(false);
@@ -74,12 +77,15 @@ export function useScoreCalculation({
       }
       return;
     }
-    
+
     const animationKey = `${feedback}-${!!afterData}`;
     if (lastFeedbackRef.current === animationKey) {
+      console.log('[useScoreCalculation] Animation already running for this feedback, skipping');
       return;
     }
-    
+
+    console.log('[useScoreCalculation] ====== STARTING NEW ANIMATION SEQUENCE ======');
+    console.log('[useScoreCalculation] Animation key:', animationKey);
     lastFeedbackRef.current = animationKey;
     
     if (delayTimerRef.current) {
@@ -266,11 +272,14 @@ export function useScoreCalculation({
               } else {
                 setProgressPercentage(100);
                 setAfterAnimationComplete(true);
+                // Dispatch tutorial event immediately when animation completes
+                console.log('[useScoreCalculation] After animation complete, dispatching tutorial-after-animation-complete event');
+                window.dispatchEvent(new CustomEvent('tutorial-after-animation-complete'));
                 animationPauseRef.current = null;
                 resolve();
               }
             };
-            
+
             animationPauseRef.current = requestAnimationFrame(animateReveal);
           });
         } else {
@@ -279,11 +288,15 @@ export function useScoreCalculation({
           setZoomPercentage(0);
           await new Promise(resolve => setTimeout(resolve, 500));
           setAfterAnimationComplete(true);
+          // Dispatch tutorial event for no-animation case as well
+          console.log('[useScoreCalculation] No after animation, dispatching tutorial-after-animation-complete event');
+          window.dispatchEvent(new CustomEvent('tutorial-after-animation-complete'));
         }
-        
+
         if (afterData && Array.isArray(afterData) && afterData.length > 0) {
           setProgressPercentage(100);
           setAfterAnimationComplete(true);
+          // Already dispatched above
         }
         
         await new Promise<void>(resolve => {

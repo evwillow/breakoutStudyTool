@@ -267,11 +267,20 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
   }, [handleNextCard]);
 
   const handleChartClick = useCallback((coordinates: { x: number; y: number; chartX: number; chartY: number }) => {
-    if (!targetPoint || !priceRange || !timeRange) return;
+    console.log('[FlashcardsContainer] handleChartClick called, showTutorial:', showTutorial, 'coordinates:', coordinates);
+    if (!targetPoint || !priceRange || !timeRange) {
+      console.log('[FlashcardsContainer] handleChartClick early return - missing data');
+      return;
+    }
     const mainDataLength = activeProcessedData.orderedFiles[0]?.data?.length || 0;
-    if (coordinates.x <= mainDataLength - 1) return;
-    
+    console.log('[FlashcardsContainer] handleChartClick - coordinates.x:', coordinates.x, 'mainDataLength:', mainDataLength);
+    if (coordinates.x <= mainDataLength - 1) {
+      console.log('[FlashcardsContainer] handleChartClick early return - click before divider');
+      return;
+    }
+
     if (showTutorial) {
+      console.log('[FlashcardsContainer] ====== TUTORIAL STEP 4: Dispatching tutorial-selection-made event ======');
       window.dispatchEvent(new CustomEvent('tutorial-selection-made'));
     }
     
@@ -527,10 +536,8 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
                 disabled={gameState.disableButtons}
                 showTimeUp={gameState.showTimeUpOverlay && !showTutorial}
                 onAfterEffectComplete={() => {
-                  // Dispatch event for tutorial to detect animation completion
-                  if (showTutorial) {
-                    window.dispatchEvent(new CustomEvent('tutorial-after-animation-complete'));
-                  }
+                  // Animation completion event is now dispatched directly in useScoreCalculation
+                  // when the animation actually completes, not after the 5-second delay
                 }}
                 onChartClick={handleChartClick}
                 userSelection={gameState.userSelection}

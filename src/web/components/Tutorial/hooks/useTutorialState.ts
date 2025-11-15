@@ -6,6 +6,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { TUTORIAL_STEPS, type TutorialStep } from '../tutorialSteps';
 
 export interface UseTutorialStateOptions {
@@ -51,15 +52,21 @@ export function useTutorialState({
   const animationCompleteRef = useRef<boolean>(false);
   // Ref to track current step ID to avoid stale closures in event listeners
   const currentStepIdRef = useRef<string | undefined>(undefined);
+  // Ref to track current step index to avoid stale closures
+  const currentStepIndexRef = useRef<number>(0);
 
   const currentStep = TUTORIAL_STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === TUTORIAL_STEPS.length - 1;
   
-  // Update step ID ref when step changes
+  // Update step ID and index refs when step changes - CRITICAL for event listeners to avoid stale closures
   useEffect(() => {
-    currentStepIdRef.current = currentStep?.id;
-    console.log('[Tutorial State] Step ID ref updated to:', currentStep?.id);
-  }, [currentStep?.id]);
+    const newStepId = currentStep?.id;
+    const oldStepId = currentStepIdRef.current;
+    const oldIndex = currentStepIndexRef.current;
+    currentStepIdRef.current = newStepId;
+    currentStepIndexRef.current = currentStepIndex;
+    console.log('[Tutorial State] Step refs updated - ID:', oldStepId, '->', newStepId, 'Index:', oldIndex, '->', currentStepIndex);
+  }, [currentStep?.id, currentStepIndex]);
 
     // Reset tutorial to first step when it becomes active (or when reactivating)
     useEffect(() => {
@@ -76,6 +83,8 @@ export function useTutorialState({
         // Reset event tracking refs
         selectionMadeRef.current = false;
         animationCompleteRef.current = false;
+        // Reset step tracking refs
+        currentStepIndexRef.current = 0;
         // Clear any pending timeouts
         if (clickAnywhereTimeoutRef.current) {
           clearTimeout(clickAnywhereTimeoutRef.current);
@@ -148,20 +157,33 @@ export function useTutorialState({
       setIsWaitingForAction(true);
 
       const handleAction = () => {
-        console.log('[Tutorial State] handleAction called, moving to next step');
+        // CRITICAL: Double-check we're still on step 4 before proceeding
+        const currentStepId = currentStepIdRef.current;
+        const currentStepIdx = currentStepIndexRef.current;
+        console.log('[Tutorial State] handleAction called, current step:', currentStepId, 'index:', currentStepIdx);
+        
+        if (currentStepId !== 'making-selection' || currentStepIdx !== 3) {
+          console.log('[Tutorial State] handleAction called but not on step 4, aborting. Current step:', currentStepId, 'index:', currentStepIdx);
+          return;
+        }
+        
+        console.log('[Tutorial State] handleAction proceeding to move from step', currentStepIdx, 'to step', currentStepIdx + 1);
         setIsWaitingForAction(false);
-        // Immediately reset hideTooltipOnStep4 so tooltip can show on next step
-        setHideTooltipOnStep4((prev) => {
-          console.log('[Tutorial State] Resetting hideTooltipOnStep4 to false in handleAction, previous:', prev);
-          return false;
-        });
-        console.log('[Tutorial State] hideTooltipOnStep4 reset to false in handleAction');
+        // Don't reset hideTooltipOnStep4 here - the useEffect will handle it when step changes
+        // This prevents tooltip from briefly showing on step 4 before moving to step 5
+        console.log('[Tutorial State] NOT resetting hideTooltipOnStep4 in handleAction - useEffect will handle it after step change');
         // Use functional update to ensure we have the latest step index
         // Don't use setTimeout - update immediately
         setCurrentStepIndex((prevIndex) => {
           const nextIndex = prevIndex + 1;
-          console.log('[Tutorial State] Moving from step', prevIndex, 'to step', nextIndex, 'step id:', TUTORIAL_STEPS[nextIndex]?.id);
+          const nextStepId = TUTORIAL_STEPS[nextIndex]?.id;
+          console.log('[Tutorial State] Moving from step', prevIndex, 'to step', nextIndex, 'step id:', nextStepId);
+          // Immediately update refs to prevent stale closures
           if (nextIndex < TUTORIAL_STEPS.length) {
+            // Update refs immediately before state update completes
+            currentStepIndexRef.current = nextIndex;
+            currentStepIdRef.current = nextStepId;
+            console.log('[Tutorial State] Step index updated to', nextIndex, '- refs updated immediately, step ID:', nextStepId);
             return nextIndex;
           } else {
             // If we're at or past the last step, complete the tutorial
@@ -180,22 +202,51 @@ export function useTutorialState({
           animationCompleteRef.current = false;
           
           const checkAndProceed = () => {
-            // Wait for both selection AND animation to complete before moving to next step
+            // CRITICAL: Check current step using refs to avoid stale closure
+            // Only proceed if we're STILL on step 4 (making-selection) at index 3
+            const stepId = currentStepIdRef.current;
+            const stepIndex = currentStepIndexRef.current;
+            console.log('[Tutorial State] checkAndProceed called - stepId:', stepId, 'stepIndex:', stepIndex);
+
+            if (stepId !== 'making-selection' || stepIndex !== 3) {
+              console.log('[Tutorial State] checkAndProceed called but not on step 4, ignoring. Current step:', stepId, 'index:', stepIndex);
+              return;
+            }
+
+            // CRITICAL: Only wait for selection to be made, NOT animation
+            // The animation/timer events will call this after selection is made
+            // This way we progress immediately when both conditions are met
             const selectionMade = selectionMadeRef.current;
             const animationComplete = animationCompleteRef.current;
-            console.log('[Tutorial State] checkAndProceed called:', {
+            console.log('[Tutorial State] checkAndProceed called on step 4:', {
               selectionMade,
               animationComplete,
-              bothComplete: selectionMade && animationComplete
+              bothComplete: selectionMade && animationComplete,
+              currentStepId: stepId,
+              currentStepIndex: stepIndex
             });
+
+            // Only require selection to be made - animation will trigger this function
+            // when it completes, at which point both will be true
             if (selectionMade && animationComplete) {
-              console.log('[Tutorial State] Both selection and animation complete, proceeding to next step');
-              // Reset refs for next time
-              selectionMadeRef.current = false;
-              animationCompleteRef.current = false;
-              handleAction();
+              console.log('[Tutorial State] ====== BOTH CONDITIONS MET: Selection AND Animation complete ======');
+              console.log('[Tutorial State] Both selection and animation complete, proceeding to step 5 (results-feedback)');
+              // Double-check we're still on step 4 before proceeding
+              if (currentStepIdRef.current === 'making-selection' && currentStepIndexRef.current === 3) {
+                console.log('[Tutorial State] ====== CALLING handleAction to move to STEP 5 ======');
+                handleAction();
+                // Reset refs AFTER handleAction completes
+                selectionMadeRef.current = false;
+                animationCompleteRef.current = false;
+                console.log('[Tutorial State] Refs reset after handleAction completed');
+              } else {
+                console.log('[Tutorial State] Step changed while processing, aborting proceed. Current step:', currentStepIdRef.current, 'index:', currentStepIndexRef.current);
+              }
             } else {
-              console.log('[Tutorial State] Waiting for:', {
+              console.log('[Tutorial State] ====== WAITING: Not all conditions met yet ======');
+              console.log('[Tutorial State] Waiting for both selection and animation. Current state:', {
+                selectionMade,
+                animationComplete,
                 needSelection: !selectionMade,
                 needAnimation: !animationComplete
               });
@@ -203,40 +254,56 @@ export function useTutorialState({
           };
           
           const selectionListener = () => {
-            console.log('[Tutorial State] Selection made on step 4, hiding tooltip');
+            console.log('[Tutorial State] ====== TUTORIAL STEP 4: Selection made event received ======');
+            console.log('[Tutorial State] Selection made on step 4, hiding tooltip IMMEDIATELY');
+            // CRITICAL: Set ref FIRST before state update to prevent race conditions
             selectionMadeRef.current = true;
-            // Hide tooltip immediately so user can see the animation
-            setHideTooltipOnStep4(true);
-            console.log('[Tutorial State] hideTooltipOnStep4 set to true');
+            console.log('[Tutorial State] selectionMadeRef set to TRUE');
+            // Hide tooltip IMMEDIATELY using flushSync to force synchronous update
+            // This must happen on the FIRST selection, not the second
+            flushSync(() => {
+              setHideTooltipOnStep4(true);
+            });
+            console.log('[Tutorial State] hideTooltipOnStep4 set to true IMMEDIATELY (flushSync)');
             // Don't proceed yet - wait for animation
+            console.log('[Tutorial State] Calling checkAndProceed after selection (waiting for animation)');
             checkAndProceed();
           };
           
           // Listen for after animation complete
           const animationListener = () => {
+            console.log('[Tutorial State] ====== TUTORIAL STEP 4: After animation complete event received ======');
             console.log('[Tutorial State] After animation complete event received on step 4');
             animationCompleteRef.current = true;
-            // Reset hideTooltipOnStep4 BEFORE moving to next step so tooltip can show on step 5
-            setHideTooltipOnStep4(false);
-            console.log('[Tutorial State] hideTooltipOnStep4 reset to false after animation');
+            console.log('[Tutorial State] animationCompleteRef set to TRUE');
+            // Don't reset hideTooltipOnStep4 here - it will be reset in handleAction after step change
+            // This prevents tooltip from showing on step 4 again before we move to step 5
             console.log('[Tutorial State] Calling checkAndProceed after animation complete');
             checkAndProceed();
           };
           
           // Also listen for score popup timer completion
           const scoreTimerListener = () => {
-            // Check current step using ref to avoid stale closure
+            // CRITICAL: Check current step using refs to avoid stale closure
+            // Only proceed if we're STILL on step 4 (making-selection) at index 3
+            // If already on step 5, ignore the event completely
             const stepId = currentStepIdRef.current;
-            // Only proceed if we're still on step 4 (making-selection)
-            if (stepId !== 'making-selection') {
-              console.log('[Tutorial State] Score timer completed but not on step 4, ignoring. Current step:', stepId);
+            const stepIndex = currentStepIndexRef.current;
+            console.log('[Tutorial State] ====== TUTORIAL STEP 4: Score timer completed event received ======');
+            console.log('[Tutorial State] Score timer completed event received. Current step (from refs):', stepId, 'index:', stepIndex);
+            if (stepId !== 'making-selection' || stepIndex !== 3) {
+              console.log('[Tutorial State] Score timer completed but not on step 4, ignoring completely. Current step:', stepId, 'index:', stepIndex);
               return;
             }
-            console.log('[Tutorial State] Score popup timer completed on step 4');
+            console.log('[Tutorial State] Score popup timer completed on step 4, marking animation complete');
             // Mark animation as complete and check
             animationCompleteRef.current = true;
-            setHideTooltipOnStep4(false);
-            console.log('[Tutorial State] hideTooltipOnStep4 reset to false after score timer');
+            console.log('[Tutorial State] animationCompleteRef set to TRUE (via score timer)');
+            // Don't reset hideTooltipOnStep4 here - it will be reset in handleAction after step change
+            // This prevents tooltip from showing on step 4 again before we move to step 5
+            console.log('[Tutorial State] NOT resetting hideTooltipOnStep4 yet - will reset after moving to step 5');
+            // checkAndProceed will verify we're still on step 4 before proceeding
+            console.log('[Tutorial State] Calling checkAndProceed after score timer');
             checkAndProceed();
           };
           
@@ -286,7 +353,7 @@ export function useTutorialState({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, currentStepIndex, handleComplete]);
+  }, [isActive, currentStep?.id]); // Only depend on step ID, not index or handleComplete
 
   const handleNext = useCallback(() => {
     console.log('[Tutorial State] handleNext called, current step index:', currentStepIndex);
