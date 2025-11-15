@@ -301,14 +301,18 @@ export const useChartGeometry = ({
           const finalX = x === undefined || isNaN(x) ? fallbackX : x;
 
           const width = scales.xScale.step() * 0.8 || FALLBACK_WIDTH;
-          const height = scales.volumeScale(volume);
-          if (isNaN(height)) return null;
+          // CRITICAL FIX: volumeScale returns Y position (top), not height
+          // Same calculation as main volume bars for consistency
+          const topY = scales.volumeScale(volume);
+          if (isNaN(topY)) return null;
+
+          const barHeight = scales.volumeHeight - topY;
 
           return {
             x: finalX - width / 2,
-            y: scales.volumeHeight - height,
+            y: topY,
             width,
-            height
+            height: barHeight
           };
         } catch (err) {
           console.error(`Error generating after volume bar for index ${i}:`, err);

@@ -196,7 +196,17 @@ export const useChartInteraction = ({
 
   const handleMouseDown = useCallback(
     (event: ReactMouseEvent<SVGSVGElement>): void => {
+      console.log('[handleMouseDown] Mouse down event received');
+
       if (!onChartClick || disabled || !scales || stockData.length === 0 || !svgRef.current || !dimensions) {
+        console.log('[handleMouseDown] Blocked - prereqs not met:', {
+          onChartClick: !!onChartClick,
+          disabled,
+          scales: !!scales,
+          stockData: stockData.length,
+          svgRef: !!svgRef.current,
+          dimensions: !!dimensions
+        });
         return;
       }
 
@@ -208,13 +218,20 @@ export const useChartInteraction = ({
         if (!svgPoint) return;
         const chartX = svgPoint.x - (dimensions.margin.left || 0);
 
+        console.log('[handleMouseDown] chartX:', chartX);
+
         isInSelectableAreaRef.current = isInSelectableArea(chartX);
+        console.log('[handleMouseDown] isInSelectableArea:', isInSelectableAreaRef.current);
+
         isDraggingRef.current = true;
         dragStartPosRef.current = { x: event.clientX, y: event.clientY };
 
         if (!isInSelectableAreaRef.current) {
+          console.log('[handleMouseDown] Not in selectable area - blocking');
           return;
         }
+
+        console.log('[handleMouseDown] In selectable area - allowing drag');
       } catch (err) {
         console.error("Error in handleMouseDown:", err);
       }
@@ -249,19 +266,26 @@ export const useChartInteraction = ({
           if (!svgPoint) return;
 
           const chartX = svgPoint.x - (dimensions.margin.left || 0);
-          
+
           // Use the same logic as isInSelectableArea to determine cursor
           const isDChart = chartType === "default" || chartType === "D";
           let isSelectable = false;
-          
+          let selectableAreaStart = 0;
+
           if (isDChart) {
             // Calculate divider position from dimensions
             const dividerPositionPercent = isMobile ? 0.70 : 0.75;
             const dividerPositionInChart = dimensions.innerWidth * dividerPositionPercent;
             const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
             const step = scales.xScale.step();
-            const selectableAreaStart = dividerPositionInChart + step * borderLineOffsetForCursor;
+            selectableAreaStart = dividerPositionInChart + step * borderLineOffsetForCursor;
             isSelectable = chartX > selectableAreaStart;
+
+            // Log every 100ms max (throttled)
+            if (!window._lastCursorLog || Date.now() - window._lastCursorLog > 100) {
+              console.log('[handleMouseMove] D Chart cursor - chartX:', chartX.toFixed(2), 'selectableStart:', selectableAreaStart.toFixed(2), 'divider:', dividerPositionInChart.toFixed(2), 'isSelectable:', isSelectable);
+              (window as any)._lastCursorLog = Date.now();
+            }
           } else {
             const lastDataIndex = stockData.length - 1;
             const lastDataCenterX = scales.xScale(lastDataIndex);

@@ -172,6 +172,8 @@ export const useChartScale = ({
     const bottomPadding = chartType === "previous" ? priceRange * 0.12 : priceRange * 0.2;
     const pricePadding = topPadding; // Keep for backward compatibility, but we'll use both
 
+    // CRITICAL: Include BOTH stockData and afterStockData volumes for correct scaling
+    // This ensures volume bars from both datasets are on the same scale
     const volumeValues = stockData
       .map(d => {
         const vol = (d.volume || d.Volume || d.VOLUME) as number | undefined;
@@ -179,8 +181,31 @@ export const useChartScale = ({
       })
       .filter(v => v > 0);
 
-    const volumeMax = volumeValues.length > 0 ? Math.max(...volumeValues) : 1;
+    // Also include afterStockData volumes in the scale calculation
+    const afterVolumeValues = afterStockData
+      .map(d => {
+        const vol = (d.volume || d.Volume || d.VOLUME) as number | undefined;
+        return vol !== undefined && vol !== null && !isNaN(vol) ? parseFloat(String(vol)) : 0;
+      })
+      .filter(v => v > 0);
+
+    const allVolumeValues = [...volumeValues, ...afterVolumeValues];
+    const volumeMax = allVolumeValues.length > 0 ? Math.max(...allVolumeValues) : 1;
     const volumePadding = chartType === "previous" ? 0 : volumeMax * 0.1;
+
+    if (process.env.NODE_ENV === 'development' && allVolumeValues.length > 0) {
+      console.log('[useChartScale] Volume scale calculation:', {
+        stockDataCount: stockData.length,
+        afterStockDataCount: afterStockData.length,
+        mainVolumeCount: volumeValues.length,
+        afterVolumeCount: afterVolumeValues.length,
+        mainVolumeMax: volumeValues.length > 0 ? Math.max(...volumeValues) : 0,
+        afterVolumeMax: afterVolumeValues.length > 0 ? Math.max(...afterVolumeValues) : 0,
+        combinedVolumeMax: volumeMax,
+        mainVolumeSample: volumeValues.slice(0, 3),
+        afterVolumeSample: afterVolumeValues.slice(0, 3)
+      });
+    }
 
     const totalHeight = dimensions.innerHeight;
     let volumePercentage: number;
