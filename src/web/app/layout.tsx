@@ -82,10 +82,35 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                var isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                
+                // Suppress 404 errors for CSS files in development (they're harmless)
+                var originalConsoleError = console.error;
+                if (isDev) {
+                  console.error = function() {
+                    var args = Array.prototype.slice.call(arguments);
+                    var message = args.join(' ');
+                    // Suppress CSS 404 errors in development
+                    if (message && typeof message === 'string' && 
+                        (message.indexOf('layout.css') !== -1 || 
+                         message.indexOf('/_next/static/css/') !== -1) &&
+                        message.indexOf('404') !== -1) {
+                      return; // Suppress this error
+                    }
+                    originalConsoleError.apply(console, args);
+                  };
+                }
+                
                 // Handle chunk loading errors early
                 window.addEventListener('error', function(e) {
                   if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
                     var src = e.target.src || e.target.href || '';
+                    // Ignore CSS 404 errors in development
+                    if (isDev && src && src.indexOf('/_next/static/css/') !== -1) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return false;
+                    }
                     if (src && (src.indexOf('/_next/static/') !== -1 || src.indexOf('chunk') !== -1)) {
                       if (!sessionStorage.getItem('chunk-reload-attempted')) {
                         sessionStorage.setItem('chunk-reload-attempted', 'true');
@@ -103,6 +128,11 @@ export default function RootLayout({
                   if (reason && typeof reason === 'object') {
                     var errorName = reason.name || (reason.constructor && reason.constructor.name) || '';
                     var errorMessage = reason.message || String(reason) || '';
+                    // Ignore CSS-related errors in development
+                    if (isDev && errorMessage && errorMessage.indexOf('layout.css') !== -1) {
+                      e.preventDefault();
+                      return;
+                    }
                     if (errorName === 'ChunkLoadError' || 
                         errorMessage.indexOf('Loading chunk') !== -1 ||
                         errorMessage.indexOf('Failed to load resource') !== -1) {

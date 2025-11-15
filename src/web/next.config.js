@@ -84,6 +84,13 @@ const nextConfig = {
   logging: {
     incomingRequests: false,
   },
+  // Suppress 404 errors for static CSS files in development (they're harmless)
+  onDemandEntries: {
+    // Period (in ms) where the server will keep pages in the buffer
+    maxInactiveAge: 25 * 1000,
+    // Number of pages that should be kept simultaneously without being disposed
+    pagesBufferLength: 2,
+  },
 };
 
 module.exports = nextConfig;

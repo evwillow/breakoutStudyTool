@@ -87,14 +87,6 @@ export const DataLoading: React.FC<DataLoadingProps> = ({ progress, step, folder
   return (
     <div className="w-full h-[calc(100vh-14rem)] flex flex-col items-center justify-center bg-black gap-4">
       <LoadingSpinner size="lg" />
-      {(progress !== undefined || step) && (
-        <div className="flex flex-col items-center text-center text-sm text-turquoise-200 gap-1">
-          {progress !== undefined && (
-            <span className="font-semibold tracking-wide">{`Loading ${Math.round(progress * 100)}%`}</span>
-          )}
-          {step && <span>{step}</span>}
-        </div>
-      )}
     </div>
   );
 };

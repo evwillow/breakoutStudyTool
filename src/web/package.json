@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "node -r ./load-env.js node_modules/next/dist/bin/next dev",
+    "dev": "node -r ./load-env.js -r ./filter-logs.js node_modules/next/dist/bin/next dev",
     "build": "node -r ./load-env.js node_modules/next/dist/bin/next build",
     "start": "node -r ./load-env.js node_modules/next/dist/bin/next start",
     "lint": "next lint",

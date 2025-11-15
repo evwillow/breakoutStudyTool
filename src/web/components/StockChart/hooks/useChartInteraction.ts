@@ -123,7 +123,19 @@ export const useChartInteraction = ({
         return;
       }
 
-      const stepsBeyond = Math.max(0, Math.round((chartX - selectionStartX) / step));
+      // For D charts, calculate steps from the divider position (where after data actually starts)
+      // For non-D charts, calculate from last data point
+      let stepsBeyond: number;
+      if (isDChart) {
+        // For D charts, the after data starts at the divider position
+        // Calculate how many steps beyond the divider we clicked
+        const dividerPositionPercent = isMobile ? 0.70 : 0.75;
+        const dividerPositionInChart = dimensions.innerWidth * dividerPositionPercent;
+        stepsBeyond = Math.max(0, Math.round((chartX - dividerPositionInChart) / step));
+      } else {
+        stepsBeyond = Math.max(0, Math.round((chartX - selectionStartX) / step));
+      }
+
       const selectedIndex = lastDataIndex + stepsBeyond + 1;
       const price = Math.max(0, scales.priceScale.invert(chartY));
 
