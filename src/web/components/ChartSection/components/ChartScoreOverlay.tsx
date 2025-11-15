@@ -67,6 +67,8 @@ export const ChartScoreOverlay: React.FC<ChartScoreOverlayProps> = ({
             intervalRef.current = null;
           }
           if (!isPausedRef.current && !alwaysPaused && onNextRef.current) {
+            // Dispatch event for tutorial to detect score timer completion
+            window.dispatchEvent(new CustomEvent('tutorial-score-timer-complete'));
             onNextRef.current();
           }
           return 0;

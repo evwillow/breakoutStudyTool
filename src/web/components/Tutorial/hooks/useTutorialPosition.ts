@@ -108,13 +108,23 @@ export function useTutorialPosition(
 
     let targetElement = document.querySelector(currentStep.target);
     if (!targetElement) {
-      console.warn(`[Tutorial Position] Target element not found: ${currentStep.target}`);
+      console.warn(`[Tutorial Position] Target element not found: ${currentStep.target}, step: ${currentStep.id}`);
       // For step 5 (results-feedback), the element might not be ready yet after animation
       // Use center position as fallback - the useEffect will retry when element appears
+      if (currentStep.id === 'results-feedback') {
+        console.log('[Tutorial Position] Step 5 target element not found yet, using center position as fallback');
+        // Don't lock tooltip position yet - allow retry when element appears
+        setTooltipPosition({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
+        setHighlightPosition(null);
+        setSelectableAreaHighlight(null);
+        return;
+      }
       setTooltipPosition({ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' });
       setHighlightPosition(null);
       setSelectableAreaHighlight(null);
       return;
+    } else {
+      console.log(`[Tutorial Position] Target element found for step ${currentStep.id}:`, currentStep.target);
     }
 
     // Special handling for making-selection step
@@ -122,10 +132,22 @@ export function useTutorialPosition(
     if (currentStep.id === 'making-selection') {
       // Check if highlight is locked - if so, selection was made, don't re-set highlight
       if (highlightLockedRef.current) {
-        console.log('[Tutorial Position] Step 4 highlight is locked (selection made), not re-setting selectableAreaHighlight');
-        // Ensure it's cleared
-        setSelectableAreaHighlight(null);
-        setHighlightPosition(null);
+        console.log('[Tutorial Position] Step 4 highlight is locked (selection made), ensuring highlights are cleared');
+        // Ensure it's cleared using functional updates
+        setSelectableAreaHighlight((prev) => {
+          if (prev !== null) {
+            console.log('[Tutorial Position] Clearing selectableAreaHighlight (was locked):', prev);
+            return null;
+          }
+          return prev;
+        });
+        setHighlightPosition((prev) => {
+          if (prev !== null) {
+            console.log('[Tutorial Position] Clearing highlightPosition (was locked):', prev);
+            return null;
+          }
+          return prev;
+        });
       } else {
         const chartContainer = targetElement.closest('[data-tutorial-chart]') || targetElement;
         const chartRect = chartContainer.getBoundingClientRect();
@@ -243,17 +265,15 @@ export function useTutorialPosition(
     // This check happens BEFORE any other logic to prevent any updates
     // This prevents updates from scroll, resize, intervals, or ResizeObserver
     if (highlightLockedRef.current) {
-      console.log('[Tutorial Position] Highlight is locked, skipping update');
-      // Highlight is locked, skip ALL updates - return immediately
-      // But still update tooltip position
-      // Don't return here - continue to tooltip positioning
+      console.log('[Tutorial Position] Highlight is locked, skipping ALL highlight updates');
+      // Highlight is locked, skip ALL updates - don't update highlight at all
+      // Continue to tooltip positioning only
     } else {
       // Additional safety: if skipHighlight is true, never update highlight
       if (skipHighlightUpdateRef.current) {
         console.log('[Tutorial Position] skipHighlight is true, skipping highlight update');
         // Continue to tooltip positioning
       } else {
-    
         // Only update highlight for non-making-selection steps
         if (currentStep.id !== 'making-selection') {
           // Only set highlight if element is actually visible and has valid dimensions
@@ -279,11 +299,25 @@ export function useTutorialPosition(
               height: highlightPos.height,
             };
             
-            // Update highlight and lock it - it will stay fixed after this
-            lastHighlightPositionRef.current = clampedPos;
-            setHighlightPosition(clampedPos);
-            highlightLockedRef.current = true; // Lock after setting position
-            console.log('[Tutorial Position] Highlight locked at position:', clampedPos, 'original:', highlightPos, 'step:', currentStep.id);
+            // Only update if position actually changed (to prevent unnecessary re-renders)
+            const lastPos = lastHighlightPositionRef.current;
+            const positionChanged = !lastPos || 
+              lastPos.top !== clampedPos.top || 
+              lastPos.left !== clampedPos.left || 
+              lastPos.width !== clampedPos.width || 
+              lastPos.height !== clampedPos.height;
+            
+            if (positionChanged) {
+              // Update highlight and lock it - it will stay fixed after this
+              lastHighlightPositionRef.current = clampedPos;
+              setHighlightPosition(clampedPos);
+              highlightLockedRef.current = true; // Lock after setting position
+              console.log('[Tutorial Position] Highlight locked at position:', clampedPos, 'original:', highlightPos, 'step:', currentStep.id);
+            } else {
+              // Position hasn't changed, but lock it anyway to prevent future updates
+              highlightLockedRef.current = true;
+              console.log('[Tutorial Position] Highlight position unchanged, locking to prevent updates');
+            }
           } else {
             // Element not visible, clear highlight
             if (highlightUpdateTimeoutRef.current) {
@@ -291,6 +325,7 @@ export function useTutorialPosition(
             }
             lastHighlightPositionRef.current = null;
             setHighlightPosition(null);
+            // Don't lock when clearing - allow it to be set again if element becomes visible
           }
         }
       }
@@ -449,7 +484,7 @@ export function useTutorialPosition(
       tooltipRight = left + tooltipWidth / 2;
     }
 
-    // AGGRESSIVE clamping to ensure tooltip is FULLY visible in viewport
+    // AGGRESSIVE clamping to ensure tooltip is FULLY visible in viewport with 16px padding
     // Recalculate tooltip bounds after initial positioning
     let finalTooltipTop = tooltipTop;
     let finalTooltipBottom = tooltipBottom;
@@ -459,7 +494,7 @@ export function useTutorialPosition(
     let finalLeft = left;
     let finalTransform = transform;
 
-    // AGGRESSIVE vertical clamping - ensure top >= padding
+    // AGGRESSIVE vertical clamping - ensure top >= padding (16px)
     if (finalTooltipTop < padding) {
       console.log('[Tutorial Position] Tooltip top is above viewport, clamping:', finalTooltipTop, '->', padding);
       finalTop = padding;
@@ -467,9 +502,15 @@ export function useTutorialPosition(
       // Recalculate bounds
       finalTooltipTop = finalTop;
       finalTooltipBottom = finalTop + tooltipHeight;
+      // Double-check bottom is still within bounds
+      if (finalTooltipBottom > viewportHeight - padding) {
+        finalTop = Math.max(padding, viewportHeight - padding - tooltipHeight);
+        finalTooltipTop = finalTop;
+        finalTooltipBottom = finalTop + tooltipHeight;
+      }
     }
 
-    // AGGRESSIVE vertical clamping - ensure bottom <= viewportHeight - padding
+    // AGGRESSIVE vertical clamping - ensure bottom <= viewportHeight - padding (16px)
     if (finalTooltipBottom > viewportHeight - padding) {
       console.log('[Tutorial Position] Tooltip bottom is below viewport, clamping:', finalTooltipBottom, '->', viewportHeight - padding);
       const maxTop = Math.max(padding, viewportHeight - padding - tooltipHeight);
@@ -478,9 +519,15 @@ export function useTutorialPosition(
       // Recalculate bounds
       finalTooltipTop = finalTop;
       finalTooltipBottom = finalTop + tooltipHeight;
+      // Double-check top is still within bounds
+      if (finalTooltipTop < padding) {
+        finalTop = padding;
+        finalTooltipTop = finalTop;
+        finalTooltipBottom = finalTop + tooltipHeight;
+      }
     }
 
-    // AGGRESSIVE horizontal clamping - ensure left >= padding
+    // AGGRESSIVE horizontal clamping - ensure left >= padding (16px)
     if (finalTooltipLeft < padding) {
       console.log('[Tutorial Position] Tooltip left is off-screen, clamping:', finalTooltipLeft, '->', padding);
       if (finalTransform.includes('translate(-50%')) {
@@ -504,9 +551,21 @@ export function useTutorialPosition(
         finalTooltipLeft = finalLeft;
         finalTooltipRight = finalLeft + tooltipWidth;
       }
+      // Double-check right edge is still within bounds
+      if (finalTooltipRight > viewportWidth - padding) {
+        if (finalTransform.includes('translate(-50%')) {
+          finalLeft = viewportWidth - padding - tooltipWidth / 2;
+          finalTooltipLeft = finalLeft - tooltipWidth / 2;
+          finalTooltipRight = finalLeft + tooltipWidth / 2;
+        } else {
+          finalLeft = viewportWidth - padding - tooltipWidth;
+          finalTooltipLeft = finalLeft;
+          finalTooltipRight = finalLeft + tooltipWidth;
+        }
+      }
     }
 
-    // AGGRESSIVE horizontal clamping - ensure right <= viewportWidth - padding
+    // AGGRESSIVE horizontal clamping - ensure right <= viewportWidth - padding (16px)
     if (finalTooltipRight > viewportWidth - padding) {
       console.log('[Tutorial Position] Tooltip right is off-screen, clamping:', finalTooltipRight, '->', viewportWidth - padding);
       if (finalTransform.includes('translate(-50%')) {
@@ -529,6 +588,18 @@ export function useTutorialPosition(
       } else {
         finalTooltipLeft = finalLeft;
         finalTooltipRight = finalLeft + tooltipWidth;
+      }
+      // Double-check left edge is still within bounds
+      if (finalTooltipLeft < padding) {
+        if (finalTransform.includes('translate(-50%')) {
+          finalLeft = padding + tooltipWidth / 2;
+          finalTooltipLeft = finalLeft - tooltipWidth / 2;
+          finalTooltipRight = finalLeft + tooltipWidth / 2;
+        } else {
+          finalLeft = padding;
+          finalTooltipLeft = finalLeft;
+          finalTooltipRight = finalLeft + tooltipWidth;
+        }
       }
     }
 
@@ -668,20 +739,37 @@ export function useTutorialPosition(
     }, 200); // Delay to ensure DOM is fully ready
     
     // For step 5 (results-feedback), the results element might appear after animation
-    // Add an additional retry after a longer delay
+    // Add multiple retries to catch the element when it appears
     let resultsRetryTimeout: NodeJS.Timeout | null = null;
+    let resultsRetryCount = 0;
     if (currentStep?.id === 'results-feedback') {
-      resultsRetryTimeout = setTimeout(() => {
+      console.log('[Tutorial Position] Step 5 detected, setting up retry mechanism for results element');
+      const maxRetries = 10;
+      const retryInterval = 200; // Check every 200ms
+      
+      const retryCheck = () => {
         const resultsElement = document.querySelector('[data-tutorial-results]');
         if (resultsElement) {
-          console.log('[Tutorial Position] Results element found on retry, updating position');
-          // Temporarily unlock tooltip to allow update
+          console.log('[Tutorial Position] Results element found on retry attempt', resultsRetryCount, ', updating position');
+          // Temporarily unlock tooltip and highlight to allow update
           tooltipLockedRef.current = false;
-          updateTooltipPosition(true);
+          highlightLockedRef.current = false;
+          updateTooltipPosition(false); // Allow highlight update
+          resultsRetryCount = 0; // Reset for next time
         } else {
-          console.warn('[Tutorial Position] Results element still not found after retry');
+          resultsRetryCount++;
+          if (resultsRetryCount < maxRetries) {
+            console.log('[Tutorial Position] Results element not found yet, retry', resultsRetryCount, 'of', maxRetries);
+            resultsRetryTimeout = setTimeout(retryCheck, retryInterval);
+          } else {
+            console.warn('[Tutorial Position] Results element still not found after', maxRetries, 'retries');
+            resultsRetryCount = 0; // Reset for next time
+          }
         }
-      }, 600); // Wait a bit longer for results to appear after animation
+      };
+      
+      // Start first retry after a short delay
+      resultsRetryTimeout = setTimeout(retryCheck, retryInterval);
     }
 
     const handleUpdate = (allowHighlight: boolean = false, forceTooltipUpdate: boolean = false) => {
@@ -784,7 +872,10 @@ export function useTutorialPosition(
     return () => {
       clearTimeout(timeoutId);
       clearTimeout(lockTimeout);
-      if (resultsRetryTimeout) clearTimeout(resultsRetryTimeout);
+      if (resultsRetryTimeout) {
+        clearTimeout(resultsRetryTimeout);
+        resultsRetryTimeout = null;
+      }
       if (scrollTimeout) clearTimeout(scrollTimeout);
       if (resizeTimeout) clearTimeout(resizeTimeout);
       window.removeEventListener('scroll', throttledHandleScroll, true);
@@ -807,8 +898,15 @@ export function useTutorialPosition(
   // Expose a function to clear highlight (for step 4 after selection)
   const clearHighlight = useCallback(() => {
     console.log('[Tutorial Position] clearHighlight called - clearing all highlights');
-    setHighlightPosition(null);
-    setSelectableAreaHighlight(null);
+    // Use functional updates to ensure immediate clearing
+    setHighlightPosition((prev) => {
+      console.log('[Tutorial Position] Clearing highlightPosition, previous:', prev);
+      return null;
+    });
+    setSelectableAreaHighlight((prev) => {
+      console.log('[Tutorial Position] Clearing selectableAreaHighlight, previous:', prev);
+      return null;
+    });
     lastHighlightPositionRef.current = null;
     // Keep lock true to prevent any re-updates after clearing
     highlightLockedRef.current = true;
@@ -816,16 +914,27 @@ export function useTutorialPosition(
   }, []);
 
   // Listen for selection made event to clear highlight on step 4
+  // Use the existing currentStepIdRef to avoid stale closures
   useEffect(() => {
     if (!isActive) return;
     
     const handleSelection = () => {
+      // Check current step using ref to avoid stale closure
+      const stepId = currentStepIdRef.current;
       // Only clear if we're on making-selection step
-      if (currentStep?.id === 'making-selection') {
+      if (stepId === 'making-selection') {
         console.log('[Tutorial Position] Selection made event received, clearing highlight for step 4');
+        // Lock highlight immediately to prevent any re-updates
+        highlightLockedRef.current = true;
+        // Clear highlights immediately - use direct state updates for immediate effect
+        setSelectableAreaHighlight(null);
+        setHighlightPosition(null);
+        lastHighlightPositionRef.current = null;
+        console.log('[Tutorial Position] Highlights cleared immediately after selection (direct state update)');
+        // Also call clearHighlight to ensure everything is cleared
         clearHighlight();
       } else {
-        console.log('[Tutorial Position] Selection made event received but not on step 4, current step:', currentStep?.id);
+        console.log('[Tutorial Position] Selection made event received but not on step 4, current step:', stepId);
       }
     };
     
@@ -833,7 +942,7 @@ export function useTutorialPosition(
     return () => {
       window.removeEventListener('tutorial-selection-made', handleSelection, { capture: true });
     };
-  }, [isActive, currentStep?.id, clearHighlight]);
+  }, [isActive, clearHighlight]);
 
   return {
     tooltipPosition,

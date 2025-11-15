@@ -45,12 +45,17 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
     
     const button = nextButtonRef.current;
     const handleClick = (e: MouseEvent) => {
+      console.log('[TutorialStep] Next button clicked via direct listener');
       e.preventDefault();
       e.stopPropagation();
-      e.stopImmediatePropagation();
+      if (e.stopImmediatePropagation) {
+        e.stopImmediatePropagation();
+      }
       if (isLastStep) {
+        console.log('[TutorialStep] Calling onComplete from direct listener');
         onComplete();
       } else {
+        console.log('[TutorialStep] Calling onNext from direct listener');
         onNext();
       }
     };
@@ -286,7 +291,7 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
         visibility: 'visible',
         opacity: 1,
         display: 'block',
-        position: 'fixed !important' as any,
+        position: 'fixed' as const,
         isolation: 'isolate',
       }}
       role="dialog"
@@ -381,10 +386,13 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  console.log('[TutorialStep] Next button clicked, isLastStep:', isLastStep);
                   // Call handlers directly
                   if (isLastStep) {
+                    console.log('[TutorialStep] Calling onComplete');
                     onComplete();
                   } else {
+                    console.log('[TutorialStep] Calling onNext');
                     onNext();
                   }
                 }}
@@ -396,10 +404,16 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-turquoise-600 hover:bg-turquoise-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 cursor-pointer relative z-[10001]"
+                className="px-4 py-2 text-sm font-medium text-white bg-turquoise-600 hover:bg-turquoise-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-turquoise-500 cursor-pointer relative z-[10002]"
                 aria-label={isLastStep ? 'Complete tutorial' : 'Next step'}
                 type="button"
-                style={{ pointerEvents: 'auto', zIndex: 10001, position: 'relative' }}
+                style={{ 
+                  pointerEvents: 'auto', 
+                  zIndex: 10002, 
+                  position: 'relative',
+                  isolation: 'isolate',
+                  touchAction: 'manipulation'
+                }}
               >
                 {isLastStep ? 'Complete' : 'Next'}
               </button>

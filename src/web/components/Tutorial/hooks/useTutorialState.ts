@@ -46,9 +46,20 @@ export function useTutorialState({
   const actionListenersRef = useRef<Map<string, () => void>>(new Map());
   const clickAnywhereTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevActiveRef = useRef<boolean>(false);
+  // Refs for step 4 event tracking (persist across re-renders)
+  const selectionMadeRef = useRef<boolean>(false);
+  const animationCompleteRef = useRef<boolean>(false);
+  // Ref to track current step ID to avoid stale closures in event listeners
+  const currentStepIdRef = useRef<string | undefined>(undefined);
 
   const currentStep = TUTORIAL_STEPS[currentStepIndex];
   const isLastStep = currentStepIndex === TUTORIAL_STEPS.length - 1;
+  
+  // Update step ID ref when step changes
+  useEffect(() => {
+    currentStepIdRef.current = currentStep?.id;
+    console.log('[Tutorial State] Step ID ref updated to:', currentStep?.id);
+  }, [currentStep?.id]);
 
     // Reset tutorial to first step when it becomes active (or when reactivating)
     useEffect(() => {
@@ -62,6 +73,9 @@ export function useTutorialState({
         setShowSkipTooltip(false);
         setIsWaitingForAction(false);
         setHideTooltipOnStep4(false);
+        // Reset event tracking refs
+        selectionMadeRef.current = false;
+        animationCompleteRef.current = false;
         // Clear any pending timeouts
         if (clickAnywhereTimeoutRef.current) {
           clearTimeout(clickAnywhereTimeoutRef.current);
@@ -79,7 +93,13 @@ export function useTutorialState({
     useEffect(() => {
       if (currentStep?.id !== 'making-selection') {
         console.log('[Tutorial State] Step changed away from making-selection, resetting hideTooltipOnStep4. Current step:', currentStep?.id, 'index:', currentStepIndex);
-        setHideTooltipOnStep4(false);
+        setHideTooltipOnStep4((prev) => {
+          if (prev !== false) {
+            console.log('[Tutorial State] Resetting hideTooltipOnStep4 from', prev, 'to false');
+            return false;
+          }
+          return prev;
+        });
       } else {
         console.log('[Tutorial State] On making-selection step, hideTooltipOnStep4:', hideTooltipOnStep4);
       }
@@ -131,33 +151,38 @@ export function useTutorialState({
         console.log('[Tutorial State] handleAction called, moving to next step');
         setIsWaitingForAction(false);
         // Immediately reset hideTooltipOnStep4 so tooltip can show on next step
-        setHideTooltipOnStep4(false);
+        setHideTooltipOnStep4((prev) => {
+          console.log('[Tutorial State] Resetting hideTooltipOnStep4 to false in handleAction, previous:', prev);
+          return false;
+        });
         console.log('[Tutorial State] hideTooltipOnStep4 reset to false in handleAction');
-        setTimeout(() => {
-          // Use functional update to ensure we have the latest step index
-          setCurrentStepIndex((prevIndex) => {
-            const nextIndex = prevIndex + 1;
-            console.log('[Tutorial State] Moving from step', prevIndex, 'to step', nextIndex, 'step id:', TUTORIAL_STEPS[nextIndex]?.id);
-            if (nextIndex < TUTORIAL_STEPS.length) {
-              return nextIndex;
-            } else {
-              // If we're at or past the last step, complete the tutorial
-              console.log('[Tutorial State] Last step reached, completing tutorial');
-              handleComplete();
-              return prevIndex;
-            }
-          });
-        }, 500);
+        // Use functional update to ensure we have the latest step index
+        // Don't use setTimeout - update immediately
+        setCurrentStepIndex((prevIndex) => {
+          const nextIndex = prevIndex + 1;
+          console.log('[Tutorial State] Moving from step', prevIndex, 'to step', nextIndex, 'step id:', TUTORIAL_STEPS[nextIndex]?.id);
+          if (nextIndex < TUTORIAL_STEPS.length) {
+            return nextIndex;
+          } else {
+            // If we're at or past the last step, complete the tutorial
+            console.log('[Tutorial State] Last step reached, completing tutorial');
+            handleComplete();
+            return prevIndex;
+          }
+        });
       };
 
       if (step.waitForAction === 'chart-click') {
         const chart = document.querySelector('[data-tutorial-chart]');
         if (chart) {
-          let selectionMade = false;
-          let animationComplete = false;
+          // Reset refs when setting up listeners for a new step
+          selectionMadeRef.current = false;
+          animationCompleteRef.current = false;
           
           const checkAndProceed = () => {
             // Wait for both selection AND animation to complete before moving to next step
+            const selectionMade = selectionMadeRef.current;
+            const animationComplete = animationCompleteRef.current;
             console.log('[Tutorial State] checkAndProceed called:', {
               selectionMade,
               animationComplete,
@@ -165,6 +190,9 @@ export function useTutorialState({
             });
             if (selectionMade && animationComplete) {
               console.log('[Tutorial State] Both selection and animation complete, proceeding to next step');
+              // Reset refs for next time
+              selectionMadeRef.current = false;
+              animationCompleteRef.current = false;
               handleAction();
             } else {
               console.log('[Tutorial State] Waiting for:', {
@@ -176,8 +204,8 @@ export function useTutorialState({
           
           const selectionListener = () => {
             console.log('[Tutorial State] Selection made on step 4, hiding tooltip');
-            selectionMade = true;
-            // Hide tooltip temporarily so user can see the animation
+            selectionMadeRef.current = true;
+            // Hide tooltip immediately so user can see the animation
             setHideTooltipOnStep4(true);
             console.log('[Tutorial State] hideTooltipOnStep4 set to true');
             // Don't proceed yet - wait for animation
@@ -187,23 +215,44 @@ export function useTutorialState({
           // Listen for after animation complete
           const animationListener = () => {
             console.log('[Tutorial State] After animation complete event received on step 4');
-            animationComplete = true;
-            // Tooltip will show again when we move to step 5 (hideTooltipOnStep4 resets on step change)
-            // But ensure it's reset now so tooltip can show if needed
+            animationCompleteRef.current = true;
+            // Reset hideTooltipOnStep4 BEFORE moving to next step so tooltip can show on step 5
             setHideTooltipOnStep4(false);
             console.log('[Tutorial State] hideTooltipOnStep4 reset to false after animation');
             console.log('[Tutorial State] Calling checkAndProceed after animation complete');
             checkAndProceed();
           };
           
+          // Also listen for score popup timer completion
+          const scoreTimerListener = () => {
+            // Check current step using ref to avoid stale closure
+            const stepId = currentStepIdRef.current;
+            // Only proceed if we're still on step 4 (making-selection)
+            if (stepId !== 'making-selection') {
+              console.log('[Tutorial State] Score timer completed but not on step 4, ignoring. Current step:', stepId);
+              return;
+            }
+            console.log('[Tutorial State] Score popup timer completed on step 4');
+            // Mark animation as complete and check
+            animationCompleteRef.current = true;
+            setHideTooltipOnStep4(false);
+            console.log('[Tutorial State] hideTooltipOnStep4 reset to false after score timer');
+            checkAndProceed();
+          };
+          
           console.log('[Tutorial State] Setting up event listeners for step 4 (chart-click)');
           window.addEventListener('tutorial-selection-made', selectionListener, { capture: true });
           window.addEventListener('tutorial-after-animation-complete', animationListener, { capture: true });
-          console.log('[Tutorial State] Event listeners registered for tutorial-selection-made and tutorial-after-animation-complete');
+          window.addEventListener('tutorial-score-timer-complete', scoreTimerListener, { capture: true });
+          console.log('[Tutorial State] Event listeners registered for tutorial-selection-made, tutorial-after-animation-complete, and tutorial-score-timer-complete');
           
           actionListenersRef.current.set('chart-click', () => {
             window.removeEventListener('tutorial-selection-made', selectionListener, { capture: true });
             window.removeEventListener('tutorial-after-animation-complete', animationListener, { capture: true });
+            window.removeEventListener('tutorial-score-timer-complete', scoreTimerListener, { capture: true });
+            // Reset refs on cleanup
+            selectionMadeRef.current = false;
+            animationCompleteRef.current = false;
           });
 
           clickAnywhereTimeoutRef.current = setTimeout(() => {
@@ -240,17 +289,22 @@ export function useTutorialState({
   }, [isActive, currentStepIndex, handleComplete]);
 
   const handleNext = useCallback(() => {
+    console.log('[Tutorial State] handleNext called, current step index:', currentStepIndex);
     setCurrentStepIndex((prevIndex) => {
       const nextIndex = prevIndex + 1;
+      console.log('[Tutorial State] handleNext: moving from step', prevIndex, 'to step', nextIndex, 'step id:', TUTORIAL_STEPS[nextIndex]?.id);
       if (nextIndex < TUTORIAL_STEPS.length) {
+        // Reset hideTooltipOnStep4 when moving to next step
+        setHideTooltipOnStep4(false);
         return nextIndex;
       } else {
         // If we're at or past the last step, complete the tutorial
+        console.log('[Tutorial State] Last step reached in handleNext, completing tutorial');
         handleComplete();
         return prevIndex;
       }
     });
-  }, [handleComplete]);
+  }, [handleComplete, currentStepIndex]);
 
   const handleSkip = useCallback(() => {
     setShowSkipTooltip(true);

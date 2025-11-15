@@ -66,7 +66,7 @@ export default function Tutorial({
     tutorialState.currentStepIndex
   );
 
-  // Calculate overlay clip-path to exclude chart area
+  // Calculate overlay clip-path to exclude chart area and highlighted elements
   useEffect(() => {
     if (!isActive || !overlayRef.current) {
       if (overlayRef.current) {
@@ -82,58 +82,150 @@ export default function Tutorial({
       // Always use lighter overlay so UI elements remain accessible
       overlayRef.current.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
 
-      const chartElement = document.querySelector('[data-tutorial-chart]');
-      if (!chartElement) {
-        // If no chart found, just use light overlay without clip-path
-        overlayRef.current.style.clipPath = '';
-        overlayRef.current.style.webkitClipPath = '';
-        return;
-      }
-
-      const chartRect = chartElement.getBoundingClientRect();
-      // Check if chart has valid dimensions
-      if (chartRect.width === 0 || chartRect.height === 0) {
-        overlayRef.current.style.clipPath = '';
-        overlayRef.current.style.webkitClipPath = '';
-        return;
-      }
-
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
-      // Calculate percentages for clip-path
-      const leftPct = (chartRect.left / viewportWidth) * 100;
-      const rightPct = (chartRect.right / viewportWidth) * 100;
-      const topPct = (chartRect.top / viewportHeight) * 100;
-      const bottomPct = (chartRect.bottom / viewportHeight) * 100;
+      // Get chart element
+      const chartElement = document.querySelector('[data-tutorial-chart]');
+      const chartRect = chartElement ? chartElement.getBoundingClientRect() : null;
+      
+      // Get highlighted element (if any) - check both data attribute and actual highlight position
+      const highlightElement = document.querySelector('[data-tutorial-highlight]');
+      let highlightRect = highlightElement ? highlightElement.getBoundingClientRect() : null;
+      
+      // Also check if there's a highlight position from the position hook
+      if (!highlightRect && position.highlightPosition) {
+        highlightRect = {
+          top: position.highlightPosition.top,
+          left: position.highlightPosition.left,
+          width: position.highlightPosition.width,
+          height: position.highlightPosition.height,
+          right: position.highlightPosition.left + position.highlightPosition.width,
+          bottom: position.highlightPosition.top + position.highlightPosition.height,
+        } as DOMRect;
+      }
+      
+      // Get target element for current step (if it exists and is not the chart)
+      let targetRect = null;
+      if (tutorialState.currentStep?.target && tutorialState.currentStep.target !== '[data-tutorial-chart]') {
+        const targetElement = document.querySelector(tutorialState.currentStep.target);
+        if (targetElement) {
+          // Include target element even if it's inside chart - we want to exclude it
+          targetRect = targetElement.getBoundingClientRect();
+        }
+      }
+      
+      // Also get selectable area highlight if it exists (for step 4)
+      let selectableAreaRect = null;
+      if (position.selectableAreaHighlight) {
+        selectableAreaRect = {
+          top: position.selectableAreaHighlight.top,
+          left: position.selectableAreaHighlight.left,
+          width: position.selectableAreaHighlight.width,
+          height: position.selectableAreaHighlight.height,
+          right: position.selectableAreaHighlight.left + position.selectableAreaHighlight.width,
+          bottom: position.selectableAreaHighlight.top + position.selectableAreaHighlight.height,
+        } as DOMRect;
+      }
 
-      // Create a polygon that covers everything except the chart area
-      // This creates a "frame" around the chart by going around it
-      // Clamp values to ensure they're within 0-100%
-      const leftPctClamped = Math.max(0, Math.min(100, leftPct));
-      const rightPctClamped = Math.max(0, Math.min(100, rightPct));
-      const topPctClamped = Math.max(0, Math.min(100, topPct));
-      const bottomPctClamped = Math.max(0, Math.min(100, bottomPct));
+      // If no elements to exclude, use full overlay
+      if (!chartRect && !highlightRect && !targetRect && !selectableAreaRect) {
+        overlayRef.current.style.clipPath = '';
+        overlayRef.current.style.webkitClipPath = '';
+        return;
+      }
 
-      const clipPath = `polygon(
-        0% 0%,
-        0% 100%,
-        ${leftPctClamped}% 100%,
-        ${leftPctClamped}% ${bottomPctClamped}%,
-        ${rightPctClamped}% ${bottomPctClamped}%,
-        ${rightPctClamped}% ${topPctClamped}%,
-        ${leftPctClamped}% ${topPctClamped}%,
-        ${leftPctClamped}% 100%,
-        100% 100%,
-        100% 0%
-      )`;
+      // Build exclusion rectangles - include all areas that should not be shaded
+      const exclusions: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+      
+      if (chartRect && chartRect.width > 0 && chartRect.height > 0) {
+        exclusions.push({
+          left: (chartRect.left / viewportWidth) * 100,
+          right: (chartRect.right / viewportWidth) * 100,
+          top: (chartRect.top / viewportHeight) * 100,
+          bottom: (chartRect.bottom / viewportHeight) * 100,
+        });
+      }
+      
+      if (highlightRect && highlightRect.width > 0 && highlightRect.height > 0) {
+        exclusions.push({
+          left: (highlightRect.left / viewportWidth) * 100,
+          right: (highlightRect.right / viewportWidth) * 100,
+          top: (highlightRect.top / viewportHeight) * 100,
+          bottom: (highlightRect.bottom / viewportHeight) * 100,
+        });
+      }
+      
+      if (selectableAreaRect && selectableAreaRect.width > 0 && selectableAreaRect.height > 0) {
+        exclusions.push({
+          left: (selectableAreaRect.left / viewportWidth) * 100,
+          right: (selectableAreaRect.right / viewportWidth) * 100,
+          top: (selectableAreaRect.top / viewportHeight) * 100,
+          bottom: (selectableAreaRect.bottom / viewportHeight) * 100,
+        });
+      }
+      
+      if (targetRect && targetRect.width > 0 && targetRect.height > 0) {
+        // Always add target element - it should not be shaded
+        exclusions.push({
+          left: (targetRect.left / viewportWidth) * 100,
+          right: (targetRect.right / viewportWidth) * 100,
+          top: (targetRect.top / viewportHeight) * 100,
+          bottom: (targetRect.bottom / viewportHeight) * 100,
+        });
+      }
 
-      overlayRef.current.style.clipPath = clipPath;
-      overlayRef.current.style.webkitClipPath = clipPath;
+      // Calculate a bounding box that includes all exclusions
+      if (exclusions.length > 0) {
+        let minLeft = 100;
+        let maxRight = 0;
+        let minTop = 100;
+        let maxBottom = 0;
+        
+        exclusions.forEach(ex => {
+          minLeft = Math.min(minLeft, ex.left);
+          maxRight = Math.max(maxRight, ex.right);
+          minTop = Math.min(minTop, ex.top);
+          maxBottom = Math.max(maxBottom, ex.bottom);
+        });
+        
+        // Clamp values
+        const leftPctClamped = Math.max(0, Math.min(100, minLeft));
+        const rightPctClamped = Math.max(0, Math.min(100, maxRight));
+        const topPctClamped = Math.max(0, Math.min(100, minTop));
+        const bottomPctClamped = Math.max(0, Math.min(100, maxBottom));
+
+        // Create clip-path that excludes the bounding box
+        const clipPath = `polygon(
+          0% 0%,
+          0% 100%,
+          ${leftPctClamped}% 100%,
+          ${leftPctClamped}% ${bottomPctClamped}%,
+          ${rightPctClamped}% ${bottomPctClamped}%,
+          ${rightPctClamped}% ${topPctClamped}%,
+          ${leftPctClamped}% ${topPctClamped}%,
+          ${leftPctClamped}% 100%,
+          100% 100%,
+          100% 0%
+        )`;
+
+        overlayRef.current.style.clipPath = clipPath;
+        overlayRef.current.style.webkitClipPath = clipPath;
+      } else {
+        overlayRef.current.style.clipPath = '';
+        overlayRef.current.style.webkitClipPath = '';
+      }
     };
     
-    // Small delay to ensure chart is rendered
+    // Small delay to ensure elements are rendered
     const timeoutId = setTimeout(updateOverlayMask, 100);
+    
+    // Update overlay when highlight position changes
+    const highlightObserver = new MutationObserver(updateOverlayMask);
+    const highlightElement = document.querySelector('[data-tutorial-highlight]');
+    if (highlightElement) {
+      highlightObserver.observe(highlightElement, { attributes: true, attributeFilter: ['style'] });
+    }
     
     const resizeObserver = new ResizeObserver(updateOverlayMask);
     const chartElement = document.querySelector('[data-tutorial-chart]');
@@ -141,11 +233,24 @@ export default function Tutorial({
       resizeObserver.observe(chartElement);
     }
     
+    // Also observe target elements if they exist
+    if (tutorialState.currentStep?.target) {
+      const targetElement = document.querySelector(tutorialState.currentStep.target);
+      if (targetElement && !targetElement.closest('[data-tutorial-chart]')) {
+        resizeObserver.observe(targetElement);
+      }
+    }
+    
     window.addEventListener('resize', updateOverlayMask);
     window.addEventListener('scroll', updateOverlayMask, true);
     
+    // Update overlay when position changes
+    const positionCheckInterval = setInterval(updateOverlayMask, 200);
+    
     return () => {
       clearTimeout(timeoutId);
+      clearInterval(positionCheckInterval);
+      highlightObserver.disconnect();
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateOverlayMask);
       window.removeEventListener('scroll', updateOverlayMask, true);
@@ -154,7 +259,7 @@ export default function Tutorial({
         overlayRef.current.style.webkitClipPath = '';
       }
     };
-  }, [isActive, tutorialState.currentStepIndex]);
+    }, [isActive, tutorialState.currentStepIndex, tutorialState.currentStep?.target, position.highlightPosition, position.selectableAreaHighlight]);
 
   // Handle keyboard navigation
   useEffect(() => {
