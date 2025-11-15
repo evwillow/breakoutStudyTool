@@ -165,10 +165,17 @@ const StockChart = React.memo<StockChartProps>(({
   
   const DIVIDER_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
   
-  if (scales && dimensions && stockData.length > 0 && afterStockData.length > 0) {
+  // Always calculate divider line position at the correct percentage, even when there's no after data
+  // This ensures the gray dotted line appears in the correct position
+  if (scales && dimensions && stockData.length > 0) {
     dividerLineX = dimensions.margin.left + (dimensions.innerWidth * DIVIDER_POSITION_PERCENT);
     
-    darkBackgroundWidth = dimensions.width - dividerLineX;
+    // Only calculate dark background width if there's after data to show
+    if (afterStockData.length > 0) {
+      darkBackgroundWidth = dimensions.width - dividerLineX;
+    } else {
+      darkBackgroundWidth = 0;
+    }
   } else {
     dividerLineX = 0;
     darkBackgroundWidth = 0;
