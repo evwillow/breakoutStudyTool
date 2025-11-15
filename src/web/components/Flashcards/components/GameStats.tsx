@@ -43,7 +43,8 @@ const GameStats: React.FC<GameStatsProps> = ({
         )}
       </div>
 
-      <div className="flex flex-col gap-2 w-full">
+      {/* Accuracy - hidden on mobile, shown on desktop */}
+      <div className="hidden lg:flex flex-col gap-2 w-full">
         <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
           <span className="text-sm font-medium text-white/90">Avg. Accuracy:</span>
           <span className="text-base font-semibold text-white">{accuracy}%</span>

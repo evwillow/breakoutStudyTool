@@ -194,7 +194,16 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): After
 
 export function extractPointsTextArray(flashcardData: FlashcardData | null): string[] {
   if (!flashcardData?.jsonFiles) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[extractPointsTextArray] No flashcardData or jsonFiles');
+    }
     return [];
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[extractPointsTextArray] Looking for points.json in files:',
+      flashcardData.jsonFiles.map(f => f.fileName)
+    );
   }
 
   // Find points.json file with robust matching (similar to extractAfterJsonData)
@@ -230,7 +239,22 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
   }
 
   if (!pointsFile || !pointsFile.data) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[extractPointsTextArray] points.json file not found or has no data', {
+        pointsFileFound: !!pointsFile,
+        hasData: pointsFile ? !!pointsFile.data : false
+      });
+    }
     return [];
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[extractPointsTextArray] Found points.json:', {
+      fileName: pointsFile.fileName,
+      dataType: typeof pointsFile.data,
+      isArray: Array.isArray(pointsFile.data),
+      dataPreview: pointsFile.data
+    });
   }
 
   try {
@@ -250,7 +274,7 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
     }
 
     if (Array.isArray(jsonData)) {
-      return jsonData
+      const result = jsonData
         .map(item => {
           if (typeof item === 'string') {
             return item.trim();
@@ -264,11 +288,11 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
               (item as PointsTextItem).label ||
               (item as PointsTextItem).name ||
               (item as PointsTextItem).value;
-            
+
             if (typeof pointsValue === 'string') {
               return pointsValue.trim();
             }
-            
+
             // If object has only one key, use that value
             const keys = Object.keys(item);
             if (keys.length === 1) {
@@ -281,16 +305,35 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
           return null;
         })
         .filter((item): item is string => Boolean(item) && item.length > 0);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[extractPointsTextArray] Processed array result:', {
+          resultLength: result.length,
+          result: result
+        });
+      }
+
+      return result;
     }
 
     // Handle single string value
     if (typeof jsonData === 'string') {
-      return [jsonData.trim()].filter(Boolean);
+      const result = [jsonData.trim()].filter(Boolean);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[extractPointsTextArray] Processed string result:', result);
+      }
+
+      return result;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[extractPointsTextArray] Data is neither array nor string, returning empty array');
     }
 
     return [];
   } catch (error) {
-    console.error('Error processing points.json:', error);
+    console.error('[extractPointsTextArray] Error processing points.json:', error);
     return [];
   }
 }

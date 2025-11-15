@@ -823,8 +823,9 @@ export const useDataLoader = ({
         const quickBatch: FlashcardFolderFile[] = [];
         const stocksLoaded = new Set<string>();
         // CRITICAL: after.json is ESSENTIAL for chart selections to work (contains target point)
-        const essentialFileNamesLower = new Set(["d.json", "m.json", "after.json"]);
-        const optionalPriorityLower = new Set(["points.json"]);
+        // CRITICAL: points.json is ESSENTIAL for displaying teaching points
+        const essentialFileNamesLower = new Set(["d.json", "m.json", "after.json", "points.json"]);
+        const optionalPriorityLower = new Set([]);
         const afterFileNameLower = "after.json";
 
         for (const stockDir of stockOrder) {
@@ -840,8 +841,9 @@ export const useDataLoader = ({
             addedForStock = true;
           };
 
-          // ONLY load essential files (D.json, M.json, after.json) for initial batch
+          // Load essential files (D.json, M.json, after.json, points.json) for initial batch
           // after.json is required for target point calculation and chart selections
+          // points.json is required for displaying teaching points
           stockFiles
             .filter(file => {
               const lastPart = (file.fileName.split("/").pop() || file.fileName).toLowerCase();
@@ -849,8 +851,7 @@ export const useDataLoader = ({
             })
             .forEach(tryAddFile);
 
-          // Skip points and date files for initial load - they'll be loaded in background
-          // This reduces initial load from ~6 files per stock to ~3 files per stock
+          // Skip date files for initial load - they'll be loaded in background if needed
 
           if (addedForStock) {
             stocksLoaded.add(stockDir);

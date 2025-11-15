@@ -99,6 +99,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
 
         <div className="flex flex-col items-start gap-3 flex-1 lg:flex-none lg:w-full min-w-0 basis-1/2 lg:basis-auto">
+          {/* Accuracy - shown on mobile, hidden on desktop (where it's in GameStats) */}
+          <div className="flex lg:hidden items-center gap-2 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
+            <span className="text-sm font-medium text-white/90">Avg. Accuracy:</span>
+            <span className="text-base font-semibold text-white">{accuracy}%</span>
+          </div>
+
           <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-md border border-white/30 w-full min-w-0">
             <button
               onClick={onRoundHistory}
