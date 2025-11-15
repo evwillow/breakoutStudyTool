@@ -9,6 +9,7 @@ import type {
   ChartClickHandler,
   ChartDimensions,
   ChartScales,
+  ChartType,
   ContainerRef,
   DragStartPos,
   ProcessedStockDataPoint
@@ -27,6 +28,8 @@ interface UseChartInteractionParams {
   isMobile: boolean;
   onChartClick: ChartClickHandler | null;
   disabled: boolean;
+  chartType?: ChartType;
+  dividerLineX?: number;
 }
 
 interface UseChartInteractionResult {
@@ -51,7 +54,9 @@ export const useChartInteraction = ({
   stockData,
   isMobile,
   onChartClick,
-  disabled
+  disabled,
+  chartType = 'default',
+  dividerLineX
 }: UseChartInteractionParams): UseChartInteractionResult => {
   const handleChartClick = useCallback(
     (event: ReactMouseEvent<SVGSVGElement>): void => {
@@ -82,23 +87,43 @@ export const useChartInteraction = ({
       const chartX = svgPoint.x - (dimensions.margin.left || 0);
       const chartY = svgPoint.y - (dimensions.margin.top || 0);
 
+      const isDChart = chartType === "default" || chartType === "D";
       const lastDataIndex = stockData.length - 1;
-      const lastDataCenterX = scales.xScale(lastDataIndex);
-      if (lastDataCenterX === undefined) return;
       const step = scales.xScale.step();
-      const lastDataRightEdge = lastDataCenterX + step / 2;
 
-      if (chartX <= lastDataRightEdge) {
+      console.log('[handleChartClick] Chart type:', chartType, 'isDChart:', isDChart);
+
+      let selectionStartX: number;
+
+      // For D charts, use the divider line position
+      if (isDChart) {
+        // Calculate divider position from dimensions
+        const dividerPositionPercent = isMobile ? 0.70 : 0.75;
+        const dividerPositionInChart = dimensions.innerWidth * dividerPositionPercent;
+        const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
+        selectionStartX = dividerPositionInChart + step * borderLineOffsetForCursor;
+
+        console.log('[handleChartClick] D Chart - innerWidth:', dimensions.innerWidth, 'dividerPercent:', dividerPositionPercent, 'dividerPosition:', dividerPositionInChart, 'step:', step, 'selectionStartX:', selectionStartX);
+      } else {
+        // For non-D charts, use the last data point position
+        const lastDataCenterX = scales.xScale(lastDataIndex);
+        if (lastDataCenterX === undefined) return;
+        selectionStartX = lastDataCenterX + step / 2;
+      }
+
+      console.log('[handleChartClick] chartX:', chartX, 'selectionStartX:', selectionStartX, 'isInSelectableArea:', chartX > selectionStartX);
+
+      if (chartX <= selectionStartX) {
         console.log(
           "Selection must be after the last data point. Clicked at:",
           chartX,
-          "Last data right edge at:",
-          lastDataRightEdge
+          "Selection start at:",
+          selectionStartX
         );
         return;
       }
 
-      const stepsBeyond = Math.max(0, Math.round((chartX - lastDataRightEdge) / step));
+      const stepsBeyond = Math.max(0, Math.round((chartX - selectionStartX) / step));
       const selectedIndex = lastDataIndex + stepsBeyond + 1;
       const price = Math.max(0, scales.priceScale.invert(chartY));
 
@@ -112,7 +137,7 @@ export const useChartInteraction = ({
       });
       console.log("Selection coordinates passed to parent handler");
     },
-    [onChartClick, disabled, scales, dimensions, stockData, svgRef]
+    [onChartClick, disabled, scales, dimensions, stockData, svgRef, chartType, isMobile]
   );
 
   useEffect(() => {
@@ -124,8 +149,26 @@ export const useChartInteraction = ({
 
   const isInSelectableArea = useCallback(
     (chartX: number): boolean => {
-      if (!scales || stockData.length === 0) return false;
+      if (!scales || stockData.length === 0 || !dimensions) return false;
 
+      const isDChart = chartType === "default" || chartType === "D";
+
+      // For D charts, use the divider line position
+      if (isDChart) {
+        // Calculate divider position from dimensions if dividerLineX is not valid
+        const dividerPositionPercent = isMobile ? 0.70 : 0.75;
+        const dividerPositionInChart = dimensions.innerWidth * dividerPositionPercent;
+        // Selectable area starts at the divider line (with a small offset for cursor)
+        const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
+        const step = scales.xScale.step();
+        const selectableAreaStart = dividerPositionInChart + step * borderLineOffsetForCursor;
+
+        console.log('[isInSelectableArea] D Chart - chartX:', chartX, 'selectableAreaStart:', selectableAreaStart, 'dividerPositionInChart:', dividerPositionInChart, 'step:', step);
+
+        return chartX > selectableAreaStart;
+      }
+
+      // For non-D charts, use the last data point position
       const lastDataIndex = stockData.length - 1;
       const lastDataCenterX = scales.xScale(lastDataIndex);
       if (lastDataCenterX === undefined) return false;
@@ -136,7 +179,7 @@ export const useChartInteraction = ({
 
       return chartX > lastDataRightEdge;
     },
-    [scales, stockData, isMobile]
+    [scales, stockData, isMobile, chartType, dimensions]
   );
 
   const handleMouseDown = useCallback(
@@ -194,15 +237,30 @@ export const useChartInteraction = ({
           if (!svgPoint) return;
 
           const chartX = svgPoint.x - (dimensions.margin.left || 0);
-          const lastDataIndex = stockData.length - 1;
-          const lastDataCenterX = scales.xScale(lastDataIndex);
-          if (lastDataCenterX === undefined) return;
-          const step = scales.xScale.step();
-          // Reduced offset - selectable area starts just after the last candlestick
-          const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
-          const lastDataRightEdge = lastDataCenterX + step / 2 + step * borderLineOffsetForCursor;
+          
+          // Use the same logic as isInSelectableArea to determine cursor
+          const isDChart = chartType === "default" || chartType === "D";
+          let isSelectable = false;
+          
+          if (isDChart) {
+            // Calculate divider position from dimensions
+            const dividerPositionPercent = isMobile ? 0.70 : 0.75;
+            const dividerPositionInChart = dimensions.innerWidth * dividerPositionPercent;
+            const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
+            const step = scales.xScale.step();
+            const selectableAreaStart = dividerPositionInChart + step * borderLineOffsetForCursor;
+            isSelectable = chartX > selectableAreaStart;
+          } else {
+            const lastDataIndex = stockData.length - 1;
+            const lastDataCenterX = scales.xScale(lastDataIndex);
+            if (lastDataCenterX === undefined) return;
+            const step = scales.xScale.step();
+            const borderLineOffsetForCursor = isMobile ? 0.1 : 0.2;
+            const lastDataRightEdge = lastDataCenterX + step / 2 + step * borderLineOffsetForCursor;
+            isSelectable = chartX > lastDataRightEdge;
+          }
 
-          if (chartX <= lastDataRightEdge) {
+          if (!isSelectable) {
             svgRef.current.style.cursor = "not-allowed";
           } else {
             svgRef.current.style.cursor = "crosshair";
@@ -217,7 +275,7 @@ export const useChartInteraction = ({
         return;
       }
     },
-    [onChartClick, disabled, scales, stockData, svgRef, dimensions, isMobile, isDraggingRef, isInSelectableAreaRef]
+    [onChartClick, disabled, scales, stockData, svgRef, dimensions, isMobile, isDraggingRef, isInSelectableAreaRef, chartType]
   );
 
   const handleMouseUp = useCallback((): void => {

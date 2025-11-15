@@ -126,6 +126,12 @@ const StockChart = React.memo<StockChartProps>(({
     chartType
   });
 
+  // Calculate divider line position early so we can pass it to useChartInteraction
+  const DIVIDER_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
+  const dividerLineX = dimensions 
+    ? dimensions.margin.left + (dimensions.innerWidth * DIVIDER_POSITION_PERCENT)
+    : 0;
+
   const {
     handleChartClick,
     handleMouseDown,
@@ -146,7 +152,9 @@ const StockChart = React.memo<StockChartProps>(({
     stockData,
     isMobile,
     onChartClick,
-    disabled
+    disabled,
+    chartType,
+    dividerLineX
   });
 
   // Early return check AFTER all hooks
@@ -157,29 +165,12 @@ const StockChart = React.memo<StockChartProps>(({
 
   const shouldShowDividerAndBackground = (zoomPercentage > 0 && afterStockData.length > 0) || shouldShowBackground;
   
-  // Calculate divider line position - FIXED POSITION on screen (always same position)
-  // Use a fixed percentage of container width to ensure divider stays in same screen position
-  // This matches the dashed separator line position for consistency
-  let dividerLineX: number;
-  let darkBackgroundWidth: number;
+  // dividerLineX is already calculated above for useChartInteraction
   
-  const DIVIDER_POSITION_PERCENT = isMobile ? 0.70 : 0.75; // Mobile: 70%, Desktop: 75%
-  
-  // Always calculate divider line position at the correct percentage, even when there's no after data
-  // This ensures the gray dotted line appears in the correct position
-  if (scales && dimensions && stockData.length > 0) {
-    dividerLineX = dimensions.margin.left + (dimensions.innerWidth * DIVIDER_POSITION_PERCENT);
-    
-    // Only calculate dark background width if there's after data to show
-    if (afterStockData.length > 0) {
-      darkBackgroundWidth = dimensions.width - dividerLineX;
-    } else {
-      darkBackgroundWidth = 0;
-    }
-  } else {
-    dividerLineX = 0;
-    darkBackgroundWidth = 0;
-  }
+  // Only calculate dark background width if there's after data to show
+  const darkBackgroundWidth = afterStockData.length > 0 
+    ? dimensions.width - dividerLineX 
+    : 0;
   
   const getProgressiveMaskWidth = (): number => {
     if (!showAfterAnimation || progressPercentage >= 100) return 0;
