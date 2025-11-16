@@ -20,8 +20,8 @@ export async function GET(_req: NextRequest) {
   try {
     const analytics = await getAnalyticsApiPayload();
     return success(analytics);
-  } catch (error) {
-    console.error('Analytics API error:', error);
+  } catch (err) {
+    console.error('Analytics API error:', err);
     return error('Failed to fetch analytics data', 500);
   }
 }

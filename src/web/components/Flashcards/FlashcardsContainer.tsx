@@ -42,7 +42,8 @@ import { useMatchLogging } from "./hooks/useMatchLogging";
 import { useTargetPoint } from "./hooks/useTargetPoint";
 
 // Utils
-import { processFlashcardData, extractStockName, FlashcardData } from "./utils/dataProcessors";
+import { processFlashcardData, extractStockName } from "./utils/dataProcessors";
+import type { FlashcardData } from '@breakout-study-tool/shared';
 import { UI_CONFIG, TIMER_CONFIG } from "./constants";
 import { SCORING_CONFIG } from "@/config/game.config";
 

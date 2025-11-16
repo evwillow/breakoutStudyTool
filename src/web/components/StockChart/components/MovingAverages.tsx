@@ -54,7 +54,7 @@ const MovingAverages: React.FC<MovingAveragesProps> = ({
     lineGenerator: Line<ProcessedStockDataPoint> | null,
     data: ProcessedStockDataPoint[],
     color: string
-  ): JSX.Element | null => {
+  ): React.ReactElement | null => {
     if (!lineGenerator) return null;
 
     try {
@@ -90,14 +90,14 @@ const MovingAverages: React.FC<MovingAveragesProps> = ({
         <>
           {renderLine(sma10Line, combinedData, CHART_CONFIG.COLORS.SMA10)}
           {renderLine(sma20Line, combinedData, CHART_CONFIG.COLORS.SMA20)}
-          {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, combinedData, CHART_CONFIG.COLORS.SMA50)}
+          {renderLine(sma50Line, combinedData, CHART_CONFIG.COLORS.SMA50)}
         </>
       ) : (
         // For other chart types, render main and after lines separately
         <>
           {renderLine(sma10Line, stockData, CHART_CONFIG.COLORS.SMA10)}
           {renderLine(sma20Line, stockData, CHART_CONFIG.COLORS.SMA20)}
-          {chartType !== "hourly" && chartType !== "H" && renderLine(sma50Line, stockData, CHART_CONFIG.COLORS.SMA50)}
+          {renderLine(sma50Line, stockData, CHART_CONFIG.COLORS.SMA50)}
 
           {((scales.isZoomedOut && (showAfterAnimation || afterAnimationComplete))) &&
             visibleAfterData.length > 0 &&
@@ -107,7 +107,7 @@ const MovingAverages: React.FC<MovingAveragesProps> = ({
               <>
                 {renderLine(afterSma10Line, visibleAfterData, CHART_CONFIG.COLORS.SMA10)}
                 {renderLine(afterSma20Line, visibleAfterData, CHART_CONFIG.COLORS.SMA20)}
-                {chartType !== "hourly" && chartType !== "H" && renderLine(afterSma50Line, visibleAfterData, CHART_CONFIG.COLORS.SMA50)}
+                {renderLine(afterSma50Line, visibleAfterData, CHART_CONFIG.COLORS.SMA50)}
               </>
             )}
         </>

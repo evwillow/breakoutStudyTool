@@ -32,6 +32,7 @@ describe('API: /api/game/rounds', () => {
         dataset_name: 'test-dataset',
         user_id: 'user-123',
         created_at: new Date().toISOString(),
+        completed: false,
       };
 
       vi.mocked(roundManager.createRound).mockResolvedValue(mockRound);
@@ -91,13 +92,17 @@ describe('API: /api/game/rounds', () => {
           id: 'round-1',
           name: 'Round 1',
           dataset_name: 'dataset-1',
+          user_id: 'user-123',
           created_at: new Date().toISOString(),
+          completed: false,
         },
         {
           id: 'round-2',
           name: 'Round 2',
           dataset_name: 'dataset-2',
+          user_id: 'user-123',
           created_at: new Date().toISOString(),
+          completed: false,
         },
       ];
 

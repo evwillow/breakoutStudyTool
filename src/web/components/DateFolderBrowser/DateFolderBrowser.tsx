@@ -28,7 +28,7 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
       if (!fileData[fileId] && !loadingId) {
         setLoadingId(fileId);
         await loadFileData(fileId);
-        setLoadedFileIds(prev => new Set([...prev, fileId]));
+        setLoadedFileIds(prev => new Set(Array.from(prev).concat([fileId])));
         setLoadingId(prev => (prev === fileId ? null : prev));
       }
     },

@@ -15,7 +15,14 @@ import SignInForm from './SignInForm';
 import SignUpForm from './SignUpForm';
 
 // Lazy load hCaptcha to improve initial bundle size
-const HCaptcha = React.lazy(() => import('@hcaptcha/react-hcaptcha'));
+const HCaptchaLazy = React.lazy(() => import('@hcaptcha/react-hcaptcha'));
+// Type cast to match SignUpForm's expected interface
+const HCaptcha = HCaptchaLazy as React.ComponentType<{
+  sitekey: string;
+  onVerify: (token: string) => void;
+  onExpire: () => void;
+  onError: () => void;
+}>;
 
 interface SystemStatus {
   state: 'ready' | 'monitoring';

@@ -51,7 +51,7 @@ export const FolderItem: React.FC<FolderItemProps> = ({
           </div>
         )}
 
-        {!isLoading && data && (
+        {!isLoading && data !== null && data !== undefined && (
           <div className="h-[360px] w-full overflow-hidden">
             <StockChart
               data={

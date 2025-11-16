@@ -5,4 +5,4 @@
  */
 
 export { default } from "./StockChart";
-export * from "./types";
+export * from "./StockChart.types";

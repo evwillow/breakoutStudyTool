@@ -22,7 +22,15 @@ interface FetchOptions extends RequestInit {
 /**
  * Enhanced fetch function with error handling, retries, and timeout
  */
-export async function fetcher<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+interface FetcherOptions extends RequestInit {
+  timeout?: number;
+  retries?: number;
+  retryDelay?: number;
+  retryBackoff?: boolean;
+  skipNetworkCheck?: boolean;
+}
+
+export async function fetcher<T>(input: RequestInfo, init?: FetcherOptions): Promise<T> {
   const {
     timeout = 10000,            // 10 second timeout by default
     retries = 3,                // Retry 3 times by default

@@ -17,7 +17,7 @@ import {
 interface UseChartMagnifierTouchProps {
   enabled: boolean;
   isMobile: boolean;
-  magnifierRef: React.RefObject<HTMLDivElement>;
+  magnifierRef: React.RefObject<HTMLDivElement | null>;
   chartElement: HTMLElement | null;
   selectionBounds: SelectionBounds | null;
   mainDataLength: number;
@@ -385,6 +385,7 @@ export function useChartMagnifierTouch({
     isDraggingMagnifierWidget,
     setIsDragging,
     setIsDraggingMagnifierWidget,
+    makeSelection,
   };
 }
 

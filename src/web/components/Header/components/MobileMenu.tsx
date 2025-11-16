@@ -18,14 +18,14 @@ export interface MobileMenuProps {
   session: { user?: { name?: string; email?: string } } | null;
   pendingSignOut: boolean;
   headerHeight: number;
-  headerRef: React.RefObject<HTMLElement>;
+  headerRef: React.RefObject<HTMLElement | null>;
   onScrollTo: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void;
   onSignOut: () => void;
   onSignIn: () => void;
   onSignUp: () => void;
-  mobileMenuRef: React.RefObject<HTMLDivElement>;
-  mobileMenuPanelRef: React.RefObject<HTMLDivElement>;
-  mobileMenuButtonsRef: React.RefObject<HTMLDivElement>;
+  mobileMenuRef: React.RefObject<HTMLDivElement | null>;
+  mobileMenuPanelRef: React.RefObject<HTMLDivElement | null>;
+  mobileMenuButtonsRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const MobileMenu: React.FC<MobileMenuProps> = ({

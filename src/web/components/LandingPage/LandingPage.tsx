@@ -338,7 +338,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
 
       {/* Footer removed - global footer is rendered in layout */}
       {showAuth && (
-        <AuthModal open={showAuth} onClose={() => setShowAuth(false)} initialMode={"SIGNUP"} />
+        <AuthModal open={showAuth} onClose={() => setShowAuth(false)} initialMode={"signup"} />
       )}
     </div>
   );

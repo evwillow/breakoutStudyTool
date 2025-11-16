@@ -1,7 +1,9 @@
 import type { Session } from "next-auth";
-import type { SessionStatus } from "next-auth/react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { FlashcardData } from "../utils/dataProcessors";
+import type { FlashcardData } from '@breakout-study-tool/shared';
+
+// SessionStatus type - matches next-auth/react status
+export type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 export interface FlashcardFolderFile {
   fileName: string;

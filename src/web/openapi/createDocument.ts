@@ -3,7 +3,7 @@
  * @module src/web/openapi/createDocument.ts
  * @dependencies openapi3-ts
  */
-import { OpenAPIObject } from "openapi3-ts";
+import type { OpenAPIObject } from "openapi3-ts/oas31";
 
 export type DocumentOptions = {
   paths?: OpenAPIObject["paths"];

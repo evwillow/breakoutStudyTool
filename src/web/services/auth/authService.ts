@@ -32,9 +32,10 @@ export async function signInWithProvider(
   options: Record<string, unknown> = {},
   updateSession?: (() => Promise<unknown>) | null
 ) {
+  const redirect = typeof options.redirect === 'boolean' ? options.redirect : true;
   const finalOptions = {
-    redirect: options.redirect ?? true,
     ...options,
+    redirect,
   };
 
   const result = await signIn(provider, finalOptions);

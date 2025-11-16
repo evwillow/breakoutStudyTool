@@ -3,7 +3,7 @@
  * @module src/web/app/api/_shared/clients/supabase.ts
  * @dependencies @supabase/supabase-js, @/lib/utils/logger
  */
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { logger } from "@/lib/utils/logger";
 
 // Lazy env resolution to avoid crashing at import time

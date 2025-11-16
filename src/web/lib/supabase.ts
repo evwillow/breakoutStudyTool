@@ -85,6 +85,11 @@ export const getServerSupabaseClient = (): SupabaseClient => {
       throw new Error("SUPABASE_SERVICE_ROLE_KEY required for server operations");
     }
 
+    // At this point, supabaseUrl and serviceKey are guaranteed to be strings
+    if (!supabaseUrl) {
+      throw new Error("NEXT_PUBLIC_SUPABASE_URL is required");
+    }
+
     serverClient = createClient(supabaseUrl, serviceKey, {
       auth: {
         autoRefreshToken: false,
@@ -132,6 +137,11 @@ export const getClientSupabaseClient = (): SupabaseClient => {
         });
       }
       throw new Error(`No Supabase key available for client operations. Missing: ${envName}`);
+    }
+
+    // At this point, supabaseUrl and key are guaranteed to be strings
+    if (!supabaseUrl) {
+      throw new Error("NEXT_PUBLIC_SUPABASE_URL is required");
     }
 
     clientClient = createClient(supabaseUrl, key, {

@@ -37,13 +37,14 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
   }
   
   // Ensure jsonFiles exists and is an array
-  if (!flashcardData.jsonFiles || !Array.isArray(flashcardData.jsonFiles)) {
+  const { jsonFiles } = flashcardData;
+  if (!jsonFiles || !Array.isArray(jsonFiles)) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[extractOrderedFiles] No jsonFiles in flashcardData', {
         hasFlashcardData: !!flashcardData,
-        jsonFilesLength: flashcardData?.jsonFiles?.length,
-        jsonFilesType: typeof flashcardData?.jsonFiles,
-        flashcardKeys: flashcardData ? Object.keys(flashcardData) : [],
+        jsonFilesLength: (jsonFiles as any)?.length,
+        jsonFilesType: typeof jsonFiles,
+        flashcardKeys: Object.keys(flashcardData),
       });
     }
     return [];
@@ -52,7 +53,7 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
   try {
     const files = new Map<string, FlashcardFile>();
 
-    for (const file of flashcardData.jsonFiles) {
+    for (const file of jsonFiles) {
       // Log all files for debugging
       if (process.env.NODE_ENV === 'development') {
         console.log('[extractOrderedFiles] Processing file', {
@@ -281,13 +282,14 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
           }
           if (typeof item === 'object' && item !== null) {
             // Try multiple property names
+            const objItem = item as Record<string, unknown>;
             const pointsValue =
-              (item as PointsTextItem).points ||
-              (item as PointsTextItem).point ||
-              (item as PointsTextItem).text ||
-              (item as PointsTextItem).label ||
-              (item as PointsTextItem).name ||
-              (item as PointsTextItem).value;
+              objItem.points ||
+              objItem.point ||
+              objItem.text ||
+              objItem.label ||
+              objItem.name ||
+              objItem.value;
 
             if (typeof pointsValue === 'string') {
               return pointsValue.trim();
@@ -304,7 +306,7 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
           }
           return null;
         })
-        .filter((item): item is string => Boolean(item) && item.length > 0);
+        .filter((item): item is string => typeof item === 'string' && item.length > 0);
 
       if (process.env.NODE_ENV === 'development') {
         console.log('[extractPointsTextArray] Processed array result:', {

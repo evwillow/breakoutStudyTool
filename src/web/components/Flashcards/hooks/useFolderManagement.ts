@@ -42,11 +42,13 @@ export const useFolderManagement = ({ autoSelectFirstFolder }: FolderManagementO
 
   const folderOptions: FolderOption[] = useMemo(
     () =>
-      folders.map(({ id, name }) => ({
-        key: id,
-        value: name,
-        label: name
-      })),
+      (folders || [])
+        .filter(({ id }) => id !== undefined && id !== null)
+        .map(({ id, name }) => ({
+          key: id!,
+          value: name,
+          label: name
+        })),
     [folders]
   );
 

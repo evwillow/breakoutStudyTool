@@ -80,7 +80,6 @@ vi.mock('@/lib/utils/errorHandling', () => ({
 describe('authService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = 'test';
   });
 
   describe('signInWithCredentials', () => {

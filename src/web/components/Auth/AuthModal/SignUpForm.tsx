@@ -31,7 +31,7 @@ export interface SignUpFormProps {
   googleUnavailableMessage: string;
   onTermsClick: () => void;
   HCaptchaComponent: ComponentType<{
-    sitekey?: string;
+    sitekey: string;
     onVerify: (token: string) => void;
     onExpire: () => void;
     onError: () => void;
@@ -147,7 +147,7 @@ const SignUpForm: React.FC<SignUpFormProps> = ({
       <div className="flex justify-center">
         <Suspense fallback={<div className="text-sm text-turquoise-400">Loading verification...</div>}>
           <HCaptchaComponent
-            sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY}
+            sitekey={process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY || ''}
             onVerify={onCaptchaVerify}
             onExpire={onCaptchaReset}
             onError={onCaptchaReset}

@@ -1,5 +1,5 @@
 import { Session } from 'next-auth';
-import { FlashcardData } from '../Flashcards/utils/dataProcessors';
+import type { FlashcardData } from '@breakout-study-tool/shared';
 
 /**
  * @fileoverview Type definitions for DateFolderBrowser props and helper maps.

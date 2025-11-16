@@ -16,7 +16,7 @@ interface UseChartMagnifierScrollProps {
   enabled: boolean;
   isMobile: boolean;
   chartElement: HTMLElement | null;
-  magnifierRef: React.RefObject<HTMLDivElement>;
+  magnifierRef: React.RefObject<HTMLDivElement | null>;
   targetPosition: Position;
   magnifierRenderPos: Position;
   magnifierSize: number;

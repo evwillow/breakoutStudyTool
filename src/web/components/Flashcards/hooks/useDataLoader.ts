@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { FlashcardData, FlashcardFile } from "../utils/dataProcessors";
+import type { FlashcardData, FlashcardFile } from '@breakout-study-tool/shared';
 import { ERROR_MESSAGES, UI_CONFIG } from "../constants";
 import type {
   BackgroundUpdateFn,
@@ -472,7 +472,7 @@ export const useDataLoader = ({
         const QUICK_BATCH_FILE_TARGET = 10; // Reduced from 25 - just enough for 3 stocks
         const BACKGROUND_BATCH_SIZE = 150; // Increased from 100 for faster background loading
 
-        const loadedFiles: LoadedFlashcardFile[] = [];
+        const loadedFiles: FlashcardFile[] = [];
         let uiReady = false;
         // Store previousFolder in a variable accessible to nested functions
         const currentPreviousFolder = previousFolder;
@@ -532,29 +532,47 @@ export const useDataLoader = ({
           );
 
           if (process.env.NODE_ENV === 'development') {
-            console.log('[useDataLoader] Shuffled array', {
+            // Type-safe logging - only log tuple structure if array elements are tuples
+            const firstElement = array[0];
+            const isTupleArray = firstElement !== undefined && 
+                                 firstElement !== null &&
+                                 Array.isArray(firstElement) && 
+                                 firstElement.length >= 1;
+            const logData: Record<string, unknown> = {
               originalFirst: array[0],
               shuffledFirst: shuffled[0],
-              originalLast: array[array.length - 1],
-              shuffledLast: shuffled[shuffled.length - 1],
+              originalLast: array.length > 0 ? array[array.length - 1] : undefined,
+              shuffledLast: shuffled.length > 0 ? shuffled[shuffled.length - 1] : undefined,
               length: shuffled.length,
               orderChanged,
-              originalOrder: array.slice(0, 5).map(([dir]) => dir),
-              shuffledOrder: shuffled.slice(0, 5).map(([dir]) => dir),
-            });
+            };
+            
+            if (isTupleArray && array.length > 0) {
+              logData.originalOrder = (array.slice(0, 5) as Array<[unknown, ...unknown[]]>).map(([dir]) => dir);
+              logData.shuffledOrder = (shuffled.slice(0, 5) as Array<[unknown, ...unknown[]]>).map(([dir]) => dir);
+            }
+            
+            console.log('[useDataLoader] Shuffled array', logData);
           }
 
           if (!orderChanged && array.length > 1) {
-            console.error('[useDataLoader] ERROR: Shuffle did not change order!', {
+            const firstElement = array[0];
+            const isTupleArray = firstElement !== undefined && Array.isArray(firstElement) && firstElement.length >= 1;
+            const errorData: Record<string, unknown> = {
               arrayLength: array.length,
-              firstThree: array.slice(0, 3).map(([dir]) => dir),
-            });
+            };
+            
+            if (isTupleArray) {
+              errorData.firstThree = (array.slice(0, 3) as Array<[unknown, ...unknown[]]>).map(([dir]) => dir);
+            }
+            
+            console.error('[useDataLoader] ERROR: Shuffle did not change order!', errorData);
           }
 
           return shuffled;
         };
 
-        const checkAndShowUI = (currentFiles: LoadedFlashcardFile[]) => {
+        const checkAndShowUI = (currentFiles: FlashcardFile[]) => {
           if (uiReady) {
             if (process.env.NODE_ENV === 'development') {
               console.log('[useDataLoader] checkAndShowUI: UI already ready, skipping');
@@ -569,7 +587,7 @@ export const useDataLoader = ({
             });
           }
 
-          const tempStockGroups = new Map<string, LoadedFlashcardFile[]>();
+          const tempStockGroups = new Map<string, FlashcardFile[]>();
           currentFiles.forEach(file => {
             if (file) {
               const stockDir = file.fileName.split("/")[0];
@@ -691,11 +709,25 @@ export const useDataLoader = ({
                 });
               }
 
+              // Filter to only include files with data, ensuring data is required
+              const filesWithData: FlashcardFile[] = Array.isArray(stockFiles) 
+                ? stockFiles
+                    .filter((f): f is LoadedFlashcardFile & { data: unknown } => f.data !== null && f.data !== undefined)
+                    .map((f) => ({
+                      fileName: f.fileName,
+                      mimeType: f.mimeType,
+                      size: f.size,
+                      createdTime: f.createdTime,
+                      modifiedTime: f.modifiedTime,
+                      data: f.data, // data is guaranteed to exist after filter
+                    }))
+                : [];
+
               return {
                 id: stockDir,
                 name: stockDir,
                 folderName,
-                jsonFiles: Array.isArray(stockFiles) ? stockFiles : [],
+                jsonFiles: filesWithData,
                 isReady: hasEssentialFile
               };
             });
@@ -1045,11 +1077,19 @@ export const useDataLoader = ({
         }
         
         const quickLoaded = quickResults
-          .filter(
-            (result): result is PromiseFulfilledResult<LoadedFlashcardFile | null> =>
-              result.status === "fulfilled" && result.value !== null
-          )
-          .map(result => result.value as LoadedFlashcardFile);
+          .filter((result) => result.status === "fulfilled" && result.value !== null)
+          .map((result) => {
+            if (result.status === "fulfilled") {
+              return result.value;
+            }
+            return null;
+          })
+          .filter((file) => 
+            file !== null && 
+            file !== undefined && 
+            file.data !== null && 
+            file.data !== undefined
+          ) as FlashcardFile[];
         
         if (process.env.NODE_ENV === 'development') {
           console.log('[useDataLoader] Quick batch loaded', {
@@ -1123,11 +1163,19 @@ export const useDataLoader = ({
 
           const nextQuickResults = await Promise.allSettled(nextQuickPromises);
           const nextQuickLoaded = nextQuickResults
-            .filter(
-              (result): result is PromiseFulfilledResult<LoadedFlashcardFile | null> =>
-                result.status === "fulfilled" && result.value !== null
-            )
-            .map(result => result.value as LoadedFlashcardFile);
+            .filter((result) => result.status === "fulfilled" && result.value !== null)
+            .map((result) => {
+              if (result.status === "fulfilled") {
+                return result.value;
+              }
+              return null;
+            })
+            .filter((file) => 
+              file !== null && 
+              file !== undefined && 
+              file.data !== null && 
+              file.data !== undefined
+            ) as FlashcardFile[];
           loadedFiles.push(...nextQuickLoaded);
           checkAndShowUI(loadedFiles);
         }
@@ -1226,11 +1274,19 @@ export const useDataLoader = ({
 
                   const batchResults = await Promise.allSettled(batchPromises);
                   const batchLoaded = batchResults
-                    .filter(
-                      (result): result is PromiseFulfilledResult<LoadedFlashcardFile | null> =>
-                        result.status === "fulfilled" && result.value !== null
-                    )
-                    .map(result => result.value as LoadedFlashcardFile);
+                    .filter((result) => result.status === "fulfilled" && result.value !== null)
+                    .map((result) => {
+                      if (result.status === "fulfilled") {
+                        return result.value;
+                      }
+                      return null;
+                    })
+                    .filter((file) => 
+                      file !== null && 
+                      file !== undefined && 
+                      file.data !== null && 
+                      file.data !== undefined
+                    ) as FlashcardFile[];
 
                   if (batchLoaded.length > 0) {
                     loadedFiles.push(...batchLoaded);
@@ -1277,7 +1333,7 @@ export const useDataLoader = ({
                       const existingStockDirs = new Set(
                         updatedCards.map(card => card.name || card.id)
                       );
-                      const stockGroups = new Map<string, LoadedFlashcardFile[]>();
+                      const stockGroups = new Map<string, FlashcardFile[]>();
                       batchLoaded.forEach(file => {
                         if (file) {
                           const stockDir = file.fileName.split("/")[0];
@@ -1295,11 +1351,26 @@ export const useDataLoader = ({
                           const fileName = f.fileName.split("/").pop() || f.fileName;
                           return essentialFileNamesSet.has(fileName);
                         });
+                        
+                        // Filter to only include files with data, ensuring data is required
+                        const filesWithData: FlashcardFile[] = Array.isArray(stockFiles) 
+                          ? stockFiles
+                              .filter((f): f is LoadedFlashcardFile & { data: unknown } => f.data !== null && f.data !== undefined)
+                              .map((f) => ({
+                                fileName: f.fileName,
+                                mimeType: f.mimeType,
+                                size: f.size,
+                                createdTime: f.createdTime,
+                                modifiedTime: f.modifiedTime,
+                                data: f.data, // data is guaranteed to exist after filter
+                              }))
+                          : [];
+                        
                         return {
                           id: stockDir,
                           name: stockDir,
                           folderName,
-                          jsonFiles: stockFiles,
+                          jsonFiles: filesWithData,
                           isReady: hasEssentialFile
                         };
                       });
@@ -1345,13 +1416,14 @@ export const useDataLoader = ({
           }
         }
 
-        const validFiles = toFlashcardFiles(loadedFiles);
+        // loadedFiles is already FlashcardFile[], no need to filter
+        const validFiles = loadedFiles.filter((file): file is FlashcardFile => Boolean(file));
 
         if (validFiles.length === 0) {
           throw new Error(ERROR_MESSAGES.NO_DATA_AVAILABLE);
         }
 
-        const stockGroups = new Map<string, LoadedFlashcardFile[]>();
+        const stockGroups = new Map<string, FlashcardFile[]>();
         validFiles.forEach(file => {
           if (file) {
             const stockDir = file.fileName.split("/")[0];
@@ -1474,11 +1546,25 @@ export const useDataLoader = ({
             });
           }
 
+          // Filter to only include files with data, ensuring data is required
+          const filesWithData: FlashcardFile[] = Array.isArray(stockFiles) 
+            ? stockFiles
+                .filter((f): f is LoadedFlashcardFile & { data: unknown } => f.data !== null && f.data !== undefined)
+                .map((f) => ({
+                  fileName: f.fileName,
+                  mimeType: f.mimeType,
+                  size: f.size,
+                  createdTime: f.createdTime,
+                  modifiedTime: f.modifiedTime,
+                  data: f.data, // data is guaranteed to exist after filter
+                }))
+            : [];
+          
           return {
             id: stockDir,
             name: stockDir,
             folderName,
-            jsonFiles: stockFiles,
+            jsonFiles: filesWithData,
             isReady: hasEssentialFile
           };
         });

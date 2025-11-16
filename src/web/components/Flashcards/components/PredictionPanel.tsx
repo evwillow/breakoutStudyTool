@@ -7,12 +7,13 @@
 
 import React from "react";
 import SelectionTooltip from "../../UI/SelectionTooltip";
+import type { ChartCoordinate } from '@breakout-study-tool/shared';
 
 export interface PredictionPanelProps {
   /** User's selected coordinates on the chart */
-  userSelection?: { x: number; y: number; chartX: number; chartY: number } | null;
+  userSelection?: ChartCoordinate | null;
   /** Target point coordinates for comparison */
-  targetPoint?: { x: number; y: number; chartX: number; chartY: number } | null;
+  targetPoint?: ChartCoordinate | null;
   /** Distance from target (for display) */
   distance?: number | null;
   /** Current score/accuracy */
@@ -57,18 +58,16 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({
 
   return (
     <>
-      {showSelectionTooltip && userSelection && (
+      {showSelectionTooltip && (
         <SelectionTooltip
-          position={{ x: userSelection.chartX, y: userSelection.chartY }}
-          distance={distance}
-          onDismiss={onDismissTooltip}
+          show={true}
+          onDismiss={onDismissTooltip ? (event) => onDismissTooltip(event) : null}
         />
       )}
       {showTimeUpTooltip && (
         <SelectionTooltip
-          position={{ x: 0, y: 0 }}
-          isTimeUp={true}
-          onDismiss={onDismissTooltip}
+          show={true}
+          onDismiss={onDismissTooltip ? (event) => onDismissTooltip(event) : null}
         />
       )}
     </>

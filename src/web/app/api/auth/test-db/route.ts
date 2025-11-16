@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
       userId: userExists ? existingUser.id : null
     });
     
-  } catch (error) {
-    logger.error('Database test error', { error: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (err) {
+    logger.error('Database test error', { error: err instanceof Error ? err.message : 'Unknown error' });
     
     return error('Database test failed', 500);
   }
@@ -107,8 +107,8 @@ export async function POST(req: NextRequest) {
       testPassword
     });
     
-  } catch (error) {
-    logger.error('Test user creation error', { error: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (err) {
+    logger.error('Test user creation error', { error: err instanceof Error ? err.message : 'Unknown error' });
     
     return error('Test user creation failed', 500);
   }
@@ -149,8 +149,8 @@ export async function PUT(req: NextRequest) {
       newPassword
     });
     
-  } catch (error) {
-    logger.error('Password reset error', { error: error instanceof Error ? error.message : 'Unknown error' });
+  } catch (err) {
+    logger.error('Password reset error', { error: err instanceof Error ? err.message : 'Unknown error' });
     
     return error('Password reset failed', 500);
   }

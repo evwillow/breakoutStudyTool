@@ -20,7 +20,7 @@ export interface TutorialStepProps {
   onSkip: () => void;
   onComplete: () => void;
   tooltipPosition: { top: string; left: string; transform: string };
-  tooltipRef: React.RefObject<HTMLDivElement>;
+  tooltipRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const TutorialStepComponent: React.FC<TutorialStepProps> = ({

@@ -156,8 +156,10 @@ export const useChartInteraction = ({
     if (containerRef.current) {
       (containerRef.current as any).handleChartClick = handleChartClick;
     }
-    handleChartClickRef.current = handleChartClick as ChartClickHandler;
-  }, [containerRef, handleChartClick, handleChartClickRef]);
+    // handleChartClickRef is for storing the coordinate-based handler, not the event handler
+    // We'll set it to onChartClick directly if needed, but for now we'll leave it as is
+    // since handleChartClick internally calls onChartClick with coordinates
+  }, [containerRef, handleChartClick]);
 
   const isInSelectableArea = useCallback(
     (chartX: number): boolean => {
@@ -282,7 +284,8 @@ export const useChartInteraction = ({
             isSelectable = chartX > selectableAreaStart;
 
             // Log every 100ms max (throttled)
-            if (!window._lastCursorLog || Date.now() - window._lastCursorLog > 100) {
+            const lastCursorLog = (window as any)._lastCursorLog;
+            if (!lastCursorLog || Date.now() - lastCursorLog > 100) {
               console.log('[handleMouseMove] D Chart cursor - chartX:', chartX.toFixed(2), 'selectableStart:', selectableAreaStart.toFixed(2), 'divider:', dividerPositionInChart.toFixed(2), 'isSelectable:', isSelectable);
               (window as any)._lastCursorLog = Date.now();
             }

@@ -3,7 +3,7 @@
  * @module src/web/app/support/page.tsx
  * @dependencies none
  */
-export default function SupportPage(): JSX.Element {
+export default function SupportPage() {
   return (
     <div className="w-full flex justify-center">
       <div className="w-full sm:w-[90%] md:w-[70%] lg:w-[60%] max-w-3xl px-4 py-16">

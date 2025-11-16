@@ -1,5 +1,7 @@
 import type { Session } from 'next-auth';
-import type { SessionStatus } from 'next-auth/react';
+
+// SessionStatus type - matches next-auth/react status
+type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 export interface AuthState {
   isAuthenticated: boolean;

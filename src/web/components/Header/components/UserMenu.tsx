@@ -14,7 +14,7 @@ export interface UserMenuProps {
   isOpen: boolean;
   onToggle: () => void;
   onSignOut: () => void;
-  menuRef: React.RefObject<HTMLDivElement>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({

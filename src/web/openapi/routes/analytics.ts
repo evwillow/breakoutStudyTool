@@ -3,7 +3,7 @@
  * @module src/web/openapi/routes/analytics.ts
  * @dependencies openapi3-ts, @/openapi/createDocument
  */
-import { OpenAPIObject, SchemaObject } from "openapi3-ts";
+import type { OpenAPIObject, SchemaObject } from "openapi3-ts/oas31";
 
 import type { DocumentOptions } from "@/openapi/createDocument";
 
@@ -42,10 +42,10 @@ const userMetricsSchema: SchemaObject = {
     totalMatches: { type: "integer", minimum: 0 },
     averageAccuracy: percentageSchema,
     daysSinceSignUp: { type: "integer", minimum: 0 },
-    daysSinceLastActivity: { type: "integer", minimum: 0, nullable: true },
+    daysSinceLastActivity: { type: ["integer", "null"], minimum: 0 },
     activationTime: { type: "integer", minimum: 0, description: "Days until first completed round." },
     isActive: { type: "boolean" },
-    lastActivityDate: { type: "string", format: "date-time", nullable: true },
+    lastActivityDate: { type: ["string", "null"], format: "date-time" },
     signUpDate: { type: "string", format: "date-time" },
   },
 };
@@ -68,7 +68,6 @@ const segmentDefinitionSchema: SchemaObject = {
         min: percentageSchema,
         max: percentageSchema,
       },
-      nullable: true,
     },
     color: { type: "string" },
   },

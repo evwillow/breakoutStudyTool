@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FlashcardData } from "../../Flashcards/utils/dataProcessors";
+import type { FlashcardData } from '@breakout-study-tool/shared';
 import type {
   DateFolderBrowserProps,
   FileDataMap,

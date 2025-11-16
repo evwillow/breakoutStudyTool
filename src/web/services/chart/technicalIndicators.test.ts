@@ -80,7 +80,7 @@ describe('technicalIndicators', () => {
     it('should handle null price values', () => {
       const data: ProcessedStockDataPoint[] = [
         { close: 100 },
-        { close: null },
+        { close: undefined },
         { close: 102 },
         { close: 103 },
         { close: 104 },
@@ -113,9 +113,9 @@ describe('technicalIndicators', () => {
     it('should return null when less than 80% valid points', () => {
       const data: ProcessedStockDataPoint[] = [
         { close: 100 },
-        { close: null },
-        { close: null },
-        { close: null },
+        { close: undefined },
+        { close: undefined },
+        { close: undefined },
         { close: 104 },
       ];
 

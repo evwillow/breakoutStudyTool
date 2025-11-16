@@ -17,7 +17,7 @@ export interface UseChartInteractionOptions {
 }
 
 export interface UseChartInteractionReturn {
-  chartRef: React.RefObject<HTMLDivElement & { handleChartClick?: (event: { clientX: number; clientY: number }) => void }>;
+  chartRef: React.RefObject<(HTMLDivElement & { handleChartClick?: (event: { clientX: number; clientY: number }) => void }) | null>;
   handleChartAreaClickCapture: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleMagnifierSelection: (syntheticEvent: any) => void;
   mainDataLength: number;

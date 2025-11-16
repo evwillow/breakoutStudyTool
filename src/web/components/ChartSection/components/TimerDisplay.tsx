@@ -15,9 +15,9 @@ export interface TimerDisplayProps {
   onTimerDurationChange?: ((duration: number) => void) | null;
   isMobile: boolean;
   orderedFiles: OrderedFile[] | null | undefined;
-  dLabelRef: React.RefObject<HTMLDivElement>;
-  infoButtonRef: React.RefObject<HTMLButtonElement>;
-  infoPopupRef: React.RefObject<HTMLDivElement>;
+  dLabelRef: React.RefObject<HTMLDivElement | null>;
+  infoButtonRef: React.RefObject<HTMLButtonElement | null>;
+  infoPopupRef: React.RefObject<HTMLDivElement | null>;
   showInfoPopup: boolean;
   infoPopupPersistent: boolean;
   onInfoPopupToggle: (persistent: boolean, show: boolean) => void;

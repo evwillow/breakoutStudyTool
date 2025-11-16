@@ -23,10 +23,10 @@ export interface UseChartTimerReturn {
   customValue: string;
   setCustomValue: (value: string) => void;
   popupPosition: PopupPosition;
-  timerContainerRef: React.RefObject<HTMLDivElement>;
-  timerPopupRef: React.RefObject<HTMLDivElement>;
-  timerTriggerRef: React.RefObject<HTMLButtonElement>;
-  customInputRef: React.RefObject<HTMLInputElement>;
+  timerContainerRef: React.RefObject<HTMLDivElement | null>;
+  timerPopupRef: React.RefObject<HTMLDivElement | null>;
+  timerTriggerRef: React.RefObject<HTMLButtonElement | null>;
+  customInputRef: React.RefObject<HTMLInputElement | null>;
   durations: Array<{ value: number; label: string }>;
   getTimerColor: () => string;
   handlePresetClick: (value: number) => void;

@@ -71,7 +71,7 @@ export default function Tutorial({
     if (!isActive || !overlayRef.current) {
       if (overlayRef.current) {
         overlayRef.current.style.clipPath = '';
-        overlayRef.current.style.webkitClipPath = '';
+        (overlayRef.current.style as any).webkitClipPath = '';
       }
       return;
     }
@@ -131,7 +131,7 @@ export default function Tutorial({
       // If no elements to exclude, use full overlay
       if (!chartRect && !highlightRect && !targetRect && !selectableAreaRect) {
         overlayRef.current.style.clipPath = '';
-        overlayRef.current.style.webkitClipPath = '';
+        (overlayRef.current.style as any).webkitClipPath = '';
         return;
       }
 
@@ -210,10 +210,10 @@ export default function Tutorial({
         )`;
 
         overlayRef.current.style.clipPath = clipPath;
-        overlayRef.current.style.webkitClipPath = clipPath;
+        (overlayRef.current.style as any).webkitClipPath = clipPath;
       } else {
         overlayRef.current.style.clipPath = '';
-        overlayRef.current.style.webkitClipPath = '';
+        (overlayRef.current.style as any).webkitClipPath = '';
       }
     };
     
@@ -256,7 +256,7 @@ export default function Tutorial({
       window.removeEventListener('scroll', updateOverlayMask, true);
       if (overlayRef.current) {
         overlayRef.current.style.clipPath = '';
-        overlayRef.current.style.webkitClipPath = '';
+        (overlayRef.current.style as any).webkitClipPath = '';
       }
     };
     }, [isActive, tutorialState.currentStepIndex, tutorialState.currentStep?.target, position.highlightPosition, position.selectableAreaHighlight]);

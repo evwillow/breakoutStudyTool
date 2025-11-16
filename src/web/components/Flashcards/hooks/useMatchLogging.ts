@@ -7,7 +7,7 @@
 import { useCallback, useState } from "react";
 import { useSession } from "next-auth/react";
 import { extractStockName } from "../utils/dataProcessors";
-import type { FlashcardData } from "../utils/dataProcessors";
+import type { FlashcardData } from '@breakout-study-tool/shared';
 
 export interface UseMatchLoggingReturn {
   logMatchWithCoordinates: (data: {

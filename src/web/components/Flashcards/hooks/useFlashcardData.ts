@@ -5,14 +5,19 @@ import { useSession } from "next-auth/react";
 import type {
   FolderOption,
   UseFlashcardDataOptions,
-  UseFlashcardDataReturn
+  UseFlashcardDataReturn as SharedUseFlashcardDataReturn
 } from "@breakout-study-tool/shared";
-import type { FlashcardData } from "../utils/dataProcessors";
+import type { FlashcardData } from '@breakout-study-tool/shared';
 import { useLoadingState } from "./useLoadingState";
 import { useFolderManagement } from "./useFolderManagement";
 import { useDataLoader } from "./useDataLoader";
 
-export type { FolderOption, UseFlashcardDataReturn, UseFlashcardDataOptions };
+// Extend the shared type to include shuffleFlashcards
+export interface UseFlashcardDataReturn extends SharedUseFlashcardDataReturn {
+  shuffleFlashcards: () => void;
+}
+
+export type { FolderOption, UseFlashcardDataOptions };
 
 export function useFlashcardData(
   options: UseFlashcardDataOptions = {}

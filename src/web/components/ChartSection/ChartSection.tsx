@@ -165,9 +165,9 @@ const ChartSection: React.FC<ChartSectionProps> = ({
     orderedFiles,
     afterData,
     onChartClick,
-    disabled,
+    disabled: disabled ?? false,
     score,
-    isTimeUp,
+    isTimeUp: isTimeUp ?? false,
   });
 
   const handlePauseChange = (paused: boolean): void => {
@@ -222,7 +222,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
       <div className="flex flex-col pt-1 sm:pt-2 lg:pt-2 px-1 sm:px-2 md:px-4 gap-4 items-start w-full">
         <div className="w-full flex flex-col items-start rounded-md shadow-md p-0 py-1 lg:py-0 backdrop-blur-sm border border-white/10 relative overflow-hidden bg-black/40">
           <div
-            className={chartContainerClasses}
+            className={`${chartContainerClasses} bg-black/40`}
             style={{ 
               width: '100%', 
               height: isMobile ? '500px' : '600px',
@@ -233,7 +233,6 @@ const ChartSection: React.FC<ChartSectionProps> = ({
               boxSizing: 'border-box', 
               overflow: 'hidden'
             }}
-            className="bg-black/40"
             onClickCapture={handleChartAreaClickCapture}
           >
             <TimerDisplay
@@ -406,9 +405,9 @@ const ChartSection: React.FC<ChartSectionProps> = ({
             <InteractionLayer
               interaction={interaction}
               onChartClick={onChartClick}
-              disabled={disabled}
+              disabled={disabled ?? false}
               score={score}
-              isTimeUp={isTimeUp}
+              isTimeUp={isTimeUp ?? false}
               orderedFiles={orderedFiles}
               onDismissTooltip={onDismissTooltip}
               timerDuration={timerDuration}

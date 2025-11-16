@@ -5,7 +5,8 @@
  */
 "use client";
 
-import { useSession, type Session } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
+import type { Session } from 'next-auth';
 import { useCallback } from 'react';
 import { signInWithCredentials as authSignInWithCredentials, signInWithProvider as authSignInWithProvider, signOutUser as authSignOutUser } from '@/services/auth/authService';
 import { deriveAuthState } from '@/services/auth/sessionManager';
@@ -31,9 +32,16 @@ export const useAuth = (): UseAuthReturn => {
 
   const authState = deriveAuthState(status, session);
 
-  const signInWithCredentials = useCallback(async (credentials: { email: string; password: string }) => {
+  const signInWithCredentials = useCallback(async (credentials: { email: string; password: string }): Promise<{ error?: string }> => {
     try {
-      return await authSignInWithCredentials(credentials, update);
+      const result = await authSignInWithCredentials(credentials, update);
+      // Ensure we always return the expected type
+      // Convert null to undefined for error field to match expected type
+      if (result && 'error' in result && result.error !== null) {
+        return { error: result.error };
+      }
+      // If successful, return empty object (no error)
+      return {};
     } catch (error) {
       console.error('Sign in error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Sign in failed';
@@ -41,18 +49,25 @@ export const useAuth = (): UseAuthReturn => {
     }
   }, [update]);
 
-  const signOutUser = useCallback(async (options: { callbackUrl?: string } = {}) => {
+  const signOutUser = useCallback(async (options: { callbackUrl?: string } = {}): Promise<void> => {
     try {
-      return await authSignOutUser(options);
+      await authSignOutUser(options);
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
     }
   }, []);
 
-  const signInWithProvider = useCallback(async (provider: string, options: Record<string, unknown> = {}) => {
+  const signInWithProvider = useCallback(async (provider: string, options: Record<string, unknown> = {}): Promise<{ error?: string }> => {
     try {
-      return await authSignInWithProvider(provider, options, update);
+      const result = await authSignInWithProvider(provider, options, update);
+      // Ensure we always return the expected type
+      // Convert null to undefined for error field to match expected type
+      if (result && 'error' in result && result.error !== null) {
+        return { error: result.error };
+      }
+      // If successful, return empty object (no error)
+      return {};
     } catch (error) {
       console.error(`Sign in with ${provider} error:`, error);
       const errorMessage = error instanceof Error ? error.message : `Unable to sign in with ${provider}`;

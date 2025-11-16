@@ -23,9 +23,9 @@ interface SelectionTooltipProps {
 const SelectionTooltip: React.FC<SelectionTooltipProps> = ({ show, onDismiss, style, durationSeconds }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
-  const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const exitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const cleanupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoHideTimeoutRef = useRef<number | null>(null);
+  const exitTimeoutRef = useRef<number | null>(null);
+  const cleanupTimeoutRef = useRef<number | null>(null);
 
   // Detect mobile device
   useEffect(() => {

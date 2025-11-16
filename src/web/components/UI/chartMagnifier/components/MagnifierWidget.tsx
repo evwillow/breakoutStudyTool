@@ -10,7 +10,7 @@ import MagnifierCrosshair from './MagnifierCrosshair';
 import { getMagnifierRenderPosition, type Position, type SelectionBounds } from '../utils/magnifierUtils';
 
 interface MagnifierWidgetProps {
-  magnifierRef: React.RefObject<HTMLDivElement>;
+  magnifierRef: React.RefObject<HTMLDivElement | null>;
   selectionBounds: SelectionBounds;
   targetPosition: Position;
   magnifierRenderPos: Position;

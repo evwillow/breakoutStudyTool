@@ -23,16 +23,18 @@ describe('API: /api/files/local-folders', () => {
       const mockData = {
         folders: [
           {
+            id: 'folder-1',
             name: 'folder1',
             files: [
-              { name: 'D.json', path: 'folder1/D.json' },
-              { name: 'M.json', path: 'folder1/M.json' },
+              { id: 'file-1', name: 'D.json', fileName: 'D.json', mimeType: 'application/json', size: 1024, createdTime: '2024-01-01', modifiedTime: '2024-01-01' },
+              { id: 'file-2', name: 'M.json', fileName: 'M.json', mimeType: 'application/json', size: 2048, createdTime: '2024-01-01', modifiedTime: '2024-01-01' },
             ],
           },
           {
+            id: 'folder-2',
             name: 'folder2',
             files: [
-              { name: 'D.json', path: 'folder2/D.json' },
+              { id: 'file-3', name: 'D.json', fileName: 'D.json', mimeType: 'application/json', size: 512, createdTime: '2024-01-01', modifiedTime: '2024-01-01' },
             ],
           },
         ],
