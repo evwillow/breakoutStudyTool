@@ -14,6 +14,8 @@ const nextConfig = {
   experimental: {
     // This helps prevent Next.js from scanning for pages directory
   },
+  // Output configuration for production
+  output: process.env.OUTPUT_STANDALONE === 'true' ? 'standalone' : undefined,
   images: {
     domains: ["lh3.googleusercontent.com"],
     remotePatterns: [

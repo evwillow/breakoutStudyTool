@@ -69,6 +69,8 @@ async function resolveBasePath(): Promise<string> {
   }
 
   const attemptedPaths: string[] = [];
+  const errorDetails: string[] = [];
+
   for (const testPath of POSSIBLE_BASE_PATHS) {
     attemptedPaths.push(testPath);
     try {
@@ -77,14 +79,15 @@ async function resolveBasePath(): Promise<string> {
       cache.basePathResolved = true;
       console.log(`[localDataCache] Found data directory at: ${testPath}`);
       return testPath;
-    } catch (error) {
-      // Continue to next path
+    } catch (error: any) {
+      // Log detailed error for debugging
+      errorDetails.push(`  - ${testPath}: ${error.code || error.message}`);
       continue;
     }
   }
 
   cache.basePathResolved = true;
-  const errorMessage = `Data directory not found. Attempted paths:\n${attemptedPaths.map(p => `  - ${p}`).join('\n')}\n\nCurrent working directory: ${process.cwd()}`;
+  const errorMessage = `Data directory not found. Attempted paths:\n${errorDetails.join('\n')}\n\nCurrent working directory: ${process.cwd()}\nDIRNAME: ${__dirname}\nDATA_DIRECTORY env: ${process.env.DATA_DIRECTORY || 'not set'}`;
   console.error(`[localDataCache] ${errorMessage}`);
   throw new Error(errorMessage);
 }
