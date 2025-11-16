@@ -110,13 +110,6 @@ export function useGameState({
 
     // Always update if length increases (lazy loading scenario)
     if (flashcardsLength > trackedFlashcardsLength) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useGameState] Flashcards length increased:', {
-          previousLength: trackedFlashcardsLength,
-          newLength: flashcardsLength,
-          currentIndex,
-        });
-      }
       setTrackedFlashcardsLength(flashcardsLength);
     }
     // Also update if length decreases significantly (folder change scenario)
@@ -138,24 +131,11 @@ export function useGameState({
     if (isFirstLoad) {
       setCurrentIndex(0);
       hasInitializedRef.current = true;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useGameState] First load detected, resetting currentIndex to 0', {
-          flashcardsLength,
-          previousLength: lastFlashcardsLengthRef.current,
-        });
-      }
     }
 
     // Clamp currentIndex if it's out of bounds (e.g., if flashcards array changed)
     if (flashcardsLength > 0 && currentIndex >= flashcardsLength) {
       const clampedIndex = Math.max(0, flashcardsLength - 1);
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useGameState] Clamping currentIndex', {
-          currentIndex,
-          flashcardsLength,
-          clampedIndex,
-        });
-      }
       setCurrentIndex(clampedIndex);
     }
 
@@ -301,8 +281,6 @@ export function useGameState({
   
   // Move to next card
   const nextCard = useCallback(() => {
-    console.log('[useGameState] ====== nextCard CALLED ======');
-
     // Reset card-specific state FIRST to clear the current card's state
     // This MUST be done OUTSIDE the setCurrentIndex callback to avoid race conditions
     setFeedback(null);
@@ -321,32 +299,23 @@ export function useGameState({
       // Get current flashcardsLength from the latest value
       const actualLength = flashcardsLength;
 
-      console.log('[useGameState] nextCard - prevIndex:', prevIndex, 'actualLength:', actualLength, 'trackedLength:', trackedFlashcardsLength);
-
       // Move to next card
       if (actualLength > 0) {
         const nextIndex = prevIndex + 1;
 
-        console.log('[useGameState] Attempting to advance from index', prevIndex, 'to', nextIndex, '(max:', actualLength - 1, ')');
-
         if (nextIndex < actualLength) {
-          console.log('[useGameState] ====== ADVANCING TO NEXT CARD: index', nextIndex, '======');
           setCurrentMatchIndex(prevMatch => prevMatch + 1);
           return nextIndex;
         } else {
           // At the end of the deck, trigger game complete
-          console.log('[useGameState] At end of deck (index', prevIndex, 'of', actualLength - 1, '), NOT advancing');
           if (onGameComplete) {
-            console.log('[useGameState] Calling onGameComplete');
             onGameComplete();
           }
           return prevIndex; // Stay at current index (last card)
         }
       } else {
         // No flashcards but game complete callback exists
-        console.log('[useGameState] No flashcards available, NOT advancing');
         if (onGameComplete) {
-          console.log('[useGameState] Calling onGameComplete (no flashcards)');
           onGameComplete();
         }
         return prevIndex;
@@ -357,13 +326,6 @@ export function useGameState({
   // Initialize game state from existing matches
   const initializeFromMatches = useCallback((matches: Array<{ correct: boolean }>) => {
     const summary = summarizeExistingMatches(matches);
-    
-    console.log('Initializing game state from matches:', {
-      totalMatches: summary.totalMatches,
-      correctMatches: summary.correctMatches,
-      accuracy: summary.accuracy
-    });
-    
     setMatchCount(summary.totalMatches);
     setCorrectCount(summary.correctMatches);
     setCurrentMatchIndex(summary.totalMatches);

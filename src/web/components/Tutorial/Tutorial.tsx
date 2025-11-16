@@ -373,7 +373,7 @@ export default function Tutorial({
 
   // CRITICAL: Log when tooltip is hidden on step 4
   if (tutorialState.currentStep.id === 'making-selection' && tutorialState.hideTooltipOnStep4) {
-    console.log('[Tutorial] ====== TOOLTIP HIDDEN ON STEP 4 (selection made) ======');
+    // TOOLTIP HIDDEN ON STEP 4 (selection made)
   }
 
 

@@ -266,20 +266,7 @@ const ChartSection: React.FC<ChartSectionProps> = ({
                 const isDataArray = hasData && Array.isArray(firstFile.data);
                 const hasValidData = isDataArray && (firstFile.data as unknown[]).length > 0;
 
-                // Enhanced debugging
-                if (process.env.NODE_ENV === 'development') {
-                  console.log('ChartSection: Chart data validation', {
-                    hasOrderedFiles,
-                    orderedFilesLength: orderedFiles?.length,
-                    firstFileName: firstFile?.fileName,
-                    hasData,
-                    isDataArray,
-                    hasValidData,
-                    dataType: typeof firstFile?.data,
-                    dataLength: Array.isArray(firstFile?.data) ? firstFile.data.length : 'N/A',
-                    firstDataPoint: Array.isArray(firstFile?.data) && firstFile.data.length > 0 ? firstFile.data[0] : null,
-                  });
-                }
+                // Logging removed
 
                 if (!hasValidData) {
                   // Try to normalize the data if it exists but isn't in the expected format

@@ -48,9 +48,6 @@ export const useDataLoader = ({
   useEffect(() => {
     hasShuffledForFolderRef.current = null;
     isFirstFetchRef.current = true;
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useDataLoader] Component mounted, reset shuffle tracking to force shuffle on next load');
-    }
   }, []); // Empty deps = runs only on mount
 
   // Keep ref in sync with selectedFolder
@@ -58,9 +55,6 @@ export const useDataLoader = ({
     selectedFolderRef.current = selectedFolder;
     // CRITICAL: Reset shuffle tracking when folder changes to ensure shuffle happens
     hasShuffledForFolderRef.current = null;
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useDataLoader] Selected folder changed, reset shuffle tracking', { selectedFolder });
-    }
   }, [selectedFolder]);
 
   const getAbortController = useCallback(() => {
@@ -84,105 +78,44 @@ export const useDataLoader = ({
 
   const fetchFolders = useCallback(async () => {
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useDataLoader] fetchFolders: Starting folder fetch');
+      // CRITICAL: Check cache first for instant load (5min cache)
+      if (foldersCacheRef.current && foldersCacheRef.current.length > 0) {
+        updateFolders(foldersCacheRef.current);
+        if (autoSelectFirstFolder && !selectedFolderRef.current && foldersCacheRef.current.length > 0) {
+          setSelectedFolder(foldersCacheRef.current[0].name);
+        }
+        return; // Instant load from cache!
       }
+
       // HTTP cache headers are set on the API route for fast loads
       const response = await fetch("/api/files/local-folders", {
         credentials: 'include'
       });
+
       if (!response.ok) {
         const errorData = await response.json();
-        const errorMessage = errorData.message || "Error fetching folders";
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[useDataLoader] fetchFolders: API error', {
-            status: response.status,
-            statusText: response.statusText,
-            errorMessage,
-          });
-        }
-        throw new Error(errorMessage);
+        throw new Error(errorData.message || "Error fetching folders");
       }
 
-      let data;
-      try {
-        const responseText = await response.text();
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useDataLoader] fetchFolders: Raw response text:', responseText.substring(0, 500));
-        }
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('[useDataLoader] fetchFolders: Failed to parse response', {
-          parseError,
-          status: response.status,
-          statusText: response.statusText,
-        });
-        throw new Error('Failed to parse API response');
-      }
+      // Direct JSON parse - no intermediate text step
+      const data = await response.json();
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useDataLoader] fetchFolders: Parsed API response', {
-          success: data.success,
-          hasData: !!data.data,
-          dataKeys: data.data ? Object.keys(data.data) : [],
-          foldersCount: Array.isArray(data.data?.folders) ? data.data.folders.length : Array.isArray(data.folders) ? data.folders.length : 0,
-          fullData: data,
-        });
-      }
-
-      // Handle both response formats: { success: true, data: { folders, totalFiles } } and { success: true, folders }
+      // Handle both response formats
       const folders = data.data?.folders ?? data.folders;
-      const totalFiles = data.data?.totalFiles ?? data.totalFiles;
 
       if (data.success && Array.isArray(folders)) {
         foldersCacheRef.current = folders;
         updateFolders(folders);
 
-        if (autoSelectFirstFolder && folders.length > 0) {
-          // Use ref to check current selectedFolder to avoid dependency issues
-          if (!selectedFolderRef.current) {
-            const firstFolderName = folders[0].name;
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[useDataLoader] fetchFolders: Auto-selecting first folder', {
-                folderName: firstFolderName,
-                currentSelectedFolder: selectedFolderRef.current,
-              });
-            }
-            setSelectedFolder(firstFolderName);
-          } else {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[useDataLoader] fetchFolders: Folder already selected, skipping auto-select', {
-                currentSelectedFolder: selectedFolderRef.current,
-              });
-            }
-          }
-        } else {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[useDataLoader] fetchFolders: Not auto-selecting', {
-              autoSelectFirstFolder,
-              foldersLength: folders.length,
-            });
-          }
+        if (autoSelectFirstFolder && !selectedFolderRef.current && folders.length > 0) {
+          setSelectedFolder(folders[0].name);
         }
       } else {
-        const errorMessage = "Invalid folder data received from API";
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[useDataLoader] fetchFolders: Invalid data structure', {
-            success: data.success,
-            isArray: Array.isArray(data.folders),
-            data,
-          });
-        }
-        setError(errorMessage);
+        setError("Invalid folder data received from API");
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.DATA_FETCH_ERROR;
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[useDataLoader] fetchFolders: Exception', {
-          error: errorMessage,
-          errorObject: error,
-        });
-      }
+      console.error('[useDataLoader] fetchFolders error:', errorMessage);
       setError(errorMessage);
     }
   }, [autoSelectFirstFolder, updateFolders, setError, setSelectedFolder]);
@@ -743,26 +676,7 @@ export const useDataLoader = ({
             // flashcardData is already shuffled via shuffledStockEntries
             // NO need to shuffle again - this was causing re-ordering
 
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[useDataLoader] Setting flashcards (checkAndShowUI)', {
-                flashcardCount: flashcardData.length,
-                readyCount: flashcardData.filter(f => f.isReady).length,
-                firstFlashcard: flashcardData[0] ? {
-                  id: flashcardData[0].id,
-                  name: flashcardData[0].name,
-                  jsonFilesCount: flashcardData[0].jsonFiles?.length,
-                  jsonFileNames: flashcardData[0].jsonFiles?.map(f => f.fileName),
-                  hasData: flashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
-                  firstFileHasData: flashcardData[0].jsonFiles?.[0]?.data !== null && flashcardData[0].jsonFiles?.[0]?.data !== undefined,
-                  firstFileDataType: flashcardData[0].jsonFiles?.[0]?.data ? typeof flashcardData[0].jsonFiles[0].data : 'null/undefined',
-                  firstFileDataLength: Array.isArray(flashcardData[0].jsonFiles?.[0]?.data) ? flashcardData[0].jsonFiles[0].data.length : 'N/A',
-                } : null,
-              });
-            }
-
-            console.log('[useDataLoader] CALLING setFlashcards with', flashcardData.length, 'flashcards');
             setFlashcards(flashcardData);
-            console.log('[useDataLoader] setFlashcards CALLED');
             // Note: shuffle flag is already set above if we shuffled
             setLoading(false);
             setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
@@ -919,15 +833,7 @@ export const useDataLoader = ({
 
         const quickBatchFileNames = new Set(quickBatch.map(file => file.fileName));
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useDataLoader] Starting quick batch fetch', {
-            quickBatchSize: quickBatch.length,
-            quickBatchFiles: quickBatch.map(f => f.fileName),
-            folderName,
-          });
-        }
-
-        console.log('[useDataLoader] STARTING QUICK BATCH - about to fetch', quickBatch.length, 'files');
+        // Logging removed for cleaner console
 
         // Fetch all files in parallel for maximum speed
         const quickPromises = quickBatch.map(async file => {
@@ -936,119 +842,32 @@ export const useDataLoader = ({
               file.fileName
             )}&folder=${encodeURIComponent(folderName)}`;
 
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[useDataLoader] Fetching file: ${file.fileName}`, { url });
-            }
-
             // HTTP cache headers are set on the API route for fast loads
-            let fileResponse: Response;
-            try {
-              fileResponse = await fetch(url, {
-                signal: getAbortController().signal
-              });
-            } catch (fetchError: any) {
-              if (fetchError.name === 'AbortError') {
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn(`[useDataLoader] File fetch aborted: ${file.fileName}`);
-                }
-                return null;
+            const fileResponse = await fetch(url, {
+              signal: getAbortController().signal
+            }).catch((fetchError: any) => {
+              if (fetchError.name !== 'AbortError') {
+                console.error(`[useDataLoader] Fetch error:`, file.fileName);
               }
-              if (process.env.NODE_ENV === 'development') {
-                console.error(`[useDataLoader] File fetch error: ${file.fileName}`, fetchError);
-              }
+              return null;
+            });
+
+            if (!fileResponse || !fileResponse.ok) return null;
+
+            const fileData = await fileResponse.json().catch(() => null);
+            if (!fileData?.success) return null;
+
+            // Extract actual data from API response (handle both nested and flat structures)
+            const actualData = fileData.data?.data ?? fileData.data;
+            if (!actualData) return null;
+
+            // Validate chart files must be arrays with data
+            if ((file.fileName.includes('D.json') || file.fileName.includes('M.json')) &&
+                (!Array.isArray(actualData) || actualData.length === 0)) {
               return null;
             }
 
-            if (!fileResponse.ok) {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn(`[useDataLoader] File fetch failed: ${file.fileName}`, {
-                  status: fileResponse.status,
-                  statusText: fileResponse.statusText,
-                });
-              }
-              return null;
-            }
-
-            let fileData: any;
-            try {
-              fileData = await fileResponse.json();
-            } catch (jsonError) {
-              if (process.env.NODE_ENV === 'development') {
-                console.error(`[useDataLoader] Failed to parse JSON for ${file.fileName}:`, jsonError);
-              }
-              return null;
-            }
-            
-            if (!fileData.success) {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn(`File ${file.fileName} returned unsuccessful response:`, fileData);
-              }
-              return null;
-            }
-
-            // The API returns { success: true, data: { data: jsonData, fileName, folder } }
-            // So we need to extract the actual JSON data from fileData.data.data
-            // Check if data.data exists (nested structure) or if data is the actual data (flat structure)
-            let actualData = null;
-            
-            // First, try the nested structure (the expected format)
-            if (fileData.data && typeof fileData.data === 'object' && 'data' in fileData.data) {
-              actualData = fileData.data.data;
-            } 
-            // If that doesn't work, check if data itself is the array (fallback for different API formats)
-            else if (fileData.data && Array.isArray(fileData.data)) {
-              actualData = fileData.data;
-            }
-            // If data is an object but not the wrapper, it might be the actual data
-            else if (fileData.data && typeof fileData.data === 'object' && !fileData.data.fileName && !fileData.data.folder) {
-              actualData = fileData.data;
-            }
-            
-            // Debug logging
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[useDataLoader] Processing file: ${file.fileName}`, {
-                hasFileData: !!fileData,
-                hasData: !!fileData.data,
-                hasNestedData: !!fileData.data?.data,
-                actualDataType: typeof actualData,
-                isArray: Array.isArray(actualData),
-                dataLength: Array.isArray(actualData) ? actualData.length : 'N/A',
-                responseStructure: Object.keys(fileData),
-                dataKeys: fileData.data && typeof fileData.data === 'object' ? Object.keys(fileData.data) : [],
-              });
-            }
-            
-            if (actualData === null || actualData === undefined) {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn(`File ${file.fileName} has no data in response:`, {
-                  fileData,
-                  dataStructure: fileData.data,
-                  hasNestedData: !!fileData.data?.data,
-                });
-              }
-              return null;
-            }
-            
-            // Ensure data is an array for chart files (D.json, M.json)
-            if (file.fileName.includes('D.json') || file.fileName.includes('M.json')) {
-              if (!Array.isArray(actualData)) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn(`File ${file.fileName} data is not an array:`, {
-                    type: typeof actualData,
-                    data: actualData,
-                  });
-                }
-                return null;
-              }
-              if (actualData.length === 0) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn(`File ${file.fileName} data array is empty`);
-                }
-                return null;
-              }
-            }
-
-            const result = {
+            return {
               fileName: file.fileName,
               data: actualData,
               mimeType: file.mimeType,
@@ -1056,82 +875,25 @@ export const useDataLoader = ({
               createdTime: file.createdTime,
               modifiedTime: file.modifiedTime
             };
-
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`[useDataLoader] Successfully loaded file: ${file.fileName}`, {
-                hasData: !!result.data,
-                dataLength: Array.isArray(result.data) ? result.data.length : 'N/A',
-              });
-            }
-
-            return result;
           } catch (error) {
-            if (process.env.NODE_ENV === 'development') {
-              console.error(`[useDataLoader] Error loading file: ${file.fileName}`, error);
-            }
             return null;
           }
         });
 
-        console.log('[useDataLoader] Waiting for quick batch promises to settle...');
         const quickResults = await Promise.allSettled(quickPromises);
-        console.log('[useDataLoader] Quick batch promises settled, processing results...');
 
-        if (process.env.NODE_ENV === 'development') {
-          const fulfilled = quickResults.filter(r => r.status === 'fulfilled').length;
-          const rejected = quickResults.filter(r => r.status === 'rejected').length;
-          console.log('[useDataLoader] Quick batch results', {
-            total: quickResults.length,
-            fulfilled,
-            rejected,
-            results: quickResults.map((r, i) => ({
-              index: i,
-              status: r.status,
-              fileName: quickBatch[i]?.fileName,
-              hasValue: r.status === 'fulfilled' && r.value !== null,
-              valueType: r.status === 'fulfilled' && r.value ? typeof r.value : 'null/rejected',
-              hasData: r.status === 'fulfilled' && r.value && 'data' in r.value ? r.value.data !== null : false,
-            })),
-          });
-        }
-        
         const quickLoaded = quickResults
           .filter((result) => result.status === "fulfilled" && result.value !== null)
-          .map((result) => {
-            if (result.status === "fulfilled") {
-              return result.value;
-            }
-            return null;
-          })
-          .filter((file) => 
-            file !== null && 
-            file !== undefined && 
-            file.data !== null && 
+          .map((result) => result.status === "fulfilled" ? result.value : null)
+          .filter((file): file is FlashcardFile =>
+            file !== null &&
+            file !== undefined &&
+            file.data !== null &&
             file.data !== undefined
-          ) as FlashcardFile[];
-        
-        console.log('[useDataLoader] Quick batch loaded -', quickLoaded.length, 'files with data');
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useDataLoader] Quick batch loaded', {
-            quickBatchSize: quickBatch.length,
-            quickLoadedCount: quickLoaded.length,
-            loadedFileNames: quickLoaded.map(f => f.fileName),
-            filesWithData: quickLoaded.filter(f => f.data !== null && f.data !== undefined).length,
-            firstLoadedFile: quickLoaded[0] ? {
-              fileName: quickLoaded[0].fileName,
-              hasData: quickLoaded[0].data !== null && quickLoaded[0].data !== undefined,
-              dataType: typeof quickLoaded[0].data,
-              dataLength: Array.isArray(quickLoaded[0].data) ? quickLoaded[0].data.length : 'N/A',
-            } : null,
-          });
-        }
+          );
 
         loadedFiles.push(...quickLoaded);
-
-        console.log('[useDataLoader] CALLING checkAndShowUI with', loadedFiles.length, 'loaded files');
         checkAndShowUI(loadedFiles);
-        console.log('[useDataLoader] checkAndShowUI RETURNED');
 
         const prioritizedRemainder = finalPrioritizedFiles.filter(
           file => !quickBatchFileNames.has(file.fileName)
@@ -1244,13 +1006,7 @@ export const useDataLoader = ({
                     break;
                   }
 
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('[useDataLoader] Loading background batch', {
-                      batchNumber: Math.floor(i / BACKGROUND_BATCH_SIZE) + 1,
-                      filesInBatch: Math.min(BACKGROUND_BATCH_SIZE, remainingFiles.length - i),
-                      progress: `${i}/${remainingFiles.length}`,
-                    });
-                  }
+                  // Logging removed
 
                   const batch = remainingFiles.slice(i, i + BACKGROUND_BATCH_SIZE);
                   const batchPromises = batch.map(async file => {
@@ -1423,14 +1179,7 @@ export const useDataLoader = ({
                       // DO NOT use random insertion as it breaks the seeded shuffle order
                       const combinedCards = [...updatedCards, ...newCards];
 
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log('[useDataLoader] Background loading added cards:', {
-                          previousLength: prevCards.length,
-                          newCardsAdded: newCards.length,
-                          newTotalLength: combinedCards.length,
-                          newStocks: newCards.map(c => c.name || c.id),
-                        });
-                      }
+                      // Logging removed
 
                       return combinedCards;
                     });

@@ -18,6 +18,7 @@ interface MagnifierWidgetProps {
   isDragging: boolean;
   isScrolling: boolean;
   isDraggingMagnifierWidget: boolean;
+  isTutorialMode?: boolean;
 }
 
 export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
@@ -29,6 +30,7 @@ export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
   isDragging,
   isScrolling,
   isDraggingMagnifierWidget,
+  isTutorialMode = false,
 }) => {
   // Use direct render position during drag, otherwise calculate from target
   const renderPos = isDraggingMagnifierWidget
@@ -75,6 +77,26 @@ export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
         }}
       >
         <MagnifierCrosshair isDragging={isDragging} />
+
+        {/* Tutorial mode indicator - pulsing ring */}
+        {isTutorialMode && !isDragging && (
+          <>
+            <div
+              className="absolute inset-0 rounded-md border-2 border-turquoise-400 pointer-events-none"
+              style={{
+                animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              }}
+            />
+            <div
+              className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-turquoise-600 bg-white/90 px-2 py-1 rounded shadow-sm pointer-events-none"
+              style={{
+                transform: 'translateX(-50%) translateZ(0)',
+              }}
+            >
+              Drag to position
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

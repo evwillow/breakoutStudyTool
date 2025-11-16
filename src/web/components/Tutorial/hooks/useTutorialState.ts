@@ -229,11 +229,11 @@ export function useTutorialState({
             // Only require selection to be made - animation will trigger this function
             // when it completes, at which point both will be true
             if (selectionMade && animationComplete) {
-              console.log('[Tutorial State] ====== BOTH CONDITIONS MET: Selection AND Animation complete ======');
-              console.log('[Tutorial State] Both selection and animation complete, proceeding to step 5 (results-feedback)');
+              // BOTH CONDITIONS MET: Selection AND Animation complete
+              // Both selection and animation complete, proceeding to step 5 (results-feedback)
               // Double-check we're still on step 4 before proceeding
               if (currentStepIdRef.current === 'making-selection' && currentStepIndexRef.current === 3) {
-                console.log('[Tutorial State] ====== CALLING handleAction to move to STEP 5 ======');
+                // CALLING handleAction to move to STEP 5
                 handleAction();
                 // Reset refs AFTER handleAction completes
                 selectionMadeRef.current = false;
@@ -243,7 +243,7 @@ export function useTutorialState({
                 console.log('[Tutorial State] Step changed while processing, aborting proceed. Current step:', currentStepIdRef.current, 'index:', currentStepIndexRef.current);
               }
             } else {
-              console.log('[Tutorial State] ====== WAITING: Not all conditions met yet ======');
+              // WAITING: Not all conditions met yet
               console.log('[Tutorial State] Waiting for both selection and animation. Current state:', {
                 selectionMade,
                 animationComplete,
@@ -254,7 +254,7 @@ export function useTutorialState({
           };
           
           const selectionListener = () => {
-            console.log('[Tutorial State] ====== TUTORIAL STEP 4: Selection made event received ======');
+            // TUTORIAL STEP 4: Selection made event received
             console.log('[Tutorial State] Selection made on step 4, hiding tooltip IMMEDIATELY');
             // CRITICAL: Set ref FIRST before state update to prevent race conditions
             selectionMadeRef.current = true;
@@ -272,7 +272,7 @@ export function useTutorialState({
           
           // Listen for after animation complete
           const animationListener = () => {
-            console.log('[Tutorial State] ====== TUTORIAL STEP 4: After animation complete event received ======');
+            // TUTORIAL STEP 4: After animation complete event received
             console.log('[Tutorial State] After animation complete event received on step 4');
             animationCompleteRef.current = true;
             console.log('[Tutorial State] animationCompleteRef set to TRUE');
@@ -289,7 +289,7 @@ export function useTutorialState({
             // If already on step 5, ignore the event completely
             const stepId = currentStepIdRef.current;
             const stepIndex = currentStepIndexRef.current;
-            console.log('[Tutorial State] ====== TUTORIAL STEP 4: Score timer completed event received ======');
+            // TUTORIAL STEP 4: Score timer completed event received
             console.log('[Tutorial State] Score timer completed event received. Current step (from refs):', stepId, 'index:', stepIndex);
             if (stepId !== 'making-selection' || stepIndex !== 3) {
               console.log('[Tutorial State] Score timer completed but not on step 4, ignoring completely. Current step:', stepId, 'index:', stepIndex);

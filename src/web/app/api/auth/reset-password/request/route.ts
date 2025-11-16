@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       await sendPasswordResetEmail(email, resetUrl);
     } catch (emailError) {
       const errorMessage = emailError instanceof Error ? emailError.message : "Unknown error";
-      console.error("❌ Failed to send password reset email:", {
+      console.error("Failed to send password reset email:", {
         error: errorMessage,
         email: email.split('@')[1], // Log domain only for privacy
         hasAWSCredentials: !!(process.env.AWS_SES_ACCESS_KEY_ID && process.env.AWS_SES_SECRET_ACCESS_KEY),

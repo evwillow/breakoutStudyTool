@@ -162,7 +162,7 @@ export const getClientSupabaseClient = (): SupabaseClient => {
 
     // Add connection validation
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ Client Supabase client initialized');
+      console.log('Client Supabase client initialized');
     }
   }
 

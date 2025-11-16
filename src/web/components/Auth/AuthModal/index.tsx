@@ -53,17 +53,17 @@ export interface AuthModalProps {
 // Add database test function
 const testDatabaseConnection = async (): Promise<DatabaseTestResult> => {
   try {
-    console.log('🔍 Testing database connection...');
+    // Testing database connection
     const response = await fetch('/api/auth/test-db', {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
     
     const result = await response.json() as DatabaseTestResult;
-    console.log('📊 Database test result:', result);
+    // Database test result logged
     return result;
   } catch (error) {
-    console.error('❌ Database test failed:', error);
+    console.error('Database test failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return { success: false, error: errorMessage };
   }
@@ -208,10 +208,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
 
     try {
       if (currentMode === AUTH_MODES.SIGNUP) {
-        console.log('📝 Submitting signup form');
+        // Submitting signup form
         await handleSignUp();
       } else if (currentMode === AUTH_MODES.SIGNIN) {
-        console.log('🔐 Submitting signin form');
+        // Submitting signin form
         await handleSignIn();
       } else {
         throw new Error('Invalid authentication mode');
@@ -259,20 +259,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
       return;
     }
 
-    console.log('✅ Signup successful, attempting auto sign-in...');
+    // Signup successful, attempting auto sign-in
     const signInResult = await signInWithCredentials({
       email: formData.email,
       password: formData.password
     });
 
     if (signInResult.error) {
-      console.error('❌ Auto sign-in after signup failed:', signInResult.error);
+      console.error('Auto sign-in after signup failed:', signInResult.error);
       setError('Account created successfully! Please sign in with your email and password.');
       setFormData({ email: formData.email, password: '' });
       setMode(AUTH_MODES.SIGNIN);
       setCaptchaToken(null);
     } else {
-      console.log('✅ Auto sign-in successful');
+      // Auto sign-in successful
       alert(ERROR_MESSAGES.SIGNUP_SUCCESS);
       await update();
       onClose();
@@ -354,23 +354,17 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose, initialMode }) => 
       throw new Error('Invalid operation: not in signin mode');
     }
 
-    console.log('🔍 Starting sign in process...');
-    console.log('📧 Email:', formData.email);
-    console.log('🔑 Password length:', formData.password?.length || 0);
-    
     const result = await signInWithCredentials({
       email: formData.email,
       password: formData.password
     });
 
-    console.log('📊 Sign in result:', result);
-
     if (result.error) {
-      console.log('❌ Sign in failed:', result.error);
+      console.error('Sign in failed:', result.error);
       setError(ERROR_MESSAGES.INVALID_CREDENTIALS);
       return;
     } else {
-      console.log('✅ Sign in successful');
+      // Sign in successful
       await update();
       onClose();
     }

@@ -73,9 +73,11 @@ const DateFolderBrowser: React.FC<DateFolderBrowserProps> = props => {
       )}
 
       {session && !error && files.length === 0 && !isLoading && (
-        <EmptyState
-          title="No setups found"
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <EmptyState
+            title="No setups found"
+          />
+        </div>
       )}
 
       {session && isLoading && files.length === 0 && (

@@ -26,8 +26,6 @@ export function withErrorHandling(handler: ApiHandler): ApiHandler {
     });
 
     try {
-      requestLogger.info('API request started');
-
       // Execute the handler
       const rawResponse = await handler(req, context);
       
@@ -45,12 +43,14 @@ export function withErrorHandling(handler: ApiHandler): ApiHandler {
         });
       }
       
-      // Log successful completion
+      // Only log slow requests or errors
       const duration = Date.now() - startTime;
-      requestLogger.info('API request completed', { 
-        duration,
-        status: response.status 
-      });
+      if (duration > 1000 || response.status >= 400) {
+        requestLogger.warn('API request completed', { 
+          duration,
+          status: response.status 
+        });
+      }
 
       // Add request ID to response headers
       response.headers.set('X-Request-ID', requestId);

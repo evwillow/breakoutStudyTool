@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   constrainPosition,
   getMagnifierRenderPosition,
@@ -170,22 +170,8 @@ export function useChartMagnifierTouch({
     makeSelectionRef.current = makeSelection;
   }, [makeSelection]);
 
-  // CRITICAL: Use layoutEffect to ensure DOM position updates persist after React renders
-  // This prevents React from overriding our direct DOM manipulation during drag
-  useLayoutEffect(() => {
-    if (!magnifierRef.current || !isDraggingMagnifierWidget || !selectionBounds) return;
-
-    // Re-apply the last known position from state to DOM after React render
-    const constrainedRenderX = magnifierRenderPos.x;
-    const constrainedRenderY = magnifierRenderPos.y;
-
-    const left = selectionBounds.left + constrainedRenderX;
-    const top = selectionBounds.top + constrainedRenderY;
-
-    // Use left/top for positioning (transform is used for scale in MagnifierWidget)
-    magnifierRef.current.style.left = `${left}px`;
-    magnifierRef.current.style.top = `${top}px`;
-  }, [isDraggingMagnifierWidget, magnifierRenderPos, selectionBounds, magnifierRef]);
+  // Removed layoutEffect - now we only update DOM during drag, and sync state after drag ends
+  // This prevents conflicts between React renders and direct DOM manipulation
 
   // Handle touch events on magnifier itself - drag to move, tap to select
   useEffect(() => {
@@ -282,9 +268,7 @@ export function useChartMagnifierTouch({
         const constrainedRenderX = constrainedTarget.x - magnifierSize / 2;
         const constrainedRenderY = constrainedTarget.y - magnifierSize / 2;
 
-        // Update state immediately for instant position updates
-        setMagnifierRenderPos({ x: constrainedRenderX, y: constrainedRenderY });
-        setTargetPosition(constrainedTarget);
+        // CRITICAL: Only update refs during drag - NO state updates to prevent re-renders
         targetPositionRef.current = constrainedTarget;
         lastTapPositionRef.current = constrainedTarget;
 
@@ -341,7 +325,15 @@ export function useChartMagnifierTouch({
           }
         }, 50);
       } else if (hasDragged) {
-        console.log('[ChartMagnifier] Drag ended - no selection');
+        console.log('[ChartMagnifier] Drag ended - updating state to match refs');
+        // CRITICAL: After drag ends, sync state with refs for React consistency
+        const finalPosition = targetPositionRef.current;
+        if (finalPosition && selectionBoundsCache) {
+          const finalRenderX = finalPosition.x - magnifierSize / 2;
+          const finalRenderY = finalPosition.y - magnifierSize / 2;
+          setMagnifierRenderPos({ x: finalRenderX, y: finalRenderY });
+          setTargetPosition(finalPosition);
+        }
       }
 
       activeTouchId = null;

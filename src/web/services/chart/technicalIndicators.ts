@@ -13,8 +13,6 @@ export const calculateSMA = (
   priceKey: string | null = null,
   outputKey: string | null = null
 ): ProcessedStockDataPoint[] => {
-  console.log(`Starting SMA ${period} calculation for ${data.length} data points`);
-
   if (!Array.isArray(data) || data.length === 0) {
     console.warn('Cannot calculate SMA: Invalid or empty data array');
     return data;
@@ -56,7 +54,6 @@ export const calculateSMA = (
     for (const key of possiblePriceKeys) {
       if (key in firstItem && firstItem[key] !== null && firstItem[key] !== undefined) {
         actualPriceKey = key;
-        console.log(`Using ${key} for SMA calculation`);
         break;
       }
     }
@@ -108,25 +105,6 @@ export const calculateSMA = (
     }
   });
 
-  console.log(
-    `SMA ${period} calculation complete (output as '${actualOutputKey}'): ${validSMACount} valid points out of ${data.length}`
-  );
-  if (validSMACount > 0) {
-    console.log(
-      `SMA ${period} examples:`,
-      result
-        .filter(item => item[actualOutputKey] !== null)
-        .slice(0, 3)
-        .map(item => {
-          const price = priceKey ? getPrice(item, [priceKey]) : getPrice(item, possiblePriceKeys);
-          return {
-            price,
-            sma: item[actualOutputKey],
-          };
-        })
-    );
-  }
-
   return result;
 };
 
@@ -139,54 +117,16 @@ export const processChartData = (
     return [];
   }
 
-  console.log(`Processing ${chartData.length} data points for chart type: ${chartType}`);
-
   let processedData: ProcessedStockDataPoint[] = chartData.map((item: ProcessedStockDataPoint) => ({
     ...item,
   }));
 
-  if (chartType === 'hourly' || chartType === 'H') {
-    console.log('HOURLY CHART DATA DEBUGGING:');
-    const samplePoints = processedData.slice(0, 3);
-    console.log('First 3 data points:', JSON.stringify(samplePoints));
-
-    const firstPoint = samplePoints[0] || {};
-    const hasSMA10 =
-      'sma10' in firstPoint ||
-      'SMA10' in firstPoint ||
-      'ma10' in firstPoint ||
-      'MA10' in firstPoint ||
-      '10sma' in firstPoint;
-    const hasSMA20 =
-      'sma20' in firstPoint ||
-      'SMA20' in firstPoint ||
-      'ma20' in firstPoint ||
-      'MA20' in firstPoint ||
-      '20sma' in firstPoint;
-
-    console.log('Hourly data SMA detection:', {
-      hasSMA10,
-      hasSMA20,
-      sma10Value:
-        firstPoint.sma10 ||
-        firstPoint.SMA10 ||
-        firstPoint.ma10 ||
-        firstPoint.MA10 ||
-        firstPoint['10sma'],
-      sma20Value:
-        firstPoint.sma20 ||
-        firstPoint.SMA20 ||
-        firstPoint.ma20 ||
-        firstPoint.MA20 ||
-        firstPoint['20sma'],
-    });
-  }
+  // Hourly chart SMA detection (logging removed)
 
   processedData = processedData.map(item => {
     if (item.json && typeof item.json === 'string') {
       try {
         const parsedJson = JSON.parse(item.json);
-        console.log('Parsed JSON data:', parsedJson);
         return { ...item, ...parsedJson };
       } catch (err) {
         console.error('Error parsing JSON data:', err);
@@ -197,21 +137,6 @@ export const processChartData = (
   });
 
   const samplePoint = processedData[0];
-  console.log('Raw data first point:', JSON.stringify(samplePoint));
-
-  const hasOpen = 'open' in samplePoint || 'Open' in samplePoint;
-  const hasHigh = 'high' in samplePoint || 'High' in samplePoint;
-  const hasLow = 'low' in samplePoint || 'Low' in samplePoint;
-  const hasClose = 'close' in samplePoint || 'Close' in samplePoint;
-  const hasVolume = 'volume' in samplePoint || 'Volume' in samplePoint;
-
-  console.log('Data contains OHLCV properties:', {
-    hasOpen,
-    hasHigh,
-    hasLow,
-    hasClose,
-    hasVolume,
-  });
 
   const hasSMA10Data =
     'sma10' in samplePoint ||
@@ -231,12 +156,6 @@ export const processChartData = (
     'ma50' in samplePoint ||
     'MA50' in samplePoint ||
     '50sma' in samplePoint;
-
-  console.log('SMA data in JSON:', {
-    hasSMA10Data,
-    hasSMA20Data,
-    hasSMA50Data,
-  });
 
   processedData = processedData.map(item => {
     const result: ProcessedStockDataPoint = { ...item };
@@ -280,8 +199,6 @@ export const processChartData = (
     return result;
   });
 
-  console.log(`Processing ${processedData.length} data points`);
-
   const hasSMA10 = processedData.some(
     d => d.sma10 !== null && d.sma10 !== undefined && !isNaN(Number(d.sma10))
   );
@@ -292,28 +209,20 @@ export const processChartData = (
     d => d.sma50 !== null && d.sma50 !== undefined && !isNaN(Number(d.sma50))
   );
 
-  console.log(
-    `SMA data present after normalization: SMA10: ${hasSMA10}, SMA20: ${hasSMA20}, SMA50: ${hasSMA50}`
-  );
-
   if (chartType === 'hourly' || chartType === 'H') {
     if (!hasSMA10) {
-      console.log('Calculating SMA10 for hourly chart as it is not present in the data');
       calculateSMA(processedData, 10, 'close', 'sma10');
     }
     if (!hasSMA20) {
-      console.log('Calculating SMA20 for hourly chart as it is not present in the data');
       calculateSMA(processedData, 20, 'close', 'sma20');
     }
   }
 
   if (!hasSMA10 && (chartType !== 'monthly' && chartType !== 'M')) {
-    console.log('Calculating SMA10 as it is not present in the data');
     calculateSMA(processedData, 10, 'close', 'sma10');
   }
 
   if (!hasSMA20 && (chartType !== 'monthly' && chartType !== 'M')) {
-    console.log('Calculating SMA20 as it is not present in the data');
     calculateSMA(processedData, 20, 'close', 'sma20');
   }
 
@@ -324,7 +233,6 @@ export const processChartData = (
     chartType !== 'hourly' &&
     chartType !== 'H'
   ) {
-    console.log('Calculating SMA50 as it is not present in the data');
     calculateSMA(processedData, 50, 'close', 'sma50');
   }
 
@@ -332,20 +240,14 @@ export const processChartData = (
   let showSMA20 = true;
   let showSMA50 = true;
 
-  console.log(`Chart type detected: "${chartType}"`);
-
   if (chartType === 'hourly' || chartType === 'H') {
     showSMA10 = true;
     showSMA20 = true;
     showSMA50 = false;
-    console.log('Hourly chart detected - showing only SMA10 and SMA20');
   } else if (chartType === 'monthly' || chartType === 'M' || chartType === 'minute') {
     showSMA10 = false;
     showSMA20 = false;
     showSMA50 = false;
-    console.log(`${chartType} chart detected - not showing any SMAs as requested`);
-  } else {
-    console.log('Using default SMA display settings: showing SMA10, SMA20, and SMA50');
   }
 
   processedData = processedData.map(item => {
@@ -357,16 +259,6 @@ export const processChartData = (
 
     return result;
   });
-
-  console.log('Normalized first point with SMA settings applied:', JSON.stringify(processedData[0]));
-
-  const sma10Count = processedData.filter(d => d.sma10 !== null && d.sma10 !== undefined).length;
-  const sma20Count = processedData.filter(d => d.sma20 !== null && d.sma20 !== undefined).length;
-  const sma50Count = processedData.filter(d => d.sma50 !== null && d.sma50 !== undefined).length;
-
-  console.log(
-    `After processing: SMA10: ${sma10Count}, SMA20: ${sma20Count}, SMA50: ${sma50Count} valid points`
-  );
 
   return processedData;
 };

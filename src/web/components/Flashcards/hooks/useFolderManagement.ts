@@ -23,20 +23,7 @@ export const useFolderManagement = ({ autoSelectFirstFolder }: FolderManagementO
     if (selectedFolder) return;
     if (foldersRef.current.length > 0) {
       const firstFolderName = foldersRef.current[0].name;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useFolderManagement] Auto-selecting first folder', {
-          folderName: firstFolderName,
-          totalFolders: foldersRef.current.length,
-          folderNames: foldersRef.current.map(f => f.name),
-        });
-      }
       setSelectedFolder(firstFolderName);
-    } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useFolderManagement] No folders available for auto-selection', {
-          foldersLength: foldersRef.current.length,
-        });
-      }
     }
   }, [autoSelectFirstFolder, selectedFolder, folders]);
 

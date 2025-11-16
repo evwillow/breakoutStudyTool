@@ -39,14 +39,6 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
   // Ensure jsonFiles exists and is an array
   const { jsonFiles } = flashcardData;
   if (!jsonFiles || !Array.isArray(jsonFiles)) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[extractOrderedFiles] No jsonFiles in flashcardData', {
-        hasFlashcardData: !!flashcardData,
-        jsonFilesLength: (jsonFiles as any)?.length,
-        jsonFilesType: typeof jsonFiles,
-        flashcardKeys: Object.keys(flashcardData),
-      });
-    }
     return [];
   }
 
@@ -54,79 +46,21 @@ export function extractOrderedFiles(flashcardData: FlashcardData | null): Flashc
     const files = new Map<string, FlashcardFile>();
 
     for (const file of jsonFiles) {
-      // Log all files for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[extractOrderedFiles] Processing file', {
-          fileName: file.fileName,
-          hasData: !!file.data,
-          dataType: typeof file.data,
-          isArray: Array.isArray(file.data),
-          dataLength: Array.isArray(file.data) ? file.data.length : 'N/A',
-        });
-      }
-
       if (!file.fileName || !file.data) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[extractOrderedFiles] Skipping file (no fileName or data)', {
-            fileName: file.fileName,
-            hasData: !!file.data,
-            dataType: typeof file.data,
-            isArray: Array.isArray(file.data),
-          });
-        }
         continue;
       }
 
       const fileName = file.fileName;
       const baseFileName = fileName.split('/').pop() || fileName;
 
-      // Log pattern matching attempts
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[extractOrderedFiles] Testing patterns', {
-          fileName,
-          baseFileName,
-          matchesDAILY: FILE_PATTERNS.DAILY.test(baseFileName),
-          matchesMINUTE: FILE_PATTERNS.MINUTE.test(baseFileName),
-          DAILYPattern: FILE_PATTERNS.DAILY.toString(),
-          MINUTEPattern: FILE_PATTERNS.MINUTE.toString(),
-        });
-      }
-
       if (FILE_PATTERNS.DAILY.test(baseFileName)) {
         files.set('D', file);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[extractOrderedFiles] Found D.json file', {
-            fileName,
-            hasData: !!file.data,
-            isArray: Array.isArray(file.data),
-            dataLength: Array.isArray(file.data) ? file.data.length : 'N/A',
-          });
-        }
       } else if (FILE_PATTERNS.MINUTE.test(baseFileName)) {
         files.set('M', file);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[extractOrderedFiles] Found M.json file', {
-            fileName,
-            hasData: !!file.data,
-            isArray: Array.isArray(file.data),
-            dataLength: Array.isArray(file.data) ? file.data.length : 'N/A',
-          });
-        }
       }
     }
 
     const result = ['D', 'M'].map(key => files.get(key)).filter(Boolean) as FlashcardFile[];
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[extractOrderedFiles] Result', {
-        resultLength: result.length,
-        hasDFile: !!result.find(f => f.fileName.includes('D.json')),
-        hasMFile: !!result.find(f => f.fileName.includes('M.json')),
-        dFileDataLength: result.find(f => f.fileName.includes('D.json'))?.data && Array.isArray(result.find(f => f.fileName.includes('D.json'))?.data) 
-          ? result.find(f => f.fileName.includes('D.json'))!.data.length 
-          : 'N/A',
-      });
-    }
 
     return result;
   } catch (error) {
@@ -199,12 +133,6 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
     return [];
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[extractPointsTextArray] Looking for points.json in files:',
-      flashcardData.jsonFiles.map(f => f.fileName)
-    );
-  }
-
   // Find points.json file with robust matching (similar to extractAfterJsonData)
   let pointsFile = flashcardData.jsonFiles.find(file => {
     const fileName = file.fileName.toLowerCase();
@@ -238,22 +166,7 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
   }
 
   if (!pointsFile || !pointsFile.data) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[extractPointsTextArray] points.json file not found or has no data', {
-        pointsFileFound: !!pointsFile,
-        hasData: pointsFile ? !!pointsFile.data : false
-      });
-    }
     return [];
-  }
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[extractPointsTextArray] Found points.json:', {
-      fileName: pointsFile.fileName,
-      dataType: typeof pointsFile.data,
-      isArray: Array.isArray(pointsFile.data),
-      dataPreview: pointsFile.data
-    });
   }
 
   try {
@@ -306,29 +219,12 @@ export function extractPointsTextArray(flashcardData: FlashcardData | null): str
         })
         .filter((item): item is string => typeof item === 'string' && item.length > 0);
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[extractPointsTextArray] Processed array result:', {
-          resultLength: result.length,
-          result: result
-        });
-      }
-
       return result;
     }
 
     // Handle single string value
     if (typeof jsonData === 'string') {
-      const result = [jsonData.trim()].filter(Boolean);
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[extractPointsTextArray] Processed string result:', result);
-      }
-
-      return result;
-    }
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[extractPointsTextArray] Data is neither array nor string, returning empty array');
+      return [jsonData.trim()].filter(Boolean);
     }
 
     return [];

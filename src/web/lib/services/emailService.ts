@@ -74,12 +74,12 @@ async function sendWithAWSSES(options: SendEmailOptions): Promise<void> {
     const response = await sesClient.send(command);
     // Email sent instantly - AWS SES queues and delivers immediately
     if (process.env.NODE_ENV === 'development') {
-      console.log("✅ Email sent via AWS SES:", response.MessageId);
+      console.log("Email sent via AWS SES:", response.MessageId);
     }
   } catch (error: any) {
     // If AWS SDK is not available, provide helpful error
     if (error instanceof Error && error.message.includes("Cannot find module")) {
-      console.error("⚠️  AWS SDK not installed. Install it with: npm install @aws-sdk/client-ses");
+      console.error("AWS SDK not installed. Install it with: npm install @aws-sdk/client-ses");
       throw new Error("AWS SDK is required. Run: npm install @aws-sdk/client-ses");
     }
     
@@ -115,18 +115,13 @@ async function sendWithResend(options: SendEmailOptions): Promise<void> {
   if (!apiKey) {
     // In development, log the email instead of failing
     if (process.env.NODE_ENV === 'development') {
-      console.log("=".repeat(80));
-      console.log("📧 EMAIL (Development Mode - RESEND_API_KEY not set)");
-      console.log("=".repeat(80));
+      console.log("EMAIL (Development Mode - RESEND_API_KEY not set)");
       console.log("To:", options.to);
       console.log("Subject:", options.subject);
-      console.log("\n--- HTML Content ---");
-      console.log(options.html);
-      console.log("\n--- Text Content ---");
-      console.log(options.text || options.html.replace(/<[^>]*>/g, ""));
-      console.log("=".repeat(80));
-      console.log("\n⚠️  To send real emails, set RESEND_API_KEY in your .env file");
-      console.log("📖 Setup instructions: https://resend.com/docs/getting-started\n");
+      console.log("HTML Content:", options.html);
+      console.log("Text Content:", options.text || options.html.replace(/<[^>]*>/g, ""));
+      console.log("To send real emails, set RESEND_API_KEY in your .env file");
+      console.log("Setup instructions: https://resend.com/docs/getting-started");
       return; // Don't throw error in development
     }
     
@@ -165,7 +160,7 @@ async function sendWithResend(options: SendEmailOptions): Promise<void> {
     const result = await response.json();
     // Email sent instantly via Resend
     if (process.env.NODE_ENV === 'development') {
-      console.log("✅ Email sent via Resend:", result.id || "Email queued");
+      console.log("Email sent via Resend:", result.id || "Email queued");
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes("RESEND_API_KEY")) {
@@ -274,19 +269,14 @@ If you didn't request this password reset, you can safely ignore this email.
     } else {
       // Development fallback
       if (process.env.NODE_ENV === 'development') {
-        console.log("=".repeat(80));
-        console.log("📧 EMAIL (Development Mode - No email provider configured)");
-        console.log("=".repeat(80));
+        console.log("EMAIL (Development Mode - No email provider configured)");
         console.log("To:", email);
         console.log("Subject: Reset Your Password - Breakout Study Tool");
-        console.log("\n--- Reset URL ---");
-        console.log(resetUrl);
-        console.log("=".repeat(80));
-        console.log("\n💡 To send real emails, configure one of:");
-        console.log("   - AWS SES (scalable): Set AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY");
-        console.log("   - Resend: Set RESEND_API_KEY");
-        console.log("   - SendGrid: Set SENDGRID_API_KEY");
-        console.log("📖 See EMAIL_SETUP.md for detailed instructions\n");
+        console.log("Reset URL:", resetUrl);
+        console.log("To send real emails, configure one of:");
+        console.log("  - AWS SES (scalable): Set AWS_SES_ACCESS_KEY_ID and AWS_SES_SECRET_ACCESS_KEY");
+        console.log("  - Resend: Set RESEND_API_KEY");
+        console.log("  - SendGrid: Set SENDGRID_API_KEY");
         return;
       }
       
@@ -351,7 +341,7 @@ async function sendWithSendGrid(options: SendEmailOptions): Promise<void> {
 
     // Email sent instantly via SendGrid
     if (process.env.NODE_ENV === 'development') {
-      console.log("✅ Email sent via SendGrid");
+      console.log("Email sent via SendGrid");
     }
   } catch (error) {
     console.error("Failed to send email via SendGrid:", error);

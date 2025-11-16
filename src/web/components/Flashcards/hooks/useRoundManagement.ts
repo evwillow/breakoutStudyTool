@@ -369,17 +369,21 @@ export function useRoundManagement(
 
   // Load rounds when folder changes
   useEffect(() => {
+    // Only trigger when folder or user changes, not when isLoadingRounds changes
+    const folderChanged = lastLoadedRef.current.folder !== selectedFolder;
+    const userChanged = lastLoadedRef.current.userId !== session?.user?.id;
+
     if (
       selectedFolder &&
       session?.user?.id &&
-      !isLoadingRounds &&
-      (lastLoadedRef.current.folder !== selectedFolder || lastLoadedRef.current.userId !== session.user.id)
+      (folderChanged || userChanged)
     ) {
+      // Update lastLoadedRef IMMEDIATELY to prevent duplicate calls
+      lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
       setRoundsLoaded(false); // Reset rounds loaded flag when folder changes
       loadRecentRounds(selectedFolder);
-      lastLoadedRef.current = { folder: selectedFolder, userId: session.user.id };
     }
-  }, [selectedFolder, session?.user?.id, loadRecentRounds, isLoadingRounds]);
+  }, [selectedFolder, session?.user?.id, loadRecentRounds]);
 
   const loadPendingRoundIfReady = useCallback((flashcardsReady: boolean, currentSelectedFolder: string | null) => {
     const pendingRound = pendingRoundRef.current;

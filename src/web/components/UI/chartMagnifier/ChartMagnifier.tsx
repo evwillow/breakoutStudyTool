@@ -20,6 +20,7 @@ interface ChartMagnifierProps {
   zoomLevel?: number;
   chartElement?: HTMLElement | null;
   mainDataLength?: number;
+  isTutorialMode?: boolean; // Special behavior for tutorial
 }
 
 const ChartMagnifier: React.FC<ChartMagnifierProps> = ({
@@ -29,6 +30,7 @@ const ChartMagnifier: React.FC<ChartMagnifierProps> = ({
   zoomLevel = 2.5,
   chartElement = null,
   mainDataLength = 0,
+  isTutorialMode = false,
 }) => {
   const [isMobile, setIsMobile] = useState(false);
   const magnifierRef = useRef<HTMLDivElement>(null);
@@ -164,6 +166,7 @@ const ChartMagnifier: React.FC<ChartMagnifierProps> = ({
       isDragging={isDragging}
       isScrolling={isScrolling}
       isDraggingMagnifierWidget={isDraggingMagnifierWidget}
+      isTutorialMode={isTutorialMode}
     />
   );
 };

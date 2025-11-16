@@ -36,15 +36,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Log for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[local-data API] Serving file: ${fileName}`, {
-        hasData: jsonData !== null && jsonData !== undefined,
-        isArray: Array.isArray(jsonData),
-        dataLength: Array.isArray(jsonData) ? jsonData.length : 'N/A',
-        dataType: typeof jsonData,
-      });
-    }
+    // Logging removed for cleaner terminal output
 
     const response = NextResponse.json(
       {

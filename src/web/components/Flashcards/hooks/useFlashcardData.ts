@@ -27,19 +27,7 @@ export function useFlashcardData(
 
   const [flashcards, setFlashcards] = useState<FlashcardData[]>([]);
 
-  // Debug logging for flashcards state changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useFlashcardData] Flashcards state updated', {
-        flashcardsLength: flashcards.length,
-        firstFlashcard: flashcards[0] ? {
-          id: flashcards[0].id,
-          name: flashcards[0].name,
-          jsonFilesCount: flashcards[0].jsonFiles?.length,
-        } : null,
-      });
-    }
-  }, [flashcards]);
+  // Debug logging removed for cleaner console
 
   const {
     loading,
@@ -74,24 +62,12 @@ export function useFlashcardData(
   });
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[useFlashcardData] Fetching folders');
-    }
     fetchFolders();
   }, [fetchFolders]);
 
   useEffect(() => {
     if (selectedFolder) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useFlashcardData] Selected folder changed, fetching flashcards', {
-          selectedFolder,
-        });
-      }
       fetchFlashcards(selectedFolder);
-    } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useFlashcardData] No folder selected, not fetching flashcards');
-      }
     }
   }, [selectedFolder, fetchFlashcards]);
 
@@ -128,13 +104,7 @@ export function useFlashcardData(
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useFlashcardData] Flashcards shuffled', {
-          originalFirst: prevCards[0]?.id,
-          shuffledFirst: shuffled[0]?.id,
-          count: shuffled.length,
-        });
-      }
+      // Logging removed
 
       return shuffled;
     });

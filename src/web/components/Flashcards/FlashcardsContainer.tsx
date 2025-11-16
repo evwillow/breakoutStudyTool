@@ -175,26 +175,6 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
 
   const processedData = useMemo(() => {
     const result = processFlashcardData(currentFlashcard);
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[FlashcardsContainer] Processed data', {
-        flashcardsLength: flashcards.length,
-        hasCurrentFlashcard: !!currentFlashcard,
-        currentFlashcardJsonFiles: currentFlashcard?.jsonFiles?.length || 0,
-        orderedFilesLength: result.orderedFiles.length,
-        hasDFile: result.orderedFiles.some(f => f.fileName?.includes('D.json')),
-        dFileDataLength: result.orderedFiles.find(f => f.fileName?.includes('D.json'))?.data && Array.isArray(result.orderedFiles.find(f => f.fileName?.includes('D.json'))?.data)
-          ? result.orderedFiles.find(f => f.fileName?.includes('D.json'))!.data.length
-          : 'N/A',
-        hasAfterData: !!result.afterJsonData,
-        afterDataLength: Array.isArray(result.afterJsonData) ? result.afterJsonData.length : 'N/A',
-        currentFlashcardStructure: currentFlashcard ? {
-          id: currentFlashcard.id,
-          name: currentFlashcard.name,
-          jsonFilesCount: currentFlashcard.jsonFiles?.length,
-          jsonFileNames: currentFlashcard.jsonFiles?.map(f => f.fileName),
-        } : null,
-      });
-    }
     return result;
   }, [currentFlashcard, flashcards.length]);
   const { targetPoint, priceRange, timeRange } = useTargetPoint(processedData);
@@ -281,7 +261,7 @@ export default function FlashcardsContainer({ tutorialTrigger = false }: Flashca
     }
 
     if (showTutorial) {
-      console.log('[FlashcardsContainer] ====== TUTORIAL STEP 4: Dispatching tutorial-selection-made event ======');
+      // TUTORIAL STEP 4: Dispatching tutorial-selection-made event
       window.dispatchEvent(new CustomEvent('tutorial-selection-made'));
     }
     

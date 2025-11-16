@@ -193,7 +193,8 @@ export const useChartScale = ({
     const volumeMax = allVolumeValues.length > 0 ? Math.max(...allVolumeValues) : 1;
     const volumePadding = chartType === "previous" ? 0 : volumeMax * 0.1;
 
-    if (process.env.NODE_ENV === 'development' && allVolumeValues.length > 0) {
+    // Logging removed
+    if (false && process.env.NODE_ENV === 'development' && allVolumeValues.length > 0) {
       console.log('[useChartScale] Volume scale calculation:', {
         stockDataCount: stockData.length,
         afterStockDataCount: afterStockData.length,

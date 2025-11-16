@@ -84,7 +84,7 @@ export function useTutorialPosition(
     // Log step changes and unlock tooltip on step change
     const stepChanged = lastStepIdRef.current !== currentStep.id;
     if (stepChanged) {
-      console.log('[Tutorial Position] ====== STEP CHANGED ======', 'new step:', currentStep.id);
+      // STEP CHANGED - new step: currentStep.id
       lastStepIdRef.current = currentStep.id;
       currentStepIdRef.current = currentStep.id; // Also update currentStepIdRef for highlight logic
       tooltipLockedRef.current = false; // Unlock tooltip on step change
@@ -93,7 +93,7 @@ export function useTutorialPosition(
 
       // CRITICAL: Reset selection tracking when ENTERING step 4
       if (currentStep.id === 'making-selection') {
-        console.log('[Tutorial Position] ====== ENTERING STEP 4: Resetting selectionMadeOnStep4Ref to FALSE ======');
+        // ENTERING STEP 4: Resetting selectionMadeOnStep4Ref to FALSE
         selectionMadeOnStep4Ref.current = false;
       }
     }
@@ -172,7 +172,7 @@ export function useTutorialPosition(
         // Continue to tooltip positioning only (skip the else block)
       } else if (!skipHighlight) {
         // Only set highlight if skipHighlight is false AND selection hasn't been made
-        console.log('[Tutorial Position] ====== STEP 4: Entering selectable area highlight block (skipHighlight:', skipHighlight, ') ======');
+        // STEP 4: Entering selectable area highlight block
         const chartContainer = targetElement.closest('[data-tutorial-chart]') || targetElement;
         const chartRect = chartContainer.getBoundingClientRect();
         
@@ -229,14 +229,7 @@ export function useTutorialPosition(
           const selectableStartX = dividerX;
           const selectableWidth = chartWidth - selectableStartX;
 
-          console.log('[Tutorial Position] ====== STEP 4: SETTING SELECTABLE AREA HIGHLIGHT ======', {
-            top: svgRect.top,
-            left: svgRect.left + selectableStartX,
-            width: selectableWidth,
-            height: chartHeight,
-            dividerX: dividerX,
-            selectableStartX: selectableStartX
-          });
+          // STEP 4: SETTING SELECTABLE AREA HIGHLIGHT
           setSelectableAreaHighlight({
             top: svgRect.top,
             left: svgRect.left + selectableStartX,

@@ -10,10 +10,21 @@ if (isDev) {
   const shouldSuppress = (message) => {
     if (typeof message !== 'string') return false;
     // Suppress 404 errors for CSS files
-    return message.includes('404') && 
-           (message.includes('layout.css') || 
-            message.includes('/_next/static/css/') ||
-            message.includes('GET /_next/static/css/'));
+    if (message.includes('404') && 
+        (message.includes('layout.css') || 
+         message.includes('/_next/static/css/') ||
+         message.includes('GET /_next/static/css/'))) {
+      return true;
+    }
+    // Suppress dotenv messages
+    if (message.includes('dotenv') || message.includes('injecting env')) {
+      return true;
+    }
+    // Suppress NextAuth debug messages
+    if (message.includes('[next-auth][debug]')) {
+      return true;
+    }
+    return false;
   };
 
   // Intercept console methods

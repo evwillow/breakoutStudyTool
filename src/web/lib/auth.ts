@@ -269,10 +269,7 @@ export const authConfig: AuthOptions = {
         token.name = maybeUser.name;
         token.email = maybeUser.email;
         
-        logger.debug('JWT token created', { 
-          userId: maybeUser.id,
-          email: maybeUser.email.split('@')[1]
-        });
+        // Debug logging removed
       }
 
       const tokenEmail = (token.email || maybeUser?.email || "").toString();
@@ -321,10 +318,7 @@ export const authConfig: AuthOptions = {
           }
         }
 
-        logger.debug('Session created', { 
-          userId: authToken.id,
-          email: authToken.email.split('@')[1]
-        });
+        // Debug logging removed
       }
       return session as AuthSession;
     }
@@ -342,24 +336,13 @@ export const authConfig: AuthOptions = {
 
   secret: process.env.NEXTAUTH_SECRET,
   
-  // Enhanced debug configuration
-  debug: process.env.NODE_ENV === "development",
+  // Disable debug logging for cleaner terminal output
+  debug: false,
   
   // Security enhancements
   useSecureCookies: process.env.NODE_ENV === "production",
   
   events: {
-    async signIn({ user, account, profile }) {
-      logger.info('User signed in', {
-        userId: user.id,
-        provider: account?.provider,
-        email: user.email?.split('@')[1]
-      });
-    },
-    async signOut({ token }) {
-      logger.info('User signed out', {
-        userId: (token as AuthToken)?.id
-      });
-    }
+    // Event logging removed for cleaner terminal output
   }
 }; 
