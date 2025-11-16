@@ -12,6 +12,7 @@ import Navigation from "./components/Navigation"
 import UserMenu from "./components/UserMenu"
 import MobileMenu from "./components/MobileMenu"
 import AuthButtons from "./components/AuthButtons"
+import DeleteAccountModal from "./components/DeleteAccountModal"
 import { NavLink, TouchPosition } from './Header.types'
 import { useOptimisticSession } from "@/lib/hooks/useOptimisticSession"
 
@@ -45,6 +46,7 @@ const Header: React.FC = () => {
   const mobileMenuButtonsRef = useRef<HTMLDivElement | null>(null)
   const [isSigningOut, setIsSigningOut] = useState<boolean>(false)
   const [pendingSignOut, setPendingSignOut] = useState<boolean>(false)
+  const [showDeleteAccountModal, setShowDeleteAccountModal] = useState<boolean>(false)
 
   const handleSignOutRequest = useCallback(async (): Promise<void> => {
     if (isSigningOut) {
@@ -62,6 +64,25 @@ const Header: React.FC = () => {
       setIsSigningOut(false)
     }
   }, [isSigningOut, signOutUser])
+
+  const handleDeleteAccount = useCallback(async (email: string, password: string): Promise<void> => {
+    const response = await fetch('/api/user/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ password }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to delete account')
+    }
+
+    // Sign out after successful deletion
+    await signOutUser({ callbackUrl: '/' })
+  }, [signOutUser])
 
   useEffect(() => {
     if (!session) {
@@ -470,6 +491,7 @@ const Header: React.FC = () => {
                 isOpen={userMenuOpen}
                 onToggle={() => setUserMenuOpen(v => !v)}
                 onSignOut={handleSignOutRequest}
+                onDeleteAccount={() => setShowDeleteAccountModal(true)}
                 menuRef={userMenuRef}
               />
             ) : (
@@ -552,6 +574,7 @@ const Header: React.FC = () => {
         headerRef={headerRef}
         onScrollTo={handleScrollTo}
         onSignOut={handleSignOutRequest}
+        onDeleteAccount={() => setShowDeleteAccountModal(true)}
         onSignIn={() => {
           setAuthModalMode('signin')
           setShowAuthModal(true)
@@ -573,6 +596,14 @@ const Header: React.FC = () => {
           {...(authModalMode ? { initialMode: authModalMode } : {})}
         />
       )}
+
+      {/* Delete Account Modal */}
+      <DeleteAccountModal
+        isOpen={showDeleteAccountModal}
+        onClose={() => setShowDeleteAccountModal(false)}
+        onConfirm={handleDeleteAccount}
+        userEmail={session?.user?.email}
+      />
     </header>
   )
 }

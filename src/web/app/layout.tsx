@@ -168,8 +168,8 @@ export default function RootLayout({
         <Providers>
           <div className="min-h-screen flex flex-col">
             <Header />
-            <div className="w-full flex justify-center">
-              <div className="w-full sm:w-[95%] md:w-[92%] lg:w-[90%] transition-all duration-300 ease-in-out max-w-[1600px] pt-16 pb-0">
+            <div className="w-full flex justify-center flex-1 min-h-0">
+              <div className="w-full sm:w-[95%] md:w-[92%] lg:w-[90%] transition-all duration-300 ease-in-out max-w-[1600px] pt-16 pb-0 flex flex-col">
                 {children}
               </div>
             </div>

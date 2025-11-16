@@ -27,6 +27,20 @@ export function useFlashcardData(
 
   const [flashcards, setFlashcards] = useState<FlashcardData[]>([]);
 
+  // Debug logging for flashcards state changes
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useFlashcardData] Flashcards state updated', {
+        flashcardsLength: flashcards.length,
+        firstFlashcard: flashcards[0] ? {
+          id: flashcards[0].id,
+          name: flashcards[0].name,
+          jsonFilesCount: flashcards[0].jsonFiles?.length,
+        } : null,
+      });
+    }
+  }, [flashcards]);
+
   const {
     loading,
     loadingProgress,

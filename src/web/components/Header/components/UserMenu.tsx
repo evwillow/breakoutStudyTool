@@ -14,6 +14,7 @@ export interface UserMenuProps {
   isOpen: boolean;
   onToggle: () => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
   menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -23,6 +24,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
   isOpen,
   onToggle,
   onSignOut,
+  onDeleteAccount,
   menuRef,
 }) => {
   const router = useRouter();
@@ -54,40 +56,55 @@ export const UserMenu: React.FC<UserMenuProps> = ({
         </svg>
       </button>
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-md border bg-white shadow-lg overflow-hidden">
-          <div className="px-4 py-3">
-            <p className="text-sm text-gray-500">Signed in as</p>
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {session.user?.email ? session.user.email.split('@')[0] : 'user'}
-            </p>
+        <div className="absolute right-0 mt-2 w-64 z-[110]">
+          <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-br from-turquoise-900/25 via-transparent to-transparent blur-3xl"></div>
+          <div className="relative overflow-hidden rounded-3xl border border-turquoise-200/60 bg-white shadow-2xl shadow-turquoise-950/20">
+            <div className="flex flex-col gap-1 p-2">
+              <div className="px-4 py-3">
+                <p className="text-xs text-turquoise-400/80 mb-1">Signed in as</p>
+                <p className="text-sm font-medium text-turquoise-800 truncate">
+                  {session.user?.email ? session.user.email.split('@')[0] : 'user'}
+                </p>
+              </div>
+              <div className="h-px bg-turquoise-200/40 mx-2"></div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onToggle();
+                  const isOnStudyPage = typeof window !== 'undefined' && window.location.pathname === '/study';
+                  if (isOnStudyPage) {
+                    window.dispatchEvent(new CustomEvent('replay-tutorial'));
+                  } else {
+                    router.push('/study?tutorial=true');
+                  }
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-turquoise-700 hover:bg-turquoise-50/50 rounded-md transition-colors"
+              >
+                Replay Tutorial
+              </button>
+              <div className="h-px bg-turquoise-200/40 mx-2"></div>
+              <button
+                onClick={() => {
+                  onToggle();
+                  onSignOut();
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-turquoise-700 hover:bg-turquoise-50/50 rounded-md transition-colors"
+              >
+                Sign Out
+              </button>
+              <div className="h-px bg-turquoise-200/40 mx-2"></div>
+              <button
+                onClick={() => {
+                  onToggle();
+                  onDeleteAccount();
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50/50 rounded-md transition-colors"
+              >
+                Delete Account
+              </button>
+            </div>
           </div>
-          <div className="border-t" />
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onToggle();
-              const isOnStudyPage = typeof window !== 'undefined' && window.location.pathname === '/study';
-              if (isOnStudyPage) {
-                window.dispatchEvent(new CustomEvent('replay-tutorial'));
-              } else {
-                router.push('/study?tutorial=true');
-              }
-            }}
-            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Replay Tutorial
-          </button>
-          <div className="border-t" />
-          <button
-            onClick={() => {
-              onToggle();
-              onSignOut();
-            }}
-            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-gray-50"
-          >
-            Sign Out
-          </button>
         </div>
       )}
     </div>

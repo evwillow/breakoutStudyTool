@@ -129,6 +129,18 @@ export function isInSelectableArea(
 }
 
 /**
+ * Check if a Y coordinate is in the volume area (below the selection area)
+ */
+export function isInVolumeArea(
+  clientY: number,
+  selectionBounds: SelectionBounds | null
+): boolean {
+  if (!selectionBounds) return false;
+  // Volume area is below the selection area
+  return clientY > selectionBounds.bottom;
+}
+
+/**
  * Constrain a position within valid bounds
  */
 export function constrainPosition(
@@ -203,6 +215,11 @@ export function getMagnifierRenderPosition(
   // Calculate render position (top-left corner) from center: center - size/2
   let renderX = targetPos.x - magnifierSize / 2;
   let renderY = targetPos.y - magnifierSize / 2;
+  
+  // Ensure the magnifier doesn't go below the selection area (volume area)
+  // Constrain renderY so the bottom of the magnifier doesn't exceed selectionBounds.height
+  const maxRenderY = selectionBounds.height - magnifierSize;
+  renderY = Math.max(0, Math.min(maxRenderY, renderY));
   
   return { x: renderX, y: renderY };
 }

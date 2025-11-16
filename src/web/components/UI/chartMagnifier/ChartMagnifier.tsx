@@ -11,7 +11,7 @@ import { useChartMagnifierPosition } from './hooks/useChartMagnifierPosition';
 import { useChartMagnifierTouch } from './hooks/useChartMagnifierTouch';
 import { useChartMagnifierScroll } from './hooks/useChartMagnifierScroll';
 import MagnifierWidget from './components/MagnifierWidget';
-import { isInSelectableArea as checkIsInSelectableArea } from './utils/magnifierUtils';
+import { isInSelectableArea as checkIsInSelectableArea, isInVolumeArea } from './utils/magnifierUtils';
 
 interface ChartMagnifierProps {
   onSelection: ((event: { clientX: number; clientY: number; preventDefault: () => void; stopPropagation: () => void }) => void) | null;
@@ -106,13 +106,16 @@ const ChartMagnifier: React.FC<ChartMagnifierProps> = ({
     isDraggingMagnifierWidget,
   });
 
-  // Block chart touch events on mobile only in selectable area
+  // Block chart touch events on mobile only in selectable area (not in volume area)
   useEffect(() => {
-    if (!enabled || !chartElement || !isMobile) return;
+    if (!enabled || !chartElement || !isMobile || !selectionBounds) return;
 
     const handleChartClick = (e: MouseEvent) => {
       const inSelectableArea = checkIsInSelectableArea(e.clientX, chartElement, mainDataLength);
-      if (inSelectableArea) {
+      const inVolumeArea = isInVolumeArea(e.clientY, selectionBounds);
+      
+      // Only prevent default in selectable area, not in volume area
+      if (inSelectableArea && !inVolumeArea) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -123,13 +126,16 @@ const ChartMagnifier: React.FC<ChartMagnifierProps> = ({
 
       const touch = e.touches[0];
       const inSelectableArea = checkIsInSelectableArea(touch.clientX, chartElement, mainDataLength);
+      const inVolumeArea = isInVolumeArea(touch.clientY, selectionBounds);
 
-      if (inSelectableArea) {
+      // Only prevent default in selectable area, not in volume area (allow scrolling in volume area)
+      if (inSelectableArea && !inVolumeArea) {
         if (e.cancelable !== false) {
           e.preventDefault();
         }
         e.stopPropagation();
       }
+      // If in volume area, allow default scroll behavior (don't prevent default)
     };
 
     chartElement.addEventListener('click', handleChartClick, { passive: false });
@@ -139,7 +145,7 @@ const ChartMagnifier: React.FC<ChartMagnifierProps> = ({
       chartElement.removeEventListener('click', handleChartClick);
       chartElement.removeEventListener('touchstart', handleChartTouch);
     };
-  }, [enabled, chartElement, isMobile, mainDataLength]);
+  }, [enabled, chartElement, isMobile, mainDataLength, selectionBounds]);
 
   // Don't show on desktop
   if (!enabled || !isMobile) {

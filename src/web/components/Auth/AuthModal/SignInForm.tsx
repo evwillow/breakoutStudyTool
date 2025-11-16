@@ -124,7 +124,17 @@ const SignInForm: React.FC<SignInFormProps> = ({
         {UI_TEXT.SIGNIN_BUTTON}
       </FormButton>
 
-      <div className="text-center mt-4">
+      <div className="text-center mt-4 space-y-2">
+        <button
+          type="button"
+          onClick={() => {
+            // Navigate to password reset page
+            window.location.href = '/reset-password';
+          }}
+          className="block w-full text-sm text-turquoise-400 hover:text-turquoise-300 focus:outline-none focus:underline"
+        >
+          Forgot password?
+        </button>
         <button
           type="button"
           onClick={onToggleMode}

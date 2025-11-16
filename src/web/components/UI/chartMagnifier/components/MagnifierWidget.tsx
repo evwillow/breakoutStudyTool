@@ -30,6 +30,7 @@ export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
   isScrolling,
   isDraggingMagnifierWidget,
 }) => {
+  // Use direct render position during drag, otherwise calculate from target
   const renderPos = isDraggingMagnifierWidget
     ? magnifierRenderPos
     : getMagnifierRenderPosition(targetPosition, selectionBounds, magnifierSize);
@@ -39,6 +40,8 @@ export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
       ref={magnifierRef}
       className="fixed z-30 pointer-events-auto"
       style={{
+        // These will be overridden by direct DOM manipulation during drag,
+        // but provide fallback for initial render and non-drag states
         left: `${selectionBounds.left + renderPos.x}px`,
         top: `${selectionBounds.top + renderPos.y}px`,
         width: `${magnifierSize}px`,
@@ -46,10 +49,18 @@ export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
         transform: isDragging ? 'scale(1.05)' : 'scale(1)',
         transition: (isDragging || isScrolling)
           ? 'none'
-          : 'transform 0.15s ease-out',
+          : 'transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
         cursor: 'move',
+        // CRITICAL: GPU acceleration optimizations for buttery smooth mobile dragging
         willChange: 'transform, left, top',
         touchAction: 'none',
+        // Force GPU layer for smooth compositing
+        backfaceVisibility: 'hidden' as const,
+        WebkitBackfaceVisibility: 'hidden' as const,
+        perspective: 1000,
+        WebkitPerspective: 1000,
+        // Optimize for performance
+        contain: 'layout style paint' as const,
       }}
     >
       <div
@@ -58,6 +69,9 @@ export const MagnifierWidget: React.FC<MagnifierWidgetProps> = ({
           background: 'transparent',
           border: 'none',
           boxShadow: 'none',
+          // Additional GPU acceleration
+          transform: 'translateZ(0)',
+          WebkitTransform: 'translateZ(0)',
         }}
       >
         <MagnifierCrosshair isDragging={isDragging} />

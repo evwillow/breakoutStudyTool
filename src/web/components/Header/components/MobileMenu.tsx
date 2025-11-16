@@ -21,6 +21,7 @@ export interface MobileMenuProps {
   headerRef: React.RefObject<HTMLElement | null>;
   onScrollTo: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void;
   onSignOut: () => void;
+  onDeleteAccount: () => void;
   onSignIn: () => void;
   onSignUp: () => void;
   mobileMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -38,6 +39,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   headerRef,
   onScrollTo,
   onSignOut,
+  onDeleteAccount,
   onSignIn,
   onSignUp,
   mobileMenuRef,
@@ -201,6 +203,15 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
                 className="w-full px-5 py-4 bg-gradient-to-r from-turquoise-600 to-turquoise-500 text-white text-base font-semibold rounded-md shadow-lg hover:from-turquoise-500 hover:to-turquoise-400 transition-all duration-200 active:scale-[0.98]"
               >
                 Sign Out
+              </button>
+              <button
+                onClick={() => {
+                  onClose();
+                  onDeleteAccount();
+                }}
+                className="w-full px-5 py-3 text-red-400 text-base font-semibold rounded-md border border-red-400/30 hover:bg-red-400/10 transition-all duration-200 active:scale-[0.98]"
+              >
+                Delete Account
               </button>
             </div>
           ) : (

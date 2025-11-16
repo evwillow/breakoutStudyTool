@@ -284,7 +284,7 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
   return (
     <div
       ref={tooltipRef}
-      className="fixed z-[10000] w-[calc(100vw-2rem)] max-w-sm sm:max-w-md mx-4 sm:mx-0 rounded-2xl sm:rounded-3xl overflow-hidden"
+      className="fixed z-[10000] w-[calc(100vw-32px)] max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl overflow-hidden"
       style={{
         top: finalPosition.top,
         left: finalPosition.left,
@@ -297,6 +297,7 @@ export const TutorialStepComponent: React.FC<TutorialStepProps> = ({
         display: 'block',
         position: 'fixed' as const,
         isolation: 'isolate',
+        maxWidth: typeof window !== 'undefined' && window.innerWidth < 640 ? 'calc(100vw - 32px)' : '28rem',
       }}
       role="dialog"
       aria-labelledby="tutorial-title"

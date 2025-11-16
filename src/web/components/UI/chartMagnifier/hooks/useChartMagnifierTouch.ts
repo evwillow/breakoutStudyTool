@@ -5,11 +5,12 @@
  */
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import {
   constrainPosition,
   getMagnifierRenderPosition,
   selectionToClientCoords,
+  isInVolumeArea,
   type Position,
   type SelectionBounds,
 } from '../utils/magnifierUtils';
@@ -38,7 +39,7 @@ interface UseChartMagnifierTouchReturn {
   makeSelection: () => boolean;
 }
 
-const MOVEMENT_THRESHOLD = 10; // Pixels of movement to consider it a drag
+const MOVEMENT_THRESHOLD = 5; // Pixels of movement to consider it a drag (reduced for better responsiveness)
 const MAX_TAP_DURATION = 300; // Max milliseconds for a tap
 
 export function useChartMagnifierTouch({
@@ -120,6 +121,12 @@ export function useChartMagnifierTouch({
         return false;
       }
 
+      // Prevent selection in volume area
+      if (isInVolumeArea(clientCoords.y, selectionBounds)) {
+        console.log('[ChartMagnifier] Selection blocked - in volume area');
+        return false;
+      }
+
       console.log('[ChartMagnifier] Making selection at:', {
         selectionPos: constrainedPos,
         clientCoords,
@@ -163,6 +170,23 @@ export function useChartMagnifierTouch({
     makeSelectionRef.current = makeSelection;
   }, [makeSelection]);
 
+  // CRITICAL: Use layoutEffect to ensure DOM position updates persist after React renders
+  // This prevents React from overriding our direct DOM manipulation during drag
+  useLayoutEffect(() => {
+    if (!magnifierRef.current || !isDraggingMagnifierWidget || !selectionBounds) return;
+
+    // Re-apply the last known position from state to DOM after React render
+    const constrainedRenderX = magnifierRenderPos.x;
+    const constrainedRenderY = magnifierRenderPos.y;
+
+    const left = selectionBounds.left + constrainedRenderX;
+    const top = selectionBounds.top + constrainedRenderY;
+
+    // Use left/top for positioning (transform is used for scale in MagnifierWidget)
+    magnifierRef.current.style.left = `${left}px`;
+    magnifierRef.current.style.top = `${top}px`;
+  }, [isDraggingMagnifierWidget, magnifierRenderPos, selectionBounds, magnifierRef]);
+
   // Handle touch events on magnifier itself - drag to move, tap to select
   useEffect(() => {
     if (!enabled || !magnifierRef.current || !isMobile) return;
@@ -174,7 +198,6 @@ export function useChartMagnifierTouch({
     let activeTouchId: number | null = null;
     let isDraggingMagnifier = false;
     let selectionBoundsCache = selectionBounds;
-    let rafId: number | null = null;
     let hasDragged = false;
 
     const handleMagnifierTouchStart = (e: TouchEvent) => {
@@ -233,39 +256,46 @@ export function useChartMagnifierTouch({
         touchMoved = true;
         hasDragged = true;
         isDraggingMagnifier = true;
-        setIsDraggingMagnifierWidget(true);
-        isDraggingMagnifierWidgetRef.current = true;
-        setIsDragging(true);
 
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
+        // Set dragging state immediately for instant feedback (only once)
+        if (!isDraggingMagnifierWidgetRef.current) {
+          setIsDraggingMagnifierWidget(true);
+          isDraggingMagnifierWidgetRef.current = true;
+          setIsDragging(true);
         }
 
-        rafId = requestAnimationFrame(() => {
-          const newMagnifierX = magnifierStartPos!.x + dx;
-          const newMagnifierY = magnifierStartPos!.y + dy;
+        // Calculate new position immediately (no RAF batching for ultra-smooth tracking)
+        const newMagnifierX = magnifierStartPos.x + dx;
+        const newMagnifierY = magnifierStartPos.y + dy;
 
-          const newCenterX = newMagnifierX + magnifierSize / 2;
-          const newCenterY = newMagnifierY + magnifierSize / 2;
+        const newCenterX = newMagnifierX + magnifierSize / 2;
+        const newCenterY = newMagnifierY + magnifierSize / 2;
 
-          const constrainedTarget = constrainPosition(
-            newCenterX,
-            newCenterY,
-            selectionBoundsCache,
-            chartElement,
-            mainDataLength
-          );
+        const constrainedTarget = constrainPosition(
+          newCenterX,
+          newCenterY,
+          selectionBoundsCache,
+          chartElement,
+          mainDataLength
+        );
 
-          const constrainedRenderX = constrainedTarget.x - magnifierSize / 2;
-          const constrainedRenderY = constrainedTarget.y - magnifierSize / 2;
+        const constrainedRenderX = constrainedTarget.x - magnifierSize / 2;
+        const constrainedRenderY = constrainedTarget.y - magnifierSize / 2;
 
-          setMagnifierRenderPos({ x: constrainedRenderX, y: constrainedRenderY });
-          setTargetPosition(constrainedTarget);
-          targetPositionRef.current = constrainedTarget;
-          lastTapPositionRef.current = constrainedTarget;
+        // Update state immediately for instant position updates
+        setMagnifierRenderPos({ x: constrainedRenderX, y: constrainedRenderY });
+        setTargetPosition(constrainedTarget);
+        targetPositionRef.current = constrainedTarget;
+        lastTapPositionRef.current = constrainedTarget;
 
-          rafId = null;
-        });
+        // CRITICAL: Update DOM directly for buttery smooth tracking (bypasses React render cycle)
+        if (magnifierRef.current && selectionBoundsCache) {
+          const left = selectionBoundsCache.left + constrainedRenderX;
+          const top = selectionBoundsCache.top + constrainedRenderY;
+          // Use left/top for positioning (transform is used for scale in MagnifierWidget)
+          magnifierRef.current.style.left = `${left}px`;
+          magnifierRef.current.style.top = `${top}px`;
+        }
       }
     };
 
@@ -274,11 +304,6 @@ export function useChartMagnifierTouch({
 
       safePreventDefault(e);
       e.stopPropagation();
-
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
 
       let touch: Touch | null = null;
       if (activeTouchId !== null) {
@@ -331,11 +356,6 @@ export function useChartMagnifierTouch({
     };
 
     const handleMagnifierTouchCancel = () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-
       activeTouchId = null;
       touchMoved = false;
       touchStartPos = null;
@@ -354,10 +374,6 @@ export function useChartMagnifierTouch({
     magnifierElement.addEventListener('touchcancel', handleMagnifierTouchCancel, { passive: false });
 
     return () => {
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
-
       magnifierElement.removeEventListener('touchstart', handleMagnifierTouchStart);
       magnifierElement.removeEventListener('touchmove', handleMagnifierTouchMove);
       magnifierElement.removeEventListener('touchend', handleMagnifierTouchEnd);

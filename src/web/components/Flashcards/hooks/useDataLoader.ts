@@ -617,6 +617,14 @@ export const useDataLoader = ({
             })
           );
 
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useDataLoader] checkAndShowUI: Readiness check', {
+              hasReadyFlashcard,
+              currentFilesLength: currentFiles.length,
+              willShowUI: hasReadyFlashcard && currentFiles.length >= 1,
+            });
+          }
+
           // Show UI if we have at least one ready flashcard, or if we have any files at all
           // This prevents the UI from being stuck in loading when we have data but fewer than 3 files
           if (hasReadyFlashcard && currentFiles.length >= 1) {
@@ -736,7 +744,7 @@ export const useDataLoader = ({
             // NO need to shuffle again - this was causing re-ordering
 
             if (process.env.NODE_ENV === 'development') {
-              console.log('[useDataLoader] Setting flashcards', {
+              console.log('[useDataLoader] Setting flashcards (checkAndShowUI)', {
                 flashcardCount: flashcardData.length,
                 readyCount: flashcardData.filter(f => f.isReady).length,
                 firstFlashcard: flashcardData[0] ? {
@@ -745,11 +753,16 @@ export const useDataLoader = ({
                   jsonFilesCount: flashcardData[0].jsonFiles?.length,
                   jsonFileNames: flashcardData[0].jsonFiles?.map(f => f.fileName),
                   hasData: flashcardData[0].jsonFiles?.some(f => f.data !== null && f.data !== undefined),
+                  firstFileHasData: flashcardData[0].jsonFiles?.[0]?.data !== null && flashcardData[0].jsonFiles?.[0]?.data !== undefined,
+                  firstFileDataType: flashcardData[0].jsonFiles?.[0]?.data ? typeof flashcardData[0].jsonFiles[0].data : 'null/undefined',
+                  firstFileDataLength: Array.isArray(flashcardData[0].jsonFiles?.[0]?.data) ? flashcardData[0].jsonFiles[0].data.length : 'N/A',
                 } : null,
               });
             }
 
+            console.log('[useDataLoader] CALLING setFlashcards with', flashcardData.length, 'flashcards');
             setFlashcards(flashcardData);
+            console.log('[useDataLoader] setFlashcards CALLED');
             // Note: shuffle flag is already set above if we shuffled
             setLoading(false);
             setLoadingProgress(UI_CONFIG.LOADING_PROGRESS_STEPS.COMPLETE);
@@ -914,6 +927,8 @@ export const useDataLoader = ({
           });
         }
 
+        console.log('[useDataLoader] STARTING QUICK BATCH - about to fetch', quickBatch.length, 'files');
+
         // Fetch all files in parallel for maximum speed
         const quickPromises = quickBatch.map(async file => {
           try {
@@ -1058,8 +1073,10 @@ export const useDataLoader = ({
           }
         });
 
+        console.log('[useDataLoader] Waiting for quick batch promises to settle...');
         const quickResults = await Promise.allSettled(quickPromises);
-        
+        console.log('[useDataLoader] Quick batch promises settled, processing results...');
+
         if (process.env.NODE_ENV === 'development') {
           const fulfilled = quickResults.filter(r => r.status === 'fulfilled').length;
           const rejected = quickResults.filter(r => r.status === 'rejected').length;
@@ -1072,6 +1089,8 @@ export const useDataLoader = ({
               status: r.status,
               fileName: quickBatch[i]?.fileName,
               hasValue: r.status === 'fulfilled' && r.value !== null,
+              valueType: r.status === 'fulfilled' && r.value ? typeof r.value : 'null/rejected',
+              hasData: r.status === 'fulfilled' && r.value && 'data' in r.value ? r.value.data !== null : false,
             })),
           });
         }
@@ -1091,18 +1110,28 @@ export const useDataLoader = ({
             file.data !== undefined
           ) as FlashcardFile[];
         
+        console.log('[useDataLoader] Quick batch loaded -', quickLoaded.length, 'files with data');
+
         if (process.env.NODE_ENV === 'development') {
           console.log('[useDataLoader] Quick batch loaded', {
             quickBatchSize: quickBatch.length,
             quickLoadedCount: quickLoaded.length,
             loadedFileNames: quickLoaded.map(f => f.fileName),
             filesWithData: quickLoaded.filter(f => f.data !== null && f.data !== undefined).length,
+            firstLoadedFile: quickLoaded[0] ? {
+              fileName: quickLoaded[0].fileName,
+              hasData: quickLoaded[0].data !== null && quickLoaded[0].data !== undefined,
+              dataType: typeof quickLoaded[0].data,
+              dataLength: Array.isArray(quickLoaded[0].data) ? quickLoaded[0].data.length : 'N/A',
+            } : null,
           });
         }
-        
+
         loadedFiles.push(...quickLoaded);
 
+        console.log('[useDataLoader] CALLING checkAndShowUI with', loadedFiles.length, 'loaded files');
         checkAndShowUI(loadedFiles);
+        console.log('[useDataLoader] checkAndShowUI RETURNED');
 
         const prioritizedRemainder = finalPrioritizedFiles.filter(
           file => !quickBatchFileNames.has(file.fileName)

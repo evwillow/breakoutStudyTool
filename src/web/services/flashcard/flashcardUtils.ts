@@ -194,10 +194,8 @@ export function extractAfterJsonData(flashcardData: FlashcardData | null): After
 }
 
 export function extractPointsTextArray(flashcardData: FlashcardData | null): string[] {
+  // Silent early return if no data - this is normal during initial render
   if (!flashcardData?.jsonFiles) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[extractPointsTextArray] No flashcardData or jsonFiles');
-    }
     return [];
   }
 

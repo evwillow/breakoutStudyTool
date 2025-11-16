@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.932.0",
     "@breakout-study-tool/shared": "file:../../lib/shared",
     "@breakout-study-tool/ui": "file:../../lib/ui",
     "@hcaptcha/react-hcaptcha": "^1.12.0",

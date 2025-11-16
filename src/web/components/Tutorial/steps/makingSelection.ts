@@ -7,9 +7,9 @@ import type { TutorialStep } from '../tutorialSteps';
 export const makingSelectionStep: TutorialStep = {
   id: 'making-selection',
   target: '[data-tutorial-chart]',
-  content: "Click in the highlighted area to the right to make your prediction. This is where you think the price will peak after the breakout.",
+  content: "To make a prediction, you would click in the highlighted area to the right. This is where you think the price will peak after the breakout. Click 'Next' to continue.",
   placement: 'bottom',
-  interactive: true,
-  waitForAction: 'chart-click',
+  interactive: false,
+  waitForAction: undefined,
 };
 
