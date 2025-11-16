@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(cuid())
+  email            String   @unique
+  name             String?
+  tutorialCompleted Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+  gameSessions  GameSession[]
+  predictions   Prediction[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  plan      String   // 'free', 'premium'
+  status    String   // 'active', 'cancelled', 'expired'
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model GameSession {
+  id        String   @id @default(cuid())
+  userId    String
+  score     Int      @default(0)
+  totalRounds Int    @default(0)
+  correctPredictions Int @default(0)
+  startTime DateTime @default(now())
+  endTime   DateTime?
+  createdAt DateTime @default(now())
+
+  // Relations
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  predictions Prediction[]
+
+  @@map("game_sessions")
+}
+
+model Prediction {
+  id           String   @id @default(cuid())
+  sessionId    String
+  userId       String
+  stockSymbol  String
+  prediction   String   // 'up', 'down', 'neutral'
+  actualResult String?  // 'up', 'down', 'neutral'
+  isCorrect    Boolean?
+  confidence   Float?   // 0-1 confidence score
+  createdAt    DateTime @default(now())
+
+  // Relations
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("predictions")
+}
+
+model StockData {
+  id        String   @id @default(cuid())
+  symbol    String   @unique
+  data      Json     // Stock price data
+  lastUpdated DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("stock_data")
+}
+
+model BreakoutPattern {
+  id          String   @id @default(cuid())
+  symbol      String
+  date        DateTime
+  patternType String   // 'cup_handle', 'flag', 'triangle', etc.
+  quality     Int      // 1-4 quality rating
+  data        Json     // Pattern-specific data
+  createdAt   DateTime @default(now())
+
+  @@map("breakout_patterns")
+}

@@ -117,9 +117,19 @@ build/Release
 # TypeScript cache
 *.tsbuildinfo
 
-# Exclude lib directories but allow src/web/lib for Next.js app
-/lib/
+# Exclude build output lib directories but allow source lib directories
+# Allow lib/shared, lib/ui, lib/database (TypeScript packages)
+# Exclude Python lib/ directories
+**/lib/
+!lib/
+!lib/shared/
+!lib/shared/**
+!lib/ui/
+!lib/ui/**
+!lib/database/
+!lib/database/**
 !src/web/lib/
+!src/web/lib/**
 
 
 # Editor directories and files
@@ -151,8 +161,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-!src/web/lib/
 lib64/
 parts/
 sdist/
